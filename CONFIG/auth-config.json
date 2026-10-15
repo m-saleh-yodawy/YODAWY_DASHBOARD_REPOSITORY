@@ -1,0 +1,14 @@
+{
+  "provider": "github",
+  "owner": "m-saleh-yodawy",
+  "branch": "main",
+  "userRegistry": {
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "path": "CONFIG/users.json"
+  },
+  "dashboard": {
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main",
+    "messagesPath": "CONFIG/auth-messages.json"
+  }
+}
