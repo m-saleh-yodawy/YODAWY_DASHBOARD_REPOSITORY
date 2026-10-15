@@ -1,1 +1,26 @@
-
+{
+  "INVALID_CREDENTIALS": {
+    "title": "LOGIN FAILED",
+    "message": "INVALID ID OR PASSWORD"
+  },
+  "WRONG_SYSTEM": {
+    "title": "SYSTEM ERROR",
+    "message": "WRONG SYSTEM"
+  },
+  "USER_INACTIVE": {
+    "title": "ACCOUNT INACTIVE",
+    "message": "YOUR ACCOUNT IS INACTIVE"
+  },
+  "TOKEN_INVALID": {
+    "title": "AUTHENTICATION FAILED",
+    "message": "INVALID OR EXPIRED TOKEN"
+  },
+  "NETWORK_ERROR": {
+    "title": "CONNECTION ERROR",
+    "message": "UNABLE TO CONNECT. PLEASE TRY AGAIN."
+  },
+  "UNKNOWN_ERROR": {
+    "title": "ERROR",
+    "message": "AN UNEXPECTED ERROR OCCURRED. PLEASE TRY AGAIN."
+  }
+}
