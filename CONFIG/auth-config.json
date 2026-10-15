@@ -3,7 +3,7 @@
   "owner": "m-saleh-yodawy",
   "branch": "main",
   "userRegistry": {
-    "repository": "YODAWY_USERS_REPOSITORY",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
     "path": "CONFIG/users.json"
   },
   "dashboard": {
