@@ -1,4 +1,4 @@
-(async function () {
+YODAWY.init = async function () {
     'use strict';
 
     if (window.__YODAWY_DASHBOARD_RUNNING__) return;
@@ -845,4 +845,4 @@
     log('Dashboard engine initialized.', 'success');
 
     return true;
-})();
+};
