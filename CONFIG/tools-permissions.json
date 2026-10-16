@@ -1,7 +1,7 @@
 {
   "Q-001": {
     "TOOL-001": {
-      "granted": false,
+      "granted": true,
       "type": "ADMIN"
     },
     "TOOL-002": {
