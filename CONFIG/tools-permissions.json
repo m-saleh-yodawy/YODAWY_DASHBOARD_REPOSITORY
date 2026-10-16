@@ -1,8 +1,8 @@
 {
   "Q-001": {
-    "TOOL-001": true,
-    "TOOL-002": true,
-    "TOOL-003": true
+    "TOOL-001": false,
+    "TOOL-002": false,
+    "TOOL-003": false
   },
   "Q-002": {
     "TOOL-001": false,
