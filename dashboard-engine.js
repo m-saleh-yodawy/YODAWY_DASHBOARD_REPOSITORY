@@ -137,40 +137,131 @@ YODAWY.init = async function () {
             .toUpperCase();
     }
 
-    function permitted(tool) {
-        const userPermissions =
-            state.permissions[CONFIG.userId] || {};
+    // =========================================================
+    // ROLES, PERMISSIONS AND VISIBILITY
+    // =========================================================
 
-        const key = permissionKey(tool);
+    function isSuperAdmin() {
+        const role = String(state.user?.role || '').trim().toLowerCase();
 
-        const permission =
-            userPermissions[key] ??
-            userPermissions[tool.path] ??
-            userPermissions[tool.name];
+        return state.authenticated && (
+            CONFIG.userId.toUpperCase() === 'Q-001' ||
+            role === 'super admin' ||
+            role === 'superadmin'
+        );
+    }
 
-        const visibility =
-            state.visibility[key] ??
-            state.visibility[tool.path] ??
-            state.visibility[tool.name];
+    function isAdmin() {
+        const role = String(state.user?.role || '').trim().toLowerCase();
 
-        if (
-            visibility &&
-            typeof visibility === 'object' &&
-            visibility.enabled === false
-        ) {
-            return false;
-        }
-
-        return permission === true ||
-            permission?.enabled === true;
+        return state.authenticated && (
+            isSuperAdmin() || role === 'admin'
+        );
     }
 
     function canManage() {
-        const role = String(state.user?.role || '').toLowerCase();
-
-        return state.authenticated &&
-            ['admin', 'super admin', 'superadmin'].includes(role);
+        return isAdmin();
     }
+
+    function canManageVisibility() {
+        return isSuperAdmin();
+    }
+
+    function getToolPermissionRecord(tool) {
+        const userPermissions = state.permissions[CONFIG.userId] || {};
+        const key = permissionKey(tool);
+
+        return userPermissions[key] ??
+            userPermissions[tool.path] ??
+            userPermissions[tool.name] ??
+            false;
+    }
+
+    function permissionGranted(tool) {
+        const permission = getToolPermissionRecord(tool);
+
+        // Support the old Boolean format.
+        if (typeof permission === 'boolean') {
+            return permission;
+        }
+
+        // Support the new permission format.
+        if (permission && typeof permission === 'object') {
+            return permission.granted === true ||
+                permission.enabled === true;
+        }
+
+        return false;
+    }
+
+    function permissionType(tool) {
+        const permission = getToolPermissionRecord(tool);
+
+        if (permission && typeof permission === 'object') {
+            return permission.type === 'SUPER_ADMIN'
+                ? 'SUPER_ADMIN'
+                : 'ADMIN';
+        }
+
+        return 'ADMIN';
+    }
+
+    // Permission controls running; visibility controls displaying.
+    function permitted(tool) {
+        return permissionGranted(tool);
+    }
+
+    function visibilityPolicy(tool) {
+        const key = permissionKey(tool);
+
+        return state.visibility[key] ??
+            state.visibility[tool.path] ??
+            state.visibility[tool.name] ??
+            {};
+    }
+
+    function toolIsVisible(tool) {
+        // Super Admin can see hidden tools.
+        if (isSuperAdmin()) {
+            return true;
+        }
+
+        const policy = visibilityPolicy(tool);
+
+        if (!policy || typeof policy !== 'object') {
+            return true;
+        }
+
+        if (policy.enabled === false) {
+            return false;
+        }
+
+        const visibility = String(
+            policy.visibility || 'PUBLIC'
+        ).toUpperCase();
+
+        if (visibility === 'PRIVATE') {
+            return false;
+        }
+
+        if (visibility === 'SELECTED_USERS') {
+            const allowedUsers = Array.isArray(policy.allowedUsers)
+                ? policy.allowedUsers.map(value =>
+                    String(value).trim().toUpperCase()
+                )
+                : [];
+
+            return allowedUsers.includes(
+                CONFIG.userId.toUpperCase()
+            );
+        }
+
+        return true;
+    }
+
+    // =========================================================
+    // AUTHENTICATION
+    // =========================================================
 
     async function authenticate() {
         const authConfig = YODAWY.authConfig;
@@ -969,26 +1060,51 @@ YODAWY.init = async function () {
         </div>`;
     }
 
+    // =========================================================
+    // MY TOOLS
+    // Show visible tools even when Run permission is not granted.
+    // =========================================================
+
     function toolsPage() {
-        const tools = state.tools.filter(permitted);
+        const tools = state.tools.filter(toolIsVisible);
 
         return header(
             'My Tools',
-            'Tools available for your account.',
+            'Tools visible to your account. Running a tool requires permission.',
             button('Reload Tools', 'sync', true)
         ) +
-        `<div class="yd-card"><b>Allowed Tools (${tools.length})</b>
-            ${tools.map(tool => `
-                <div class="yd-row">
-                    <div class="yd-grow">
-                        <b>${esc(tool.name)}</b>
-                        <div class="yd-sub">${esc(tool.path)}</div>
-                        <div class="yd-sub">${esc(tool.description)}</div>
+        `<div class="yd-card"><b>Visible Tools (${tools.length})</b>
+            ${tools.map(tool => {
+                const allowed = permitted(tool);
+
+                const status = allowed
+                    ? 'Permitted'
+                    : 'Permission required';
+
+                const runButton = allowed
+                    ? button('Run', `run:${tool.path}`)
+                    : `<button
+                            class="yd-btn"
+                            type="button"
+                            disabled
+                            title="You do not have permission to run this tool."
+                       >Run</button>`;
+
+                return `
+                    <div class="yd-row">
+                        <div class="yd-grow">
+                            <b>${esc(tool.name)}</b>
+                            <div class="yd-sub">${esc(tool.path)}</div>
+                            <div class="yd-sub">${esc(tool.description)}</div>
+                        </div>
+
+                        <span class="yd-pill">${esc(status)}</span>
+
+                        ${runButton}
                     </div>
-                    <span class="yd-pill">Permitted</span>
-                    ${button('Run', `run:${tool.path}`)}
-                </div>
-            `).join('') || '<div class="yd-empty">No permitted tools found.</div>'}
+                `;
+            }).join('') ||
+            '<div class="yd-empty">No visible tools found. Check tool visibility settings.</div>'}
         </div>`;
     }
 
@@ -1027,23 +1143,53 @@ YODAWY.init = async function () {
         </div>`;
     }
 
+    // =========================================================
+    // SHARED TOOLS
+    // =========================================================
+
     function sharedPage() {
-        if (!canManage()) return deniedPage();
+        if (!canManage()) {
+            return deniedPage();
+        }
 
         return header(
             'Shared Tools',
-            'Tools discovered from the dashboard repository.'
+            'All tools discovered from the dashboard repository.'
         ) +
         `<div class="yd-card">
-            ${state.tools.map(tool => `
-                <div class="yd-row">
-                    <div class="yd-grow">
-                        <b>${esc(tool.name)}</b>
-                        <div class="yd-sub">${esc(tool.path)}</div>
+            ${state.tools.map(tool => {
+                const allowed = permitted(tool);
+                const policy = visibilityPolicy(tool);
+
+                const visibility = String(
+                    policy.visibility || 'PUBLIC'
+                ).toUpperCase();
+
+                const enabled = policy.enabled !== false;
+                const type = permissionType(tool);
+
+                const permissionLabel = allowed
+                    ? 'Permitted'
+                    : 'Not permitted';
+
+                const visibilityLabel = enabled
+                    ? visibility
+                    : 'Disabled by visibility';
+
+                return `
+                    <div class="yd-row">
+                        <div class="yd-grow">
+                            <b>${esc(tool.name)}</b>
+                            <div class="yd-sub">${esc(tool.path)}</div>
+                            <div class="yd-sub">Visibility: ${esc(visibilityLabel)}</div>
+                            <div class="yd-sub">Permission type: ${esc(type)}</div>
+                        </div>
+
+                        <span class="yd-pill">${esc(permissionLabel)}</span>
                     </div>
-                    <span class="yd-pill">${permitted(tool) ? 'Permitted' : 'Not permitted'}</span>
-                </div>
-            `).join('') || '<div class="yd-empty">No tools loaded.</div>'}
+                `;
+            }).join('') ||
+            '<div class="yd-empty">No tools loaded.</div>'}
         </div>`;
     }
 
@@ -1087,6 +1233,10 @@ YODAWY.init = async function () {
         ) +
         '<div class="yd-error">Your account does not have administrator access.</div>';
     }
+
+    // =========================================================
+    // RENDER
+    // =========================================================
 
     function render() {
         if (!$('#yd-sidebar') || !$('#yd-main')) return;
@@ -1186,6 +1336,10 @@ YODAWY.init = async function () {
             );
         }
     }
+
+    // =========================================================
+    // EVENT HANDLERS
+    // =========================================================
 
     launcher.addEventListener('click', () => {
         overlay.classList.add('open');
