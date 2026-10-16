@@ -15,6 +15,13 @@
       "author": "Mohamed Saleh",
       "path": "TOOLS_CACHE/TOOLS/portal-auto-login.js",
       "file": "portal-auto-login.js"
+    },
+    {
+      "name": "TEST",
+      "description": "",
+      "author": "",
+      "path": "TOOLS_CACHE/TOOLS/TEST.js",
+      "file": "TEST.js"
     }
   ]
 }
