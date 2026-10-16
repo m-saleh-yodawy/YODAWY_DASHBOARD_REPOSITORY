@@ -1,0 +1,17 @@
+{
+  "Q-001": {
+    "TOOL-001": false,
+    "TOOL-002": false,
+    "TOOL-003": false
+  },
+  "Q-002": {
+    "TOOL-001": false,
+    "TOOL-002": false,
+    "TOOL-003": false
+  },
+  "Q-003": {
+    "TOOL-001": false,
+    "TOOL-002": false,
+    "TOOL-003": false
+  }
+}
