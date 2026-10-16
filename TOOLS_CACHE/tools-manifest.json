@@ -1,0 +1,20 @@
+{
+  "sourceRepository": "m-saleh-yodawy/YODAWY_TOOLS_REPOSITORY",
+  "sourcePath": "TOOLS/",
+  "tools": [
+    {
+      "name": "CONFIRMATION TYPE BUTTONS",
+      "description": "",
+      "author": "Mohamed Saleh",
+      "path": "TOOLS_CACHE/TOOLS/confirmation-type-buttons.js",
+      "file": "confirmation-type-buttons.js"
+    },
+    {
+      "name": "PORTAL AUTO LOGIN",
+      "description": "Unified Odoo to Portal login using YODAWY LOADER",
+      "author": "Mohamed Saleh",
+      "path": "TOOLS_CACHE/TOOLS/portal-auto-login.js",
+      "file": "portal-auto-login.js"
+    }
+  ]
+}
