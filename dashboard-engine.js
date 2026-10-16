@@ -794,7 +794,46 @@ YODAWY.init = async function () {
         .yd-error{padding:12px;background:#fbe6e9;color:#a83d51;border-radius:8px;margin-bottom:14px;overflow-wrap:anywhere}
         .yd-pill{display:inline-block;padding:4px 8px;background:#eee4ef;color:${DARK};border-radius:7px;font-size:11px}
         .yd-empty{padding:24px;text-align:center;color:#8c8492}
-        @media(max-width:800px){#yd-overlay{padding:0}#yd-modal{border-radius:0}#yd-sidebar{width:125px}#yd-main{padding:12px}.yd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#yd-header{padding:12px}}
+
+        #yd-header{position:relative;gap:18px}
+        .yd-brand{min-width:0}
+        .yd-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}
+        .yd-profile-wrap{position:relative}
+        .yd-profile-trigger{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;background:#fff;border:1px solid #e8dfe9;border-radius:12px;color:#29242e;cursor:pointer;text-align:left;transition:background .2s,border-color .2s;font:inherit}
+        .yd-profile-trigger:hover{background:#f8f5f9;border-color:#cbb8ce}
+        .yd-avatar{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0;border-radius:11px;background:${PURPLE};color:#fff;font-size:15px;font-weight:800}
+        .yd-profile-text{display:flex;flex-direction:column;gap:2px;max-width:180px}
+        .yd-profile-name{font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .yd-profile-id{color:#8c8492;font-size:10px;font-weight:600}
+        .yd-profile-chevron{margin-left:5px;color:${PURPLE};font-size:17px}
+        .yd-profile-menu{position:absolute;top:calc(100% + 10px);right:0;z-index:2147483005;width:300px;padding:14px;background:#fff;border:1px solid #e8dfe9;border-radius:14px;box-shadow:0 14px 40px #24152e24}
+        .yd-profile-menu[hidden]{display:none!important}
+        .yd-dropdown-heading{padding:3px 4px 12px;color:#8c8492;font-size:10px;font-weight:800;letter-spacing:1px}
+        .yd-connection-row{display:flex;align-items:center;gap:10px;padding:12px 10px;background:#f8f5f9;border-radius:10px}
+        .yd-connection-dot{width:10px;height:10px;flex-shrink:0;border-radius:50%;background:#c58a32;box-shadow:0 0 0 4px #c58a321a}
+        .yd-connection-label{color:#8c8492;font-size:10px}
+        .yd-connection-value{margin-top:2px;color:${DARK};font-size:12px;font-weight:800;overflow-wrap:anywhere}
+        .yd-dropdown-divider{height:1px;margin:12px 0;background:#eee8f0}
+        .yd-dropdown-action{display:flex;align-items:center;gap:11px;width:100%;padding:11px 9px;border:0;border-radius:9px;background:transparent;color:#29242e;cursor:pointer;text-align:left;font:inherit}
+        .yd-dropdown-action:hover{background:#f5eef6}
+        .yd-action-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:#eee4ef;color:${PURPLE};font-size:21px;font-weight:700}
+        .yd-dropdown-action b{display:block;font-size:12px}
+        .yd-dropdown-action small{display:block;margin-top:3px;color:#8c8492;font-size:10px;line-height:1.5}
+
+        @media(max-width:650px){
+            #yd-header{align-items:flex-start;flex-wrap:wrap}
+            .yd-header-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}
+            .yd-profile-menu{right:auto;left:0;width:min(300px,calc(100vw - 30px))}
+        }
+
+        @media(max-width:800px){
+            #yd-overlay{padding:0}
+            #yd-modal{border-radius:0}
+            #yd-sidebar{width:125px}
+            #yd-main{padding:12px}
+            .yd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+            #yd-header{padding:12px}
+        }
     `;
 
     document.head.appendChild(style);
@@ -809,15 +848,68 @@ YODAWY.init = async function () {
     overlay.innerHTML = `
         <div id="yd-modal" role="dialog" aria-modal="true">
             <header id="yd-header">
-                <div>
+                <div class="yd-brand">
                     <div class="yd-title">YODAWY DASHBOARD</div>
                     <div class="yd-sub">Automation Control Center</div>
                 </div>
-                <div>
+
+                <div class="yd-header-actions">
                     <span id="yd-status" class="yd-pill">Not connected</span>
-                    <button class="yd-btn" data-action="close">Close</button>
+
+                    <div class="yd-profile-wrap">
+                        <button
+                            id="yd-profile-trigger"
+                            class="yd-profile-trigger"
+                            data-action="profile-toggle"
+                            aria-expanded="false"
+                            aria-controls="yd-profile-menu"
+                            type="button"
+                        >
+                            <span class="yd-avatar" id="yd-profile-avatar">U</span>
+
+                            <span class="yd-profile-text">
+                                <span id="yd-profile-name" class="yd-profile-name">User Name</span>
+                                <span id="yd-profile-id" class="yd-profile-id">ID: Q-001</span>
+                            </span>
+
+                            <span class="yd-profile-chevron">⌄</span>
+                        </button>
+
+                        <div id="yd-profile-menu" class="yd-profile-menu" hidden>
+                            <div class="yd-dropdown-heading">ACCOUNT &amp; CONNECTION</div>
+
+                            <div class="yd-connection-row">
+                                <span class="yd-connection-dot"></span>
+                                <div>
+                                    <div class="yd-connection-label">Connection Status</div>
+                                    <div id="yd-profile-connection" class="yd-connection-value">Not connected</div>
+                                </div>
+                            </div>
+
+                            <div class="yd-dropdown-divider"></div>
+
+                            <button class="yd-dropdown-action" data-action="refresh-connection" type="button">
+                                <span class="yd-action-icon">↻</span>
+                                <span>
+                                    <b>Refresh Connection</b>
+                                    <small>Recheck account and GitHub access</small>
+                                </span>
+                            </button>
+
+                            <button class="yd-dropdown-action" data-action="refresh-tools" type="button">
+                                <span class="yd-action-icon">⟳</span>
+                                <span>
+                                    <b>Refresh Tools</b>
+                                    <small>Reload the tools manifest and scripts</small>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="yd-btn" data-action="close" type="button">Close</button>
                 </div>
             </header>
+
             <div id="yd-body">
                 <aside id="yd-sidebar"></aside>
                 <main id="yd-main"></main>
@@ -861,7 +953,6 @@ YODAWY.init = async function () {
         `<div class="yd-grid">
             ${card('Available Tools', available)}
             ${card('Discovered Tools', state.tools.length)}
-            ${card('User ID', CONFIG.userId)}
             <div class="yd-card">GitHub Status<div style="margin-top:8px"><span class="yd-pill">${esc(state.status)}</span></div></div>
         </div>
         <div class="yd-card">
@@ -1004,6 +1095,47 @@ YODAWY.init = async function () {
             ? 'Loading…'
             : state.status;
 
+        const profileName = String(
+            state.settings.displayName ||
+            state.user?.name ||
+            CONFIG.userId ||
+            'User'
+        ).trim();
+
+        const profileId = CONFIG.userId;
+        const profileNameElement = $('#yd-profile-name');
+        const profileIdElement = $('#yd-profile-id');
+        const profileAvatarElement = $('#yd-profile-avatar');
+        const profileConnectionElement = $('#yd-profile-connection');
+        const connectionDot = $('.yd-connection-dot');
+
+        if (profileNameElement) {
+            profileNameElement.textContent = profileName;
+        }
+
+        if (profileIdElement) {
+            profileIdElement.textContent = `ID: ${profileId}`;
+        }
+
+        if (profileAvatarElement) {
+            profileAvatarElement.textContent =
+                profileName.charAt(0).toUpperCase() || 'U';
+        }
+
+        if (profileConnectionElement) {
+            profileConnectionElement.textContent = state.loading
+                ? 'Connecting…'
+                : state.status;
+        }
+
+        if (connectionDot) {
+            connectionDot.style.background = state.loading
+                ? '#c58a32'
+                : state.authenticated && state.status === 'Connected'
+                    ? '#39865b'
+                    : '#c94b58';
+        }
+
         const sections = [
             ['overview', 'Overview'],
             ['tools', 'My Tools'],
@@ -1078,23 +1210,116 @@ YODAWY.init = async function () {
             return;
         }
 
-        const action = event.target.closest('[data-action]')?.dataset.action;
+        const actionElement = event.target.closest('[data-action]');
+        const action = actionElement?.dataset.action;
 
-        if (!action) return;
+        if (!action) {
+            if (!event.target.closest('.yd-profile-wrap')) {
+                const menu = $('#yd-profile-menu');
+                const trigger = $('#yd-profile-trigger');
+
+                if (menu && !menu.hidden) {
+                    menu.hidden = true;
+                    trigger?.setAttribute('aria-expanded', 'false');
+                }
+            }
+
+            return;
+        }
+
+        if (action === 'profile-toggle') {
+            const menu = $('#yd-profile-menu');
+            const trigger = $('#yd-profile-trigger');
+
+            if (menu && trigger) {
+                menu.hidden = !menu.hidden;
+
+                trigger.setAttribute(
+                    'aria-expanded',
+                    String(!menu.hidden)
+                );
+            }
+
+            return;
+        }
 
         try {
             if (action === 'close') {
                 overlay.classList.remove('open');
+
             } else if (action === 'sync') {
                 await sync();
+
             } else if (action === 'save-settings') {
                 await saveSettings();
+
             } else if (action === 'clear-logs') {
                 state.logs = [];
                 render();
+
+            } else if (action === 'refresh-connection') {
+                const menu = $('#yd-profile-menu');
+                const trigger = $('#yd-profile-trigger');
+
+                if (menu) menu.hidden = true;
+
+                trigger?.setAttribute('aria-expanded', 'false');
+
+                state.authenticated = false;
+                state.initialized = false;
+                state.user = null;
+                state.personalToken = '';
+                state.settings = {};
+                state.permissions = {};
+                state.visibility = {};
+                state.tools = [];
+                state.status = 'Reconnecting';
+
+                await sync();
+
+            } else if (action === 'refresh-tools') {
+                const menu = $('#yd-profile-menu');
+                const trigger = $('#yd-profile-trigger');
+
+                if (menu) menu.hidden = true;
+
+                trigger?.setAttribute('aria-expanded', 'false');
+
+                if (!state.authenticated) {
+                    await sync();
+
+                } else {
+                    state.loading = true;
+                    state.error = '';
+                    render();
+
+                    try {
+                        await loadTools();
+
+                        state.status = 'Connected';
+
+                        log(
+                            'Tools refreshed successfully.',
+                            'success'
+                        );
+
+                    } catch (error) {
+                        state.error = error.message || String(error);
+
+                        log(state.error, 'error');
+
+                    } finally {
+                        state.loading = false;
+                        render();
+                    }
+                }
+
             } else if (action.startsWith('run:')) {
                 const path = action.slice(4);
-                const tool = state.tools.find(item => item.path === path);
+
+                const tool = state.tools.find(
+                    item => item.path === path
+                );
 
                 if (!tool) {
                     throw new Error('Tool not found.');
@@ -1103,6 +1328,7 @@ YODAWY.init = async function () {
                 runTool(tool);
                 render();
             }
+
         } catch (error) {
             notify(error.message || String(error));
         }
@@ -1110,6 +1336,13 @@ YODAWY.init = async function () {
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+            const menu = $('#yd-profile-menu');
+            const trigger = $('#yd-profile-trigger');
+
+            if (menu) menu.hidden = true;
+
+            trigger?.setAttribute('aria-expanded', 'false');
+
             overlay.classList.remove('open');
         }
     });
