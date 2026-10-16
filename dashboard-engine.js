@@ -5,11 +5,12 @@ YODAWY.init = async function () {
     window.__YODAWY_DASHBOARD_RUNNING__ = true;
 
     const CONFIG = {
-        // Read the user ID from the Loader.
         userId: String(YODAWY.userId || 'Q-001').trim(),
-        toolsPath: 'TOOLS',
+        manifestPath: 'TOOLS_CACHE/tools-manifest.json',
+        toolsDirectory: 'TOOLS_CACHE/TOOLS',
         settingsPath: 'DASHBOARD/dashboard-settings.json',
-        permissionsPath: 'CONFIG/tools-permissions.json'
+        permissionsPath: 'CONFIG/tools-permissions.json',
+        visibilityPath: 'CONFIG/tools-visibility.json'
     };
 
     const PURPLE = '#875A7B';
@@ -25,6 +26,7 @@ YODAWY.init = async function () {
         settings: {},
         messages: {},
         permissions: {},
+        visibility: {},
         tools: [],
         logs: [],
         error: '',
@@ -33,7 +35,8 @@ YODAWY.init = async function () {
         initialized: false
     };
 
-    const $ = (selector, root = document) => root.querySelector(selector);
+    const $ = (selector, root = document) =>
+        root.querySelector(selector);
 
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;',
@@ -60,18 +63,29 @@ YODAWY.init = async function () {
     }
 
     function repositoryUrl(repository, path = '') {
-        const base = `${API}/repos/${encodeURIComponent(OWNER)}/${encodeURIComponent(repository)}`;
+        const base =
+            `${API}/repos/${encodeURIComponent(OWNER)}/${encodeURIComponent(repository)}`;
 
         return path
             ? `${base}/contents/${path.split('/').map(encodeURIComponent).join('/')}`
             : base;
     }
 
-    async function readJson(repository, path, token, branch = YODAWY.branch) {
+    async function readJson(
+        repository,
+        path,
+        token,
+        branch = YODAWY.branch
+    ) {
         return YODAWY.readJSON(repository, path, token, branch);
     }
 
-    async function readText(repository, path, token, branch = YODAWY.branch) {
+    async function readText(
+        repository,
+        path,
+        token,
+        branch = YODAWY.branch
+    ) {
         return YODAWY.readText(repository, path, token, branch);
     }
 
@@ -82,7 +96,9 @@ YODAWY.init = async function () {
     }
 
     function getPermissions(data) {
-        if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+            return {};
+        }
 
         if (data.users && typeof data.users === 'object') {
             return data.users;
@@ -102,10 +118,17 @@ YODAWY.init = async function () {
 
     function getMessage(key, fallback) {
         const value = state.messages[key];
-        return typeof value === 'string' && value ? value : fallback;
+
+        return typeof value === 'string' && value
+            ? value
+            : fallback;
     }
 
     function permissionKey(tool) {
+        if (tool.id) {
+            return String(tool.id).trim();
+        }
+
         return tool.path.split('/').pop()
             .replace(/\.user\.js$/i, '')
             .replace(/\.js$/i, '')
@@ -115,11 +138,31 @@ YODAWY.init = async function () {
     }
 
     function permitted(tool) {
-        const userPermissions = state.permissions[CONFIG.userId] || {};
+        const userPermissions =
+            state.permissions[CONFIG.userId] || {};
+
         const key = permissionKey(tool);
 
-        return userPermissions[key] === true ||
-            userPermissions[key]?.enabled === true;
+        const permission =
+            userPermissions[key] ??
+            userPermissions[tool.path] ??
+            userPermissions[tool.name];
+
+        const visibility =
+            state.visibility[key] ??
+            state.visibility[tool.path] ??
+            state.visibility[tool.name];
+
+        if (
+            visibility &&
+            typeof visibility === 'object' &&
+            visibility.enabled === false
+        ) {
+            return false;
+        }
+
+        return permission === true ||
+            permission?.enabled === true;
     }
 
     function canManage() {
@@ -137,22 +180,49 @@ YODAWY.init = async function () {
         }
 
         const userRegistry = authConfig.userRegistry || {};
-        const registryRepository = userRegistry.repository ||
-            YODAWY.dashboardRepository;
-        const registryPath = userRegistry.path || 'CONFIG/auth-users.json';
 
-        const messagesPath = authConfig.dashboard?.messagesPath ||
+        const registryRepository =
+            userRegistry.repository ||
+            YODAWY.dashboardRepository;
+
+        const registryPath =
+            userRegistry.path ||
+            'CONFIG/auth-users.json';
+
+        const messagesPath =
+            authConfig.dashboard?.messagesPath ||
             'CONFIG/auth-messages.json';
 
-        const permissionsPath = authConfig.permissionsPath ||
+        const permissionsPath =
+            authConfig.permissionsPath ||
             CONFIG.permissionsPath;
 
-        const [usersData, messagesData, permissionsData] = await Promise.all([
+        const visibilityPath =
+            authConfig.visibilityPath ||
+            CONFIG.visibilityPath;
+
+        const [
+            usersData,
+            messagesData,
+            permissionsData,
+            visibilityData
+        ] = await Promise.all([
             readJson(registryRepository, registryPath),
-            readJson(YODAWY.dashboardRepository, messagesPath)
-                .catch(() => ({})),
-            readJson(YODAWY.dashboardRepository, permissionsPath)
-                .catch(() => ({}))
+
+            readJson(
+                YODAWY.dashboardRepository,
+                messagesPath
+            ).catch(() => ({})),
+
+            readJson(
+                YODAWY.dashboardRepository,
+                permissionsPath
+            ).catch(() => ({})),
+
+            readJson(
+                YODAWY.dashboardRepository,
+                visibilityPath
+            ).catch(() => ({}))
         ]);
 
         if (authConfig.enabled === false) {
@@ -160,35 +230,46 @@ YODAWY.init = async function () {
         }
 
         const user = getUsers(usersData).find(item =>
-            String(item.id || item.userId || item.username || '')
-                .trim().toUpperCase() === CONFIG.userId.toUpperCase()
+            String(
+                item.id ||
+                item.userId ||
+                item.username ||
+                ''
+            ).trim().toUpperCase() === CONFIG.userId.toUpperCase()
         );
 
         if (!user) {
-            throw new Error(getMessage('INVALID_ID', 'User ID was not found.'));
+            throw new Error(
+                getMessage('INVALID_ID', 'User ID was not found.')
+            );
         }
 
         if (String(user.status || '').toLowerCase() !== 'active') {
-            throw new Error(getMessage('ACCOUNT_DISABLED', 'Account is not active.'));
+            throw new Error(
+                getMessage('ACCOUNT_DISABLED', 'Account is not active.')
+            );
         }
 
-        const personalRepository = user.repository ||
+        const personalRepository =
+            user.repository ||
             user.personalRepository ||
             user.personal_repository;
 
-        // Prefer the token configured in the Loader.
-        // Fall back to the user registry for older setups.
         const personalToken = String(
-            YODAWY.personalToken || getPersonalToken(user) || ''
+            YODAWY.personalToken ||
+            getPersonalToken(user) ||
+            ''
         ).trim();
 
         if (!personalRepository) {
-            throw new Error('Personal repository is missing from the user registry.');
+            throw new Error(
+                'Personal repository is missing from the user registry.'
+            );
         }
 
         if (!personalToken) {
             throw new Error(
-                'Personal token is missing. Set PERSONAL_TOKEN in the Loader or add a token to the user registry.'
+                'Personal token is missing. Set PERSONAL_TOKEN in the Loader or provide it in the user registry.'
             );
         }
 
@@ -198,8 +279,22 @@ YODAWY.init = async function () {
         };
 
         state.personalToken = personalToken;
-        state.messages = messagesData.messages || messagesData || {};
+
+        state.messages =
+            messagesData.messages ||
+            messagesData ||
+            {};
+
         state.permissions = getPermissions(permissionsData);
+
+        state.visibility =
+            visibilityData?.visibility &&
+            typeof visibilityData.visibility === 'object'
+                ? visibilityData.visibility
+                : visibilityData?.tools &&
+                  typeof visibilityData.tools === 'object'
+                    ? visibilityData.tools
+                    : getPermissions(visibilityData);
 
         try {
             state.settings = await readJson(
@@ -223,39 +318,104 @@ YODAWY.init = async function () {
         log('User authentication successful.', 'success');
     }
 
+    // =========================================================
+    // LOAD TOOLS FROM THE DASHBOARD REPOSITORY
+    // =========================================================
+
     async function loadTools() {
-        const repository = YODAWY.toolsRepository;
+        const repository = YODAWY.dashboardRepository;
+        const branch = YODAWY.branch || 'main';
 
-        const listing = await YODAWY.request(
-            repositoryUrl(repository, CONFIG.toolsPath)
-        );
+        let manifestData;
 
-        if (!Array.isArray(listing)) {
-            throw new Error('Tools repository folder could not be read.');
+        try {
+            manifestData = await readJson(
+                repository,
+                CONFIG.manifestPath,
+                undefined,
+                branch
+            );
+        } catch (error) {
+            throw new Error(
+                `Could not read ${repository}/${CONFIG.manifestPath}: ${error.message || error}`
+            );
         }
 
-        const files = listing.filter(item =>
-            item.type === 'file' &&
-            /\.js$/i.test(item.name) &&
-            !/\.min\.js$/i.test(item.name)
-        );
+        const manifestTools = Array.isArray(manifestData)
+            ? manifestData
+            : Array.isArray(manifestData?.tools)
+                ? manifestData.tools
+                : [];
+
+        if (!manifestTools.length) {
+            throw new Error(
+                `${CONFIG.manifestPath} was found, but it does not contain a non-empty "tools" array.`
+            );
+        }
+
+        function resolveToolPath(item) {
+            const rawPath = String(
+                item.path ||
+                item.filePath ||
+                item.file ||
+                item.filename ||
+                item.name ||
+                ''
+            ).trim().replace(/\\/g, '/');
+
+            if (!rawPath) return '';
+
+            if (rawPath.startsWith('TOOLS_CACHE/')) {
+                return rawPath;
+            }
+
+            if (rawPath.startsWith('TOOLS/')) {
+                return `TOOLS_CACHE/${rawPath}`;
+            }
+
+            if (rawPath.includes('/')) {
+                return `${CONFIG.toolsDirectory}/${rawPath.split('/').pop()}`;
+            }
+
+            return `${CONFIG.toolsDirectory}/${rawPath}`;
+        }
+
+        const normalizedTools = manifestTools
+            .filter(item => item && typeof item === 'object')
+            .map(item => ({
+                ...item,
+                resolvedPath: resolveToolPath(item)
+            }))
+            .filter(item =>
+                item.resolvedPath &&
+                /\.js$/i.test(item.resolvedPath)
+            );
+
+        if (!normalizedTools.length) {
+            throw new Error(
+                `No JavaScript tool paths were found in ${CONFIG.manifestPath}. Each tool needs a .js path or filename.`
+            );
+        }
 
         const results = await Promise.allSettled(
-            files.map(async item => {
+            normalizedTools.map(async item => {
                 const file = await readText(
                     repository,
-                    item.path,
+                    item.resolvedPath,
                     undefined,
-                    YODAWY.branch
+                    branch
                 );
 
                 const source = file.content;
+
                 const header = source.match(
                     /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
                 );
 
                 if (!header) {
-                    throw new Error(`Missing userscript metadata: ${item.name}`);
+                    throw new Error(
+                        `Missing userscript metadata: ${item.resolvedPath}`
+                    );
                 }
 
                 const metadata = header[1];
@@ -270,15 +430,48 @@ YODAWY.init = async function () {
                 ].map(match => match[1].trim());
 
                 return {
-                    path: item.path,
+                    id: String(
+                        item.id ||
+                        item.toolId ||
+                        item.tool_id ||
+                        ''
+                    ).trim(),
+
+                    path: item.resolvedPath,
                     source,
-                    name: values('name')[0] || item.name,
-                    description: values('description')[0] || '',
-                    matches: [...values('match'), ...values('include')],
-                    excludes: [...values('exclude'), ...values('exclude-match')],
-                    grants: values('grant').filter(value => value !== 'none'),
+                    sha: file.sha || '',
+
+                    name:
+                        item.name ||
+                        values('name')[0] ||
+                        item.resolvedPath.split('/').pop(),
+
+                    description:
+                        item.description ||
+                        values('description')[0] ||
+                        '',
+
+                    matches: Array.isArray(item.matches)
+                        ? item.matches
+                        : [
+                            ...values('match'),
+                            ...values('include')
+                        ],
+
+                    excludes: Array.isArray(item.excludes)
+                        ? item.excludes
+                        : [
+                            ...values('exclude'),
+                            ...values('exclude-match')
+                        ],
+
+                    grants: values('grant').filter(
+                        value => value !== 'none'
+                    ),
+
                     requires: values('require'),
-                    enabled: true
+
+                    enabled: item.enabled !== false
                 };
             })
         );
@@ -288,21 +481,39 @@ YODAWY.init = async function () {
             .map(result => result.value)
             .sort((a, b) => a.name.localeCompare(b.name));
 
-        results
-            .filter(result => result.status === 'rejected')
-            .forEach(result => log(
-                result.reason?.message || 'Tool loading failed.',
-                'error'
-            ));
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                const item = normalizedTools[index];
 
-        log(`Loaded ${state.tools.length} tools.`, 'success');
+                log(
+                    `${item?.resolvedPath || 'Tool'}: ${result.reason?.message || 'Tool loading failed.'}`,
+                    'error'
+                );
+            }
+        });
+
+        if (!state.tools.length) {
+            throw new Error(
+                `The manifest was read, but none of its JavaScript tools could be loaded. Check the tool paths in ${CONFIG.manifestPath}.`
+            );
+        }
+
+        log(
+            `Loaded ${state.tools.length} tools from ${repository}/${CONFIG.toolsDirectory} using ${CONFIG.manifestPath}.`,
+            'success'
+        );
     }
+
+    // =========================================================
+    // PAGE MATCHING
+    // =========================================================
 
     function simpleMatch(pattern, href) {
         if (pattern === '<all_urls>') return true;
 
         try {
             const url = new URL(href);
+
             const match = pattern.match(
                 /^(\*|https?|file|ftp):\/\/([^/]+)(\/.*)$/i
             );
@@ -337,7 +548,9 @@ YODAWY.init = async function () {
             }
 
             const escaped = pathPattern.split('*')
-                .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+                .map(part =>
+                    part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                )
                 .join('.*');
 
             return new RegExp(`^${escaped}$`)
@@ -361,21 +574,29 @@ YODAWY.init = async function () {
         );
     }
 
+    // =========================================================
+    // RUN TOOL
+    // =========================================================
+
     function runTool(tool) {
         if (!state.authenticated || !permitted(tool)) {
             throw new Error('Tool permission denied.');
         }
 
         if (!matchesPage(tool)) {
-            throw new Error('This tool does not match the current page.');
+            throw new Error(
+                'This tool does not match the current page.'
+            );
         }
 
         if (tool.requires.length) {
-            throw new Error(`${tool.name}: @require dependencies are not supported.`);
+            throw new Error(
+                `${tool.name}: @require dependencies are not supported.`
+            );
         }
 
-        const unsupported = tool.grants.filter(grant =>
-            grant !== 'unsafeWindow'
+        const unsupported = tool.grants.filter(
+            grant => grant !== 'unsafeWindow'
         );
 
         if (unsupported.length) {
@@ -399,12 +620,17 @@ YODAWY.init = async function () {
             )(window);
 
             window[runKey] = true;
+
             log(`Started ${tool.name}.`, 'success');
         } catch (error) {
             log(`${tool.name}: ${error.message}`, 'error');
             throw error;
         }
     }
+
+    // =========================================================
+    // SYNC
+    // =========================================================
 
     async function sync() {
         if (state.loading) return;
@@ -436,12 +662,17 @@ YODAWY.init = async function () {
             state.status = 'Connection failed';
             state.authenticated = false;
             state.initialized = false;
+
             log(state.error, 'error');
         } finally {
             state.loading = false;
             render();
         }
     }
+
+    // =========================================================
+    // SAVE PERSONAL SETTINGS
+    // =========================================================
 
     async function saveSettings() {
         if (!state.authenticated) {
@@ -494,25 +725,33 @@ YODAWY.init = async function () {
             branch: YODAWY.branch
         };
 
-        if (current?.sha) body.sha = current.sha;
+        if (current?.sha) {
+            body.sha = current.sha;
+        }
 
-        const response = await fetch(repositoryUrl(repository, path), {
-            method: 'PUT',
-            headers: {
-                Authorization: `Bearer ${state.personalToken}`,
-                Accept: 'application/vnd.github+json',
-                'Content-Type': 'application/json',
-                'X-GitHub-Api-Version': '2022-11-28'
-            },
-            credentials: 'omit',
-            cache: 'no-store',
-            body: JSON.stringify(body)
-        });
+        const response = await fetch(
+            repositoryUrl(repository, path),
+            {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${state.personalToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'Content-Type': 'application/json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store',
+                body: JSON.stringify(body)
+            }
+        );
 
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(result.message || `Settings save failed: ${response.status}`);
+            throw new Error(
+                result.message ||
+                `Settings save failed: ${response.status}`
+            );
         }
 
         state.settings = settings;
@@ -521,6 +760,10 @@ YODAWY.init = async function () {
         log('Settings saved.', 'success');
         render();
     }
+
+    // =========================================================
+    // DASHBOARD UI
+    // =========================================================
 
     const style = document.createElement('style');
 
@@ -612,7 +855,9 @@ YODAWY.init = async function () {
             `Signed in as ${state.settings.displayName || state.user?.name || CONFIG.userId}`,
             button('Test & Sync', 'sync', true)
         ) +
-        (state.error ? `<div class="yd-error">${esc(state.error)}</div>` : '') +
+        (state.error
+            ? `<div class="yd-error">${esc(state.error)}</div>`
+            : '') +
         `<div class="yd-grid">
             ${card('Available Tools', available)}
             ${card('Discovered Tools', state.tools.length)}
@@ -679,40 +924,53 @@ YODAWY.init = async function () {
     function usersPage() {
         if (!canManage()) return deniedPage();
 
-        return header('Users Management', 'User registry and tool permissions.') +
-            `<div class="yd-card">
-                <div class="yd-row"><div class="yd-grow">Authenticated user</div>${esc(state.user?.name || CONFIG.userId)}</div>
-                <div class="yd-row"><div class="yd-grow">Role</div>${esc(state.user?.role || '')}</div>
-                <div class="yd-row"><div class="yd-grow">Status</div>${esc(state.user?.status || '')}</div>
-                <div class="yd-note">User editing is not enabled in this version.</div>
-            </div>`;
+        return header(
+            'Users Management',
+            'User registry and tool permissions.'
+        ) +
+        `<div class="yd-card">
+            <div class="yd-row"><div class="yd-grow">Authenticated user</div>${esc(state.user?.name || CONFIG.userId)}</div>
+            <div class="yd-row"><div class="yd-grow">Role</div>${esc(state.user?.role || '')}</div>
+            <div class="yd-row"><div class="yd-grow">Status</div>${esc(state.user?.status || '')}</div>
+            <div class="yd-note">User editing is not enabled in this version.</div>
+        </div>`;
     }
 
     function sharedPage() {
         if (!canManage()) return deniedPage();
 
-        return header('Shared Tools', 'Tools discovered from the shared repository.') +
-            `<div class="yd-card">
-                ${state.tools.map(tool => `
-                    <div class="yd-row">
-                        <div class="yd-grow"><b>${esc(tool.name)}</b><div class="yd-sub">${esc(tool.path)}</div></div>
-                        <span class="yd-pill">${permitted(tool) ? 'Permitted' : 'Not permitted'}</span>
+        return header(
+            'Shared Tools',
+            'Tools discovered from the dashboard repository.'
+        ) +
+        `<div class="yd-card">
+            ${state.tools.map(tool => `
+                <div class="yd-row">
+                    <div class="yd-grow">
+                        <b>${esc(tool.name)}</b>
+                        <div class="yd-sub">${esc(tool.path)}</div>
                     </div>
-                `).join('') || '<div class="yd-empty">No tools loaded.</div>'}
-            </div>`;
+                    <span class="yd-pill">${permitted(tool) ? 'Permitted' : 'Not permitted'}</span>
+                </div>
+            `).join('') || '<div class="yd-empty">No tools loaded.</div>'}
+        </div>`;
     }
 
     function systemPage() {
         if (!canManage()) return deniedPage();
 
-        return header('System Settings', 'Repository and connection information.') +
-            `<div class="yd-card">
-                <div class="yd-row"><div class="yd-grow">Owner</div>${esc(OWNER)}</div>
-                <div class="yd-row"><div class="yd-grow">Branch</div>${esc(YODAWY.branch)}</div>
-                <div class="yd-row"><div class="yd-grow">Dashboard Repository</div>${esc(YODAWY.dashboardRepository)}</div>
-                <div class="yd-row"><div class="yd-grow">Tools Repository</div>${esc(YODAWY.toolsRepository)}</div>
-                <div class="yd-note">Tokens are read from the configured authentication source and are not displayed here.</div>
-            </div>`;
+        return header(
+            'System Settings',
+            'Repository and connection information.'
+        ) +
+        `<div class="yd-card">
+            <div class="yd-row"><div class="yd-grow">Owner</div>${esc(OWNER)}</div>
+            <div class="yd-row"><div class="yd-grow">Branch</div>${esc(YODAWY.branch)}</div>
+            <div class="yd-row"><div class="yd-grow">Dashboard Repository</div>${esc(YODAWY.dashboardRepository)}</div>
+            <div class="yd-row"><div class="yd-grow">Tools Source</div>${esc(YODAWY.dashboardRepository)}/${esc(CONFIG.toolsDirectory)}</div>
+            <div class="yd-row"><div class="yd-grow">Tools Manifest</div>${esc(CONFIG.manifestPath)}</div>
+            <div class="yd-note">Tokens are read from the configured authentication source and are not displayed here.</div>
+        </div>`;
     }
 
     function logsPage() {
@@ -732,21 +990,30 @@ YODAWY.init = async function () {
     }
 
     function deniedPage() {
-        return header('Access denied', 'This section is available to administrators only.') +
-            '<div class="yd-error">Your account does not have administrator access.</div>';
+        return header(
+            'Access denied',
+            'This section is available to administrators only.'
+        ) +
+        '<div class="yd-error">Your account does not have administrator access.</div>';
     }
 
     function render() {
         if (!$('#yd-sidebar') || !$('#yd-main')) return;
 
-        $('#yd-status').textContent = state.loading ? 'Loading…' : state.status;
+        $('#yd-status').textContent = state.loading
+            ? 'Loading…'
+            : state.status;
 
         const sections = [
             ['overview', 'Overview'],
             ['tools', 'My Tools'],
             ['settings', 'My Settings'],
             ...(canManage()
-                ? [['users', 'Users Management'], ['shared', 'Shared Tools'], ['system', 'System Settings']]
+                ? [
+                    ['users', 'Users Management'],
+                    ['shared', 'Shared Tools'],
+                    ['system', 'System Settings']
+                ]
                 : []),
             ['logs', 'Activity Logs']
         ];
