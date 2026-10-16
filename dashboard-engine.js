@@ -5,10 +5,11 @@ YODAWY.init = async function () {
     window.__YODAWY_DASHBOARD_RUNNING__ = true;
 
     const CONFIG = {
-        userId: 'Q-001',
+        // Read the user ID from the Loader.
+        userId: String(YODAWY.userId || 'Q-001').trim(),
         toolsPath: 'TOOLS',
         settingsPath: 'DASHBOARD/dashboard-settings.json',
-        permissionsPath: 'CONFIG/tool-permissions.json'
+        permissionsPath: 'CONFIG/tools-permissions.json'
     };
 
     const PURPLE = '#875A7B';
@@ -175,14 +176,20 @@ YODAWY.init = async function () {
             user.personalRepository ||
             user.personal_repository;
 
-        const personalToken = getPersonalToken(user);
+        // Prefer the token configured in the Loader.
+        // Fall back to the user registry for older setups.
+        const personalToken = String(
+            YODAWY.personalToken || getPersonalToken(user) || ''
+        ).trim();
 
         if (!personalRepository) {
             throw new Error('Personal repository is missing from the user registry.');
         }
 
         if (!personalToken) {
-            throw new Error('Personal token is missing from the user registry.');
+            throw new Error(
+                'Personal token is missing. Set PERSONAL_TOKEN in the Loader or add a token to the user registry.'
+            );
         }
 
         state.user = {
