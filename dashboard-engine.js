@@ -25,11 +25,14 @@ YODAWY.init = async function () {
         section: 'overview',
         status: 'Not connected',
         user: null,
+        users: [],
         personalToken: '',
         settings: {},
         messages: {},
         permissions: {},
         visibility: {},
+        visibilitySelectedUser: 'ALL',
+        visibilityDirty: false,
         tools: [],
         logs: [],
         error: '',
@@ -211,6 +214,17 @@ YODAWY.init = async function () {
         return permissionGranted(tool);
     }
 
+    function isToolEnabledByUser(tool) {
+        const key = permissionKey(tool);
+        const toolsMap = state.settings?.tools;
+
+        if (!toolsMap || typeof toolsMap !== 'object') {
+            return false;
+        }
+
+        return toolsMap[key] === true;
+    }
+
     function visibilityPolicy(tool) {
         const key = permissionKey(tool);
 
@@ -220,8 +234,37 @@ YODAWY.init = async function () {
             {};
     }
 
-    function toolIsVisible(tool) {
-        if (isSuperAdmin()) {
+    function ensureToolVisibilityRecord(toolKey) {
+        const existing = state.visibility[toolKey];
+
+        if (!existing || typeof existing !== 'object') {
+            state.visibility[toolKey] = {
+                visibility: 'PRIVATE',
+                allowedUsers: [],
+                developmentStatus: 'UNDER DEVELOPMENT',
+                publicationStatus: 'NOT PUBLISHED',
+                enabled: false
+            };
+        } else {
+            if (!Array.isArray(existing.allowedUsers)) {
+                existing.allowedUsers = [];
+            }
+            if (!existing.visibility) {
+                existing.visibility = 'PRIVATE';
+            }
+        }
+
+        return state.visibility[toolKey];
+    }
+
+    function isToolVisibleForUser(tool, targetUserId) {
+        const uid = String(targetUserId || '').trim().toUpperCase();
+        const userObj = state.users.find(
+            u => String(u.id || '').trim().toUpperCase() === uid
+        );
+        const role = String(userObj?.role || '').trim().toLowerCase();
+
+        if (uid === 'Q-001' || role === 'super admin' || role === 'superadmin') {
             return true;
         }
 
@@ -235,6 +278,10 @@ YODAWY.init = async function () {
             policy.visibility || 'PUBLIC'
         ).toUpperCase();
 
+        if (visibility === 'PUBLIC') {
+            return true;
+        }
+
         if (visibility === 'PRIVATE') {
             return false;
         }
@@ -246,12 +293,84 @@ YODAWY.init = async function () {
                 )
                 : [];
 
-            return allowedUsers.includes(
-                CONFIG.userId.toUpperCase()
-            );
+            return allowedUsers.includes(uid);
         }
 
         return true;
+    }
+
+    function toolIsVisible(tool) {
+        if (isSuperAdmin()) {
+            return true;
+        }
+
+        return isToolVisibleForUser(tool, CONFIG.userId);
+    }
+
+    function setToolVisibilityForUser(toolKey, targetUserId, turnOn) {
+        const uid = String(targetUserId || '').trim().toUpperCase();
+        if (uid === 'Q-001') return;
+
+        const record = ensureToolVisibilityRecord(toolKey);
+        const currentVis = String(record.visibility || 'PRIVATE').toUpperCase();
+
+        const nonSuperAdminIds = state.users
+            .map(u => String(u.id || '').trim().toUpperCase())
+            .filter(id => id && id !== 'Q-001');
+
+        let allowedSet = new Set(
+            (Array.isArray(record.allowedUsers) ? record.allowedUsers : [])
+                .map(id => String(id).trim().toUpperCase())
+                .filter(Boolean)
+        );
+
+        if (currentVis === 'PUBLIC') {
+            if (!turnOn) {
+                record.visibility = 'SELECTED_USERS';
+                allowedSet = new Set(nonSuperAdminIds.filter(id => id !== uid));
+                record.allowedUsers = [...allowedSet];
+                if (record.allowedUsers.length === 0) {
+                    record.visibility = 'PRIVATE';
+                }
+            }
+        } else if (currentVis === 'PRIVATE') {
+            if (turnOn) {
+                record.visibility = 'SELECTED_USERS';
+                allowedSet.add(uid);
+                record.allowedUsers = [...allowedSet];
+            }
+        } else {
+            if (turnOn) {
+                allowedSet.add(uid);
+            } else {
+                allowedSet.delete(uid);
+            }
+            record.allowedUsers = [...allowedSet];
+            if (record.allowedUsers.length === 0) {
+                record.visibility = 'PRIVATE';
+            }
+        }
+
+        record.enabled = record.visibility !== 'PRIVATE';
+        state.visibilityDirty = true;
+    }
+
+    function setToolPolicyMode(toolKey, newMode) {
+        const mode = String(newMode || 'PRIVATE').toUpperCase();
+        const record = ensureToolVisibilityRecord(toolKey);
+
+        record.visibility = mode;
+
+        if (mode === 'PRIVATE') {
+            record.allowedUsers = [];
+            record.enabled = false;
+        } else if (mode === 'PUBLIC') {
+            record.enabled = true;
+        } else if (mode === 'SELECTED_USERS') {
+            record.enabled = record.allowedUsers.length > 0;
+        }
+
+        state.visibilityDirty = true;
     }
 
     // =========================================================
@@ -315,7 +434,10 @@ YODAWY.init = async function () {
             throw new Error('System is disabled.');
         }
 
-        const user = getUsers(usersData).find(item =>
+        const allUsers = getUsers(usersData);
+        state.users = allUsers;
+
+        const user = allUsers.find(item =>
             String(
                 item.id ||
                 item.userId ||
@@ -382,6 +504,8 @@ YODAWY.init = async function () {
                     ? visibilityData.tools
                     : getPermissions(visibilityData);
 
+        state.visibilityDirty = false;
+
         try {
             state.settings = await readJson(
                 personalRepository,
@@ -394,6 +518,14 @@ YODAWY.init = async function () {
             }
 
             state.settings = {};
+        }
+
+        if (!state.settings || typeof state.settings !== 'object') {
+            state.settings = {};
+        }
+
+        if (!state.settings.tools || typeof state.settings.tools !== 'object') {
+            state.settings.tools = {};
         }
 
         state.authenticated = true;
@@ -565,7 +697,7 @@ YODAWY.init = async function () {
         state.tools = results
             .filter(result => result.status === 'fulfilled')
             .map(result => result.value)
-            .sort((a, b) => a.name.localeCompare(b.name));
+            .sort((a, b) => permissionKey(a).localeCompare(permissionKey(b)));
 
         results.forEach((result, index) => {
             if (result.status === 'rejected') {
@@ -733,7 +865,12 @@ YODAWY.init = async function () {
             await loadTools();
 
             for (const tool of state.tools) {
-                if (permitted(tool) && toolIsVisible(tool) && matchesPage(tool)) {
+                if (
+                    permitted(tool) &&
+                    toolIsVisible(tool) &&
+                    isToolEnabledByUser(tool) &&
+                    matchesPage(tool)
+                ) {
                     try {
                         runTool(tool);
                     } catch (error) {
@@ -757,30 +894,12 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // SAVE PERSONAL SETTINGS
+    // SAVE PERSONAL SETTINGS & TOOL ON/OFF STATE
     // =========================================================
 
-    async function saveSettings() {
-        if (!state.authenticated) {
-            throw new Error('Authentication required.');
-        }
-
-        const displayName = $('#yd-name')?.value.trim() ||
-            state.user.name ||
-            CONFIG.userId;
-
-        const startPage = $('#yd-start')?.value || 'overview';
+    async function writePersonalSettings(updatedSettings, successLogMessage) {
         const repository = state.user.repository;
         const path = CONFIG.settingsPath;
-
-        const settings = {
-            ...state.settings,
-            owner: OWNER,
-            repository,
-            displayName,
-            startPage,
-            updatedAt: new Date().toISOString()
-        };
 
         let current = null;
 
@@ -794,7 +913,7 @@ YODAWY.init = async function () {
         }
 
         const bytes = new TextEncoder().encode(
-            JSON.stringify(settings, null, 2) + '\n'
+            JSON.stringify(updatedSettings, null, 2) + '\n'
         );
 
         let binary = '';
@@ -840,10 +959,82 @@ YODAWY.init = async function () {
             );
         }
 
-        state.settings = settings;
-        state.user.name = displayName;
+        state.settings = updatedSettings;
+        log(successLogMessage, 'success');
+    }
 
-        log('Settings saved.', 'success');
+    async function saveSettings() {
+        if (!state.authenticated) {
+            throw new Error('Authentication required.');
+        }
+
+        const displayName = $('#yd-name')?.value.trim() ||
+            state.user.name ||
+            CONFIG.userId;
+
+        const startPage = $('#yd-start')?.value || 'overview';
+        const repository = state.user.repository;
+
+        const settings = {
+            ...state.settings,
+            owner: OWNER,
+            repository,
+            displayName,
+            startPage,
+            tools: {
+                ...(state.settings.tools || {})
+            },
+            updatedAt: new Date().toISOString()
+        };
+
+        await writePersonalSettings(settings, 'Settings saved.');
+        state.user.name = displayName;
+        render();
+    }
+
+    async function toggleMyToolSwitch(tool, turnOn) {
+        if (!state.authenticated) {
+            throw new Error('Authentication required.');
+        }
+
+        if (!permitted(tool)) {
+            throw new Error('You do not have permission to enable this tool.');
+        }
+
+        const key = permissionKey(tool);
+        const repository = state.user.repository;
+
+        const toolsMap = {
+            ...(state.settings.tools || {}),
+            [key]: Boolean(turnOn)
+        };
+
+        const settings = {
+            ...state.settings,
+            owner: OWNER,
+            repository,
+            displayName: state.settings.displayName || state.user.name || CONFIG.userId,
+            startPage: state.settings.startPage || 'overview',
+            dashboardOpen: Boolean(state.settings.dashboardOpen),
+            tools: toolsMap
+        };
+
+        state.settings = settings;
+        render();
+
+        await writePersonalSettings(
+            settings,
+            `${tool.name} turned ${turnOn ? 'ON' : 'OFF'}.`
+        );
+
+        if (turnOn && matchesPage(tool)) {
+            try {
+                runTool(tool);
+            } catch (error) {
+                log(error.message, 'warning');
+            }
+        }
+
         render();
     }
 
@@ -859,9 +1050,7 @@ YODAWY.init = async function () {
         const repository = CONFIG.usersRepository;
         const path = CONFIG.visibilityPath;
 
-        const newVisibility = {
-            ...state.visibility
-        };
+        const newVisibility = {};
 
         const orderedTools = [...state.tools].sort((a, b) =>
             permissionKey(a).localeCompare(permissionKey(b))
@@ -869,27 +1058,26 @@ YODAWY.init = async function () {
 
         for (const tool of orderedTools) {
             const key = permissionKey(tool);
-            const existing = state.visibility[key] || {};
-            const visSelect = $(`#yd-vis-${key}`);
-            const usersInput = $(`#yd-users-${key}`);
+            const record = ensureToolVisibilityRecord(key);
+            const visValue = String(record.visibility || 'PRIVATE').toUpperCase();
+            const allowedUsers = Array.isArray(record.allowedUsers)
+                ? record.allowedUsers
+                    .map(s => String(s).trim().toUpperCase())
+                    .filter(Boolean)
+                : [];
 
-            if (visSelect) {
-                const visValue = String(visSelect.value || 'PRIVATE').toUpperCase();
-                const allowedUsers = usersInput
-                    ? usersInput.value
-                        .split(',')
-                        .map(s => s.trim().toUpperCase())
-                        .filter(Boolean)
-                    : [];
+            newVisibility[key] = {
+                visibility: visValue,
+                allowedUsers,
+                developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
+                publicationStatus: record.publicationStatus || 'NOT PUBLISHED',
+                enabled: visValue !== 'PRIVATE'
+            };
+        }
 
-                newVisibility[key] = {
-                    ...existing,
-                    visibility: visValue,
-                    allowedUsers,
-                    developmentStatus: existing.developmentStatus || 'UNDER DEVELOPMENT',
-                    publicationStatus: existing.publicationStatus || 'NOT PUBLISHED',
-                    enabled: typeof existing.enabled === 'boolean' ? existing.enabled : false
-                };
+        for (const [key, value] of Object.entries(state.visibility)) {
+            if (!newVisibility[key] && value && typeof value === 'object') {
+                newVisibility[key] = value;
             }
         }
 
@@ -952,6 +1140,7 @@ YODAWY.init = async function () {
         }
 
         state.visibility = newVisibility;
+        state.visibilityDirty = false;
         state.error = '';
 
         log('Tool visibility saved to Users Repository.', 'success');
@@ -1109,6 +1298,8 @@ YODAWY.init = async function () {
             border: 1px solid #e3dce6;
             border-radius: 8px;
             font: 12px system-ui;
+            background: #fff;
+            color: #29242e;
         }
         .yd-row {
             display: flex;
@@ -1145,6 +1336,7 @@ YODAWY.init = async function () {
             color: ${DARK};
             border-radius: 7px;
             font-size: 11px;
+            font-weight: 700;
         }
         .yd-empty {
             padding: 24px;
@@ -1312,6 +1504,104 @@ YODAWY.init = async function () {
             font-size: 10px;
             line-height: 1.5;
         }
+        .yd-switch-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .yd-switch {
+            position: relative;
+            width: 46px;
+            height: 24px;
+            border: 0;
+            border-radius: 999px;
+            background: #d5cbd8;
+            cursor: pointer;
+            padding: 2px;
+            transition: background .2s, opacity .2s;
+            flex-shrink: 0;
+        }
+        .yd-switch.on {
+            background: ${PURPLE};
+        }
+        .yd-switch:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+        .yd-switch-knob {
+            display: block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 2px 5px #0003;
+            transition: transform .2s;
+            transform: translateX(0);
+        }
+        .yd-switch.on .yd-switch-knob {
+            transform: translateX(22px);
+        }
+        .yd-switch-state {
+            font-size: 11px;
+            font-weight: 800;
+            min-width: 26px;
+            color: ${DARK};
+        }
+        .yd-matrix-scroll {
+            position: relative;
+            max-height: 520px;
+            overflow: auto;
+            border: 1px solid #e5dce8;
+            border-radius: 10px;
+            background: #fff;
+        }
+        .yd-matrix-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12px;
+        }
+        .yd-matrix-table th,
+        .yd-matrix-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #eee8f0;
+            border-right: 1px solid #eee8f0;
+            text-align: center;
+            vertical-align: middle;
+            background: #fff;
+            white-space: nowrap;
+        }
+        .yd-matrix-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: ${SOFT_BG};
+            color: ${DARK};
+            font-weight: 800;
+        }
+        .yd-matrix-table .yd-sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            text-align: left;
+            min-width: 240px;
+            max-width: 280px;
+            background: #fff;
+            box-shadow: 2px 0 6px #0000000a;
+        }
+        .yd-matrix-table thead .yd-sticky-col {
+            z-index: 4;
+            background: ${SOFT_BG};
+        }
+        .yd-policy-select {
+            padding: 6px 8px;
+            border: 1px solid #d8cede;
+            border-radius: 7px;
+            background: ${LIGHT_BG};
+            color: ${DARK};
+            font-size: 11px;
+            font-weight: 700;
+        }
         @media (max-width: 650px) {
             #yd-header {
                 align-items: flex-start;
@@ -1449,6 +1739,23 @@ YODAWY.init = async function () {
         return `<button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button">${esc(label)}</button>`;
     }
 
+    function renderSwitch({ isOn, action, disabled = false, title = '' }) {
+        return `
+            <div class="yd-switch-wrap" title="${esc(title)}">
+                <button
+                    class="yd-switch ${isOn ? 'on' : ''}"
+                    type="button"
+                    role="switch"
+                    aria-checked="${isOn ? 'true' : 'false'}"
+                    ${disabled ? 'disabled' : `data-action="${esc(action)}"`}
+                >
+                    <span class="yd-switch-knob"></span>
+                </button>
+                <span class="yd-switch-state">${isOn ? 'ON' : 'OFF'}</span>
+            </div>
+        `;
+    }
+
     function card(title, value) {
         return `<div class="yd-card">${esc(title)}<div class="yd-value">${esc(value)}</div></div>`;
     }
@@ -1482,7 +1789,7 @@ YODAWY.init = async function () {
 
     // =========================================================
     // MY TOOLS
-    // Show visible tools even when Run permission is not granted.
+    // Show visible tools with ON/OFF switch; disabled if not permitted.
     // =========================================================
 
     function toolsPage() {
@@ -1490,37 +1797,39 @@ YODAWY.init = async function () {
 
         return header(
             'My Tools',
-            'Tools visible to your account. Running a tool requires permission.',
+            'Tools visible to your account. Turning a tool ON/OFF requires permission.',
             button('Reload Tools', 'sync', true)
         ) +
         `<div class="yd-card"><b>Visible Tools (${tools.length})</b>
             ${tools.map(tool => {
+                const key = permissionKey(tool);
                 const allowed = permitted(tool);
+                const enabledByUser = allowed && isToolEnabledByUser(tool);
 
                 const status = allowed
                     ? 'Permitted'
                     : 'Permission required';
 
-                const runButton = allowed
-                    ? button('Run', `run:${tool.path}`)
-                    : `<button
-                            class="yd-btn"
-                            type="button"
-                            disabled
-                            title="You do not have permission to run this tool."
-                       >Run</button>`;
+                const toggleControl = renderSwitch({
+                    isOn: enabledByUser,
+                    action: `toggle-my-tool:${key}`,
+                    disabled: !allowed,
+                    title: allowed
+                        ? `Turn ${tool.name}${enabledByUser ? 'OFF' : 'ON'}`
+                        : 'You do not have permission to run this tool.'
+                });
 
                 return `
                     <div class="yd-row">
                         <div class="yd-grow">
                             <b>${esc(tool.name)}</b>
-                            <div class="yd-sub">${esc(tool.path)}</div>
+                            <div class="yd-sub">${esc(tool.path)} — ID:${esc(key)}</div>
                             <div class="yd-sub">${esc(tool.description)}</div>
                         </div>
 
                         <span class="yd-pill">${esc(status)}</span>
 
-                        ${runButton}
+                        ${toggleControl}
                     </div>
                 `;
             }).join('') ||
@@ -1612,6 +1921,7 @@ YODAWY.init = async function () {
 
     // =========================================================
     // VISIBILITY MANAGEMENT (SUPER ADMIN ONLY)
+    // User dropdown + All Users Frozen Matrix View + Single User Tool Switches
     // =========================================================
 
     function visibilityPage() {
@@ -1619,49 +1929,159 @@ YODAWY.init = async function () {
             return deniedPage();
         }
 
+        const usersList = state.users.length
+            ? state.users
+            : [{ id: CONFIG.userId, name: state.user?.name || CONFIG.userId, role: 'Super Admin', status: 'Active' }];
+
+        const selectedUser = state.visibilitySelectedUser || 'ALL';
+
+        const dropdownHtml = `
+            <div class="yd-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div class="yd-field" style="flex:1;min-width:260px;margin:0">
+                        <label><b>Select User to Control Tool Visibility</b></label>
+                        <select id="yd-vis-user-filter">
+                            <option value="ALL" ${selectedUser === 'ALL' ? 'selected' : ''}>All Users (Matrix View)</option>
+                            ${usersList.map(u => {
+                                const uid = String(u.id || '').trim();
+                                const uname = String(u.name || uid).trim();
+                                return `<option value="${esc(uid)}" ${selectedUser === uid ? 'selected' : ''}>${esc(uname)} (${esc(uid)})</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        ${state.visibilityDirty ? '<span class="yd-pill" style="margin-right:8px">Unsaved changes</span>' : ''}
+                        ${button('Save Visibility', 'save-visibility', true)}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (selectedUser === 'ALL') {
+            const matrixHtml = `
+                <div class="yd-card">
+                    <div style="margin-bottom:12px">
+                        <b>All Users &amp; Tools Visibility Matrix</b>
+                        <div class="yd-sub">Tool names (left column) and User names (top row) remain frozen while scrolling.</div>
+                    </div>
+                    <div class="yd-matrix-scroll">
+                        <table class="yd-matrix-table">
+                            <thead>
+                                <tr>
+                                    <th class="yd-sticky-col">Tool / Policy</th>
+                                    ${usersList.map(u => {
+                                        const uid = String(u.id || '').trim();
+                                        const uname = String(u.name || uid).trim();
+                                        return `
+                                            <th>
+                                                <div>${esc(uname)}</div>
+                                                <div class="yd-sub">${esc(uid)}</div>
+                                            </th>
+                                        `;
+                                    }).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${state.tools.map(tool => {
+                                    const key = permissionKey(tool);
+                                    const policy = ensureToolVisibilityRecord(key);
+                                    const currentVis = String(policy.visibility || 'PRIVATE').toUpperCase();
+
+                                    return `
+                                        <tr>
+                                            <td class="yd-sticky-col">
+                                                <b>${esc(tool.name)}</b>
+                                                <div class="yd-sub">ID: ${esc(key)}</div>
+                                                <div style="margin-top:6px">
+                                                    <select class="yd-policy-select" data-vis-policy-tool="${esc(key)}">
+                                                        <option value="PUBLIC" ${currentVis === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
+                                                        <option value="PRIVATE" ${currentVis === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
+                                                        <option value="SELECTED_USERS" ${currentVis === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
+                                                    </select>
+                                                </div>
+                                            </td>
+                                            ${usersList.map(u => {
+                                                const uid = String(u.id || '').trim().toUpperCase();
+                                                const isSuper = uid === 'Q-001' || String(u.role || '').trim().toLowerCase() === 'super admin';
+                                                const visibleForUser = isToolVisibleForUser(tool, uid);
+
+                                                return `
+                                                    <td>
+                                                        ${renderSwitch({
+                                                            isOn: visibleForUser,
+                                                            action: `toggle-vis-cell:${key}:${uid}`,
+                                                            disabled: isSuper,
+                                                            title: isSuper
+                                                                ? 'Super Admin always has visibility.'
+                                                                : `Toggle ${tool.name} visibility for${u.name || uid}`
+                                                        })}
+                                                    </td>
+                                                `;
+                                            }).join('')}
+                                        </tr>
+                                    `;
+                                }).join('') || '<tr><td colspan="99" class="yd-empty">No tools found.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            return header(
+                'Visibility Management',
+                'Control tool visibility across all users or per individual user (Super Admin Only).'
+            ) + dropdownHtml + matrixHtml;
+        }
+
+        const targetUser = usersList.find(
+            u => String(u.id || '').trim().toUpperCase() === selectedUser.toUpperCase()
+        ) || { id: selectedUser, name: selectedUser, role: 'User', status: 'Inactive' };
+
+        const targetUid = String(targetUser.id || '').trim().toUpperCase();
+        const isTargetSuper = targetUid === 'Q-001' || String(targetUser.role || '').trim().toLowerCase() === 'super admin';
+
+        const singleUserHtml = `
+            <div class="yd-card">
+                <div class="yd-row" style="padding-top:0">
+                    <div class="yd-grow">
+                        <b>${esc(targetUser.name || targetUid)}</b>
+                        <div class="yd-sub">ID: ${esc(targetUid)} — Repository: ${esc(targetUser.repository || 'N/A')}</div>
+                    </div>
+                    <span class="yd-pill">${esc(targetUser.role || 'User')}</span>
+                    <span class="yd-pill">${esc(targetUser.status || 'Unknown')}</span>
+                </div>
+
+                ${state.tools.map(tool => {
+                    const key = permissionKey(tool);
+                    const policy = ensureToolVisibilityRecord(key);
+                    const currentVis = String(policy.visibility || 'PRIVATE').toUpperCase();
+                    const visibleForUser = isToolVisibleForUser(tool, targetUid);
+
+                    return `
+                        <div class="yd-row">
+                            <div class="yd-grow">
+                                <b>${esc(tool.name)}</b>
+                                <div class="yd-sub">${esc(tool.path)} — ID:${esc(key)}</div>
+                                <div class="yd-sub">Current Policy: <b>${esc(currentVis)}</b></div>
+                            </div>
+                            ${renderSwitch({
+                                isOn: visibleForUser,
+                                action: `toggle-vis-cell:${key}:${targetUid}`,
+                                disabled: isTargetSuper,
+                                title: isTargetSuper
+                                    ? 'Super Admin always has visibility.'
+                                    : `Turn visibility ${visibleForUser ? 'OFF' : 'ON'} for ${targetUser.name || targetUid}`
+                            })}
+                        </div>
+                    `;
+                }).join('') || '<div class="yd-empty">No tools found.</div>'}
+            </div>
+        `;
+
         return header(
             'Visibility Management',
-            'Configure visibility policies saved to YODAWY_USERS_REPOSITORY (Super Admin Only).',
-            button('Save Visibility', 'save-visibility', true)
-        ) +
-        `<div class="yd-card">
-            <b>Tool Visibility Configuration</b>
-            <div class="yd-sub" style="margin-bottom:15px">Policies: PUBLIC (visible to all), PRIVATE (hidden from regular users), SELECTED_USERS (visible only to specified IDs).</div>
-            ${state.tools.map(tool => {
-                const key = permissionKey(tool);
-                const policy = visibilityPolicy(tool);
-                const currentVis = String(policy.visibility || 'PRIVATE').toUpperCase();
-                const allowedUsersStr = Array.isArray(policy.allowedUsers)
-                    ? policy.allowedUsers.join(', ')
-                    : '';
-
-                return `
-                    <div class="yd-row" style="flex-wrap:wrap;align-items:flex-start">
-                        <div class="yd-grow" style="min-width:200px">
-                            <b>${esc(tool.name)}</b>
-                            <div class="yd-sub">${esc(tool.path)} — ID:${esc(tool.id || key)}</div>
-                        </div>
-                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%;margin-top:8px">
-                            <div class="yd-field" style="flex:1;min-width:150px;margin:0">
-                                <label class="yd-sub">Policy</label>
-                                <select id="yd-vis-${esc(key)}">
-                                    <option value="PUBLIC" ${currentVis === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
-                                    <option value="PRIVATE" ${currentVis === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
-                                    <option value="SELECTED_USERS" ${currentVis === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
-                                </select>
-                            </div>
-                            <div class="yd-field" style="flex:2;min-width:200px;margin:0">
-                                <label class="yd-sub">Allowed User IDs (comma-separated)</label>
-                                <input id="yd-users-${esc(key)}" value="${esc(allowedUsersStr)}" placeholder="e.g. Q-001, Q-002">
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('') || '<div class="yd-empty">No tools found.</div>'}
-            <div style="margin-top:15px">
-                ${button('Save Visibility', 'save-visibility', true)}
-            </div>
-        </div>`;
+            'Control tool visibility across all users or per individual user (Super Admin Only).'
+        ) + dropdownHtml + singleUserHtml;
     }
 
     function systemPage() {
@@ -1827,6 +2247,22 @@ YODAWY.init = async function () {
         }
     });
 
+    overlay.addEventListener('change', event => {
+        const userFilter = event.target.closest('#yd-vis-user-filter');
+        if (userFilter) {
+            state.visibilitySelectedUser = userFilter.value || 'ALL';
+            render();
+            return;
+        }
+
+        const policySelect = event.target.closest('[data-vis-policy-tool]');
+        if (policySelect) {
+            const toolKey = policySelect.dataset.visPolicyTool;
+            setToolPolicyMode(toolKey, policySelect.value);
+            render();
+        }
+    });
+
     overlay.addEventListener('click', async event => {
         if (event.target === overlay) {
             overlay.classList.remove('open');
@@ -1902,10 +2338,12 @@ YODAWY.init = async function () {
                 state.authenticated = false;
                 state.initialized = false;
                 state.user = null;
+                state.users = [];
                 state.personalToken = '';
                 state.settings = {};
                 state.permissions = {};
                 state.visibility = {};
+                state.visibilityDirty = false;
                 state.tools = [];
                 state.status = 'Reconnecting';
 
@@ -1948,18 +2386,34 @@ YODAWY.init = async function () {
                     }
                 }
 
-            } else if (action.startsWith('run:')) {
-                const path = action.slice(4);
-
+            } else if (action.startsWith('toggle-my-tool:')) {
+                const key = action.slice('toggle-my-tool:'.length);
                 const tool = state.tools.find(
-                    item => item.path === path
+                    item => permissionKey(item) === key
                 );
 
                 if (!tool) {
                     throw new Error('Tool not found.');
                 }
 
-                runTool(tool);
+                const nextState = !isToolEnabledByUser(tool);
+                await toggleMyToolSwitch(tool, nextState);
+
+            } else if (action.startsWith('toggle-vis-cell:')) {
+                const parts = action.split(':');
+                const toolKey = parts[1];
+                const targetUid = parts[2];
+
+                const tool = state.tools.find(
+                    item => permissionKey(item) === toolKey
+                );
+
+                if (!tool) {
+                    throw new Error('Tool not found.');
+                }
+
+                const currentlyVisible = isToolVisibleForUser(tool, targetUid);
+                setToolVisibilityForUser(toolKey, targetUid, !currentlyVisible);
                 render();
             }
 
