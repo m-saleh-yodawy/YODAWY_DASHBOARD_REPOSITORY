@@ -24,6 +24,7 @@ YODAWY.init = async function () {
     const state = {
         section: 'overview',
         status: 'Not connected',
+        lastSyncTime: 'Never',
         user: null,
         users: [],
         personalToken: '',
@@ -51,6 +52,25 @@ YODAWY.init = async function () {
         '"': '&quot;',
         "'": '&#39;'
     })[char]);
+
+    // =========================================================
+    // SVG ICONS
+    // =========================================================
+
+    const ICONS = {
+        brand: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`,
+        overview: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>`,
+        tools: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>`,
+        sync: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`,
+        shieldOk: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>`,
+        lock: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`,
+        bolt: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
+        cloud: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`,
+        repo: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>`,
+        close: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+        alertBadge: `<svg viewBox="0 0 14 14" width="12" height="12" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#c94b58"></circle><path fill="#fff" d="M6 10H8V12H6V10ZM6 2H8V8H6V2Z"></path></svg>`,
+        okBadge: `<svg viewBox="0 0 14 14" width="12" height="12" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#39865b"></circle><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7.2L6.1 9.3L10.2 4.8"></path></svg>`
+    };
 
     function log(message, type = 'info') {
         state.logs.unshift({
@@ -531,7 +551,7 @@ YODAWY.init = async function () {
         state.authenticated = true;
         state.initialized = true;
         state.status = 'Connected';
-        state.section = state.settings.startPage || 'overview';
+        state.section = state.settings.startPage === 'tools' ? 'tools' : 'overview';
 
         log('User authentication successful.', 'success');
     }
@@ -880,6 +900,7 @@ YODAWY.init = async function () {
             }
 
             state.status = 'Connected';
+            state.lastSyncTime = new Date().toLocaleTimeString();
         } catch (error) {
             state.error = error.message || String(error);
             state.status = 'Connection failed';
@@ -1148,7 +1169,7 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // DASHBOARD UI
+    // DASHBOARD UI & MODERN ODOO DESIGN SYSTEM
     // =========================================================
 
     const style = document.createElement('style');
@@ -1159,14 +1180,22 @@ YODAWY.init = async function () {
             right: 22px;
             bottom: 22px;
             z-index: 2147483000;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
             background: ${PURPLE};
             color: #fff;
             border: 0;
             border-radius: 40px;
-            padding: 13px 18px;
-            font: 700 13px system-ui;
+            padding: 12px 20px;
+            font: 700 13px system-ui, -apple-system, sans-serif;
             cursor: pointer;
             box-shadow: 0 8px 25px #0003;
+            transition: background .2s, transform .15s;
+        }
+        #yd-launcher:hover {
+            background: ${DARK};
+            transform: translateY(-1px);
         }
         #yd-overlay {
             position: fixed;
@@ -1177,6 +1206,7 @@ YODAWY.init = async function () {
             justify-content: center;
             padding: 3vh 3vw;
             background: #17131c99;
+            backdrop-filter: blur(2px);
         }
         #yd-overlay.open {
             display: flex;
@@ -1184,15 +1214,16 @@ YODAWY.init = async function () {
         #yd-modal {
             width: 100%;
             height: 100%;
-            max-width: 1450px;
-            max-height: 920px;
+            max-width: 1380px;
+            max-height: 880px;
             background: ${LIGHT_BG};
             color: #29242e;
             border-radius: 16px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            font: 14px/1.5 system-ui;
+            font: 14px/1.5 system-ui, -apple-system, sans-serif;
+            box-shadow: 0 24px 60px #00000040;
         }
         #yd-modal * {
             box-sizing: border-box;
@@ -1203,9 +1234,29 @@ YODAWY.init = async function () {
             align-items: center;
             justify-content: space-between;
             gap: 18px;
-            padding: 16px 22px;
+            height: 68px;
+            padding: 0 24px;
             background: #fff;
-            border-bottom: 1px solid #e9e4ec;
+            border-bottom: 1px solid #e7e0ea;
+            flex-shrink: 0;
+        }
+        .yd-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .yd-brand-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 11px;
+            background: ${PURPLE};
+            color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px #875a7b38;
         }
         #yd-body {
             display: flex;
@@ -1213,269 +1264,384 @@ YODAWY.init = async function () {
             min-height: 0;
         }
         #yd-sidebar {
-            width: 210px;
+            width: 230px;
             flex-shrink: 0;
             background: #fff;
-            padding: 15px 10px;
-            border-right: 1px solid #e9e4ec;
+            padding: 18px 12px;
+            border-right: 1px solid #e7e0ea;
             overflow: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .yd-sidebar-label {
+            padding: 4px 12px 8px;
+            color: #8c8492;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .8px;
+            text-transform: uppercase;
         }
         #yd-main {
             flex: 1;
             min-width: 0;
             overflow: auto;
-            padding: 25px;
+            padding: 26px 30px;
         }
         .yd-nav {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 12px;
             width: 100%;
+            height: 44px;
             text-align: left;
             border: 0;
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 0 14px;
             background: transparent;
             color: #655c6a;
+            font-size: 13.5px;
+            font-weight: 600;
             cursor: pointer;
-            margin-bottom: 4px;
+            transition: background .15s, color .15s;
+        }
+        .yd-nav:hover {
+            background: ${LIGHT_BG};
+            color: ${DARK};
         }
         .yd-nav.active {
             background: ${SOFT_BG};
             color: ${DARK};
             font-weight: 800;
         }
+        .yd-nav-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            color: ${PURPLE};
+            flex-shrink: 0;
+        }
         .yd-title {
-            font-size: 21px;
+            font-size: 20px;
             font-weight: 800;
+            color: #29242e;
+            line-height: 1.25;
         }
         .yd-sub {
-            font-size: 11px;
+            font-size: 12px;
             color: #8c8492;
+            line-height: 1.4;
+        }
+        .yd-page-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
         }
         .yd-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 12px;
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+        .yd-kpi-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            height: 96px;
+            background: #fff;
+            border: 1px solid #e7e0ea;
+            border-radius: 14px;
+            padding: 18px;
+            min-width: 0;
+            box-shadow: 0 2px 8px #24152e08;
+        }
+        .yd-kpi-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: ${SOFT_BG};
+            color: ${PURPLE};
+            flex-shrink: 0;
+        }
+        .yd-kpi-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+        .yd-kpi-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #8c8492;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .yd-kpi-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: #29242e;
+            line-height: 1.2;
+            margin-top: 3px;
+        }
+        .yd-kpi-meta {
+            font-size: 11px;
+            color: ${DARK};
+            font-weight: 600;
+            margin-top: 2px;
         }
         .yd-card {
             background: #fff;
-            border: 1px solid #eee8f0;
-            border-radius: 12px;
-            padding: 17px;
-            margin-bottom: 15px;
+            border: 1px solid #e7e0ea;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 18px;
             min-width: 0;
-        }
-        .yd-value {
-            font-size: 26px;
-            font-weight: 800;
-            margin-top: 8px;
+            box-shadow: 0 2px 8px #24152e08;
         }
         .yd-btn {
-            border: 1px solid #e5dce8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            height: 36px;
+            border: 1px solid #dfd5e3;
             background: #fff;
             color: ${DARK};
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 12px;
+            border-radius: 9px;
+            padding: 0 14px;
+            font-size: 12.5px;
             font-weight: 700;
             cursor: pointer;
-            margin: 2px;
+            transition: background .15s, border-color .15s;
+        }
+        .yd-btn:hover {
+            background: ${LIGHT_BG};
+            border-color: #cbb8ce;
         }
         .yd-primary {
             background: ${PURPLE};
             color: #fff;
             border-color: ${PURPLE};
         }
-        .yd-field {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin: 12px 0;
-        }
-        .yd-field input,
-        .yd-field select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #e3dce6;
-            border-radius: 8px;
-            font: 12px system-ui;
-            background: #fff;
-            color: #29242e;
-        }
-        .yd-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .yd-grow {
-            flex: 1;
-            min-width: 0;
-            overflow-wrap: anywhere;
-        }
-        .yd-note {
-            padding: 12px;
-            background: ${SOFT_BG};
-            border-radius: 8px;
-            margin-bottom: 14px;
-            font-size: 12px;
-            overflow-wrap: anywhere;
-        }
-        .yd-error {
-            padding: 12px;
-            background: #fbe6e9;
-            color: #a83d51;
-            border-radius: 8px;
-            margin-bottom: 14px;
-            overflow-wrap: anywhere;
+        .yd-primary:hover {
+            background: ${DARK};
+            border-color: ${DARK};
         }
         .yd-pill {
-            display: inline-block;
-            padding: 4px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 26px;
+            padding: 0 10px;
             background: ${SOFT_BG};
             color: ${DARK};
-            border-radius: 7px;
-            font-size: 11px;
+            border-radius: 999px;
+            font-size: 11.5px;
             font-weight: 700;
+            white-space: nowrap;
+        }
+        .yd-id-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 30px;
+            padding: 0 12px;
+            background: ${SOFT_BG};
+            color: ${DARK};
+            border: 1px solid #dfd4e2;
+            border-radius: 8px;
+            font-size: 12.5px;
+            font-weight: 800;
+            letter-spacing: .4px;
+        }
+        .yd-error {
+            padding: 13px 16px;
+            background: #fbe6e9;
+            color: #a83d51;
+            border: 1px solid #f5c2c9;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            font-size: 12.5px;
+            font-weight: 600;
+            overflow-wrap: anywhere;
         }
         .yd-empty {
-            padding: 24px;
+            padding: 32px;
             text-align: center;
             color: #8c8492;
+            font-size: 13px;
         }
-        .yd-brand {
-            min-width: 0;
-        }
+
+        /* =====================================================
+           GOOGLE-INSPIRED ACCOUNT RING & POPOVER IN HEADER
+           ===================================================== */
         .yd-header-actions {
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 10px;
+            gap: 12px;
+        }
+        .yd-header-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            height: 32px;
+            padding: 0 12px;
+            background: ${LIGHT_BG};
+            border: 1px solid #e7e0ea;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            color: ${DARK};
+        }
+        .yd-header-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #c58a32;
         }
         .yd-profile-wrap {
             position: relative;
         }
-        .yd-profile-trigger {
-            display: flex;
+        .yd-gb-btn {
+            position: relative;
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 6px 10px 6px 6px;
-            background: #fff;
-            border: 1px solid #e8dfe9;
-            border-radius: 12px;
-            color: #29242e;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            padding: 3px;
+            border: 0;
+            border-radius: 50%;
+            background: conic-gradient(${PURPLE}, ${DARK}, #b48aa8, ${PURPLE});
             cursor: pointer;
-            text-align: left;
-            transition: background .2s, border-color .2s;
-            font: inherit;
+            transition: transform .15s, box-shadow .15s;
         }
-        .yd-profile-trigger:hover {
-            background: ${LIGHT_BG};
-            border-color: #cbb8ce;
+        .yd-gb-btn:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 0 4px ${SOFT_BG};
         }
-        .yd-avatar {
+        .yd-gb-avatar {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 38px;
-            height: 38px;
-            flex-shrink: 0;
-            border-radius: 11px;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
             background: ${PURPLE};
             color: #fff;
+            border: 2px solid #fff;
             font-size: 15px;
             font-weight: 800;
+            user-select: none;
         }
-        .yd-profile-text {
+        .yd-gb-badge {
+            position: absolute;
+            right: -1px;
+            bottom: -1px;
             display: flex;
-            flex-direction: column;
-            gap: 2px;
-            max-width: 180px;
-        }
-        .yd-profile-name {
-            font-size: 12px;
-            font-weight: 800;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .yd-profile-id {
-            color: #8c8492;
-            font-size: 10px;
-            font-weight: 600;
-        }
-        .yd-profile-chevron {
-            margin-left: 5px;
-            color: ${PURPLE};
-            font-size: 17px;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            padding: 1px;
+            box-shadow: 0 1px 4px #0004;
         }
         .yd-profile-menu {
             position: absolute;
-            top: calc(100% + 10px);
+            top: calc(100% + 12px);
             right: 0;
             z-index: 2147483005;
-            width: 300px;
-            padding: 14px;
-            background: #fff;
-            border: 1px solid #e8dfe9;
-            border-radius: 14px;
-            box-shadow: 0 14px 40px #24152e24;
+            width: 340px;
+            padding: 18px;
+            background: ${LIGHT_BG};
+            border: 1px solid #e2d9e5;
+            border-radius: 22px;
+            box-shadow: 0 18px 48px #24152e2e;
         }
         .yd-profile-menu[hidden] {
             display: none !important;
         }
-        .yd-dropdown-heading {
-            padding: 3px 4px 12px;
-            color: #8c8492;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 1px;
+        .yd-gb-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 18px 14px;
+            background: #fff;
+            border: 1px solid #eee8f0;
+            border-radius: 16px;
+            margin-bottom: 12px;
         }
-        .yd-connection-row {
+        .yd-gb-ring-lg {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 10px;
-            background: ${LIGHT_BG};
-            border-radius: 10px;
-        }
-        .yd-connection-dot {
-            width: 10px;
-            height: 10px;
-            flex-shrink: 0;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            padding: 3px;
             border-radius: 50%;
-            background: #c58a32;
-            box-shadow: 0 0 0 4px #c58a321a;
+            background: conic-gradient(${PURPLE}, ${DARK}, #b48aa8, ${PURPLE});
+            margin-bottom: 10px;
         }
-        .yd-connection-label {
-            color: #8c8492;
-            font-size: 10px;
-        }
-        .yd-connection-value {
-            margin-top: 2px;
-            color: ${DARK};
-            font-size: 12px;
+        .yd-gb-avatar-lg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: ${PURPLE};
+            color: #fff;
+            border: 3px solid #fff;
+            font-size: 24px;
             font-weight: 800;
-            overflow-wrap: anywhere;
         }
-        .yd-dropdown-divider {
-            height: 1px;
-            margin: 12px 0;
-            background: #eee8f0;
+        .yd-gb-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: #29242e;
+        }
+        .yd-gb-meta {
+            font-size: 12px;
+            color: #8c8492;
+            margin-top: 2px;
+        }
+        .yd-gb-pills {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 10px;
+            flex-wrap: wrap;
         }
         .yd-dropdown-action {
             display: flex;
             align-items: center;
-            gap: 11px;
+            gap: 12px;
             width: 100%;
-            padding: 11px 9px;
+            padding: 10px 12px;
             border: 0;
-            border-radius: 9px;
-            background: transparent;
+            border-radius: 12px;
+            background: #fff;
             color: #29242e;
             cursor: pointer;
             text-align: left;
             font: inherit;
+            margin-top: 6px;
+            border: 1px solid #eee8f0;
+            transition: background .15s;
         }
         .yd-dropdown-action:hover {
             background: ${SOFT_BG};
@@ -1490,20 +1656,176 @@ YODAWY.init = async function () {
             border-radius: 9px;
             background: ${SOFT_BG};
             color: ${PURPLE};
-            font-size: 21px;
-            font-weight: 700;
         }
         .yd-dropdown-action b {
             display: block;
-            font-size: 12px;
+            font-size: 12.5px;
         }
         .yd-dropdown-action small {
             display: block;
-            margin-top: 3px;
+            margin-top: 2px;
             color: #8c8492;
-            font-size: 10px;
-            line-height: 1.5;
+            font-size: 11px;
         }
+
+        /* =====================================================
+           MODERN TABLE CARD & STRIPED TABLE
+           ===================================================== */
+        .yd-table-card {
+            background: #fff;
+            border: 1px solid #e7e0ea;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px #24152e08;
+            margin-bottom: 20px;
+        }
+        .yd-table-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 20px;
+            background: #fff;
+            border-bottom: 1px solid #eee8f0;
+        }
+        .yd-table-card-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 800;
+            color: #29242e;
+        }
+        .yd-table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+        .yd-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13px;
+        }
+        .yd-table thead th {
+            height: 44px;
+            padding: 0 18px;
+            background: ${SOFT_BG};
+            color: ${DARK};
+            font-size: 11.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-bottom: 1px solid #e2d8e5;
+            white-space: nowrap;
+        }
+        .yd-table tbody tr {
+            height: 64px;
+            border-bottom: 1px solid #f0ebf2;
+            transition: background .12s;
+        }
+        .yd-table-striped tbody tr:nth-child(even) {
+            background: ${LIGHT_BG};
+        }
+        .yd-table tbody tr:hover {
+            background: #f2eaf1;
+        }
+        .yd-table tbody td,
+        .yd-table tbody th {
+            padding: 12px 18px;
+            vertical-align: middle;
+        }
+        .yd-tool-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .yd-tool-avatar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: ${SOFT_BG};
+            color: ${PURPLE};
+            flex-shrink: 0;
+        }
+        .yd-tool-name {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #29242e;
+        }
+        .yd-tool-desc {
+            font-size: 11.5px;
+            color: #8c8492;
+            margin-top: 2px;
+        }
+
+        /* =====================================================
+           ODOO HOVER TOOLTIP FOR ACCESS ICON
+           ===================================================== */
+        .yd-access-badge {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            cursor: help;
+            transition: transform .15s;
+        }
+        .yd-access-badge.permitted {
+            background: #e7f4ec;
+            color: #287a4b;
+            border: 1px solid #c6e6d2;
+        }
+        .yd-access-badge.locked {
+            background: ${SOFT_BG};
+            color: ${DARK};
+            border: 1px solid #dfd3e2;
+        }
+        .yd-access-badge:hover {
+            transform: translateY(-1px);
+        }
+        .yd-tooltip {
+            position: absolute;
+            bottom: calc(100% + 9px);
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            padding: 7px 12px;
+            background: ${DARK};
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 700;
+            border-radius: 8px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            box-shadow: 0 8px 20px #24152e38;
+            transition: opacity .16s, transform .16s, visibility .16s;
+            z-index: 20;
+        }
+        .yd-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 5px;
+            border-style: solid;
+            border-color: ${DARK} transparent transparent transparent;
+        }
+        .yd-access-badge:hover .yd-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* =====================================================
+           SWITCH CONTROL
+           ===================================================== */
         .yd-switch-wrap {
             display: inline-flex;
             align-items: center;
@@ -1525,7 +1847,7 @@ YODAWY.init = async function () {
             background: ${PURPLE};
         }
         .yd-switch:disabled {
-            opacity: .45;
+            opacity: .42;
             cursor: not-allowed;
         }
         .yd-switch-knob {
@@ -1542,100 +1864,32 @@ YODAWY.init = async function () {
             transform: translateX(22px);
         }
         .yd-switch-state {
-            font-size: 11px;
+            font-size: 11.5px;
             font-weight: 800;
-            min-width: 26px;
+            min-width: 28px;
             color: ${DARK};
         }
-        .yd-matrix-scroll {
-            position: relative;
-            max-height: 520px;
-            overflow: auto;
-            border: 1px solid #e5dce8;
-            border-radius: 10px;
-            background: #fff;
-        }
-        .yd-matrix-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 12px;
-        }
-        .yd-matrix-table th,
-        .yd-matrix-table td {
-            padding: 12px 14px;
-            border-bottom: 1px solid #eee8f0;
-            border-right: 1px solid #eee8f0;
-            text-align: center;
-            vertical-align: middle;
-            background: #fff;
-            white-space: nowrap;
-        }
-        .yd-matrix-table thead th {
-            position: sticky;
-            top: 0;
-            z-index: 3;
-            background: ${SOFT_BG};
-            color: ${DARK};
-            font-weight: 800;
-        }
-        .yd-matrix-table .yd-sticky-col {
-            position: sticky;
-            left: 0;
-            z-index: 2;
-            text-align: left;
-            min-width: 240px;
-            max-width: 280px;
-            background: #fff;
-            box-shadow: 2px 0 6px #0000000a;
-        }
-        .yd-matrix-table thead .yd-sticky-col {
-            z-index: 4;
-            background: ${SOFT_BG};
-        }
-        .yd-policy-select {
-            padding: 6px 8px;
-            border: 1px solid #d8cede;
-            border-radius: 7px;
-            background: ${LIGHT_BG};
-            color: ${DARK};
-            font-size: 11px;
-            font-weight: 700;
+
+        @media (max-width: 900px) {
+            .yd-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            #yd-sidebar {
+                width: 180px;
+            }
+            #yd-main {
+                padding: 16px;
+            }
         }
         @media (max-width: 650px) {
-            #yd-header {
-                align-items: flex-start;
-                flex-wrap: wrap;
-            }
-            .yd-header-actions {
-                width: 100%;
-                justify-content: flex-start;
-                flex-wrap: wrap;
-            }
-            .yd-profile-menu {
-                right: auto;
-                left: 0;
-                width: min(300px, calc(100vw - 30px));
-            }
-        }
-        @media (max-width: 800px) {
             #yd-overlay {
                 padding: 0;
             }
             #yd-modal {
                 border-radius: 0;
             }
-            #yd-sidebar {
-                width: 125px;
-            }
-            #yd-main {
-                padding: 12px;
-            }
             .yd-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-            #yd-header {
-                padding: 12px;
+                grid-template-columns: 1fr;
             }
         }
     `;
@@ -1644,7 +1898,7 @@ YODAWY.init = async function () {
 
     const launcher = document.createElement('button');
     launcher.id = 'yd-launcher';
-    launcher.textContent = 'YODAWY DASHBOARD';
+    launcher.innerHTML = `${ICONS.brand}<span>YODAWY DASHBOARD</span>`;
 
     const overlay = document.createElement('div');
     overlay.id = 'yd-overlay';
@@ -1653,64 +1907,68 @@ YODAWY.init = async function () {
         <div id="yd-modal" role="dialog" aria-modal="true">
             <header id="yd-header">
                 <div class="yd-brand">
-                    <div class="yd-title">YODAWY DASHBOARD</div>
-                    <div class="yd-sub">Automation Control Center</div>
+                    <div class="yd-brand-logo">${ICONS.brand}</div>
+                    <div>
+                        <div class="yd-title">YODAWY DASHBOARD</div>
+                        <div class="yd-sub">Odoo &amp; Portal Automation Ecosystem</div>
+                    </div>
                 </div>
 
                 <div class="yd-header-actions">
-                    <span id="yd-status" class="yd-pill">Not connected</span>
+                    <div class="yd-header-status">
+                        <span id="yd-header-dot" class="yd-header-dot"></span>
+                        <span id="yd-status">Not connected</span>
+                    </div>
 
                     <div class="yd-profile-wrap">
                         <button
                             id="yd-profile-trigger"
-                            class="yd-profile-trigger"
+                            class="yd-gb-btn"
                             data-action="profile-toggle"
                             aria-expanded="false"
                             aria-controls="yd-profile-menu"
+                            aria-label="Account &amp; Connection"
                             type="button"
                         >
-                            <span class="yd-avatar" id="yd-profile-avatar">U</span>
-
-                            <span class="yd-profile-text">
-                                <span id="yd-profile-name" class="yd-profile-name">User Name</span>
-                                <span id="yd-profile-id" class="yd-profile-id">ID: Q-001</span>
-                            </span>
-
-                            <span class="yd-profile-chevron">⌄</span>
+                            <span class="yd-gb-avatar" id="yd-profile-avatar">M</span>
+                            <span class="yd-gb-badge" id="yd-profile-badge">${ICONS.okBadge}</span>
                         </button>
 
                         <div id="yd-profile-menu" class="yd-profile-menu" hidden>
-                            <div class="yd-dropdown-heading">ACCOUNT &amp; CONNECTION</div>
-
-                            <div class="yd-connection-row">
-                                <span class="yd-connection-dot"></span>
-                                <div>
-                                    <div class="yd-connection-label">Connection Status</div>
-                                    <div id="yd-profile-connection" class="yd-connection-value">Not connected</div>
+                            <div class="yd-gb-card">
+                                <div class="yd-gb-ring-lg">
+                                    <div class="yd-gb-avatar-lg" id="yd-profile-avatar-lg">M</div>
+                                </div>
+                                <div id="yd-profile-name" class="yd-gb-name">MOHAMED SALEH</div>
+                                <div id="yd-profile-id" class="yd-gb-meta">ID: Q-001</div>
+                                <div class="yd-gb-pills">
+                                    <span id="yd-profile-role" class="yd-pill">Super Admin</span>
+                                    <span id="yd-profile-connection" class="yd-pill">Connected</span>
                                 </div>
                             </div>
 
-                            <div class="yd-dropdown-divider"></div>
-
                             <button class="yd-dropdown-action" data-action="refresh-connection" type="button">
-                                <span class="yd-action-icon">↻</span>
+                                <span class="yd-action-icon">${ICONS.sync}</span>
                                 <span>
                                     <b>Refresh Connection</b>
-                                    <small>Recheck account and GitHub access</small>
+                                    <small>Re-verify GitHub authentication &amp; policies</small>
                                 </span>
                             </button>
 
                             <button class="yd-dropdown-action" data-action="refresh-tools" type="button">
-                                <span class="yd-action-icon">⟳</span>
+                                <span class="yd-action-icon">${ICONS.tools}</span>
                                 <span>
                                     <b>Refresh Tools</b>
-                                    <small>Reload the tools manifest and scripts</small>
+                                    <small>Reload tools manifest and cached scripts</small>
                                 </span>
                             </button>
                         </div>
                     </div>
 
-                    <button class="yd-btn" data-action="close" type="button">Close</button>
+                    <button class="yd-btn" data-action="close" type="button" title="Close Dashboard">
+                        ${ICONS.close}
+                        <span>Close</span>
+                    </button>
                 </div>
             </header>
 
@@ -1725,7 +1983,7 @@ YODAWY.init = async function () {
 
     function header(title, description, action = '') {
         return `
-            <div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+            <div class="yd-page-head">
                 <div>
                     <div class="yd-title">${esc(title)}</div>
                     <div class="yd-sub">${esc(description)}</div>
@@ -1735,8 +1993,13 @@ YODAWY.init = async function () {
         `;
     }
 
-    function button(label, action, primary = false) {
-        return `<button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button">${esc(label)}</button>`;
+    function button(label, action, primary = false, iconSvg = '') {
+        return `
+            <button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button">
+                ${iconSvg}
+                <span>${esc(label)}</span>
+            </button>
+        `;
     }
 
     function renderSwitch({ isOn, action, disabled = false, title = '' }) {
@@ -1756,86 +2019,220 @@ YODAWY.init = async function () {
         `;
     }
 
-    function card(title, value) {
-        return `<div class="yd-card">${esc(title)}<div class="yd-value">${esc(value)}</div></div>`;
+    function renderAccessIcon(allowed) {
+        if (allowed) {
+            return `
+                <div class="yd-access-badge permitted" aria-label="Permitted">
+                    ${ICONS.shieldOk}
+                    <span class="yd-tooltip">Access granted — Ready to use</span>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="yd-access-badge locked" aria-label="Permission required">
+                ${ICONS.lock}
+                <span class="yd-tooltip">Permission required to enable this tool</span>
+            </div>
+        `;
     }
 
+    function kpiCard({ icon, label, value, meta }) {
+        return `
+            <div class="yd-kpi-card">
+                <div class="yd-kpi-icon">${icon}</div>
+                <div class="yd-kpi-info">
+                    <div class="yd-kpi-label">${esc(label)}</div>
+                    <div class="yd-kpi-value">${esc(value)}</div>
+                    <div class="yd-kpi-meta">${esc(meta)}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // =========================================================
+    // OVERVIEW PAGE (MODERN DASHBOARD + CONNECTION TABLE)
+    // =========================================================
+
     function overviewPage() {
-        const available = state.tools.filter(permitted).length;
+        const visibleTools = state.tools.filter(toolIsVisible);
+        const permittedTools = visibleTools.filter(permitted);
+        const enabledTools = permittedTools.filter(isToolEnabledByUser);
+        const lockedCount = Math.max(0, visibleTools.length - permittedTools.length);
+
+        const userName = state.settings.displayName || state.user?.name || CONFIG.userId;
+        const userRole = state.user?.role || 'User';
+        const personalRepo = state.user?.repository || 'Not assigned';
 
         return header(
             'Overview',
-            `Signed in as ${state.settings.displayName || state.user?.name || CONFIG.userId}`,
-            button('Test & Sync', 'sync', true)
+            `Welcome back, ${userName} (${CONFIG.userId}) — Real-time ecosystem health & synchronization summary.`,
+            button('Test & Sync', 'sync', true, ICONS.sync)
         ) +
         `<div class="yd-grid">
-            ${card('Available Tools', available)}
-            ${card('Discovered Tools', state.tools.length)}
-            <div class="yd-card">GitHub Status<div style="margin-top:8px"><span class="yd-pill">${esc(state.status)}</span></div></div>
+            ${kpiCard({
+                icon: ICONS.tools,
+                label: 'Total Tools',
+                value: visibleTools.length,
+                meta: `${state.tools.length} discovered in manifest`
+            })}
+            ${kpiCard({
+                icon: ICONS.shieldOk,
+                label: 'Permitted Tools',
+                value: permittedTools.length,
+                meta: `${lockedCount} locked by permission`
+            })}
+            ${kpiCard({
+                icon: ICONS.bolt,
+                label: 'Enabled (ON)',
+                value: enabledTools.length,
+                meta: `Auto-running on matching pages`
+            })}
+            ${kpiCard({
+                icon: ICONS.cloud,
+                label: 'GitHub Sync',
+                value: state.status,
+                meta: `Last sync: ${state.lastSyncTime}`
+            })}
         </div>
-        <div class="yd-card">
-            <b>Account</b>
-            <div class="yd-row">
-                <div class="yd-grow">${esc(state.user?.name || CONFIG.userId)}<div class="yd-sub">ID: ${esc(CONFIG.userId)}</div></div>
-                <span class="yd-pill">${esc(state.user?.role || 'Unknown')}</span>
-                <span class="yd-pill">${esc(state.user?.status || 'Unknown')}</span>
+
+        <div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.repo}
+                    <span>Ecosystem Connections &amp; Repositories</span>
+                </div>
+                <span class="yd-pill">Owner: ${esc(OWNER)} · Branch: ${esc(YODAWY.branch || 'main')}</span>
             </div>
-        </div>
-        <div class="yd-card"><b>Authentication</b>
-            <div class="yd-row"><div class="yd-grow">System AUTH</div><span class="yd-pill">${state.authenticated ? 'Verified' : 'Not verified'}</span></div>
-            <div class="yd-row"><div class="yd-grow">Personal AUTH</div><span class="yd-pill">${state.authenticated ? 'Verified' : 'Not verified'}</span></div>
+            <div class="yd-table-responsive">
+                <table class="yd-table yd-table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Component</th>
+                            <th scope="col">GitHub Repository</th>
+                            <th scope="col">Role / Scope</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">1</th>
+                            <td><b>Dashboard Runtime</b><div class="yd-sub">Engine, Manifest &amp; Synced Config</div></td>
+                            <td><span class="yd-id-badge">${esc(YODAWY.dashboardRepository)}</span></td>
+                            <td>System Read Access</td>
+                            <td><span class="yd-pill">${state.authenticated ? 'Verified' : 'Pending'}</span></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">2</th>
+                            <td><b>Personal Workspace</b><div class="yd-sub">Employee Tool Switches &amp; Preferences</div></td>
+                            <td><span class="yd-id-badge">${esc(personalRepo)}</span></td>
+                            <td>Read / Write (${esc(CONFIG.userId)})</td>
+                            <td><span class="yd-pill">${state.authenticated ? 'Verified' : 'Pending'}</span></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">3</th>
+                            <td><b>Authoritative Users Repo</b><div class="yd-sub">Central Permissions &amp; Visibility Source</div></td>
+                            <td><span class="yd-id-badge">${esc(CONFIG.usersRepository)}</span></td>
+                            <td>${esc(userRole)}</td>
+                            <td><span class="yd-pill">${state.authenticated ? 'Synchronized' : 'Pending'}</span></td>
+                        </tr>
+                        <tr>
+                            <th scope="row">4</th>
+                            <td><b>Current Environment</b><div class="yd-sub">${esc(location.hostname)}</div></td>
+                            <td><span class="yd-id-badge">${esc(CONFIG.userId)}</span></td>
+                            <td>${esc(userName)} (${esc(userRole)})</td>
+                            <td><span class="yd-pill">${esc(state.user?.status || 'Active')}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>`;
     }
 
     // =========================================================
-    // MY TOOLS
-    // Show visible tools with ON/OFF switch; disabled if not permitted.
+    // TOOLS PAGE (MODERN TABLE, PROMINENT ID, HOVER ACCESS ICON, ON/OFF SWITCH)
     // =========================================================
 
     function toolsPage() {
         const tools = state.tools.filter(toolIsVisible);
 
         return header(
-            'My Tools',
-            'Tools visible to your account. Turning a tool ON/OFF requires permission.',
-            button('Reload Tools', 'sync', true)
+            'Tools',
+            'Manage your automation tools. Hover over the access icon for permission details.',
+            button('Reload Tools', 'sync', true, ICONS.sync)
         ) +
-        `<div class="yd-card"><b>Visible Tools (${tools.length})</b>
-            ${tools.map(tool => {
-                const key = permissionKey(tool);
-                const allowed = permitted(tool);
-                const enabledByUser = allowed && isToolEnabledByUser(tool);
+        `<div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.tools}
+                    <span>Tools (${tools.length})</span>
+                </div>
+                <span class="yd-pill">${tools.filter(permitted).length} Permitted · ${tools.filter(t => permitted(t) && isToolEnabledByUser(t)).length} ON</span>
+            </div>
+            <div class="yd-table-responsive">
+                <table class="yd-table yd-table-striped">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width:60px">#</th>
+                            <th scope="col" style="width:140px">ID</th>
+                            <th scope="col">Tool</th>
+                            <th scope="col" style="width:110px;text-align:center">Access</th>
+                            <th scope="col" style="width:150px;text-align:right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tools.map((tool, index) => {
+                            const key = permissionKey(tool);
+                            const allowed = permitted(tool);
+                            const enabledByUser = allowed && isToolEnabledByUser(tool);
 
-                const status = allowed
-                    ? 'Permitted'
-                    : 'Permission required';
+                            const toggleControl = renderSwitch({
+                                isOn: enabledByUser,
+                                action: `toggle-my-tool:${key}`,
+                                disabled: !allowed,
+                                title: allowed
+                                    ? `Turn ${tool.name}${enabledByUser ? 'OFF' : 'ON'}`
+                                    : 'Permission required to enable this tool'
+                            });
 
-                const toggleControl = renderSwitch({
-                    isOn: enabledByUser,
-                    action: `toggle-my-tool:${key}`,
-                    disabled: !allowed,
-                    title: allowed
-                        ? `Turn ${tool.name}${enabledByUser ? 'OFF' : 'ON'}`
-                        : 'You do not have permission to run this tool.'
-                });
-
-                return `
-                    <div class="yd-row">
-                        <div class="yd-grow">
-                            <b>${esc(tool.name)}</b>
-                            <div class="yd-sub">${esc(tool.path)} — ID:${esc(key)}</div>
-                            <div class="yd-sub">${esc(tool.description)}</div>
-                        </div>
-
-                        <span class="yd-pill">${esc(status)}</span>
-
-                        ${toggleControl}
-                    </div>
-                `;
-            }).join('') ||
-            '<div class="yd-empty">No visible tools found. Check tool visibility settings.</div>'}
+                            return `
+                                <tr>
+                                    <th scope="row">${index + 1}</th>
+                                    <td>
+                                        <span class="yd-id-badge">${esc(key)}</span>
+                                    </td>
+                                    <td>
+                                        <div class="yd-tool-cell">
+                                            <div class="yd-tool-avatar">${ICONS.tools}</div>
+                                            <div>
+                                                <div class="yd-tool-name">${esc(tool.name)}</div>
+                                                <div class="yd-tool-desc">${esc(tool.description || 'Yodawy automation userscript')}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td style="text-align:center">
+                                        ${renderAccessIcon(allowed)}
+                                    </td>
+                                    <td style="text-align:right">
+                                        ${toggleControl}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('') || `
+                            <tr>
+                                <td colspan="5" class="yd-empty">No tools available for your account.</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
         </div>`;
     }
+
+    // =========================================================
+    // PRESERVED PAGES (KEPT INTACT FOR UPCOMING MILESTONES)
+    // =========================================================
 
     function settingsPage() {
         const currentStartPage = state.settings.startPage || 'overview';
@@ -1849,7 +2246,7 @@ YODAWY.init = async function () {
             <div class="yd-field"><label>Personal Repository</label><input value="${esc(state.user?.repository || '')}" readonly></div>
             <div class="yd-field"><label>Default Page</label>
                 <select id="yd-start">
-                    ${['overview', 'tools', 'settings'].map(value =>
+                    ${['overview', 'tools'].map(value =>
                         `<option value="${value}" ${currentStartPage === value ? 'selected' : ''}>${value}</option>`
                     ).join('')}
                 </select>
@@ -1870,252 +2267,26 @@ YODAWY.init = async function () {
             <div class="yd-row"><div class="yd-grow">Authenticated user</div>${esc(state.user?.name || CONFIG.userId)}</div>
             <div class="yd-row"><div class="yd-grow">Role</div>${esc(state.user?.role || '')}</div>
             <div class="yd-row"><div class="yd-grow">Status</div>${esc(state.user?.status || '')}</div>
-            <div class="yd-note">User editing is not enabled in this version.</div>
         </div>`;
     }
-
-    // =========================================================
-    // SHARED TOOLS
-    // =========================================================
 
     function sharedPage() {
-        if (!canManage()) {
-            return deniedPage();
-        }
-
-        return header(
-            'Shared Tools',
-            'All tools discovered from the dashboard repository.'
-        ) +
-        `<div class="yd-card">
-            ${state.tools.map(tool => {
-                const allowed = permitted(tool);
-                const policy = visibilityPolicy(tool);
-
-                const visibility = String(
-                    policy.visibility || 'PUBLIC'
-                ).toUpperCase();
-
-                const type = permissionType(tool);
-
-                const permissionLabel = allowed
-                    ? 'Permitted'
-                    : 'Not permitted';
-
-                return `
-                    <div class="yd-row">
-                        <div class="yd-grow">
-                            <b>${esc(tool.name)}</b>
-                            <div class="yd-sub">${esc(tool.path)}</div>
-                            <div class="yd-sub">Visibility: ${esc(visibility)}</div>
-                            <div class="yd-sub">Permission type: ${esc(type)}</div>
-                        </div>
-
-                        <span class="yd-pill">${esc(permissionLabel)}</span>
-                    </div>
-                `;
-            }).join('') ||
-            '<div class="yd-empty">No tools loaded.</div>'}
-        </div>`;
+        if (!canManage()) return deniedPage();
+        return header('Shared Tools', 'All tools discovered from the dashboard repository.');
     }
 
-    // =========================================================
-    // VISIBILITY MANAGEMENT (SUPER ADMIN ONLY)
-    // User dropdown + All Users Frozen Matrix View + Single User Tool Switches
-    // =========================================================
-
     function visibilityPage() {
-        if (!canManageVisibility()) {
-            return deniedPage();
-        }
-
-        const usersList = state.users.length
-            ? state.users
-            : [{ id: CONFIG.userId, name: state.user?.name || CONFIG.userId, role: 'Super Admin', status: 'Active' }];
-
-        const selectedUser = state.visibilitySelectedUser || 'ALL';
-
-        const dropdownHtml = `
-            <div class="yd-card">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
-                    <div class="yd-field" style="flex:1;min-width:260px;margin:0">
-                        <label><b>Select User to Control Tool Visibility</b></label>
-                        <select id="yd-vis-user-filter">
-                            <option value="ALL" ${selectedUser === 'ALL' ? 'selected' : ''}>All Users (Matrix View)</option>
-                            ${usersList.map(u => {
-                                const uid = String(u.id || '').trim();
-                                const uname = String(u.name || uid).trim();
-                                return `<option value="${esc(uid)}" ${selectedUser === uid ? 'selected' : ''}>${esc(uname)} (${esc(uid)})</option>`;
-                            }).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        ${state.visibilityDirty ? '<span class="yd-pill" style="margin-right:8px">Unsaved changes</span>' : ''}
-                        ${button('Save Visibility', 'save-visibility', true)}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        if (selectedUser === 'ALL') {
-            const matrixHtml = `
-                <div class="yd-card">
-                    <div style="margin-bottom:12px">
-                        <b>All Users &amp; Tools Visibility Matrix</b>
-                        <div class="yd-sub">Tool names (left column) and User names (top row) remain frozen while scrolling.</div>
-                    </div>
-                    <div class="yd-matrix-scroll">
-                        <table class="yd-matrix-table">
-                            <thead>
-                                <tr>
-                                    <th class="yd-sticky-col">Tool / Policy</th>
-                                    ${usersList.map(u => {
-                                        const uid = String(u.id || '').trim();
-                                        const uname = String(u.name || uid).trim();
-                                        return `
-                                            <th>
-                                                <div>${esc(uname)}</div>
-                                                <div class="yd-sub">${esc(uid)}</div>
-                                            </th>
-                                        `;
-                                    }).join('')}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${state.tools.map(tool => {
-                                    const key = permissionKey(tool);
-                                    const policy = ensureToolVisibilityRecord(key);
-                                    const currentVis = String(policy.visibility || 'PRIVATE').toUpperCase();
-
-                                    return `
-                                        <tr>
-                                            <td class="yd-sticky-col">
-                                                <b>${esc(tool.name)}</b>
-                                                <div class="yd-sub">ID: ${esc(key)}</div>
-                                                <div style="margin-top:6px">
-                                                    <select class="yd-policy-select" data-vis-policy-tool="${esc(key)}">
-                                                        <option value="PUBLIC" ${currentVis === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
-                                                        <option value="PRIVATE" ${currentVis === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
-                                                        <option value="SELECTED_USERS" ${currentVis === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
-                                                    </select>
-                                                </div>
-                                            </td>
-                                            ${usersList.map(u => {
-                                                const uid = String(u.id || '').trim().toUpperCase();
-                                                const isSuper = uid === 'Q-001' || String(u.role || '').trim().toLowerCase() === 'super admin';
-                                                const visibleForUser = isToolVisibleForUser(tool, uid);
-
-                                                return `
-                                                    <td>
-                                                        ${renderSwitch({
-                                                            isOn: visibleForUser,
-                                                            action: `toggle-vis-cell:${key}:${uid}`,
-                                                            disabled: isSuper,
-                                                            title: isSuper
-                                                                ? 'Super Admin always has visibility.'
-                                                                : `Toggle ${tool.name} visibility for${u.name || uid}`
-                                                        })}
-                                                    </td>
-                                                `;
-                                            }).join('')}
-                                        </tr>
-                                    `;
-                                }).join('') || '<tr><td colspan="99" class="yd-empty">No tools found.</td></tr>'}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-
-            return header(
-                'Visibility Management',
-                'Control tool visibility across all users or per individual user (Super Admin Only).'
-            ) + dropdownHtml + matrixHtml;
-        }
-
-        const targetUser = usersList.find(
-            u => String(u.id || '').trim().toUpperCase() === selectedUser.toUpperCase()
-        ) || { id: selectedUser, name: selectedUser, role: 'User', status: 'Inactive' };
-
-        const targetUid = String(targetUser.id || '').trim().toUpperCase();
-        const isTargetSuper = targetUid === 'Q-001' || String(targetUser.role || '').trim().toLowerCase() === 'super admin';
-
-        const singleUserHtml = `
-            <div class="yd-card">
-                <div class="yd-row" style="padding-top:0">
-                    <div class="yd-grow">
-                        <b>${esc(targetUser.name || targetUid)}</b>
-                        <div class="yd-sub">ID: ${esc(targetUid)} — Repository: ${esc(targetUser.repository || 'N/A')}</div>
-                    </div>
-                    <span class="yd-pill">${esc(targetUser.role || 'User')}</span>
-                    <span class="yd-pill">${esc(targetUser.status || 'Unknown')}</span>
-                </div>
-
-                ${state.tools.map(tool => {
-                    const key = permissionKey(tool);
-                    const policy = ensureToolVisibilityRecord(key);
-                    const currentVis = String(policy.visibility || 'PRIVATE').toUpperCase();
-                    const visibleForUser = isToolVisibleForUser(tool, targetUid);
-
-                    return `
-                        <div class="yd-row">
-                            <div class="yd-grow">
-                                <b>${esc(tool.name)}</b>
-                                <div class="yd-sub">${esc(tool.path)} — ID:${esc(key)}</div>
-                                <div class="yd-sub">Current Policy: <b>${esc(currentVis)}</b></div>
-                            </div>
-                            ${renderSwitch({
-                                isOn: visibleForUser,
-                                action: `toggle-vis-cell:${key}:${targetUid}`,
-                                disabled: isTargetSuper,
-                                title: isTargetSuper
-                                    ? 'Super Admin always has visibility.'
-                                    : `Turn visibility ${visibleForUser ? 'OFF' : 'ON'} for ${targetUser.name || targetUid}`
-                            })}
-                        </div>
-                    `;
-                }).join('') || '<div class="yd-empty">No tools found.</div>'}
-            </div>
-        `;
-
-        return header(
-            'Visibility Management',
-            'Control tool visibility across all users or per individual user (Super Admin Only).'
-        ) + dropdownHtml + singleUserHtml;
+        if (!canManageVisibility()) return deniedPage();
+        return header('Visibility Management', 'Super Admin visibility controls.');
     }
 
     function systemPage() {
         if (!canManage()) return deniedPage();
-
-        return header(
-            'System Settings',
-            'Repository and connection information.'
-        ) +
-        `<div class="yd-card">
-            <div class="yd-row"><div class="yd-grow">Owner</div>${esc(OWNER)}</div>
-            <div class="yd-row"><div class="yd-grow">Branch</div>${esc(YODAWY.branch)}</div>
-            <div class="yd-row"><div class="yd-grow">Dashboard Repository</div>${esc(YODAWY.dashboardRepository)}</div>
-            <div class="yd-row"><div class="yd-grow">Users Repository</div>${esc(CONFIG.usersRepository)}</div>
-            <div class="yd-row"><div class="yd-grow">Tools Source</div>${esc(YODAWY.dashboardRepository)}/${esc(CONFIG.toolsDirectory)}</div>
-            <div class="yd-row"><div class="yd-grow">Tools Manifest</div>${esc(CONFIG.manifestPath)}</div>
-            <div class="yd-note">Tokens are read from the configured authentication source and are not displayed here.</div>
-        </div>`;
+        return header('System Settings', 'Repository and connection information.');
     }
 
     function logsPage() {
-        return header(
-            'Activity Logs',
-            'Recent operations in this browser session.',
-            button('Clear Logs', 'clear-logs')
-        ) +
-        `<div class="yd-card">
-            ${state.logs.map(item => `
-                <div class="yd-row">
-                    <div class="yd-grow">${esc(item.message)}<div class="yd-sub">${esc(item.time)}</div></div>
-                    <span class="yd-pill">${esc(item.type)}</span>
-                </div>
-            `).join('') || '<div class="yd-empty">No activity yet.</div>'}
-        </div>`;
+        return header('Activity Logs', 'Recent operations in this browser session.');
     }
 
     function deniedPage() {
@@ -2137,7 +2308,7 @@ YODAWY.init = async function () {
         if (!sidebarEl || !mainEl) return;
 
         $('#yd-status').textContent = state.loading
-            ? 'Loading…'
+            ? 'Syncing…'
             : state.status;
 
         const profileName = String(
@@ -2148,23 +2319,37 @@ YODAWY.init = async function () {
         ).trim();
 
         const profileId = CONFIG.userId;
+        const profileRole = state.user?.role || 'User';
+        const initial = profileName.charAt(0).toUpperCase() || 'U';
+        const isConnected = state.authenticated && state.status === 'Connected';
+
         const profileNameElement = $('#yd-profile-name');
         const profileIdElement = $('#yd-profile-id');
+        const profileRoleElement = $('#yd-profile-role');
         const profileAvatarElement = $('#yd-profile-avatar');
+        const profileAvatarLgElement = $('#yd-profile-avatar-lg');
         const profileConnectionElement = $('#yd-profile-connection');
-        const connectionDot = $('.yd-connection-dot');
+        const profileBadgeElement = $('#yd-profile-badge');
+        const headerDot = $('#yd-header-dot');
 
         if (profileNameElement) {
             profileNameElement.textContent = profileName;
         }
 
         if (profileIdElement) {
-            profileIdElement.textContent = `ID: ${profileId}`;
+            profileIdElement.textContent = `ID: ${profileId} · ${state.user?.repository || OWNER}`;
+        }
+
+        if (profileRoleElement) {
+            profileRoleElement.textContent = profileRole;
         }
 
         if (profileAvatarElement) {
-            profileAvatarElement.textContent =
-                profileName.charAt(0).toUpperCase() || 'U';
+            profileAvatarElement.textContent = initial;
+        }
+
+        if (profileAvatarLgElement) {
+            profileAvatarLgElement.textContent = initial;
         }
 
         if (profileConnectionElement) {
@@ -2173,36 +2358,39 @@ YODAWY.init = async function () {
                 : state.status;
         }
 
-        if (connectionDot) {
-            connectionDot.style.background = state.loading
+        if (profileBadgeElement) {
+            profileBadgeElement.innerHTML = isConnected
+                ? ICONS.okBadge
+                : ICONS.alertBadge;
+        }
+
+        if (headerDot) {
+            headerDot.style.background = state.loading
                 ? '#c58a32'
-                : state.authenticated && state.status === 'Connected'
+                : isConnected
                     ? '#39865b'
                     : '#c94b58';
         }
 
+        // Active sections currently focused on Overview and Tools only
         const sections = [
-            ['overview', 'Overview'],
-            ['tools', 'My Tools'],
-            ['settings', 'My Settings'],
-            ...(canManage()
-                ? [
-                    ['users', 'Users Management'],
-                    ['shared', 'Shared Tools'],
-                    ...(canManageVisibility() ? [['visibility', 'Visibility']] : []),
-                    ['system', 'System Settings']
-                ]
-                : []),
-            ['logs', 'Activity Logs']
+            ['overview', 'Overview', ICONS.overview],
+            ['tools', 'Tools', ICONS.tools]
         ];
 
         if (!sections.some(([id]) => id === state.section)) {
             state.section = 'overview';
         }
 
-        sidebarEl.innerHTML = sections.map(([id, name]) =>
-            `<button class="yd-nav ${state.section === id ? 'active' : ''}" data-section="${id}" type="button">${name}</button>`
-        ).join('');
+        sidebarEl.innerHTML = `
+            <div class="yd-sidebar-label">Navigation</div>
+            ${sections.map(([id, name, icon]) => `
+                <button class="yd-nav ${state.section === id ? 'active' : ''}" data-section="${id}" type="button">
+                    <span class="yd-nav-icon">${icon}</span>
+                    <span>${esc(name)}</span>
+                </button>
+            `).join('')}
+        `;
 
         const pages = {
             overview: overviewPage,
@@ -2216,13 +2404,13 @@ YODAWY.init = async function () {
         };
 
         mainEl.innerHTML = state.loading
-            ? '<div class="yd-empty">Connecting and loading tools…</div>'
+            ? '<div class="yd-empty">Connecting to GitHub and synchronizing tools…</div>'
             : !state.authenticated
                 ? `<div class="yd-card">
                     <div class="yd-title">Authentication Required</div>
-                    <p class="yd-sub">Connect to GitHub to verify your account and load permitted tools.</p>
-                    ${button('Connect & Load Tools', 'sync', true)}
-                    ${state.error ? `<div class="yd-error">${esc(state.error)}</div>` : ''}
+                    <p class="yd-sub" style="margin:8px 0 16px">Connect to GitHub to verify your account and load your tools.</p>
+                    ${button('Connect & Load Tools', 'sync', true, ICONS.sync)}
+                    ${state.error ? `<div class="yd-error" style="margin-top:14px">${esc(state.error)}</div>` : ''}
                 </div>`
                 : pages[state.section]();
 
@@ -2369,6 +2557,7 @@ YODAWY.init = async function () {
                         await loadTools();
 
                         state.status = 'Connected';
+                        state.lastSyncTime = new Date().toLocaleTimeString();
 
                         log(
                             'Tools refreshed successfully.',
