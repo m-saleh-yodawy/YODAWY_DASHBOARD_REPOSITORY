@@ -10,7 +10,8 @@ YODAWY.init = async function () {
         toolsDirectory: 'TOOLS_CACHE/TOOLS',
         settingsPath: 'DASHBOARD/dashboard-settings.json',
         permissionsPath: 'CONFIG/tools-permissions.json',
-        visibilityPath: 'CONFIG/tools-visibility.json'
+        visibilityPath: 'CONFIG/tools-visibility.json',
+        usersRepository: YODAWY.usersRepository || 'YODAWY_USERS_REPOSITORY'
     };
 
     const PURPLE = '#875A7B';
@@ -180,12 +181,10 @@ YODAWY.init = async function () {
     function permissionGranted(tool) {
         const permission = getToolPermissionRecord(tool);
 
-        // Support the old Boolean format.
         if (typeof permission === 'boolean') {
             return permission;
         }
 
-        // Support the new permission format.
         if (permission && typeof permission === 'object') {
             return permission.granted === true ||
                 permission.enabled === true;
@@ -206,22 +205,16 @@ YODAWY.init = async function () {
         return 'ADMIN';
     }
 
-    // Permission controls running; visibility controls displaying.
     function permitted(tool) {
         return permissionGranted(tool);
     }
 
     function visibilityPolicy(tool) {
         const key = permissionKey(tool);
-
-        return state.visibility[key] ??
-            state.visibility[tool.path] ??
-            state.visibility[tool.name] ??
-            {};
+        return state.visibility[key] || state.visibility[tool.id] || {};
     }
 
     function toolIsVisible(tool) {
-        // Super Admin can see hidden tools.
         if (isSuperAdmin()) {
             return true;
         }
@@ -230,10 +223,6 @@ YODAWY.init = async function () {
 
         if (!policy || typeof policy !== 'object') {
             return true;
-        }
-
-        if (policy.enabled === false) {
-            return false;
         }
 
         const visibility = String(
@@ -738,7 +727,7 @@ YODAWY.init = async function () {
             await loadTools();
 
             for (const tool of state.tools) {
-                if (permitted(tool) && matchesPage(tool)) {
+                if (permitted(tool) && toolIsVisible(tool) && matchesPage(tool)) {
                     try {
                         runTool(tool);
                     } catch (error) {
@@ -849,6 +838,101 @@ YODAWY.init = async function () {
         state.user.name = displayName;
 
         log('Settings saved.', 'success');
+        render();
+    }
+
+    // =========================================================
+    // SAVE VISIBILITY SETTINGS (AUTHORITATIVE USERS REPO)
+    // =========================================================
+
+    async function saveVisibilitySettings() {
+        if (!isSuperAdmin()) {
+            throw new Error('Super Admin access required to modify visibility.');
+        }
+
+        const repository = CONFIG.usersRepository;
+        const path = CONFIG.visibilityPath;
+
+        // Collect form data for each tool
+        const newVisibility = {};
+        for (const tool of state.tools) {
+            const key = permissionKey(tool);
+            const visSelect = $(`#yd-vis-${key}`);
+            const usersInput = $(`#yd-users-${key}`);
+
+            if (visSelect) {
+                const visValue = visSelect.value;
+                const allowedUsers = usersInput ? usersInput.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+                
+                newVisibility[key] = {
+                    visibility: visValue,
+                    allowedUsers: allowedUsers
+                };
+            }
+        }
+
+        const payloadData = { visibility: newVisibility };
+
+        // Fetch current file SHA from Users repository using personalToken
+        let current = null;
+        try {
+            const res = await fetch(repositoryUrl(repository, path), {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${state.personalToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store'
+            });
+            if (res.ok) {
+                current = await res.json();
+            }
+        } catch (err) {
+            // ignore if not found
+        }
+
+        const bytes = new TextEncoder().encode(
+            JSON.stringify(payloadData, null, 2) + '\n'
+        );
+
+        let binary = '';
+        for (let index = 0; index < bytes.length; index += 8192) {
+            binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+        }
+
+        const body = {
+            message: 'Update tool visibility configuration',
+            content: btoa(binary),
+            branch: YODAWY.branch
+        };
+
+        if (current?.sha) {
+            body.sha = current.sha;
+        }
+
+        const response = await fetch(repositoryUrl(repository, path), {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${state.personalToken}`,
+                Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json',
+                'X-GitHub-Api-Version': '2022-11-28'
+            },
+            credentials: 'omit',
+            cache: 'no-store',
+            body: JSON.stringify(body)
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(result.message || `Visibility save failed: ${response.status}`);
+        }
+
+        state.visibility = newVisibility;
+        log('Tool visibility saved successfully to Users Repository.', 'success');
         render();
     }
 
@@ -1119,7 +1203,7 @@ YODAWY.init = async function () {
             <div class="yd-field"><label>Default Page</label>
                 <select id="yd-start">
                     ${['overview', 'tools', 'settings'].map(value =>
-                        `<option value="${value}" ${(state.settings.startPage || 'overview') === value ? 'selected' : ''}>${value}</option>`
+                        `<option value="${value}" ${(state.settings.startPage \vert{}\vert{} 'overview') === value ? 'selected' : ''}>${value}</option>`
                     ).join('')}
                 </select>
             </div>
@@ -1165,23 +1249,18 @@ YODAWY.init = async function () {
                     policy.visibility || 'PUBLIC'
                 ).toUpperCase();
 
-                const enabled = policy.enabled !== false;
                 const type = permissionType(tool);
 
                 const permissionLabel = allowed
                     ? 'Permitted'
                     : 'Not permitted';
 
-                const visibilityLabel = enabled
-                    ? visibility
-                    : 'Disabled by visibility';
-
                 return `
                     <div class="yd-row">
                         <div class="yd-grow">
                             <b>${esc(tool.name)}</b>
                             <div class="yd-sub">${esc(tool.path)}</div>
-                            <div class="yd-sub">Visibility: ${esc(visibilityLabel)}</div>
+                            <div class="yd-sub">Visibility: ${esc(visibility)}</div>
                             <div class="yd-sub">Permission type: ${esc(type)}</div>
                         </div>
 
@@ -1190,6 +1269,58 @@ YODAWY.init = async function () {
                 `;
             }).join('') ||
             '<div class="yd-empty">No tools loaded.</div>'}
+        </div>`;
+    }
+
+    // =========================================================
+    // VISIBILITY MANAGEMENT (SUPER ADMIN ONLY)
+    // =========================================================
+
+    function visibilityPage() {
+        if (!canManageVisibility()) {
+            return deniedPage();
+        }
+
+        return header(
+            'Visibility Management',
+            'Configure visibility policies for tools across the ecosystem (Super Admin Only).',
+            button('Save Visibility', 'save-visibility', true)
+        ) +
+        `<div class="yd-card">
+            <b>Tool Visibility Configuration</b>
+            <div class="yd-sub" style="margin-bottom:15px">Policies: PUBLIC (visible to all), PRIVATE (hidden from non-admins), SELECTED_USERS (visible only to specified IDs).</div>
+            ${state.tools.map(tool => {
+                const key = permissionKey(tool);
+                const policy = visibilityPolicy(tool);
+                const currentVis = String(policy.visibility || 'PUBLIC').toUpperCase();
+                const allowedUsersStr = Array.isArray(policy.allowedUsers) ? policy.allowedUsers.join(', ') : '';
+
+                return `
+                    <div class="yd-row" style="flex-wrap:wrap;align-items:flex-start">
+                        <div class="yd-grow" style="min-width:200px">
+                            <b>${esc(tool.name)}</b>
+                            <div class="yd-sub">${esc(tool.path)} ID:${esc(tool.id || key)}</div>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%;margin-top:8px">
+                            <div style="flex:1;min-width:150px">
+                                <label class="yd-sub" style="display:block;margin-bottom:4px">Policy</label>
+                                <select id="yd-vis-${esc(key)}" class="yd-field" style="margin:0;padding:6px">
+                                    <option value="PUBLIC" ${currentVis === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
+                                    <option value="PRIVATE" ${currentVis === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
+                                    <option value="SELECTED_USERS" ${currentVis === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
+                                </select>
+                            </div>
+                            <div style="flex:2;min-width:200px">
+                                <label class="yd-sub" style="display:block;margin-bottom:4px">Allowed User IDs (comma-separated)</label>
+                                <input id="yd-users-${esc(key)}" class="yd-field" style="margin:0;padding:6px" value="${esc(allowedUsersStr)}" placeholder="e.g. Q-001, Q-002">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<div class="yd-empty">No tools found.</div>'}
+            <div style="margin-top:15px">
+                ${button('Save Visibility', 'save-visibility', true)}
+            </div>
         </div>`;
     }
 
@@ -1239,7 +1370,7 @@ YODAWY.init = async function () {
     // =========================================================
 
     function render() {
-        if (!$('#yd-sidebar') || !$('#yd-main')) return;
+        if (!$('#yd-sidebar') \vert{}\vert{} !$('#yd-main')) return;
 
         $('#yd-status').textContent = state.loading
             ? 'Loading…'
@@ -1294,6 +1425,7 @@ YODAWY.init = async function () {
                 ? [
                     ['users', 'Users Management'],
                     ['shared', 'Shared Tools'],
+                    ...(canManageVisibility() ? [['visibility', 'Visibility']] : []),
                     ['system', 'System Settings']
                 ]
                 : []),
@@ -1314,6 +1446,7 @@ YODAWY.init = async function () {
             settings: settingsPage,
             users: usersPage,
             shared: sharedPage,
+            visibility: visibilityPage,
             system: systemPage,
             logs: logsPage
         };
@@ -1406,6 +1539,9 @@ YODAWY.init = async function () {
 
             } else if (action === 'save-settings') {
                 await saveSettings();
+
+            } else if (action === 'save-visibility') {
+                await saveVisibilitySettings();
 
             } else if (action === 'clear-logs') {
                 state.logs = [];
