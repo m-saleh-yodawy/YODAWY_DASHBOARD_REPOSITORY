@@ -853,7 +853,6 @@ YODAWY.init = async function () {
         const repository = CONFIG.usersRepository;
         const path = CONFIG.visibilityPath;
 
-        // Collect form data for each tool
         const newVisibility = {};
         for (const tool of state.tools) {
             const key = permissionKey(tool);
@@ -873,7 +872,6 @@ YODAWY.init = async function () {
 
         const payloadData = { visibility: newVisibility };
 
-        // Fetch current file SHA from Users repository using personalToken
         let current = null;
         try {
             const res = await fetch(repositoryUrl(repository, path), {
@@ -890,7 +888,7 @@ YODAWY.init = async function () {
                 current = await res.json();
             }
         } catch (err) {
-            // ignore if not found
+            // ignore
         }
 
         const bytes = new TextEncoder().encode(
