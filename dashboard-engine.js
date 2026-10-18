@@ -16,6 +16,8 @@ YODAWY.init = async function () {
 
     const PURPLE = '#875A7B';
     const DARK = '#68465f';
+    const LIGHT_BG = '#f8f5f7';
+    const SOFT_BG = '#eee7ed';
     const API = YODAWY.apiBase;
     const OWNER = YODAWY.owner;
 
@@ -211,7 +213,11 @@ YODAWY.init = async function () {
 
     function visibilityPolicy(tool) {
         const key = permissionKey(tool);
-        return state.visibility[key] || state.visibility[tool.id] || {};
+
+        return state.visibility[key] ??
+            state.visibility[tool.path] ??
+            state.visibility[tool.name] ??
+            {};
     }
 
     function toolIsVisible(tool) {
@@ -486,7 +492,7 @@ YODAWY.init = async function () {
                     branch
                 );
 
-                const source = file.content;
+                const source = String(file.content || '').replace(/\u00a0/g, ' ');
 
                 const header = source.match(
                     /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
@@ -853,51 +859,61 @@ YODAWY.init = async function () {
         const repository = CONFIG.usersRepository;
         const path = CONFIG.visibilityPath;
 
-        const newVisibility = {};
-        for (const tool of state.tools) {
+        const newVisibility = {
+            ...state.visibility
+        };
+
+        const orderedTools = [...state.tools].sort((a, b) =>
+            permissionKey(a).localeCompare(permissionKey(b))
+        );
+
+        for (const tool of orderedTools) {
             const key = permissionKey(tool);
+            const existing = state.visibility[key] || {};
             const visSelect = $(`#yd-vis-${key}`);
             const usersInput = $(`#yd-users-${key}`);
 
             if (visSelect) {
-                const visValue = visSelect.value;
-                const allowedUsers = usersInput ? usersInput.value.split(',').map(s => s.trim()).filter(Boolean) : [];
-                
+                const visValue = String(visSelect.value || 'PRIVATE').toUpperCase();
+                const allowedUsers = usersInput
+                    ? usersInput.value
+                        .split(',')
+                        .map(s => s.trim().toUpperCase())
+                        .filter(Boolean)
+                    : [];
+
                 newVisibility[key] = {
+                    ...existing,
                     visibility: visValue,
-                    allowedUsers: allowedUsers
+                    allowedUsers,
+                    developmentStatus: existing.developmentStatus || 'UNDER DEVELOPMENT',
+                    publicationStatus: existing.publicationStatus || 'NOT PUBLISHED',
+                    enabled: typeof existing.enabled === 'boolean' ? existing.enabled : false
                 };
             }
         }
 
-        const payloadData = { visibility: newVisibility };
-
         let current = null;
+
         try {
-            const res = await fetch(repositoryUrl(repository, path), {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${state.personalToken}`,
-                    Accept: 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28'
-                },
-                credentials: 'omit',
-                cache: 'no-store'
-            });
-            if (res.ok) {
-                current = await res.json();
-            }
-        } catch (err) {
-            // ignore
+            current = await YODAWY.request(
+                repositoryUrl(repository, path),
+                state.personalToken
+            );
+        } catch (error) {
+            if (error.status !== 404) throw error;
         }
 
         const bytes = new TextEncoder().encode(
-            JSON.stringify(payloadData, null, 2) + '\n'
+            JSON.stringify(newVisibility, null, 2) + '\n'
         );
 
         let binary = '';
+
         for (let index = 0; index < bytes.length; index += 8192) {
-            binary += String.fromCharCode(...bytes.subarray(index, index + 8192));
+            binary += String.fromCharCode(
+                ...bytes.subarray(index, index + 8192)
+            );
         }
 
         const body = {
@@ -910,27 +926,35 @@ YODAWY.init = async function () {
             body.sha = current.sha;
         }
 
-        const response = await fetch(repositoryUrl(repository, path), {
-            method: 'PUT',
-            headers: {
-                Authorization: `Bearer ${state.personalToken}`,
-                Accept: 'application/vnd.github+json',
-                'Content-Type': 'application/json',
-                'X-GitHub-Api-Version': '2022-11-28'
-            },
-            credentials: 'omit',
-            cache: 'no-store',
-            body: JSON.stringify(body)
-        });
+        const response = await fetch(
+            repositoryUrl(repository, path),
+            {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${state.personalToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'Content-Type': 'application/json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store',
+                body: JSON.stringify(body)
+            }
+        );
 
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(result.message || `Visibility save failed: ${response.status}`);
+            throw new Error(
+                result.message ||
+                `Visibility save failed: ${response.status}`
+            );
         }
 
         state.visibility = newVisibility;
-        log('Tool visibility saved successfully to Users Repository.', 'success');
+        state.error = '';
+
+        log('Tool visibility saved to Users Repository.', 'success');
         render();
     }
 
@@ -941,71 +965,388 @@ YODAWY.init = async function () {
     const style = document.createElement('style');
 
     style.textContent = `
-        #yd-launcher{position:fixed;right:22px;bottom:22px;z-index:2147483000;background:${PURPLE};color:#fff;border:0;border-radius:40px;padding:13px 18px;font:700 13px system-ui;cursor:pointer;box-shadow:0 8px 25px #0003}
-        #yd-overlay{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:3vh 3vw;background:#17131c99}
-        #yd-overlay.open{display:flex}
-        #yd-modal{width:100%;height:100%;max-width:1450px;max-height:920px;background:#f7f6f9;color:#29242e;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;font:14px/1.5 system-ui}
-        #yd-modal *{box-sizing:border-box}
-        #yd-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;background:#fff;border-bottom:1px solid #e9e4ec}
-        #yd-body{display:flex;flex:1;min-height:0}
-        #yd-sidebar{width:210px;flex-shrink:0;background:#fff;padding:15px 10px;border-right:1px solid #e9e4ec;overflow:auto}
-        #yd-main{flex:1;min-width:0;overflow:auto;padding:25px}
-        .yd-nav{display:block;width:100%;text-align:left;border:0;border-radius:8px;padding:12px;background:transparent;color:#655c6a;cursor:pointer;margin-bottom:4px}
-        .yd-nav.active{background:#f1e8f1;color:${DARK};font-weight:800}
-        .yd-title{font-size:21px;font-weight:800}
-        .yd-sub{font-size:11px;color:#8c8492}
-        .yd-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-        .yd-card{background:#fff;border:1px solid #eee8f0;border-radius:12px;padding:17px;margin-bottom:15px;min-width:0}
-        .yd-value{font-size:26px;font-weight:800;margin-top:8px}
-        .yd-btn{border:1px solid #e5dce8;background:#fff;color:${DARK};border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;margin:2px}
-        .yd-primary{background:${PURPLE};color:#fff;border-color:${PURPLE}}
-        .yd-field{display:flex;flex-direction:column;gap:6px;margin:12px 0}
-        .yd-field input,.yd-field select{width:100%;padding:10px;border:1px solid #e3dce6;border-radius:8px;font:12px system-ui}
-        .yd-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #eee}
-        .yd-grow{flex:1;min-width:0;overflow-wrap:anywhere}
-        .yd-note{padding:12px;background:#f1e8f1;border-radius:8px;margin-bottom:14px;font-size:12px;overflow-wrap:anywhere}
-        .yd-error{padding:12px;background:#fbe6e9;color:#a83d51;border-radius:8px;margin-bottom:14px;overflow-wrap:anywhere}
-        .yd-pill{display:inline-block;padding:4px 8px;background:#eee4ef;color:${DARK};border-radius:7px;font-size:11px}
-        .yd-empty{padding:24px;text-align:center;color:#8c8492}
-
-        #yd-header{position:relative;gap:18px}
-        .yd-brand{min-width:0}
-        .yd-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}
-        .yd-profile-wrap{position:relative}
-        .yd-profile-trigger{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;background:#fff;border:1px solid #e8dfe9;border-radius:12px;color:#29242e;cursor:pointer;text-align:left;transition:background .2s,border-color .2s;font:inherit}
-        .yd-profile-trigger:hover{background:#f8f5f9;border-color:#cbb8ce}
-        .yd-avatar{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0;border-radius:11px;background:${PURPLE};color:#fff;font-size:15px;font-weight:800}
-        .yd-profile-text{display:flex;flex-direction:column;gap:2px;max-width:180px}
-        .yd-profile-name{font-size:12px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .yd-profile-id{color:#8c8492;font-size:10px;font-weight:600}
-        .yd-profile-chevron{margin-left:5px;color:${PURPLE};font-size:17px}
-        .yd-profile-menu{position:absolute;top:calc(100% + 10px);right:0;z-index:2147483005;width:300px;padding:14px;background:#fff;border:1px solid #e8dfe9;border-radius:14px;box-shadow:0 14px 40px #24152e24}
-        .yd-profile-menu[hidden]{display:none!important}
-        .yd-dropdown-heading{padding:3px 4px 12px;color:#8c8492;font-size:10px;font-weight:800;letter-spacing:1px}
-        .yd-connection-row{display:flex;align-items:center;gap:10px;padding:12px 10px;background:#f8f5f9;border-radius:10px}
-        .yd-connection-dot{width:10px;height:10px;flex-shrink:0;border-radius:50%;background:#c58a32;box-shadow:0 0 0 4px #c58a321a}
-        .yd-connection-label{color:#8c8492;font-size:10px}
-        .yd-connection-value{margin-top:2px;color:${DARK};font-size:12px;font-weight:800;overflow-wrap:anywhere}
-        .yd-dropdown-divider{height:1px;margin:12px 0;background:#eee8f0}
-        .yd-dropdown-action{display:flex;align-items:center;gap:11px;width:100%;padding:11px 9px;border:0;border-radius:9px;background:transparent;color:#29242e;cursor:pointer;text-align:left;font:inherit}
-        .yd-dropdown-action:hover{background:#f5eef6}
-        .yd-action-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:#eee4ef;color:${PURPLE};font-size:21px;font-weight:700}
-        .yd-dropdown-action b{display:block;font-size:12px}
-        .yd-dropdown-action small{display:block;margin-top:3px;color:#8c8492;font-size:10px;line-height:1.5}
-
-        @media(max-width:650px){
-            #yd-header{align-items:flex-start;flex-wrap:wrap}
-            .yd-header-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}
-            .yd-profile-menu{right:auto;left:0;width:min(300px,calc(100vw - 30px))}
+        #yd-launcher {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            z-index: 2147483000;
+            background: ${PURPLE};
+            color: #fff;
+            border: 0;
+            border-radius: 40px;
+            padding: 13px 18px;
+            font: 700 13px system-ui;
+            cursor: pointer;
+            box-shadow: 0 8px 25px #0003;
         }
-
-        @media(max-width:800px){
-            #yd-overlay{padding:0}
-            #yd-modal{border-radius:0}
-            #yd-sidebar{width:125px}
-            #yd-main{padding:12px}
-            .yd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-            #yd-header{padding:12px}
+        #yd-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483001;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 3vh 3vw;
+            background: #17131c99;
+        }
+        #yd-overlay.open {
+            display: flex;
+        }
+        #yd-modal {
+            width: 100%;
+            height: 100%;
+            max-width: 1450px;
+            max-height: 920px;
+            background: ${LIGHT_BG};
+            color: #29242e;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            font: 14px/1.5 system-ui;
+        }
+        #yd-modal * {
+            box-sizing: border-box;
+        }
+        #yd-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 16px 22px;
+            background: #fff;
+            border-bottom: 1px solid #e9e4ec;
+        }
+        #yd-body {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+        #yd-sidebar {
+            width: 210px;
+            flex-shrink: 0;
+            background: #fff;
+            padding: 15px 10px;
+            border-right: 1px solid #e9e4ec;
+            overflow: auto;
+        }
+        #yd-main {
+            flex: 1;
+            min-width: 0;
+            overflow: auto;
+            padding: 25px;
+        }
+        .yd-nav {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: 0;
+            border-radius: 8px;
+            padding: 12px;
+            background: transparent;
+            color: #655c6a;
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+        .yd-nav.active {
+            background: ${SOFT_BG};
+            color: ${DARK};
+            font-weight: 800;
+        }
+        .yd-title {
+            font-size: 21px;
+            font-weight: 800;
+        }
+        .yd-sub {
+            font-size: 11px;
+            color: #8c8492;
+        }
+        .yd-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .yd-card {
+            background: #fff;
+            border: 1px solid #eee8f0;
+            border-radius: 12px;
+            padding: 17px;
+            margin-bottom: 15px;
+            min-width: 0;
+        }
+        .yd-value {
+            font-size: 26px;
+            font-weight: 800;
+            margin-top: 8px;
+        }
+        .yd-btn {
+            border: 1px solid #e5dce8;
+            background: #fff;
+            color: ${DARK};
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            margin: 2px;
+        }
+        .yd-primary {
+            background: ${PURPLE};
+            color: #fff;
+            border-color: ${PURPLE};
+        }
+        .yd-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin: 12px 0;
+        }
+        .yd-field input,
+        .yd-field select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e3dce6;
+            border-radius: 8px;
+            font: 12px system-ui;
+        }
+        .yd-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .yd-grow {
+            flex: 1;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        .yd-note {
+            padding: 12px;
+            background: ${SOFT_BG};
+            border-radius: 8px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            overflow-wrap: anywhere;
+        }
+        .yd-error {
+            padding: 12px;
+            background: #fbe6e9;
+            color: #a83d51;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            overflow-wrap: anywhere;
+        }
+        .yd-pill {
+            display: inline-block;
+            padding: 4px 8px;
+            background: ${SOFT_BG};
+            color: ${DARK};
+            border-radius: 7px;
+            font-size: 11px;
+        }
+        .yd-empty {
+            padding: 24px;
+            text-align: center;
+            color: #8c8492;
+        }
+        .yd-brand {
+            min-width: 0;
+        }
+        .yd-header-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .yd-profile-wrap {
+            position: relative;
+        }
+        .yd-profile-trigger {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px 6px 6px;
+            background: #fff;
+            border: 1px solid #e8dfe9;
+            border-radius: 12px;
+            color: #29242e;
+            cursor: pointer;
+            text-align: left;
+            transition: background .2s, border-color .2s;
+            font: inherit;
+        }
+        .yd-profile-trigger:hover {
+            background: ${LIGHT_BG};
+            border-color: #cbb8ce;
+        }
+        .yd-avatar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            border-radius: 11px;
+            background: ${PURPLE};
+            color: #fff;
+            font-size: 15px;
+            font-weight: 800;
+        }
+        .yd-profile-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-width: 180px;
+        }
+        .yd-profile-name {
+            font-size: 12px;
+            font-weight: 800;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .yd-profile-id {
+            color: #8c8492;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .yd-profile-chevron {
+            margin-left: 5px;
+            color: ${PURPLE};
+            font-size: 17px;
+        }
+        .yd-profile-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            z-index: 2147483005;
+            width: 300px;
+            padding: 14px;
+            background: #fff;
+            border: 1px solid #e8dfe9;
+            border-radius: 14px;
+            box-shadow: 0 14px 40px #24152e24;
+        }
+        .yd-profile-menu[hidden] {
+            display: none !important;
+        }
+        .yd-dropdown-heading {
+            padding: 3px 4px 12px;
+            color: #8c8492;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .yd-connection-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 10px;
+            background: ${LIGHT_BG};
+            border-radius: 10px;
+        }
+        .yd-connection-dot {
+            width: 10px;
+            height: 10px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: #c58a32;
+            box-shadow: 0 0 0 4px #c58a321a;
+        }
+        .yd-connection-label {
+            color: #8c8492;
+            font-size: 10px;
+        }
+        .yd-connection-value {
+            margin-top: 2px;
+            color: ${DARK};
+            font-size: 12px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+        .yd-dropdown-divider {
+            height: 1px;
+            margin: 12px 0;
+            background: #eee8f0;
+        }
+        .yd-dropdown-action {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            width: 100%;
+            padding: 11px 9px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: #29242e;
+            cursor: pointer;
+            text-align: left;
+            font: inherit;
+        }
+        .yd-dropdown-action:hover {
+            background: ${SOFT_BG};
+        }
+        .yd-action-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            border-radius: 9px;
+            background: ${SOFT_BG};
+            color: ${PURPLE};
+            font-size: 21px;
+            font-weight: 700;
+        }
+        .yd-dropdown-action b {
+            display: block;
+            font-size: 12px;
+        }
+        .yd-dropdown-action small {
+            display: block;
+            margin-top: 3px;
+            color: #8c8492;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+        @media (max-width: 650px) {
+            #yd-header {
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+            .yd-header-actions {
+                width: 100%;
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+            .yd-profile-menu {
+                right: auto;
+                left: 0;
+                width: min(300px, calc(100vw - 30px));
+            }
+        }
+        @media (max-width: 800px) {
+            #yd-overlay {
+                padding: 0;
+            }
+            #yd-modal {
+                border-radius: 0;
+            }
+            #yd-sidebar {
+                width: 125px;
+            }
+            #yd-main {
+                padding: 12px;
+            }
+            .yd-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            #yd-header {
+                padding: 12px;
+            }
         }
     `;
 
@@ -1105,7 +1446,7 @@ YODAWY.init = async function () {
     }
 
     function button(label, action, primary = false) {
-        return `<button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}">${esc(label)}</button>`;
+        return `<button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button">${esc(label)}</button>`;
     }
 
     function card(title, value) {
@@ -1120,9 +1461,6 @@ YODAWY.init = async function () {
             `Signed in as ${state.settings.displayName || state.user?.name || CONFIG.userId}`,
             button('Test & Sync', 'sync', true)
         ) +
-        (state.error
-            ? `<div class="yd-error">${esc(state.error)}</div>`
-            : '') +
         `<div class="yd-grid">
             ${card('Available Tools', available)}
             ${card('Discovered Tools', state.tools.length)}
@@ -1191,6 +1529,8 @@ YODAWY.init = async function () {
     }
 
     function settingsPage() {
+        const currentStartPage = state.settings.startPage || 'overview';
+
         return header(
             'My Settings',
             'Personal settings saved in your employee repository.'
@@ -1201,7 +1541,7 @@ YODAWY.init = async function () {
             <div class="yd-field"><label>Default Page</label>
                 <select id="yd-start">
                     ${['overview', 'tools', 'settings'].map(value =>
-                        `<option value="${value}" ${(state.settings.startPage \vert{}\vert{} 'overview') === value ? 'selected' : ''}>${value}</option>`
+                        `<option value="${value}" ${currentStartPage === value ? 'selected' : ''}>${value}</option>`
                     ).join('')}
                 </select>
             </div>
@@ -1281,36 +1621,38 @@ YODAWY.init = async function () {
 
         return header(
             'Visibility Management',
-            'Configure visibility policies for tools across the ecosystem (Super Admin Only).',
+            'Configure visibility policies saved to YODAWY_USERS_REPOSITORY (Super Admin Only).',
             button('Save Visibility', 'save-visibility', true)
         ) +
         `<div class="yd-card">
             <b>Tool Visibility Configuration</b>
-            <div class="yd-sub" style="margin-bottom:15px">Policies: PUBLIC (visible to all), PRIVATE (hidden from non-admins), SELECTED_USERS (visible only to specified IDs).</div>
+            <div class="yd-sub" style="margin-bottom:15px">Policies: PUBLIC (visible to all), PRIVATE (hidden from regular users), SELECTED_USERS (visible only to specified IDs).</div>
             ${state.tools.map(tool => {
                 const key = permissionKey(tool);
                 const policy = visibilityPolicy(tool);
-                const currentVis = String(policy.visibility || 'PUBLIC').toUpperCase();
-                const allowedUsersStr = Array.isArray(policy.allowedUsers) ? policy.allowedUsers.join(', ') : '';
+                const currentVis = String(policy.visibility || 'PRIVATE').toUpperCase();
+                const allowedUsersStr = Array.isArray(policy.allowedUsers)
+                    ? policy.allowedUsers.join(', ')
+                    : '';
 
                 return `
                     <div class="yd-row" style="flex-wrap:wrap;align-items:flex-start">
                         <div class="yd-grow" style="min-width:200px">
                             <b>${esc(tool.name)}</b>
-                            <div class="yd-sub">${esc(tool.path)} ID:${esc(tool.id || key)}</div>
+                            <div class="yd-sub">${esc(tool.path)} — ID:${esc(tool.id || key)}</div>
                         </div>
                         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;width:100%;margin-top:8px">
-                            <div style="flex:1;min-width:150px">
-                                <label class="yd-sub" style="display:block;margin-bottom:4px">Policy</label>
-                                <select id="yd-vis-${esc(key)}" class="yd-field" style="margin:0;padding:6px">
+                            <div class="yd-field" style="flex:1;min-width:150px;margin:0">
+                                <label class="yd-sub">Policy</label>
+                                <select id="yd-vis-${esc(key)}">
                                     <option value="PUBLIC" ${currentVis === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
                                     <option value="PRIVATE" ${currentVis === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
                                     <option value="SELECTED_USERS" ${currentVis === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
                                 </select>
                             </div>
-                            <div style="flex:2;min-width:200px">
-                                <label class="yd-sub" style="display:block;margin-bottom:4px">Allowed User IDs (comma-separated)</label>
-                                <input id="yd-users-${esc(key)}" class="yd-field" style="margin:0;padding:6px" value="${esc(allowedUsersStr)}" placeholder="e.g. Q-001, Q-002">
+                            <div class="yd-field" style="flex:2;min-width:200px;margin:0">
+                                <label class="yd-sub">Allowed User IDs (comma-separated)</label>
+                                <input id="yd-users-${esc(key)}" value="${esc(allowedUsersStr)}" placeholder="e.g. Q-001, Q-002">
                             </div>
                         </div>
                     </div>
@@ -1333,6 +1675,7 @@ YODAWY.init = async function () {
             <div class="yd-row"><div class="yd-grow">Owner</div>${esc(OWNER)}</div>
             <div class="yd-row"><div class="yd-grow">Branch</div>${esc(YODAWY.branch)}</div>
             <div class="yd-row"><div class="yd-grow">Dashboard Repository</div>${esc(YODAWY.dashboardRepository)}</div>
+            <div class="yd-row"><div class="yd-grow">Users Repository</div>${esc(CONFIG.usersRepository)}</div>
             <div class="yd-row"><div class="yd-grow">Tools Source</div>${esc(YODAWY.dashboardRepository)}/${esc(CONFIG.toolsDirectory)}</div>
             <div class="yd-row"><div class="yd-grow">Tools Manifest</div>${esc(CONFIG.manifestPath)}</div>
             <div class="yd-note">Tokens are read from the configured authentication source and are not displayed here.</div>
@@ -1368,7 +1711,10 @@ YODAWY.init = async function () {
     // =========================================================
 
     function render() {
-        if (!$('#yd-sidebar') \vert{}\vert{} !$('#yd-main')) return;
+        const sidebarEl = $('#yd-sidebar');
+        const mainEl = $('#yd-main');
+
+        if (!sidebarEl || !mainEl) return;
 
         $('#yd-status').textContent = state.loading
             ? 'Loading…'
@@ -1434,8 +1780,8 @@ YODAWY.init = async function () {
             state.section = 'overview';
         }
 
-        $('#yd-sidebar').innerHTML = sections.map(([id, name]) =>
-            `<button class="yd-nav ${state.section === id ? 'active' : ''}" data-section="${id}">${name}</button>`
+        sidebarEl.innerHTML = sections.map(([id, name]) =>
+            `<button class="yd-nav ${state.section === id ? 'active' : ''}" data-section="${id}" type="button">${name}</button>`
         ).join('');
 
         const pages = {
@@ -1449,7 +1795,7 @@ YODAWY.init = async function () {
             logs: logsPage
         };
 
-        $('#yd-main').innerHTML = state.loading
+        mainEl.innerHTML = state.loading
             ? '<div class="yd-empty">Connecting and loading tools…</div>'
             : !state.authenticated
                 ? `<div class="yd-card">
@@ -1461,7 +1807,7 @@ YODAWY.init = async function () {
                 : pages[state.section]();
 
         if (state.authenticated && state.error) {
-            $('#yd-main').insertAdjacentHTML(
+            mainEl.insertAdjacentHTML(
                 'afterbegin',
                 `<div class="yd-error">${esc(state.error)}</div>`
             );
