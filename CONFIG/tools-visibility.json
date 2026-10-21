@@ -1,30 +1,23 @@
 {
-  "Q-001": {
-    "TOOL-001": {
-      "granted": false,
-      "type": "ADMIN"
-    },
-    "TOOL-002": {
-      "granted": false,
-      "type": "ADMIN"
-    },
-    "TOOL-003": {
-      "granted": false,
-      "type": "ADMIN"
-    }
+  "TOOL-001": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
   },
-  "Q-002": {
-    "TOOL-001": {
-      "granted": false,
-      "type": "ADMIN"
-    },
-    "TOOL-002": {
-      "granted": false,
-      "type": "ADMIN"
-    },
-    "TOOL-003": {
-      "granted": false,
-      "type": "ADMIN"
-    }
+  "TOOL-002": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
+  },
+  "TOOL-003": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
   }
 }
