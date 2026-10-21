@@ -287,6 +287,14 @@ YODAWY.init = async function () {
         return state.visibility[toolKey];
     }
 
+    function isToolGloballyEnabled(tool) {
+        const policy = visibilityPolicy(tool);
+        if (!policy || typeof policy !== 'object') {
+            return false;
+        }
+        return policy.enabled === true;
+    }
+
     function isToolVisibleForUser(tool, targetUserId) {
         const uid = String(targetUserId || '').trim().toUpperCase();
         const userObj = state.users.find(
@@ -301,11 +309,11 @@ YODAWY.init = async function () {
         const policy = visibilityPolicy(tool);
 
         if (!policy || typeof policy !== 'object') {
-            return true;
+            return false;
         }
 
         const visibility = String(
-            policy.visibility || 'PUBLIC'
+            policy.visibility || 'PRIVATE'
         ).toUpperCase();
 
         if (visibility === 'PUBLIC') {
@@ -326,7 +334,7 @@ YODAWY.init = async function () {
             return allowedUsers.includes(uid);
         }
 
-        return true;
+        return false;
     }
 
     function toolIsVisible(tool) {
@@ -381,7 +389,6 @@ YODAWY.init = async function () {
             }
         }
 
-        record.enabled = record.visibility !== 'PRIVATE';
         state.visibilityDirty = true;
     }
 
@@ -393,13 +400,14 @@ YODAWY.init = async function () {
 
         if (mode === 'PRIVATE') {
             record.allowedUsers = [];
-            record.enabled = false;
-        } else if (mode === 'PUBLIC') {
-            record.enabled = true;
-        } else if (mode === 'SELECTED_USERS') {
-            record.enabled = record.allowedUsers.length > 0;
         }
 
+        state.visibilityDirty = true;
+    }
+
+    function setToolGlobalActivation(toolKey, enabled) {
+        const record = ensureToolVisibilityRecord(toolKey);
+        record.enabled = Boolean(enabled);
         state.visibilityDirty = true;
     }
 
@@ -827,8 +835,24 @@ YODAWY.init = async function () {
     // =========================================================
 
     function runTool(tool) {
-        if (!state.authenticated || !permitted(tool)) {
+        if (!state.authenticated) {
+            throw new Error('User is not authenticated.');
+        }
+
+        if (!permitted(tool)) {
             throw new Error('Tool permission denied.');
+        }
+
+        if (!toolIsVisible(tool)) {
+            throw new Error('Tool visibility policy denied execution.');
+        }
+
+        if (!isToolGloballyEnabled(tool)) {
+            throw new Error('Tool is globally disabled.');
+        }
+
+        if (!isToolEnabledByUser(tool)) {
+            throw new Error('Tool is turned off in personal settings.');
         }
 
         if (!matchesPage(tool)) {
@@ -898,6 +922,7 @@ YODAWY.init = async function () {
                 if (
                     permitted(tool) &&
                     toolIsVisible(tool) &&
+                    isToolGloballyEnabled(tool) &&
                     isToolEnabledByUser(tool) &&
                     matchesPage(tool)
                 ) {
@@ -1101,7 +1126,7 @@ YODAWY.init = async function () {
                 allowedUsers,
                 developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
                 publicationStatus: record.publicationStatus || 'NOT PUBLISHED',
-                enabled: visValue !== 'PRIVATE'
+                enabled: Boolean(record.enabled)
             };
         }
 
@@ -1515,8 +1540,8 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-           ODOO FADE PILLS & COMPACT BADGES
-           ===================================================== */
+            ODOO FADE PILLS & COMPACT BADGES
+            ===================================================== */
         .yd-pill {
             display: inline-flex;
             align-items: center;
@@ -1588,8 +1613,8 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-           HEADER STATUS & COMPACT PROFILE BUTTON (NO HOVER JUMP)
-           ===================================================== */
+            HEADER STATUS & COMPACT PROFILE BUTTON (NO HOVER JUMP)
+            ===================================================== */
         .yd-header-actions {
             display: flex;
             align-items: center;
@@ -1764,8 +1789,8 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-           SLIM MODERN TABLE (SHADCN-INSPIRED COMPACT ROWS)
-           ===================================================== */
+            SLIM MODERN TABLE (SHADCN-INSPIRED COMPACT ROWS)
+            ===================================================== */
         .yd-table-card {
             background: #fff;
             border: 1px solid #e7e0ea;
@@ -1843,8 +1868,8 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-           ACCESS LOCK / UNLOCK ICON WITH HOVER TOOLTIP
-           ===================================================== */
+            ACCESS LOCK / UNLOCK ICON WITH HOVER TOOLTIP
+            ===================================================== */
         .yd-access-badge {
             position: relative;
             display: inline-flex;
@@ -1901,8 +1926,8 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-           COMPACT SWITCH CONTROL
-           ===================================================== */
+            COMPACT SWITCH CONTROL
+            ===================================================== */
         .yd-switch-wrap {
             display: inline-flex;
             align-items: center;
@@ -2107,7 +2132,7 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // OVERVIEW PAGE (SIMPLE, CLEAN, NO TABLE, NO JARGON)
+    // OVERVIEW PAGE
     // =========================================================
 
     function overviewPage() {
@@ -2201,7 +2226,7 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // TOOLS PAGE (SLIM MODERN TABLE, SPLIT PILLS, UNLOCKED/LOCKED PADLOCK)
+    // TOOLS PAGE
     // =========================================================
 
     function toolsPage() {
@@ -2279,40 +2304,197 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // PRESERVED PAGES (KEPT INTACT FOR UPCOMING MILESTONES)
+    // VISIBILITY PAGE (COMPLETED MANAGEMENT INTERFACE)
+    // =========================================================
+
+    function visibilityPage() {
+        if (!canManageVisibility()) return deniedPage();
+
+        const tools = state.tools;
+        const selectedUid = state.visibilitySelectedUser;
+
+        const filteredTools = tools.filter(tool => {
+            if (selectedUid === 'ALL') return true;
+            return isToolVisibleForUser(tool, selectedUid);
+        });
+
+        const saveActionBtn = button(
+            state.visibilityDirty ? 'Save Changes *' : 'Save Changes',
+            'save-visibility',
+            state.visibilityDirty,
+            ICONS.cloud
+        );
+
+        return header('Visibility & Access Control', saveActionBtn) +
+        `
+        <div class="yd-card" style="margin-bottom:14px">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                <div style="font-size:12px; color:#7c7482; font-weight:600;">
+                    Manage global tool visibility, activation, and user access independently. Changes require saving to the Users repository.
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label style="font-size:12px; font-weight:700; color:#655c6a;" for="yd-vis-user-filter">Filter User:</label>
+                    <select id="yd-vis-user-filter" style="height:30px; border-radius:8px; border:1px solid #e2d8e6; padding:0 8px; font-size:12px; background:#fff; color:#29242e;">
+                        <option value="ALL" ${selectedUid === 'ALL' ? 'selected' : ''}>All Users</option>
+                        ${state.users.map(u => {
+                            const uid = String(u.id || '').trim().toUpperCase();
+                            return `<option value="${esc(uid)}" ${selectedUid === uid ? 'selected' : ''}>${esc(u.name \vert{}\vert{} uid)} (${esc(uid)})</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.tools}
+                    <span>Tool Policies (${filteredTools.length})</span>
+                </div>
+                <div class="yd-table-pills">
+                    <span class="yd-pill ${state.visibilityDirty ? 'yd-pill-yellow' : 'yd-pill-green'}">${state.visibilityDirty ? 'Unsaved Changes' : 'Synced'}</span>
+                </div>
+            </div>
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width:110px">ID</th>
+                            <th scope="col">Tool Name</th>
+                            <th scope="col" style="width:140px">Visibility</th>
+                            <th scope="col" style="width:110px;text-align:center">Global ON</th>
+                            <th scope="col" style="width:130px">Dev Status</th>
+                            <th scope="col" style="width:130px">Publication</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredTools.map(tool => {
+                            const key = permissionKey(tool);
+                            const record = ensureToolVisibilityRecord(key);
+                            const visMode = String(record.visibility || 'PRIVATE').toUpperCase();
+                            const isGloballyEnabled = Boolean(record.enabled);
+
+                            const globalSwitch = renderSwitch({
+                                isOn: isGloballyEnabled,
+                                action: `toggle-global-tool:${key}`,
+                                title: `Globally ${isGloballyEnabled ? 'enabled' : 'disabled'}`
+                            });
+
+                            return `
+                                <tr>
+                                    <td><span class="yd-id-badge">${esc(key)}</span></td>
+                                    <td><div class="yd-tool-name">${esc(tool.name)}</div></td>
+                                    <td>
+                                        <select data-vis-policy-tool="${esc(key)}" style="height:28px; border-radius:6px; border:1px solid #e2d8e6; padding:0 6px; font-size:12px; background:#fff; color:#29242e; width:100%;">
+                                            <option value="PRIVATE" ${visMode === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
+                                            <option value="PUBLIC" ${visMode === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
+                                            <option value="SELECTED_USERS" ${visMode === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
+                                        </select>
+                                    </td>
+                                    <td style="text-align:center">${globalSwitch}</td>
+                                    <td><span class="yd-pill yd-pill-purple">${esc(record.developmentStatus || 'UNDER DEVELOPMENT')}</span></td>
+                                    <td><span class="yd-pill yd-pill-blue">${esc(record.publicationStatus || 'NOT PUBLISHED')}</span></td>
+                                </tr>
+                            `;
+                        }).join('') || `
+                            <tr>
+                                <td colspan="6" class="yd-empty">No tools found for visibility configuration.</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // PRESERVED PAGES
     // =========================================================
 
     function settingsPage() {
-        return header('Settings');
+        return header('Settings') +
+        `<div class="yd-card">
+            <div class="yd-card-title">${ICONS.user}<span>Personal Configuration</span></div>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#655c6a; margin-bottom:4px;" for="yd-name">Display Name</label>
+                    <input id="yd-name" type="text" value="${esc(state.settings.displayName || state.user?.name || CONFIG.userId)}" style="width:100%; height:34px; border:1px solid #e2d8e6; border-radius:8px; padding:0 10px; font-size:13px;" />
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:700; color:#655c6a; margin-bottom:4px;" for="yd-start">Start Page</label>
+                    <select id="yd-start" style="width:100%; height:34px; border:1px solid #e2d8e6; border-radius:8px; padding:0 10px; font-size:13px; background:#fff;">
+                        <option value="overview" ${state.settings.startPage === 'overview' ? 'selected' : ''}>Overview</option>
+                        <option value="tools" ${state.settings.startPage === 'tools' ? 'selected' : ''}>Tools</option>
+                    </select>
+                </div>
+                <div>${button('Save Settings', 'save-settings', true, ICONS.cloud)}</div>
+            </div>
+        </div>`;
     }
 
     function usersPage() {
         if (!canManage()) return deniedPage();
-        return header('Users');
+        return header('Users') +
+        `<div class="yd-table-card">
+            <div class="yd-table-card-head"><div class="yd-table-card-title">${ICONS.user}<span>Registered Users (${state.users.length})</span></div></div>
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Status</th></tr></thead>
+                    <tbody>
+                        ${state.users.map(u => `
+                            <tr>
+                                <td><span class="yd-id-badge">${esc(u.id || u.userId || '')}</span></td>
+                                <td><b>${esc(u.name || u.username || 'User')}</b></td>
+                                <td><span class="yd-pill ${rolePillClass(u.role)}">${esc(u.role || 'User')}</span></td>
+                                <td><span class="yd-pill ${String(u.status \vert{}\vert{} '').toLowerCase() === 'active' ? 'yd-pill-green' : 'yd-pill-red'}">${esc(u.status || 'Active')}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
     }
 
     function sharedPage() {
         if (!canManage()) return deniedPage();
-        return header('Shared Tools');
-    }
-
-    function visibilityPage() {
-        if (!canManageVisibility()) return deniedPage();
-        return header('Visibility');
+        return header('Shared Tools') +
+        `<div class="yd-card"><div class="yd-empty">Shared tools registry management is handled via authorized policy synchronization.</div></div>`;
     }
 
     function systemPage() {
         if (!canManage()) return deniedPage();
-        return header('System');
+        return header('System') +
+        `<div class="yd-card">
+            <div class="yd-card-title">${ICONS.cloud}<span>System Diagnostics</span></div>
+            <div class="yd-clean-row"><span class="yd-clean-label">Dashboard Repository</span><span class="yd-clean-val">${esc(YODAWY.dashboardRepository)}</span></div>
+            <div class="yd-clean-row"><span class="yd-clean-label">Users Repository</span><span class="yd-clean-val">${esc(CONFIG.usersRepository)}</span></div>
+            <div class="yd-clean-row"><span class="yd-clean-label">Branch</span><span class="yd-id-badge">${esc(YODAWY.branch || 'main')}</span></div>
+        </div>`;
     }
 
     function logsPage() {
-        return header('Logs');
+        return header('Logs', button('Clear Logs', 'clear-logs', false, ICONS.close)) +
+        `<div class="yd-table-card">
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead><tr><th style="width:90px">Time</th><th style="width:90px">Type</th><th>Message</th></tr></thead>
+                    <tbody>
+                        ${state.logs.map(l => `
+                            <tr>
+                                <td><span class="yd-id-badge">${esc(l.time)}</span></td>
+                                <td><span class="yd-pill ${l.type === 'error' ? 'yd-pill-red' : l.type === 'success' ? 'yd-pill-green' : 'yd-pill-blue'}">${esc(l.type)}</span></td>
+                                <td>${esc(l.message)}</td>
+                            </tr>
+                        `).join('') || `<tr><td colspan="3" class="yd-empty">No logs recorded.</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
     }
 
     function deniedPage() {
         return header('Access denied') +
-            '<div class="yd-error">Your account does not have administrator access.</div>';
+        '<div class="yd-error">Your account does not have administrator access.</div>';
     }
 
     // =========================================================
@@ -2327,11 +2509,14 @@ YODAWY.init = async function () {
 
         const isConnected = state.authenticated && state.status === 'Connected';
 
-        $('#yd-status').textContent = state.loading
-            ? 'Syncing…'
-            : isConnected
-                ? 'Connected'
-                : 'unConnected';
+        const statusEl = $('#yd-status');
+        if (statusEl) {
+            statusEl.textContent = state.loading
+                ? 'Syncing…'
+                : isConnected
+                    ? 'Connected'
+                    : 'unConnected';
+        }
 
         const profileName = String(
             state.settings.displayName ||
@@ -2353,27 +2538,14 @@ YODAWY.init = async function () {
         const profileBadgeElement = $('#yd-profile-badge');
         const headerDot = $('#yd-header-dot');
 
-        if (profileNameElement) {
-            profileNameElement.textContent = profileName;
-        }
-
-        if (profileIdElement) {
-            profileIdElement.textContent = `ID: ${profileId}`;
-        }
-
+        if (profileNameElement) profileNameElement.textContent = profileName;
+        if (profileIdElement) profileIdElement.textContent = `ID: ${profileId}`;
         if (profileRoleElement) {
             profileRoleElement.textContent = profileRole;
             profileRoleElement.className = `yd-pill ${rolePillClass(profileRole)}`;
         }
-
-        if (profileAvatarElement) {
-            profileAvatarElement.textContent = initial;
-        }
-
-        if (profileAvatarLgElement) {
-            profileAvatarLgElement.textContent = initial;
-        }
-
+        if (profileAvatarElement) profileAvatarElement.textContent = initial;
+        if (profileAvatarLgElement) profileAvatarLgElement.textContent = initial;
         if (profileConnectionElement) {
             profileConnectionElement.textContent = state.loading
                 ? 'Syncing…'
@@ -2382,13 +2554,7 @@ YODAWY.init = async function () {
                     : 'unConnected';
             profileConnectionElement.className = `yd-pill ${isConnected ? 'yd-pill-green' : 'yd-pill-red'}`;
         }
-
-        if (profileBadgeElement) {
-            profileBadgeElement.innerHTML = isConnected
-                ? ICONS.okBadge
-                : ICONS.alertBadge;
-        }
-
+        if (profileBadgeElement) profileBadgeElement.innerHTML = isConnected ? ICONS.okBadge : ICONS.alertBadge;
         if (headerDot) {
             headerDot.style.background = state.loading
                 ? '#c58a32'
@@ -2401,6 +2567,21 @@ YODAWY.init = async function () {
             ['overview', 'Overview', ICONS.overview],
             ['tools', 'Tools', ICONS.tools]
         ];
+
+        if (state.authenticated) {
+            sections.push(['settings', 'Settings', ICONS.user]);
+            if (canManage()) {
+                sections.push(['users', 'Users', ICONS.user]);
+                sections.push(['shared', 'Shared Tools', ICONS.tools]);
+            }
+            if (canManageVisibility()) {
+                sections.push(['visibility', 'Visibility', ICONS.lock]);
+            }
+            if (canManage()) {
+                sections.push(['system', 'System', ICONS.cloud]);
+            }
+            sections.push(['logs', 'Logs', ICONS.sync]);
+        }
 
         if (!sections.some(([id]) => id === state.section)) {
             state.section = 'overview';
@@ -2432,7 +2613,7 @@ YODAWY.init = async function () {
                     ${button('Connect', 'sync', true, ICONS.sync)}
                     ${state.error ? `<div class="yd-error" style="margin-top:12px">${esc(state.error)}</div>` : ''}
                 </div>`
-                : pages[state.section]();
+                : (pages[state.section] ? pages[state.section]() : overviewPage());
 
         if (state.authenticated && state.error) {
             mainEl.insertAdjacentHTML(
@@ -2579,7 +2760,7 @@ YODAWY.init = async function () {
                         state.status = 'Connected';
 
                         log(
-                            'Tools refreshed successfully.',
+                            'Tools refreshed refreshed successfully.',
                             'success'
                         );
 
@@ -2606,6 +2787,12 @@ YODAWY.init = async function () {
 
                 const nextState = !isToolEnabledByUser(tool);
                 await toggleMyToolSwitch(tool, nextState);
+
+            } else if (action.startsWith('toggle-global-tool:')) {
+                const toolKey = action.slice('toggle-global-tool:'.length);
+                const record = ensureToolVisibilityRecord(toolKey);
+                setToolGlobalActivation(toolKey, !record.enabled);
+                render();
 
             } else if (action.startsWith('toggle-vis-cell:')) {
                 const parts = action.split(':');
