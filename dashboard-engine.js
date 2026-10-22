@@ -33,6 +33,9 @@ YODAWY.init = async function () {
         visibility: {},
         visibilitySelectedUser: 'ALL',
         visibilityDirty: false,
+        savingVisibility: false,
+        visibilitySavedMessage: '',
+        openSelectedUsersTool: '',
         tools: [],
         logs: [],
         error: '',
@@ -67,6 +70,8 @@ YODAWY.init = async function () {
         cloud: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`,
         user: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
         close: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+        chevronDown: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`,
+        check: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
         alertBadge: `<svg viewBox="0 0 14 14" width="10" height="10" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#c94b58"></circle><path fill="#fff" d="M6 10H8V12H6V10ZM6 2H8V8H6V2Z"></path></svg>`,
         okBadge: `<svg viewBox="0 0 14 14" width="10" height="10" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#39865b"></circle><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7.2L6.1 9.3L10.2 4.8"></path></svg>`
     };
@@ -120,6 +125,28 @@ YODAWY.init = async function () {
         return [];
     }
 
+    function getUserId(userObj) {
+        if (!userObj || typeof userObj !== 'object') return '';
+        return String(
+            userObj.id ||
+            userObj.userId ||
+            userObj.username ||
+            ''
+        ).trim().toUpperCase();
+    }
+
+    function getUserName(userObj) {
+        if (!userObj || typeof userObj !== 'object') return '';
+        return String(
+            userObj.name ||
+            userObj.displayName ||
+            userObj.fullName ||
+            userObj.username ||
+            getUserId(userObj) ||
+            'User'
+        ).trim();
+    }
+
     function getPermissions(data) {
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             return {};
@@ -164,7 +191,7 @@ YODAWY.init = async function () {
 
     function rolePillClass(roleText) {
         const r = String(roleText || '').trim().toLowerCase();
-        if (r === 'super admin' || r === 'superadmin') {
+        if (r === 'super admin' || r === 'superadmin' || r === 'super_admin') {
             return 'yd-pill-blue';
         }
         if (r === 'admin') {
@@ -177,13 +204,51 @@ YODAWY.init = async function () {
     // ROLES, PERMISSIONS AND VISIBILITY
     // =========================================================
 
+    function getUserRoleCategory(userObj, fallbackUid = '') {
+        const uid = String(getUserId(userObj) || fallbackUid || '').trim().toUpperCase();
+        const rawRole = String(userObj?.role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+        if (uid === 'Q-001' || rawRole === 'super_admin' || rawRole === 'superadmin') {
+            return 'SUPER_ADMIN';
+        }
+
+        if (rawRole === 'admin' || rawRole === 'administrator') {
+            return 'ADMIN';
+        }
+
+        return 'USER';
+    }
+
+    function normalizeVisibilityMode(rawMode) {
+        const mode = String(rawMode || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+
+        if (mode === 'SUPER_ADMIN' || mode === 'SUPERADMIN' || mode === 'PRIVATE') {
+            return 'SUPER_ADMIN';
+        }
+
+        if (mode === 'ADMIN' || mode === 'ADMINS') {
+            return 'ADMIN';
+        }
+
+        if (mode === 'USER' || mode === 'USERS' || mode === 'ALL_USERS' || mode === 'ALL' || mode === 'PUBLIC') {
+            return 'USER';
+        }
+
+        if (mode === 'SELECTED_USERS' || mode === 'SELECTED') {
+            return 'SELECTED_USERS';
+        }
+
+        return 'SUPER_ADMIN';
+    }
+
     function isSuperAdmin() {
         const role = String(state.user?.role || '').trim().toLowerCase();
 
         return state.authenticated && (
             CONFIG.userId.toUpperCase() === 'Q-001' ||
             role === 'super admin' ||
-            role === 'superadmin'
+            role === 'superadmin' ||
+            role === 'super_admin'
         );
     }
 
@@ -191,7 +256,7 @@ YODAWY.init = async function () {
         const role = String(state.user?.role || '').trim().toLowerCase();
 
         return state.authenticated && (
-            isSuperAdmin() || role === 'admin'
+            isSuperAdmin() || role === 'admin' || role === 'administrator'
         );
     }
 
@@ -269,7 +334,7 @@ YODAWY.init = async function () {
 
         if (!existing || typeof existing !== 'object') {
             state.visibility[toolKey] = {
-                visibility: 'PRIVATE',
+                visibility: 'SUPER_ADMIN',
                 allowedUsers: [],
                 developmentStatus: 'UNDER DEVELOPMENT',
                 publicationStatus: 'NOT PUBLISHED',
@@ -278,10 +343,13 @@ YODAWY.init = async function () {
         } else {
             if (!Array.isArray(existing.allowedUsers)) {
                 existing.allowedUsers = [];
+            } else {
+                existing.allowedUsers = existing.allowedUsers
+                    .map(id => String(id).trim().toUpperCase())
+                    .filter(Boolean);
             }
-            if (!existing.visibility) {
-                existing.visibility = 'PRIVATE';
-            }
+
+            existing.visibility = normalizeVisibilityMode(existing.visibility);
         }
 
         return state.visibility[toolKey];
@@ -297,43 +365,42 @@ YODAWY.init = async function () {
 
     function isToolVisibleForUser(tool, targetUserId) {
         const uid = String(targetUserId || '').trim().toUpperCase();
-        const userObj = state.users.find(
-            u => String(u.id || '').trim().toUpperCase() === uid
-        );
-        const role = String(userObj?.role || '').trim().toLowerCase();
+        if (!uid) return false;
 
-        if (uid === 'Q-001' || role === 'super admin' || role === 'superadmin') {
+        const userObj = state.users.find(u => getUserId(u) === uid) ||
+            (uid === CONFIG.userId.toUpperCase() ? state.user : null);
+
+        const roleCategory = getUserRoleCategory(userObj, uid);
+
+        if (roleCategory === 'SUPER_ADMIN') {
             return true;
         }
 
         const policy = visibilityPolicy(tool);
 
-        if (!policy || typeof policy !== 'object') {
+        if (!policy || typeof policy !== 'object' || !policy.visibility) {
             return false;
         }
 
-        const rawVis = String(policy.visibility || 'PRIVATE').toUpperCase();
-        let visibility = rawVis;
-        if (rawVis === 'PRIVATE') visibility = 'SUPER_ADMIN';
-        if (rawVis === 'PUBLIC') visibility = 'USER';
+        const mode = normalizeVisibilityMode(policy.visibility);
 
-        if (visibility === 'SUPER_ADMIN') {
+        if (mode === 'SUPER_ADMIN') {
             return false;
         }
 
-        if (visibility === 'ADMIN') {
-            return role === 'admin';
+        if (mode === 'ADMIN') {
+            return roleCategory === 'ADMIN';
         }
 
-        if (visibility === 'USER') {
+        if (mode === 'USER') {
             return true;
         }
 
-        if (visibility === 'SELECTED_USERS') {
+        if (mode === 'SELECTED_USERS') {
             const allowedUsers = Array.isArray(policy.allowedUsers)
                 ? policy.allowedUsers.map(value =>
                     String(value).trim().toUpperCase()
-                )
+                ).filter(Boolean)
                 : [];
 
             return allowedUsers.includes(uid);
@@ -350,41 +417,97 @@ YODAWY.init = async function () {
         return isToolVisibleForUser(tool, CONFIG.userId);
     }
 
-    function setToolVisibilityMode(toolKey, newMode) {
-        const mode = String(newMode || 'SUPER_ADMIN').toUpperCase();
-        const record = ensureToolVisibilityRecord(toolKey);
+    function getSelectableUsersForVisibility() {
+        const currentSuperAdminId = CONFIG.userId.toUpperCase();
+        const currentLoggedUserId = getUserId(state.user);
 
-        let mapped = mode;
-        if (mode === 'SUPER_ADMIN') mapped = 'PRIVATE';
-        if (mode === 'USER') mapped = 'PUBLIC';
-
-        record.visibility = mapped;
-
-        if (mapped !== 'SELECTED_USERS') {
-            record.allowedUsers = [];
-        }
-
-        state.visibilityDirty = true;
+        return state.users.filter(u => {
+            const uid = getUserId(u);
+            if (!uid) return false;
+            if (uid === currentSuperAdminId || (currentLoggedUserId && uid === currentLoggedUserId)) {
+                return false;
+            }
+            return true;
+        });
     }
 
-    function toggleToolSelectedUser(toolKey, targetUserId) {
+    function setToolVisibilityForUser(toolKey, targetUserId, turnOn) {
         const uid = String(targetUserId || '').trim().toUpperCase();
-        if (!uid || uid === 'Q-001') return;
+        const currentSuperAdminId = CONFIG.userId.toUpperCase();
+        const currentLoggedUserId = getUserId(state.user);
 
-        const record = ensureToolVisibilityRecord(toolKey);
-        let allowed = Array.isArray(record.allowedUsers)
-            ? record.allowedUsers.map(id => String(id).trim().toUpperCase())
-            : [];
-
-        const index = allowed.indexOf(uid);
-        if (index > -1) {
-            allowed.splice(index, 1);
-        } else {
-            allowed.push(uid);
+        if (!uid || uid === currentSuperAdminId || (currentLoggedUserId && uid === currentLoggedUserId)) {
+            return;
         }
 
-        record.allowedUsers = allowed;
+        const record = ensureToolVisibilityRecord(toolKey);
+        const allowedSet = new Set(
+            (Array.isArray(record.allowedUsers) ? record.allowedUsers : [])
+                .map(id => String(id).trim().toUpperCase())
+                .filter(id => id && id !== currentSuperAdminId && id !== currentLoggedUserId)
+        );
+
+        const shouldAdd = typeof turnOn === 'boolean'
+            ? turnOn
+            : !allowedSet.has(uid);
+
+        if (shouldAdd) {
+            allowedSet.add(uid);
+        } else {
+            allowedSet.delete(uid);
+        }
+
+        record.allowedUsers = [...allowedSet];
         state.visibilityDirty = true;
+        state.visibilitySavedMessage = '';
+    }
+
+    function setToolPolicyMode(toolKey, newMode) {
+        const mode = normalizeVisibilityMode(newMode);
+        const record = ensureToolVisibilityRecord(toolKey);
+
+        record.visibility = mode;
+
+        if (mode !== 'SELECTED_USERS' && state.openSelectedUsersTool === toolKey) {
+            state.openSelectedUsersTool = '';
+        }
+
+        state.visibilityDirty = true;
+        state.visibilitySavedMessage = '';
+    }
+
+    function setToolGlobalActivation(toolKey, enabled) {
+        const record = ensureToolVisibilityRecord(toolKey);
+        record.enabled = Boolean(enabled);
+        state.visibilityDirty = true;
+        state.visibilitySavedMessage = '';
+    }
+
+    function extractVisibilityMap(visibilityData) {
+        if (!visibilityData || typeof visibilityData !== 'object' || Array.isArray(visibilityData)) {
+            return {};
+        }
+
+        const rawMap = visibilityData.visibility && typeof visibilityData.visibility === 'object'
+            ? visibilityData.visibility
+            : visibilityData.tools && typeof visibilityData.tools === 'object'
+                ? visibilityData.tools
+                : getPermissions(visibilityData);
+
+        const normalizedMap = {};
+        for (const [key, val] of Object.entries(rawMap || {})) {
+            if (val && typeof val === 'object' && !Array.isArray(val)) {
+                normalizedMap[key] = {
+                    ...val,
+                    visibility: normalizeVisibilityMode(val.visibility),
+                    allowedUsers: Array.isArray(val.allowedUsers)
+                        ? val.allowedUsers.map(u => String(u).trim().toUpperCase()).filter(Boolean)
+                        : []
+                };
+            }
+        }
+
+        return normalizedMap;
     }
 
     // =========================================================
@@ -420,6 +543,8 @@ YODAWY.init = async function () {
             authConfig.visibilityPath ||
             CONFIG.visibilityPath;
 
+        const initialToken = String(YODAWY.personalToken || '').trim() || undefined;
+
         const [
             usersData,
             messagesData,
@@ -439,9 +564,15 @@ YODAWY.init = async function () {
             ).catch(() => ({})),
 
             readJson(
-                YODAWY.dashboardRepository,
-                visibilityPath
-            ).catch(() => ({}))
+                CONFIG.usersRepository,
+                visibilityPath,
+                initialToken
+            ).catch(() =>
+                readJson(
+                    YODAWY.dashboardRepository,
+                    visibilityPath
+                ).catch(() => ({}))
+            )
         ]);
 
         if (authConfig.enabled === false) {
@@ -452,12 +583,7 @@ YODAWY.init = async function () {
         state.users = allUsers;
 
         const user = allUsers.find(item =>
-            String(
-                item.id ||
-                item.userId ||
-                item.username ||
-                ''
-            ).trim().toUpperCase() === CONFIG.userId.toUpperCase()
+            getUserId(item) === CONFIG.userId.toUpperCase()
         );
 
         if (!user) {
@@ -509,16 +635,23 @@ YODAWY.init = async function () {
 
         state.permissions = getPermissions(permissionsData);
 
-        state.visibility =
-            visibilityData?.visibility &&
-            typeof visibilityData.visibility === 'object'
-                ? visibilityData.visibility
-                : visibilityData?.tools &&
-                  typeof visibilityData.tools === 'object'
-                    ? visibilityData.tools
-                    : getPermissions(visibilityData);
+        let resolvedVisibilityData = visibilityData;
+        if (
+            (!resolvedVisibilityData || Object.keys(resolvedVisibilityData).length === 0) &&
+            !initialToken &&
+            personalToken
+        ) {
+            resolvedVisibilityData = await readJson(
+                CONFIG.usersRepository,
+                visibilityPath,
+                personalToken
+            ).catch(() => resolvedVisibilityData || {});
+        }
 
+        state.visibility = extractVisibilityMap(resolvedVisibilityData);
         state.visibilityDirty = false;
+        state.visibilitySavedMessage = '';
+        state.openSelectedUsersTool = '';
 
         try {
             state.settings = await readJson(
@@ -1078,109 +1211,133 @@ YODAWY.init = async function () {
             throw new Error('Super Admin access required to modify visibility.');
         }
 
-        const repository = CONFIG.usersRepository;
-        const path = CONFIG.visibilityPath;
-
-        const newVisibility = {};
-
-        const orderedTools = [...state.tools].sort((a, b) =>
-            permissionKey(a).localeCompare(permissionKey(b))
-        );
-
-        for (const tool of orderedTools) {
-            const key = permissionKey(tool);
-            const record = ensureToolVisibilityRecord(key);
-            const visValue = String(record.visibility || 'PRIVATE').toUpperCase();
-            const allowedUsers = Array.isArray(record.allowedUsers)
-                ? record.allowedUsers
-                    .map(s => String(s).trim().toUpperCase())
-                    .filter(Boolean)
-                : [];
-
-            newVisibility[key] = {
-                visibility: visValue,
-                allowedUsers,
-                developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
-                publicationStatus: record.publicationStatus || 'NOT PUBLISHED',
-                enabled: Boolean(record.enabled)
-            };
+        if (state.savingVisibility) {
+            return;
         }
 
-        for (const [key, value] of Object.entries(state.visibility)) {
-            if (!newVisibility[key] && value && typeof value === 'object') {
-                newVisibility[key] = value;
-            }
-        }
-
-        let current = null;
+        state.savingVisibility = true;
+        state.error = '';
+        state.visibilitySavedMessage = '';
+        render();
 
         try {
-            current = await YODAWY.request(
-                repositoryUrl(repository, path),
-                state.personalToken
+            const repository = CONFIG.usersRepository;
+            const path = CONFIG.visibilityPath;
+
+            const newVisibility = {};
+
+            const orderedTools = [...state.tools].sort((a, b) =>
+                permissionKey(a).localeCompare(permissionKey(b))
             );
-        } catch (error) {
-            if (error.status !== 404) throw error;
-        }
 
-        const bytes = new TextEncoder().encode(
-            JSON.stringify(newVisibility, null, 2) + '\n'
-        );
+            const currentSuperAdminId = CONFIG.userId.toUpperCase();
+            const currentLoggedUserId = getUserId(state.user);
 
-        let binary = '';
+            for (const tool of orderedTools) {
+                const key = permissionKey(tool);
+                const record = ensureToolVisibilityRecord(key);
+                const visValue = normalizeVisibilityMode(record.visibility);
+                const allowedUsers = Array.isArray(record.allowedUsers)
+                    ? [...new Set(
+                        record.allowedUsers
+                            .map(s => String(s).trim().toUpperCase())
+                            .filter(id => id && id !== currentSuperAdminId && id !== currentLoggedUserId)
+                    )]
+                    : [];
 
-        for (let index = 0; index < bytes.length; index += 8192) {
-            binary += String.fromCharCode(
-                ...bytes.subarray(index, index + 8192)
-            );
-        }
-
-        const body = {
-            message: 'Update tool visibility configuration',
-            content: btoa(binary),
-            branch: YODAWY.branch
-        };
-
-        if (current?.sha) {
-            body.sha = current.sha;
-        }
-
-        const response = await fetch(
-            repositoryUrl(repository, path),
-            {
-                method: 'PUT',
-                headers: {
-                    Authorization: `Bearer ${state.personalToken}`,
-                    Accept: 'application/vnd.github+json',
-                    'Content-Type': 'application/json',
-                    'X-GitHub-Api-Version': '2022-11-28'
-                },
-                credentials: 'omit',
-                cache: 'no-store',
-                body: JSON.stringify(body)
+                newVisibility[key] = {
+                    ...record,
+                    visibility: visValue,
+                    allowedUsers,
+                    developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
+                    publicationStatus: record.publicationStatus || 'NOT PUBLISHED',
+                    enabled: Boolean(record.enabled)
+                };
             }
-        );
 
-        const result = await response.json().catch(() => ({}));
+            for (const [key, value] of Object.entries(state.visibility)) {
+                if (!newVisibility[key] && value && typeof value === 'object') {
+                    newVisibility[key] = value;
+                }
+            }
 
-        if (!response.ok) {
-            throw new Error(
-                result.message ||
-                `Visibility save failed: ${response.status}`
+            let current = null;
+
+            try {
+                current = await YODAWY.request(
+                    repositoryUrl(repository, path),
+                    state.personalToken
+                );
+            } catch (error) {
+                if (error.status !== 404) throw error;
+            }
+
+            const bytes = new TextEncoder().encode(
+                JSON.stringify(newVisibility, null, 2) + '\n'
             );
+
+            let binary = '';
+
+            for (let index = 0; index < bytes.length; index += 8192) {
+                binary += String.fromCharCode(
+                    ...bytes.subarray(index, index + 8192)
+                );
+            }
+
+            const body = {
+                message: 'Update tool visibility configuration',
+                content: btoa(binary),
+                branch: YODAWY.branch
+            };
+
+            if (current?.sha) {
+                body.sha = current.sha;
+            }
+
+            const response = await fetch(
+                repositoryUrl(repository, path),
+                {
+                    method: 'PUT',
+                    headers: {
+                        Authorization: `Bearer ${state.personalToken}`,
+                        Accept: 'application/vnd.github+json',
+                        'Content-Type': 'application/json',
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    },
+                    credentials: 'omit',
+                    cache: 'no-store',
+                    body: JSON.stringify(body)
+                }
+            );
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(
+                    result.message ||
+                    `Visibility save failed: ${response.status}`
+                );
+            }
+
+            state.visibility = newVisibility;
+            state.visibilityDirty = false;
+            state.visibilitySavedMessage = 'Visibility policies saved.';
+            state.error = '';
+
+            log('Tool visibility saved to Users Repository.', 'success');
+        } finally {
+            state.savingVisibility = false;
+            render();
         }
-
-        state.visibility = newVisibility;
-        state.visibilityDirty = false;
-        state.error = '';
-
-        log('Tool visibility saved to Users Repository.', 'success');
-        render();
     }
 
     // =========================================================
     // DASHBOARD UI & CLEAN MODERN DESIGN SYSTEM
     // =========================================================
+
+    const selectArrowSvgDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="${DARK}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`
+    )}`;
 
     const style = document.createElement('style');
 
@@ -1482,17 +1639,21 @@ YODAWY.init = async function () {
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            transition: background .15s;
+            transition: background .15s, opacity .15s;
         }
-        .yd-btn:hover {
+        .yd-btn:hover:not(:disabled) {
             background: ${LIGHT_BG};
+        }
+        .yd-btn:disabled {
+            opacity: .55;
+            cursor: not-allowed;
         }
         .yd-primary {
             background: ${PURPLE};
             color: #fff;
             border-color: ${PURPLE} !important;
         }
-        .yd-primary:hover {
+        .yd-primary:hover:not(:disabled) {
             background: ${DARK};
         }
         .yd-close-btn {
@@ -1774,15 +1935,20 @@ YODAWY.init = async function () {
             overflow: hidden;
             box-shadow: 0 2px 6px #24152e06;
         }
+        .yd-table-card.yd-vis-table-card {
+            overflow: visible;
+        }
         .yd-table-card-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 10px;
-            height: 44px;
-            padding: 0 14px;
+            min-height: 46px;
+            padding: 6px 14px;
             background: #fff;
             border-bottom: 1px solid #eee8f0;
+            border-radius: 12px 12px 0 0;
+            flex-wrap: wrap;
         }
         .yd-table-card-title {
             display: flex;
@@ -1795,11 +1961,15 @@ YODAWY.init = async function () {
         .yd-table-pills {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .yd-table-responsive {
             width: 100%;
             overflow-x: auto;
+        }
+        .yd-table-responsive.yd-vis-table-wrap {
+            overflow: visible;
         }
         .yd-table {
             width: 100%;
@@ -1821,9 +1991,9 @@ YODAWY.init = async function () {
             vertical-align: middle;
         }
         .yd-table tbody tr {
-            height: 42px;
+            height: 44px;
             border-bottom: 1px solid #f1ecf3;
-            transition: background .12s;
+            transition: background .12s, color .12s;
         }
         .yd-table tbody tr:last-child {
             border-bottom: 0;
@@ -1841,6 +2011,274 @@ YODAWY.init = async function () {
             font-size: 13px;
             font-weight: 600;
             color: #29242e;
+        }
+
+        /* =====================================================
+            VISIBILITY PAGE UNIFIED DROPDOWNS & FILTER STATES
+            ===================================================== */
+        .yd-vis-filter-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .yd-vis-filter-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #655c6a;
+            white-space: nowrap;
+        }
+        .yd-vis-select {
+            appearance: none;
+            -webkit-appearance: none;
+            height: 32px;
+            width: 100%;
+            min-width: 165px;
+            padding: 0 30px 0 10px;
+            border: 1px solid #dfd5e3;
+            border-radius: 8px;
+            background-color: #fff;
+            background-image: url("${selectArrowSvgDataUri}");
+            background-repeat: no-repeat;
+            background-position: right 9px center;
+            background-size: 14px 14px;
+            color: #29242e;
+            font: 600 12.5px/1.2 system-ui, -apple-system, sans-serif;
+            cursor: pointer;
+            transition: border-color .14s, background-color .14s, box-shadow .14s;
+        }
+        .yd-vis-select:hover {
+            border-color: ${PURPLE};
+            background-color: #fcfafc;
+        }
+        #yd-modal .yd-vis-select:focus,
+        #yd-modal .yd-vis-select:focus-visible {
+            outline: none !important;
+            border-color: ${PURPLE} !important;
+            box-shadow: 0 0 0 2.5px #875A7B26 !important;
+            background-color: #fff;
+        }
+        .yd-vis-select option {
+            font-weight: 600;
+            color: #29242e;
+            background: #fff;
+            padding: 6px 10px;
+        }
+        .yd-ms-dropdown {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+        }
+        #yd-modal .yd-ms-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            height: 32px;
+            padding: 0 9px 0 10px;
+            border: 1px solid #dfd5e3 !important;
+            border-radius: 8px;
+            background: #fff;
+            color: #29242e;
+            font: 600 12.5px/1.2 system-ui, -apple-system, sans-serif;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color .14s, background-color .14s, box-shadow .14s;
+        }
+        #yd-modal .yd-ms-trigger:hover {
+            border-color: ${PURPLE} !important;
+            background: #fcfafc;
+        }
+        #yd-modal .yd-ms-trigger:focus,
+        #yd-modal .yd-ms-trigger:focus-visible,
+        #yd-modal .yd-ms-trigger.open {
+            outline: none !important;
+            border-color: ${PURPLE} !important;
+            box-shadow: 0 0 0 2.5px #875A7B26 !important;
+            background: #fff;
+        }
+        .yd-ms-summary {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            flex: 1;
+            overflow: hidden;
+        }
+        .yd-ms-placeholder {
+            color: #8c8492;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .yd-ms-value {
+            color: #29242e;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .yd-ms-inline-id {
+            color: #7c7482;
+            font-weight: 600;
+            font-size: 11.5px;
+        }
+        .yd-ms-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 18px;
+            min-width: 18px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: ${SOFT_BG};
+            color: ${DARK};
+            border: 1px solid #dfd2dc;
+            font-size: 10.5px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+        .yd-ms-arrow {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: ${DARK};
+            flex-shrink: 0;
+            transition: transform .15s;
+        }
+        .yd-ms-trigger.open .yd-ms-arrow {
+            transform: rotate(180deg);
+        }
+        .yd-ms-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            min-width: 230px;
+            max-height: 210px;
+            overflow-y: auto;
+            padding: 5px;
+            background: #fff;
+            border: 1px solid #dfd5e3;
+            border-radius: 10px;
+            box-shadow: 0 10px 24px #24152e1f;
+            z-index: 2147483010;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .yd-ms-menu[hidden] {
+            display: none !important;
+        }
+        #yd-modal .yd-ms-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 32px;
+            padding: 5px 8px;
+            border: 1px solid transparent !important;
+            border-radius: 7px;
+            background: transparent;
+            color: #29242e;
+            font: 600 12px/1.25 system-ui, -apple-system, sans-serif;
+            text-align: left;
+            cursor: pointer;
+            transition: background .12s, border-color .12s, color .12s;
+        }
+        #yd-modal .yd-ms-option:hover {
+            background: ${LIGHT_BG};
+        }
+        #yd-modal .yd-ms-option:focus-visible {
+            outline: none !important;
+            border-color: ${PURPLE} !important;
+            background: ${LIGHT_BG};
+        }
+        #yd-modal .yd-ms-option.selected {
+            background: ${SOFT_BG};
+            color: ${DARK};
+            border-color: #dfd2dc !important;
+        }
+        .yd-ms-checkbox {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 4px;
+            border: 1.5px solid #c9bccd;
+            background: #fff;
+            color: #fff;
+            flex-shrink: 0;
+            transition: background .12s, border-color .12s;
+        }
+        .yd-ms-option.selected .yd-ms-checkbox {
+            background: ${PURPLE};
+            border-color: ${PURPLE};
+        }
+        .yd-ms-option-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+        .yd-ms-option-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .yd-ms-option-id {
+            display: inline-flex;
+            align-items: center;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 5px;
+            background: #f5eff4;
+            color: ${DARK};
+            border: 1px solid #e4d8e2;
+            font-size: 10.5px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .yd-ms-empty {
+            padding: 10px 8px;
+            text-align: center;
+            color: #8c8492;
+            font-size: 11.5px;
+            font-weight: 600;
+        }
+
+        /* Faded / Unavailable Row Visual State for User Filter */
+        .yd-table tbody tr.yd-vis-row-unavailable {
+            background: #f5f2f6;
+        }
+        .yd-table tbody tr.yd-vis-row-unavailable:hover {
+            background: #efeaf1;
+        }
+        .yd-table tbody tr.yd-vis-row-unavailable .yd-tool-name {
+            color: #938a99;
+            font-weight: 500;
+        }
+        .yd-table tbody tr.yd-vis-row-unavailable .yd-id-badge {
+            background: #f2eef4;
+            color: #938a99;
+            border-color: #e4dce7;
+        }
+        .yd-table tbody tr.yd-vis-row-unavailable .yd-vis-select,
+        #yd-modal .yd-table tbody tr.yd-vis-row-unavailable .yd-ms-trigger {
+            background-color: #faf8fb;
+            color: #7d7483;
+            border-color: #e4dce7 !important;
+        }
+        .yd-table tbody tr.yd-vis-row-unavailable .yd-vis-select:hover,
+        #yd-modal .yd-table tbody tr.yd-vis-row-unavailable .yd-ms-trigger:hover {
+            background-color: #fff;
+            color: #29242e;
+            border-color: ${PURPLE} !important;
         }
 
         /* =====================================================
@@ -1961,6 +2399,12 @@ YODAWY.init = async function () {
             #yd-main {
                 padding: 14px;
             }
+            .yd-table-responsive.yd-vis-table-wrap {
+                overflow-x: auto;
+            }
+            .yd-ms-dropdown {
+                max-width: 100%;
+            }
         }
     `;
 
@@ -2051,9 +2495,9 @@ YODAWY.init = async function () {
         `;
     }
 
-    function button(label, action, primary = false, iconSvg = '') {
+    function button(label, action, primary = false, iconSvg = '', disabled = false) {
         return `
-            <button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button">
+            <button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button" ${disabled ? 'disabled' : ''}>
                 ${iconSvg}
                 <span>${esc(label)}</span>
             </button>
@@ -2247,7 +2691,7 @@ YODAWY.init = async function () {
                                 action: `toggle-my-tool:${key}`,
                                 disabled: !allowed,
                                 title: allowed
-                                    ? `Turn ${tool.name}${enabledByUser ? 'OFF' : 'ON'}`
+                                    ? `Turn ${tool.name} ${enabledByUser ? 'OFF' : 'ON'}`
                                     : 'Permission required to enable this tool'
                             });
 
@@ -2280,97 +2724,182 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // VISIBILITY PAGE (COMPLETED MANAGEMENT INTERFACE)
+    // VISIBILITY PAGE (REDESIGNED MANAGEMENT INTERFACE)
     // =========================================================
+
+    function renderSelectedUsersDropdown(toolKey, allowedUsers, selectableUsers) {
+        const isOpen = state.openSelectedUsersTool === toolKey;
+        const currentSuperAdminId = CONFIG.userId.toUpperCase();
+        const currentLoggedUserId = getUserId(state.user);
+
+        const activeAllowedIds = allowedUsers.filter(
+            uid => uid && uid !== currentSuperAdminId && uid !== currentLoggedUserId
+        );
+
+        const selectedDetails = activeAllowedIds.map(uid => {
+            const match = selectableUsers.find(u => getUserId(u) === uid);
+            return {
+                id: uid,
+                name: match ? getUserName(match) : uid
+            };
+        });
+
+        let summaryHtml = '<span class="yd-ms-placeholder">Select users…</span>';
+
+        if (selectedDetails.length === 1) {
+            summaryHtml = `
+                <span class="yd-ms-value">${esc(selectedDetails[0].name)} <span class="yd-ms-inline-id">(${esc(selectedDetails[0].id)})</span></span>
+                <span class="yd-ms-count">1</span>
+            `;
+        } else if (selectedDetails.length > 1) {
+            summaryHtml = `
+                <span class="yd-ms-value">${esc(selectedDetails[0].name)} +${selectedDetails.length - 1} more</span>
+                <span class="yd-ms-count">${selectedDetails.length}</span>
+            `;
+        }
+
+        const optionsHtml = selectableUsers.length
+            ? selectableUsers.map(u => {
+                const uid = getUserId(u);
+                const uName = getUserName(u);
+                const isSelected = activeAllowedIds.includes(uid);
+
+                return `
+                    <button
+                        type="button"
+                        class="yd-ms-option ${isSelected ? 'selected' : ''}"
+                        role="option"
+                        aria-selected="${isSelected ? 'true' : 'false'}"
+                        data-action="toggle-vis-cell:${esc(toolKey)}:${esc(uid)}"
+                    >
+                        <span class="yd-ms-checkbox">${isSelected ? ICONS.check : ''}</span>
+                        <span class="yd-ms-option-info">
+                            <span class="yd-ms-option-name">${esc(uName)}</span>
+                            <span class="yd-ms-option-id">${esc(uid)}</span>
+                        </span>
+                    </button>
+                `;
+            }).join('')
+            : '<div class="yd-ms-empty">No other registered users available.</div>';
+
+        return `
+            <div class="yd-ms-dropdown">
+                <button
+                    type="button"
+                    class="yd-ms-trigger ${isOpen ? 'open' : ''}"
+                    data-action="toggle-ms-dropdown:${esc(toolKey)}"
+                    aria-haspopup="listbox"
+                    aria-expanded="${isOpen ? 'true' : 'false'}"
+                >
+                    <span class="yd-ms-summary">${summaryHtml}</span>
+                    <span class="yd-ms-arrow">${ICONS.chevronDown}</span>
+                </button>
+                <div class="yd-ms-menu" role="listbox" aria-multiselectable="true" ${isOpen ? '' : 'hidden'}>
+                    ${optionsHtml}
+                </div>
+            </div>
+        `;
+    }
 
     function visibilityPage() {
         if (!canManageVisibility()) return deniedPage();
 
-        const tools = state.tools;
-        const filterUid = state.visibilitySelectedUser;
+        const selectedUid = state.visibilitySelectedUser || 'ALL';
+        const selectableUsers = getSelectableUsersForVisibility();
 
-        const selectableUsers = state.users.filter(u => {
-            const uid = String(u.id || '').trim().toUpperCase();
-            return uid && uid !== 'Q-001' && uid !== 'MOHAMED';
-        });
+        let orderedEntries = [];
 
-        // Sort tools based on filter if active: visible tools first, unavailable tools underneath
-        const processedTools = [...tools].sort((a, b) => {
-            if (filterUid === 'ALL') return 0;
-            const aVis = isToolVisibleForUser(a, filterUid) ? 0 : 1;
-            const bVis = isToolVisibleForUser(b, filterUid) ? 0 : 1;
-            return aVis - bVis;
-        });
+        if (selectedUid === 'ALL') {
+            orderedEntries = state.tools.map(tool => ({
+                tool,
+                isAvailableForFilter: true
+            }));
+        } else {
+            const visibleGroup = [];
+            const unavailableGroup = [];
+
+            for (const tool of state.tools) {
+                if (isToolVisibleForUser(tool, selectedUid)) {
+                    visibleGroup.push({
+                        tool,
+                        isAvailableForFilter: true
+                    });
+                } else {
+                    unavailableGroup.push({
+                        tool,
+                        isAvailableForFilter: false
+                    });
+                }
+            }
+
+            orderedEntries = [...visibleGroup, ...unavailableGroup];
+        }
+
+        const saveLabel = state.savingVisibility
+            ? 'Saving…'
+            : state.visibilityDirty
+                ? 'Save Changes *'
+                : 'Save Changes';
 
         const saveActionBtn = button(
-            state.visibilityDirty ? 'Save Changes *' : 'Save Changes',
+            saveLabel,
             'save-visibility',
-            state.visibilityDirty,
-            ICONS.cloud
+            state.visibilityDirty || state.savingVisibility,
+            ICONS.cloud,
+            state.savingVisibility
         );
 
-        return header('Visibility & Access Control', saveActionBtn) +
-        `
-        <div class="yd-card" style="margin-bottom:14px">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                <div style="font-size:12px; color:#7c7482; font-weight:600;">
-                    Filter and configure tool visibility tiers and selected user exceptions.
-                </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <label style="font-size:12px; font-weight:700; color:#655c6a;" for="yd-vis-user-filter">Filter User:</label>
-                    <select id="yd-vis-user-filter" style="height:30px; border-radius:8px; border:1px solid #e2d8e6; padding:0 8px; font-size:12px; background:#fff; color:#29242e;">
-                        <option value="ALL" ${filterUid === 'ALL' ? 'selected' : ''}>All Users</option>
-                        ${state.users.map(u => {
-                            const uid = String(u.id || '').trim().toUpperCase();
-                            return `<option value="${esc(uid)}" ${filterUid === uid ? 'selected' : ''}>${esc(u.name \vert{}\vert{} uid)} (${esc(uid)})</option>`;
-                        }).join('')}
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="yd-table-card">
+        return header('Visibility', saveActionBtn) +
+        `<div class="yd-table-card yd-vis-table-card">
             <div class="yd-table-card-head">
                 <div class="yd-table-card-title">
-                    ${ICONS.tools}
-                    <span>Tool Policies (${processedTools.length})</span>
+                    ${ICONS.lock}
+                    <span>Tools (${orderedEntries.length})</span>
                 </div>
                 <div class="yd-table-pills">
-                    <span class="yd-pill ${state.visibilityDirty ? 'yd-pill-yellow' : 'yd-pill-green'}">${state.visibilityDirty ? 'Unsaved Changes' : 'Synced'}</span>
+                    ${state.visibilitySavedMessage && !state.visibilityDirty
+                        ? `<span class="yd-pill yd-pill-green">${esc(state.visibilitySavedMessage)}</span>`
+                        : `<span class="yd-pill ${state.visibilityDirty ? 'yd-pill-yellow' : 'yd-pill-green'}">${state.visibilityDirty ? 'Unsaved Changes' : 'Synced'}</span>`
+                    }
+                    <div class="yd-vis-filter-group">
+                        <label class="yd-vis-filter-label" for="yd-vis-user-filter">User Filter</label>
+                        <select id="yd-vis-user-filter" class="yd-vis-select" style="width:auto; min-width:190px;">
+                            <option value="ALL" ${selectedUid === 'ALL' ? 'selected' : ''}>All Users</option>
+                            ${state.users.map(u => {
+                                const uid = getUserId(u);
+                                if (!uid) return '';
+                                const uName = getUserName(u);
+                                return `<option value="${esc(uid)}" ${selectedUid === uid ? 'selected' : ''}>${esc(uName)} (${esc(uid)})</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
                 </div>
             </div>
-            <div class="yd-table-responsive">
+            <div class="yd-table-responsive yd-vis-table-wrap">
                 <table class="yd-table">
                     <thead>
                         <tr>
-                            <th scope="col" style="width:110px">Tool ID</th>
+                            <th scope="col" style="width:130px">Tool ID</th>
                             <th scope="col">Tool Name</th>
-                            <th scope="col" style="width:160px">Visible To</th>
-                            <th scope="col">Selected Users</th>
+                            <th scope="col" style="width:210px">Visible To</th>
+                            <th scope="col" style="width:290px">Selected Users</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${processedTools.map(tool => {
+                        ${orderedEntries.map(({ tool, isAvailableForFilter }) => {
                             const key = permissionKey(tool);
                             const record = ensureToolVisibilityRecord(key);
-                            const rawVis = String(record.visibility || 'PRIVATE').toUpperCase();
-                            let visMode = rawVis;
-                            if (rawVis === 'PRIVATE') visMode = 'SUPER_ADMIN';
-                            if (rawVis === 'PUBLIC') visMode = 'USER';
-
-                            const isVisibleToFilter = filterUid === 'ALL' || isToolVisibleForUser(tool, filterUid);
-                            const rowStyle = isVisibleToFilter ? '' : 'opacity: 0.55; background: #faf7fa;';
-
+                            const visMode = normalizeVisibilityMode(record.visibility);
                             const allowedUsers = Array.isArray(record.allowedUsers)
-                                ? record.allowedUsers.map(id => String(id).trim().toUpperCase())
+                                ? record.allowedUsers
                                 : [];
 
                             return `
-                                <tr style="${rowStyle}">
+                                <tr class="${isAvailableForFilter ? '' : 'yd-vis-row-unavailable'}">
                                     <td><span class="yd-id-badge">${esc(key)}</span></td>
                                     <td><div class="yd-tool-name">${esc(tool.name)}</div></td>
                                     <td>
-                                        <select data-vis-policy-tool="${esc(key)}" style="height:30px; border-radius:8px; border:1px solid #e2d8e6; padding:0 8px; font-size:12px; background:#fff; color:#29242e; width:100%;">
+                                        <select class="yd-vis-select" data-vis-policy-tool="${esc(key)}" aria-label="Visible To for ${esc(tool.name)}">
                                             <option value="SUPER_ADMIN" ${visMode === 'SUPER_ADMIN' ? 'selected' : ''}>Super Admin</option>
                                             <option value="ADMIN" ${visMode === 'ADMIN' ? 'selected' : ''}>Admin</option>
                                             <option value="USER" ${visMode === 'USER' ? 'selected' : ''}>All Users</option>
@@ -2378,19 +2907,10 @@ YODAWY.init = async function () {
                                         </select>
                                     </td>
                                     <td>
-                                        ${visMode === 'SELECTED_USERS' ? `
-                                            <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
-                                                ${selectableUsers.map(u => {
-                                                    const uid = String(u.id || '').trim().toUpperCase();
-                                                    const isSelected = allowedUsers.includes(uid);
-                                                    return `
-                                                        <button type="button" data-action="toggle-vis-user:${esc(key)}:${esc(uid)}" class="yd-pill ${isSelected ? 'yd-pill-blue' : ''}" style="cursor:pointer; border:1px solid ${isSelected ? '#875A7B' : '#e2d4df'}; background:${isSelected ? '#ebf5fb' : '#fff'}; color:${isSelected ? '#1f618d' : '#655c6a'};">
-                                                            ${esc(u.name || uid)} (${esc(uid)}) ${isSelected ? '✓' : ''}
-                                                        </button>
-                                                    `;
-                                                }).join('')}
-                                            </div>
-                                        ` : `<span style="color:#8c8492; font-size:11.5px; font-style:italic;">N/A (Mode is ${esc(visMode)})</span>`}
+                                        ${visMode === 'SELECTED_USERS'
+                                            ? renderSelectedUsersDropdown(key, allowedUsers, selectableUsers)
+                                            : ''
+                                        }
                                     </td>
                                 </tr>
                             `;
@@ -2638,6 +3158,7 @@ YODAWY.init = async function () {
         const userFilter = event.target.closest('#yd-vis-user-filter');
         if (userFilter) {
             state.visibilitySelectedUser = userFilter.value || 'ALL';
+            state.openSelectedUsersTool = '';
             render();
             return;
         }
@@ -2645,21 +3166,28 @@ YODAWY.init = async function () {
         const policySelect = event.target.closest('[data-vis-policy-tool]');
         if (policySelect) {
             const toolKey = policySelect.dataset.visPolicyTool;
-            setToolVisibilityMode(toolKey, policySelect.value);
+            setToolPolicyMode(toolKey, policySelect.value);
             render();
         }
     });
 
     overlay.addEventListener('click', async event => {
         if (event.target === overlay) {
+            state.openSelectedUsersTool = '';
             overlay.classList.remove('open');
             return;
+        }
+
+        if (state.openSelectedUsersTool && !event.target.closest('.yd-ms-dropdown')) {
+            state.openSelectedUsersTool = '';
+            render();
         }
 
         const nav = event.target.closest('[data-section]');
 
         if (nav) {
             state.section = nav.dataset.section;
+            state.openSelectedUsersTool = '';
             render();
             return;
         }
@@ -2699,6 +3227,7 @@ YODAWY.init = async function () {
 
         try {
             if (action === 'close') {
+                state.openSelectedUsersTool = '';
                 overlay.classList.remove('open');
 
             } else if (action === 'sync') {
@@ -2708,6 +3237,7 @@ YODAWY.init = async function () {
                 await saveSettings();
 
             } else if (action === 'save-visibility') {
+                state.openSelectedUsersTool = '';
                 await saveVisibilitySettings();
 
             } else if (action === 'clear-logs') {
@@ -2731,6 +3261,8 @@ YODAWY.init = async function () {
                 state.permissions = {};
                 state.visibility = {};
                 state.visibilityDirty = false;
+                state.visibilitySavedMessage = '';
+                state.openSelectedUsersTool = '';
                 state.tools = [];
                 state.status = 'unConnected';
 
@@ -2786,11 +3318,32 @@ YODAWY.init = async function () {
                 const nextState = !isToolEnabledByUser(tool);
                 await toggleMyToolSwitch(tool, nextState);
 
-            } else if (action.startsWith('toggle-vis-user:')) {
+            } else if (action.startsWith('toggle-global-tool:')) {
+                const toolKey = action.slice('toggle-global-tool:'.length);
+                const record = ensureToolVisibilityRecord(toolKey);
+                setToolGlobalActivation(toolKey, !record.enabled);
+                render();
+
+            } else if (action.startsWith('toggle-ms-dropdown:')) {
+                const toolKey = action.slice('toggle-ms-dropdown:'.length);
+                state.openSelectedUsersTool = state.openSelectedUsersTool === toolKey ? '' : toolKey;
+                render();
+
+            } else if (action.startsWith('toggle-vis-cell:')) {
                 const parts = action.split(':');
                 const toolKey = parts[1];
                 const targetUid = parts[2];
-                toggleToolSelectedUser(toolKey, targetUid);
+
+                const tool = state.tools.find(
+                    item => permissionKey(item) === toolKey
+                );
+
+                if (!tool) {
+                    throw new Error('Tool not found.');
+                }
+
+                setToolVisibilityForUser(toolKey, targetUid);
+                state.openSelectedUsersTool = toolKey;
                 render();
             }
 
@@ -2801,6 +3354,12 @@ YODAWY.init = async function () {
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+            if (state.openSelectedUsersTool) {
+                state.openSelectedUsersTool = '';
+                render();
+                return;
+            }
+
             const menu = $('#yd-profile-menu');
             const trigger = $('#yd-profile-trigger');
 
