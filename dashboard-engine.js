@@ -312,16 +312,21 @@ YODAWY.init = async function () {
             return false;
         }
 
-        const visibility = String(
-            policy.visibility || 'PRIVATE'
-        ).toUpperCase();
+        const rawVis = String(policy.visibility || 'PRIVATE').toUpperCase();
+        let visibility = rawVis;
+        if (rawVis === 'PRIVATE') visibility = 'SUPER_ADMIN';
+        if (rawVis === 'PUBLIC') visibility = 'USER';
 
-        if (visibility === 'PUBLIC') {
-            return true;
+        if (visibility === 'SUPER_ADMIN') {
+            return false;
         }
 
-        if (visibility === 'PRIVATE') {
-            return false;
+        if (visibility === 'ADMIN') {
+            return role === 'admin';
+        }
+
+        if (visibility === 'USER') {
+            return true;
         }
 
         if (visibility === 'SELECTED_USERS') {
@@ -345,69 +350,40 @@ YODAWY.init = async function () {
         return isToolVisibleForUser(tool, CONFIG.userId);
     }
 
-    function setToolVisibilityForUser(toolKey, targetUserId, turnOn) {
-        const uid = String(targetUserId || '').trim().toUpperCase();
-        if (uid === 'Q-001') return;
-
-        const record = ensureToolVisibilityRecord(toolKey);
-        const currentVis = String(record.visibility || 'PRIVATE').toUpperCase();
-
-        const nonSuperAdminIds = state.users
-            .map(u => String(u.id || '').trim().toUpperCase())
-            .filter(id => id && id !== 'Q-001');
-
-        let allowedSet = new Set(
-            (Array.isArray(record.allowedUsers) ? record.allowedUsers : [])
-                .map(id => String(id).trim().toUpperCase())
-                .filter(Boolean)
-        );
-
-        if (currentVis === 'PUBLIC') {
-            if (!turnOn) {
-                record.visibility = 'SELECTED_USERS';
-                allowedSet = new Set(nonSuperAdminIds.filter(id => id !== uid));
-                record.allowedUsers = [...allowedSet];
-                if (record.allowedUsers.length === 0) {
-                    record.visibility = 'PRIVATE';
-                }
-            }
-        } else if (currentVis === 'PRIVATE') {
-            if (turnOn) {
-                record.visibility = 'SELECTED_USERS';
-                allowedSet.add(uid);
-                record.allowedUsers = [...allowedSet];
-            }
-        } else {
-            if (turnOn) {
-                allowedSet.add(uid);
-            } else {
-                allowedSet.delete(uid);
-            }
-            record.allowedUsers = [...allowedSet];
-            if (record.allowedUsers.length === 0) {
-                record.visibility = 'PRIVATE';
-            }
-        }
-
-        state.visibilityDirty = true;
-    }
-
-    function setToolPolicyMode(toolKey, newMode) {
-        const mode = String(newMode || 'PRIVATE').toUpperCase();
+    function setToolVisibilityMode(toolKey, newMode) {
+        const mode = String(newMode || 'SUPER_ADMIN').toUpperCase();
         const record = ensureToolVisibilityRecord(toolKey);
 
-        record.visibility = mode;
+        let mapped = mode;
+        if (mode === 'SUPER_ADMIN') mapped = 'PRIVATE';
+        if (mode === 'USER') mapped = 'PUBLIC';
 
-        if (mode === 'PRIVATE') {
+        record.visibility = mapped;
+
+        if (mapped !== 'SELECTED_USERS') {
             record.allowedUsers = [];
         }
 
         state.visibilityDirty = true;
     }
 
-    function setToolGlobalActivation(toolKey, enabled) {
+    function toggleToolSelectedUser(toolKey, targetUserId) {
+        const uid = String(targetUserId || '').trim().toUpperCase();
+        if (!uid || uid === 'Q-001') return;
+
         const record = ensureToolVisibilityRecord(toolKey);
-        record.enabled = Boolean(enabled);
+        let allowed = Array.isArray(record.allowedUsers)
+            ? record.allowedUsers.map(id => String(id).trim().toUpperCase())
+            : [];
+
+        const index = allowed.indexOf(uid);
+        if (index > -1) {
+            allowed.splice(index, 1);
+        } else {
+            allowed.push(uid);
+        }
+
+        record.allowedUsers = allowed;
         state.visibilityDirty = true;
     }
 
@@ -2311,11 +2287,19 @@ YODAWY.init = async function () {
         if (!canManageVisibility()) return deniedPage();
 
         const tools = state.tools;
-        const selectedUid = state.visibilitySelectedUser;
+        const filterUid = state.visibilitySelectedUser;
 
-        const filteredTools = tools.filter(tool => {
-            if (selectedUid === 'ALL') return true;
-            return isToolVisibleForUser(tool, selectedUid);
+        const selectableUsers = state.users.filter(u => {
+            const uid = String(u.id || '').trim().toUpperCase();
+            return uid && uid !== 'Q-001' && uid !== 'MOHAMED';
+        });
+
+        // Sort tools based on filter if active: visible tools first, unavailable tools underneath
+        const processedTools = [...tools].sort((a, b) => {
+            if (filterUid === 'ALL') return 0;
+            const aVis = isToolVisibleForUser(a, filterUid) ? 0 : 1;
+            const bVis = isToolVisibleForUser(b, filterUid) ? 0 : 1;
+            return aVis - bVis;
         });
 
         const saveActionBtn = button(
@@ -2330,15 +2314,15 @@ YODAWY.init = async function () {
         <div class="yd-card" style="margin-bottom:14px">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
                 <div style="font-size:12px; color:#7c7482; font-weight:600;">
-                    Manage global tool visibility, activation, and user access independently. Changes require saving to the Users repository.
+                    Filter and configure tool visibility tiers and selected user exceptions.
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <label style="font-size:12px; font-weight:700; color:#655c6a;" for="yd-vis-user-filter">Filter User:</label>
                     <select id="yd-vis-user-filter" style="height:30px; border-radius:8px; border:1px solid #e2d8e6; padding:0 8px; font-size:12px; background:#fff; color:#29242e;">
-                        <option value="ALL" ${selectedUid === 'ALL' ? 'selected' : ''}>All Users</option>
+                        <option value="ALL" ${filterUid === 'ALL' ? 'selected' : ''}>All Users</option>
                         ${state.users.map(u => {
                             const uid = String(u.id || '').trim().toUpperCase();
-                            return `<option value="${esc(uid)}" ${selectedUid === uid ? 'selected' : ''}>${esc(u.name \vert{}\vert{} uid)} (${esc(uid)})</option>`;
+                            return `<option value="${esc(uid)}" ${filterUid === uid ? 'selected' : ''}>${esc(u.name \vert{}\vert{} uid)} (${esc(uid)})</option>`;
                         }).join('')}
                     </select>
                 </div>
@@ -2349,7 +2333,7 @@ YODAWY.init = async function () {
             <div class="yd-table-card-head">
                 <div class="yd-table-card-title">
                     ${ICONS.tools}
-                    <span>Tool Policies (${filteredTools.length})</span>
+                    <span>Tool Policies (${processedTools.length})</span>
                 </div>
                 <div class="yd-table-pills">
                     <span class="yd-pill ${state.visibilityDirty ? 'yd-pill-yellow' : 'yd-pill-green'}">${state.visibilityDirty ? 'Unsaved Changes' : 'Synced'}</span>
@@ -2359,46 +2343,60 @@ YODAWY.init = async function () {
                 <table class="yd-table">
                     <thead>
                         <tr>
-                            <th scope="col" style="width:110px">ID</th>
+                            <th scope="col" style="width:110px">Tool ID</th>
                             <th scope="col">Tool Name</th>
-                            <th scope="col" style="width:140px">Visibility</th>
-                            <th scope="col" style="width:110px;text-align:center">Global ON</th>
-                            <th scope="col" style="width:130px">Dev Status</th>
-                            <th scope="col" style="width:130px">Publication</th>
+                            <th scope="col" style="width:160px">Visible To</th>
+                            <th scope="col">Selected Users</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredTools.map(tool => {
+                        ${processedTools.map(tool => {
                             const key = permissionKey(tool);
                             const record = ensureToolVisibilityRecord(key);
-                            const visMode = String(record.visibility || 'PRIVATE').toUpperCase();
-                            const isGloballyEnabled = Boolean(record.enabled);
+                            const rawVis = String(record.visibility || 'PRIVATE').toUpperCase();
+                            let visMode = rawVis;
+                            if (rawVis === 'PRIVATE') visMode = 'SUPER_ADMIN';
+                            if (rawVis === 'PUBLIC') visMode = 'USER';
 
-                            const globalSwitch = renderSwitch({
-                                isOn: isGloballyEnabled,
-                                action: `toggle-global-tool:${key}`,
-                                title: `Globally ${isGloballyEnabled ? 'enabled' : 'disabled'}`
-                            });
+                            const isVisibleToFilter = filterUid === 'ALL' || isToolVisibleForUser(tool, filterUid);
+                            const rowStyle = isVisibleToFilter ? '' : 'opacity: 0.55; background: #faf7fa;';
+
+                            const allowedUsers = Array.isArray(record.allowedUsers)
+                                ? record.allowedUsers.map(id => String(id).trim().toUpperCase())
+                                : [];
 
                             return `
-                                <tr>
+                                <tr style="${rowStyle}">
                                     <td><span class="yd-id-badge">${esc(key)}</span></td>
                                     <td><div class="yd-tool-name">${esc(tool.name)}</div></td>
                                     <td>
-                                        <select data-vis-policy-tool="${esc(key)}" style="height:28px; border-radius:6px; border:1px solid #e2d8e6; padding:0 6px; font-size:12px; background:#fff; color:#29242e; width:100%;">
-                                            <option value="PRIVATE" ${visMode === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option>
-                                            <option value="PUBLIC" ${visMode === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option>
-                                            <option value="SELECTED_USERS" ${visMode === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option>
+                                        <select data-vis-policy-tool="${esc(key)}" style="height:30px; border-radius:8px; border:1px solid #e2d8e6; padding:0 8px; font-size:12px; background:#fff; color:#29242e; width:100%;">
+                                            <option value="SUPER_ADMIN" ${visMode === 'SUPER_ADMIN' ? 'selected' : ''}>Super Admin</option>
+                                            <option value="ADMIN" ${visMode === 'ADMIN' ? 'selected' : ''}>Admin</option>
+                                            <option value="USER" ${visMode === 'USER' ? 'selected' : ''}>All Users</option>
+                                            <option value="SELECTED_USERS" ${visMode === 'SELECTED_USERS' ? 'selected' : ''}>Selected Users</option>
                                         </select>
                                     </td>
-                                    <td style="text-align:center">${globalSwitch}</td>
-                                    <td><span class="yd-pill yd-pill-purple">${esc(record.developmentStatus || 'UNDER DEVELOPMENT')}</span></td>
-                                    <td><span class="yd-pill yd-pill-blue">${esc(record.publicationStatus || 'NOT PUBLISHED')}</span></td>
+                                    <td>
+                                        ${visMode === 'SELECTED_USERS' ? `
+                                            <div style="display:flex; flex-wrap:wrap; gap:4px; align-items:center;">
+                                                ${selectableUsers.map(u => {
+                                                    const uid = String(u.id || '').trim().toUpperCase();
+                                                    const isSelected = allowedUsers.includes(uid);
+                                                    return `
+                                                        <button type="button" data-action="toggle-vis-user:${esc(key)}:${esc(uid)}" class="yd-pill ${isSelected ? 'yd-pill-blue' : ''}" style="cursor:pointer; border:1px solid ${isSelected ? '#875A7B' : '#e2d4df'}; background:${isSelected ? '#ebf5fb' : '#fff'}; color:${isSelected ? '#1f618d' : '#655c6a'};">
+                                                            ${esc(u.name || uid)} (${esc(uid)}) ${isSelected ? '✓' : ''}
+                                                        </button>
+                                                    `;
+                                                }).join('')}
+                                            </div>
+                                        ` : `<span style="color:#8c8492; font-size:11.5px; font-style:italic;">N/A (Mode is ${esc(visMode)})</span>`}
+                                    </td>
                                 </tr>
                             `;
                         }).join('') || `
                             <tr>
-                                <td colspan="6" class="yd-empty">No tools found for visibility configuration.</td>
+                                <td colspan="4" class="yd-empty">No tools found for visibility configuration.</td>
                             </tr>
                         `}
                     </tbody>
@@ -2446,7 +2444,7 @@ YODAWY.init = async function () {
                                 <td><span class="yd-id-badge">${esc(u.id || u.userId || '')}</span></td>
                                 <td><b>${esc(u.name || u.username || 'User')}</b></td>
                                 <td><span class="yd-pill ${rolePillClass(u.role)}">${esc(u.role || 'User')}</span></td>
-                                <td><span class="yd-pill ${String(u.status \vert{}\vert{} '').toLowerCase() === 'active' ? 'yd-pill-green' : 'yd-pill-red'}">${esc(u.status || 'Active')}</span></td>
+                                <td><span class="yd-pill ${String(u.status || '').toLowerCase() === 'active' ? 'yd-pill-green' : 'yd-pill-red'}">${esc(u.status || 'Active')}</span></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -2647,7 +2645,7 @@ YODAWY.init = async function () {
         const policySelect = event.target.closest('[data-vis-policy-tool]');
         if (policySelect) {
             const toolKey = policySelect.dataset.visPolicyTool;
-            setToolPolicyMode(toolKey, policySelect.value);
+            setToolVisibilityMode(toolKey, policySelect.value);
             render();
         }
     });
@@ -2760,7 +2758,7 @@ YODAWY.init = async function () {
                         state.status = 'Connected';
 
                         log(
-                            'Tools refreshed refreshed successfully.',
+                            'Tools refreshed successfully.',
                             'success'
                         );
 
@@ -2788,27 +2786,11 @@ YODAWY.init = async function () {
                 const nextState = !isToolEnabledByUser(tool);
                 await toggleMyToolSwitch(tool, nextState);
 
-            } else if (action.startsWith('toggle-global-tool:')) {
-                const toolKey = action.slice('toggle-global-tool:'.length);
-                const record = ensureToolVisibilityRecord(toolKey);
-                setToolGlobalActivation(toolKey, !record.enabled);
-                render();
-
-            } else if (action.startsWith('toggle-vis-cell:')) {
+            } else if (action.startsWith('toggle-vis-user:')) {
                 const parts = action.split(':');
                 const toolKey = parts[1];
                 const targetUid = parts[2];
-
-                const tool = state.tools.find(
-                    item => permissionKey(item) === toolKey
-                );
-
-                if (!tool) {
-                    throw new Error('Tool not found.');
-                }
-
-                const currentlyVisible = isToolVisibleForUser(tool, targetUid);
-                setToolVisibilityForUser(toolKey, targetUid, !currentlyVisible);
+                toggleToolSelectedUser(toolKey, targetUid);
                 render();
             }
 
