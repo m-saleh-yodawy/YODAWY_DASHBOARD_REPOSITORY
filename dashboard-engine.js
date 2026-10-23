@@ -1,7 +1,10 @@
 YODAWY.init = async function () {
     'use strict';
 
-    if (window.__YODAWY_DASHBOARD_RUNNING__) return Boolean(YODAWY.authenticated);
+    if (window.__YODAWY_DASHBOARD_RUNNING__) {
+        return Boolean(YODAWY.authenticated);
+    }
+
     window.__YODAWY_DASHBOARD_RUNNING__ = true;
 
     const CONFIG = {
@@ -2329,6 +2332,8 @@ YODAWY.init = async function () {
         </div>
     `;
 
+    launcher.style.display = 'none';
+
     document.body.append(launcher, overlay);
 
     function header(title, action = '') {
@@ -3007,8 +3012,36 @@ YODAWY.init = async function () {
         }
     });
 
-    // تنفيذ الفحص الفعلي للمصادقة عند بدء تشغيل المحرك وعدم إرجاع true إلا إذا نجحت المرحلتان
-    const connected = await sync();
+    // Authenticate before exposing the dashboard launcher.
+    let connected = false;
 
-    return connected;
+    try {
+        connected = await sync();
+
+        if (connected && YODAWY.authenticated === true) {
+            launcher.style.display = '';
+            return true;
+        }
+
+        // Remove the dashboard UI when authentication fails.
+        launcher.remove();
+        overlay.remove();
+        style.remove();
+
+        window.__YODAWY_DASHBOARD_RUNNING__ = false;
+        YODAWY.authenticated = false;
+
+        return false;
+    } catch (error) {
+        launcher.remove();
+        overlay.remove();
+        style.remove();
+
+        window.__YODAWY_DASHBOARD_RUNNING__ = false;
+        YODAWY.authenticated = false;
+
+        YODAWY.authError = error?.message || 'ENGINE_INIT_FAILED';
+
+        return false;
+    }
 };
