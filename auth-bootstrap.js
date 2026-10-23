@@ -204,13 +204,13 @@
             dashboardVariant: resolvedRole,
             authenticated: true,
 
-            request: (url, token) => request(url, token),
+            request: (url, token) => request(url, token || SYSTEM),
 
-            readJSON: (repo, path, token, branch) =>
-                readJSON(repo, path, token, branch),
+readJSON: (repo, path, token, branch) =>
+    readJSON(repo, path, token || SYSTEM, branch),
 
-            readText: (repo, path, token, branch) =>
-                readText(repo, path, token, branch),
+readText: (repo, path, token, branch) =>
+    readText(repo, path, token || SYSTEM, branch),
 
             showError: showError,
 
