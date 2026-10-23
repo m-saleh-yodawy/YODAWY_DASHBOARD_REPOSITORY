@@ -926,6 +926,12 @@ YODAWY.init = async function () {
                 );
 
                 const source = String(file.content || '').replace(/\u00a0/g, ' ');
+                console.log('[YODAWY SOURCE DEBUG]', {
+    path: item.resolvedPath,
+    sha: file.sha,
+    contentType: typeof file.content,
+    contentStart: String(file.content || '').slice(0, 200)
+});
 
                 const header = source.match(
                     /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
