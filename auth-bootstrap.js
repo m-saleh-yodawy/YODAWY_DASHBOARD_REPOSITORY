@@ -244,11 +244,25 @@ readText: (repo, path, token, branch) =>
             throw Error('ENGINE_INIT_FAILED');
         }
 
-        const initialized = await YODAWY.init();
+        let initialized;
 
-        if (initialized !== true || YODAWY.authenticated !== true) {
-            throw Error('ENGINE_INIT_FAILED');
-        }
+try {
+    initialized = await YODAWY.init();
+} catch (err) {
+    console.error('[YODAWY] ENGINE INIT EXCEPTION:', err);
+    throw err;
+}
+
+console.log('[YODAWY] ENGINE INIT RESULT:', initialized);
+console.log('[YODAWY] AUTHENTICATED:', YODAWY.authenticated);
+console.log('[YODAWY] ROLE:', YODAWY.userRole);
+
+if (initialized !== true || YODAWY.authenticated !== true) {
+    throw Error(
+        `ENGINE_INIT_FAILED: initialized=${String(initialized)}, ` +
+        `authenticated=${String(YODAWY.authenticated)}`
+    );
+}
     } catch (e) {
         console.error('[YODAWY] Bootstrap stopped:', e);
 
@@ -256,8 +270,8 @@ readText: (repo, path, token, branch) =>
             ? 'WRONG_SYSTEM'
             : e.message === 'ERROR_ENGINE_LOAD_FAILED'
                 ? 'ERROR_ENGINE_LOAD_FAILED'
-                : e.message === 'ENGINE_INIT_FAILED'
-                    ? 'ENGINE_INIT_FAILED'
+               : e.message?.startsWith('ENGINE_INIT_FAILED')
+    ? 'ENGINE_INIT_FAILED'
                     : e.status === 0
                         ? 'NETWORK_ERROR'
                         : 'UNKNOWN_ERROR';
