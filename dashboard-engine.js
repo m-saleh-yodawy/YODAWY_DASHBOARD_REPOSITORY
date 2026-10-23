@@ -918,12 +918,47 @@ YODAWY.init = async function () {
 
         const results = await Promise.allSettled(
             normalizedTools.map(async item => {
-                const file = await readText(
-                    repository,
-                    item.resolvedPath,
-                    undefined,
-                    branch
-                );
+                
+const file = await readText(
+    repository,
+    item.resolvedPath,
+    undefined,
+    branch
+);
+
+const source = String(
+    typeof file === 'string'
+        ? file
+        : file?.content ?? file?.data ?? ''
+).replace(/\u00a0/g, ' ');
+
+if (!source.trim()) {
+    throw new Error(
+        `Empty tool source: ${item.resolvedPath}`
+    );
+}
+
+const header = source.match(
+    /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
+);
+
+if (!header) {
+    throw new Error(
+        `Missing userscript metadata: ${item.resolvedPath}`
+    );
+}
+
+const metadata = header[1];
+
+const values = key => [
+    ...metadata.matchAll(
+        new RegExp(
+            '^\\s*//\\s*@' + key + '\\s+(.+?)\\s*$',
+            'gm'
+        )
+    )
+].map(match => match[1].trim());
+
 
                 const source = String(file.content || '').replace(/\u00a0/g, ' ');
                 console.log('[YODAWY SOURCE DEBUG]', {
@@ -964,7 +999,9 @@ YODAWY.init = async function () {
 
                     path: item.resolvedPath,
                     source,
-                    sha: file.sha || '',
+                    sha: typeof file === 'object' && file
+    ? file.sha || ''
+    : '',
 
                     name:
                         item.name ||
