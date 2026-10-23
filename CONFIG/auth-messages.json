@@ -1,26 +1,36 @@
 {
-  "INVALID_CREDENTIALS": {
-    "title": "LOGIN FAILED",
-    "message": "INVALID ID OR PASSWORD"
-  },
-  "WRONG_SYSTEM": {
-    "title": "SYSTEM ERROR",
-    "message": "WRONG SYSTEM"
-  },
-  "USER_INACTIVE": {
-    "title": "ACCOUNT INACTIVE",
-    "message": "YOUR ACCOUNT IS INACTIVE"
-  },
-  "TOKEN_INVALID": {
-    "title": "AUTHENTICATION FAILED",
-    "message": "INVALID OR EXPIRED TOKEN"
-  },
-  "NETWORK_ERROR": {
-    "title": "CONNECTION ERROR",
-    "message": "UNABLE TO CONNECT. PLEASE TRY AGAIN."
-  },
-  "UNKNOWN_ERROR": {
-    "title": "ERROR",
-    "message": "AN UNEXPECTED ERROR OCCURRED. PLEASE TRY AGAIN."
+  "messages": {
+    "INVALID_CREDENTIALS": {
+      "title": "LOGIN FAILED",
+      "message": "INVALID USER ID OR ACCOUNT REGISTRATION."
+    },
+    "USER_INACTIVE": {
+      "title": "ACCOUNT INACTIVE",
+      "message": "YOUR ACCOUNT IS INACTIVE. CONTACT YOUR ADMINISTRATOR."
+    },
+    "TOKEN_INVALID": {
+      "title": "AUTHENTICATION FAILED",
+      "message": "THE PERSONAL TOKEN IS INVALID OR CANNOT ACCESS THE REQUIRED REPOSITORY."
+    },
+    "NETWORK_ERROR": {
+      "title": "CONNECTION ERROR",
+      "message": "UNABLE TO CONNECT. CHECK YOUR NETWORK AND TRY AGAIN."
+    },
+    "ERROR_ENGINE_LOAD_FAILED": {
+      "title": "SYSTEM ERROR",
+      "message": "THE CENTRAL ERROR MESSAGE ENGINE COULD NOT BE LOADED."
+    },
+    "ENGINE_LOAD_FAILED": {
+      "title": "SYSTEM ERROR",
+      "message": "THE DASHBOARD ENGINE COULD NOT BE LOADED."
+    },
+    "ENGINE_INIT_FAILED": {
+      "title": "SYSTEM ERROR",
+      "message": "THE DASHBOARD ENGINE FAILED TO INITIALIZE."
+    },
+    "UNKNOWN_ERROR": {
+      "title": "SYSTEM ERROR",
+      "message": "AN UNEXPECTED ERROR OCCURRED."
+    }
   }
 }
