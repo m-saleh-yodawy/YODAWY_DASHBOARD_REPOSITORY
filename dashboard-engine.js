@@ -899,144 +899,115 @@ YODAWY.init = async function () {
             return `${CONFIG.toolsDirectory}/${rawPath}`;
         }
 
-        const normalizedTools = manifestTools
-            .filter(item => item && typeof item === 'object')
-            .map(item => ({
-                ...item,
-                resolvedPath: resolveToolPath(item)
-            }))
-            .filter(item =>
-                item.resolvedPath &&
-                /\.js$/i.test(item.resolvedPath)
-            );
+      
+const normalizedTools = manifestTools
+    .filter(item => item && typeof item === 'object')
+    .map(item => ({
+        ...item,
+        resolvedPath: resolveToolPath(item)
+    }))
+    .filter(item =>
+        item.resolvedPath &&
+        /\.js$/i.test(item.resolvedPath)
+    );
 
-        if (!normalizedTools.length) {
+if (!normalizedTools.length) {
+    throw new Error(
+        `No JavaScript tool paths were found in ${CONFIG.manifestPath}. Each tool needs a .js path or filename.`
+    );
+}
+
+const results = await Promise.allSettled(
+    normalizedTools.map(async item => {
+        const file = await readText(
+            repository,
+            item.resolvedPath,
+            undefined,
+            branch
+        );
+
+        const source = String(
+            typeof file === 'string'
+                ? file
+                : file?.content ?? file?.data ?? ''
+        ).replace(/\u00a0/g, ' ');
+
+        if (!source.trim()) {
             throw new Error(
-                `No JavaScript tool paths were found in ${CONFIG.manifestPath}. Each tool needs a .js path or filename.`
+                `Empty tool source: ${item.resolvedPath}`
             );
         }
 
-        const results = await Promise.allSettled(
-            normalizedTools.map(async item => {
-                
-const file = await readText(
-    repository,
-    item.resolvedPath,
-    undefined,
-    branch
-);
-
-const source = String(
-    typeof file === 'string'
-        ? file
-        : file?.content ?? file?.data ?? ''
-).replace(/\u00a0/g, ' ');
-
-if (!source.trim()) {
-    throw new Error(
-        `Empty tool source: ${item.resolvedPath}`
-    );
-}
-
-const header = source.match(
-    /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
-);
-
-if (!header) {
-    throw new Error(
-        `Missing userscript metadata: ${item.resolvedPath}`
-    );
-}
-
-const metadata = header[1];
-
-const values = key => [
-    ...metadata.matchAll(
-        new RegExp(
-            '^\\s*//\\s*@' + key + '\\s+(.+?)\\s*$',
-            'gm'
-        )
-    )
-].map(match => match[1].trim());
-
-
-                const source = String(file.content || '').replace(/\u00a0/g, ' ');
-                console.log('[YODAWY SOURCE DEBUG]', {
-    path: item.resolvedPath,
-    sha: file.sha,
-    contentType: typeof file.content,
-    contentStart: String(file.content || '').slice(0, 200)
-});
-
-                const header = source.match(
-                    /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
-                );
-
-                if (!header) {
-                    throw new Error(
-                        `Missing userscript metadata: ${item.resolvedPath}`
-                    );
-                }
-
-                const metadata = header[1];
-
-                const values = key => [
-                    ...metadata.matchAll(
-                        new RegExp(
-                            '^\\s*//\\s*@' + key + '\\s+(.+?)\\s*$',
-                            'gm'
-                        )
-                    )
-                ].map(match => match[1].trim());
-
-                return {
-                    id: String(
-                        item.id ||
-                        item.toolId ||
-                        item.tool_id ||
-                        ''
-                    ).trim(),
-
-                    path: item.resolvedPath,
-                    source,
-                    sha: typeof file === 'object' && file
-    ? file.sha || ''
-    : '',
-
-                    name:
-                        item.name ||
-                        values('name')[0] ||
-                        item.resolvedPath.split('/').pop(),
-
-                    description:
-                        item.description ||
-                        values('description')[0] ||
-                        '',
-
-                    matches: Array.isArray(item.matches)
-                        ? item.matches
-                        : [
-                            ...values('match'),
-                            ...values('include')
-                        ],
-
-                    excludes: Array.isArray(item.excludes)
-                        ? item.excludes
-                        : [
-                            ...values('exclude'),
-                            ...values('exclude-match')
-                        ],
-
-                    grants: values('grant').filter(
-                        value => value !== 'none'
-                    ),
-
-                    requires: values('require'),
-
-                    enabled: item.enabled !== false
-                };
-            })
+        const header = source.match(
+            /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
         );
+
+        if (!header) {
+            throw new Error(
+                `Missing userscript metadata: ${item.resolvedPath}`
+            );
+        }
+
+        const metadata = header[1];
+
+        const values = key => [
+            ...metadata.matchAll(
+                new RegExp(
+                    '^\\s*//\\s*@' + key + '\\s+(.+?)\\s*$',
+                    'gm'
+                )
+            )
+        ].map(match => match[1].trim());
+
+        return {
+            id: String(
+                item.id ||
+                item.toolId ||
+                item.tool_id ||
+                ''
+            ).trim(),
+
+            path: item.resolvedPath,
+            source,
+            sha: typeof file === 'object' && file
+                ? file.sha || ''
+                : '',
+
+            name:
+                item.name ||
+                values('name')[0] ||
+                item.resolvedPath.split('/').pop(),
+
+            description:
+                item.description ||
+                values('description')[0] ||
+                '',
+
+            matches: Array.isArray(item.matches)
+                ? item.matches
+                : [
+                    ...values('match'),
+                    ...values('include')
+                ],
+
+            excludes: Array.isArray(item.excludes)
+                ? item.excludes
+                : [
+                    ...values('exclude'),
+                    ...values('exclude-match')
+                ],
+
+            grants: values('grant').filter(
+                value => value !== 'none'
+            ),
+
+            requires: values('require'),
+
+            enabled: item.enabled !== false
+        };
+    })
+);
+
 
         state.tools = results
             .filter(result => result.status === 'fulfilled')
