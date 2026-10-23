@@ -1001,15 +1001,23 @@ YODAWY.init = async function () {
             .sort((a, b) => permissionKey(a).localeCompare(permissionKey(b)));
 
         results.forEach((result, index) => {
-            if (result.status === 'rejected') {
-                const item = normalizedTools[index];
+    if (result.status === 'rejected') {
+        const item = normalizedTools[index];
 
-                log(
-                    `${item?.resolvedPath || 'Tool'}: ${result.reason?.message || 'Tool loading failed.'}`,
-                    'error'
-                );
-            }
-        });
+        const errorDetails = {
+            tool: item?.name || item?.resolvedPath || 'Unknown Tool',
+            path: item?.resolvedPath || '',
+            error: result.reason?.message || String(result.reason)
+        };
+
+        console.error('[YODAWY TOOL LOAD FAILED]', errorDetails);
+
+        log(
+            `${errorDetails.path}: ${errorDetails.error}`,
+            'error'
+        );
+    }
+});
 
         if (!state.tools.length) {
             throw new Error(
