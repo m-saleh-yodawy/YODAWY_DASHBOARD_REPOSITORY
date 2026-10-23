@@ -1,11 +1,11 @@
 YODAWY.init = async function () {
     'use strict';
 
-    if (window.__YODAWY_DASHBOARD_RUNNING__) return Boolean(YODAWY.isAuthenticated);
+    if (window.__YODAWY_DASHBOARD_RUNNING__) return Boolean(YODAWY.authenticated);
     window.__YODAWY_DASHBOARD_RUNNING__ = true;
 
     const CONFIG = {
-        userId: String(YODAWY.userId || 'Q-001').trim(),
+        userId: String(YODAWY.userId || '').trim(),
         manifestPath: 'TOOLS_CACHE/tools-manifest.json',
         toolsDirectory: 'TOOLS_CACHE/TOOLS',
         settingsPath: 'DASHBOARD/dashboard-settings.json',
@@ -51,29 +51,29 @@ YODAWY.init = async function () {
     const state = {
         section: 'overview',
         status: 'unConnected',
-        role: 'USER',
-        dashboardVariant: 'USER_DASHBOARD',
         user: null,
+        userRole: 'NONE',
+        dashboardVariant: 'NONE',
         users: [],
         personalToken: '',
+        personalRepoVerified: false,
         settings: {},
-        messages: { ...(YODAWY.authMessages || DEFAULT_AUTH_MESSAGES) },
+        messages: {
+            ...DEFAULT_AUTH_MESSAGES,
+            ...(YODAWY.authMessages || {})
+        },
         permissions: {},
         visibility: {},
         visibilitySelectedUser: 'ALL',
         visibilityDirty: false,
-        savingVisibility: false,
-        visibilitySavedMessage: '',
-        openSelectedUsersTool: '',
         tools: [],
         logs: [],
         error: '',
+        errorTitle: '',
         loading: false,
         authenticated: false,
         initialized: false
     };
-
-    YODAWY.isAuthenticated = false;
 
     const $ = (selector, root = document) =>
         root.querySelector(selector);
@@ -101,8 +101,6 @@ YODAWY.init = async function () {
         cloud: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`,
         user: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
         close: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
-        chevronDown: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`,
-        check: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
         alertBadge: `<svg viewBox="0 0 14 14" width="10" height="10" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#c94b58"></circle><path fill="#fff" d="M6 10H8V12H6V10ZM6 2H8V8H6V2Z"></path></svg>`,
         okBadge: `<svg viewBox="0 0 14 14" width="10" height="10" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#39865b"></circle><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7.2L6.1 9.3L10.2 4.8"></path></svg>`
     };
@@ -117,18 +115,11 @@ YODAWY.init = async function () {
         state.logs.length = Math.min(state.logs.length, 50);
     }
 
-    function notify(message) {
-        state.error = message;
-        log(message, 'error');
+    function notify(message, title = '') {
+        state.errorTitle = String(title || '');
+        state.error = String(message || '');
+        log(state.errorTitle ? `${state.errorTitle}: ${state.error}` : state.error, 'error');
         render();
-    }
-
-    function isPlaceholderToken(token) {
-        const clean = String(token || '').trim();
-        if (!clean) return true;
-
-        return /^(YOUR_|REPLACE_|INSERT_|ENTER_|<|TODO|NULL|UNDEFINED|NONE|PERSONAL_TOKEN$|SYSTEM_TOKEN$|GHP_X+$)/i.test(clean) ||
-            clean.length < 10;
     }
 
     function repositoryUrl(repository, path = '') {
@@ -140,157 +131,28 @@ YODAWY.init = async function () {
             : base;
     }
 
-    async function readSystemJson(
+    async function readJson(
         repository,
         path,
+        token,
         branch = YODAWY.branch
     ) {
-        return YODAWY.readJSON(repository, path, undefined, branch);
+        return YODAWY.readJSON(repository, path, token, branch);
     }
 
-    async function readSystemText(
+    async function readText(
         repository,
         path,
+        token,
         branch = YODAWY.branch
     ) {
-        return YODAWY.readText(repository, path, undefined, branch);
-    }
-
-    async function readPersonalJson(
-        repository,
-        path,
-        personalToken,
-        branch = YODAWY.branch
-    ) {
-        const cleanToken = String(personalToken || '').trim();
-        if (isPlaceholderToken(cleanToken)) {
-            const err = new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
-            err.status = 401;
-            throw err;
-        }
-
-        const url = `${repositoryUrl(repository, path)}${branch ? `?ref=${encodeURIComponent(branch)}` : ''}`;
-
-        let response;
-        try {
-            response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${cleanToken}`,
-                    Accept: 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28'
-                },
-                credentials: 'omit',
-                cache: 'no-store'
-            });
-        } catch {
-            const netErr = new Error(getMessage('NETWORK_ERROR', 'CONNECTION ERROR: UNABLE TO CONNECT. PLEASE TRY AGAIN.'));
-            netErr.status = 0;
-            throw netErr;
-        }
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            const err = new Error(payload?.message || `GitHub API error: ${response.status}`);
-            err.status = response.status;
-            throw err;
-        }
-
-        const cleanBase64 = String(payload.content || '').replace(/\s+/g, '');
-        const binary = atob(cleanBase64);
-        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
-        const decoded = new TextDecoder('utf-8').decode(bytes);
-
-        return JSON.parse(decoded);
-    }
-
-    async function verifyPersonalRepositoryAccess(personalRepository, personalToken) {
-        const expectedRepo = String(personalRepository || '').trim();
-        const cleanToken = String(personalToken || '').trim();
-
-        if (!expectedRepo) {
-            throw new Error(getMessage('WRONG_SYSTEM', 'SYSTEM ERROR: PERSONAL REPOSITORY IS MISSING'));
-        }
-
-        if (isPlaceholderToken(cleanToken)) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
-        }
-
-        if (typeof YODAWY.verifyPersonalRepository === 'function') {
-            return YODAWY.verifyPersonalRepository(expectedRepo, cleanToken);
-        }
-
-        const url = repositoryUrl(expectedRepo);
-        let response;
-
-        try {
-            response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${cleanToken}`,
-                    Accept: 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28'
-                },
-                credentials: 'omit',
-                cache: 'no-store'
-            });
-        } catch {
-            throw new Error(getMessage('NETWORK_ERROR', 'CONNECTION ERROR: UNABLE TO CONNECT. PLEASE TRY AGAIN.'));
-        }
-
-        const repoData = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403 || response.status === 404) {
-                throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
-            }
-            throw new Error(getMessage('UNKNOWN_ERROR', 'ERROR: AN UNEXPECTED ERROR OCCURRED. PLEASE TRY AGAIN.'));
-        }
-
-        const actualOwner = String(repoData?.owner?.login || '').trim().toLowerCase();
-        const actualRepo = String(repoData?.name || '').trim().toLowerCase();
-
-        if (
-            actualOwner !== String(OWNER || '').trim().toLowerCase() ||
-            actualRepo !== expectedRepo.toLowerCase()
-        ) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
-        }
-
-        if (repoData?.permissions && repoData.permissions.pull === false) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
-        }
-
-        return repoData;
+        return YODAWY.readText(repository, path, token, branch);
     }
 
     function getUsers(data) {
         if (Array.isArray(data)) return data;
         if (Array.isArray(data?.users)) return data.users;
         return [];
-    }
-
-    function getUserId(userObj) {
-        if (!userObj || typeof userObj !== 'object') return '';
-        return String(
-            userObj.id ||
-            userObj.userId ||
-            userObj.username ||
-            ''
-        ).trim().toUpperCase();
-    }
-
-    function getUserName(userObj) {
-        if (!userObj || typeof userObj !== 'object') return '';
-        return String(
-            userObj.name ||
-            userObj.displayName ||
-            userObj.fullName ||
-            userObj.username ||
-            getUserId(userObj) ||
-            'User'
-        ).trim();
     }
 
     function getPermissions(data) {
@@ -305,33 +167,80 @@ YODAWY.init = async function () {
         return data;
     }
 
-    function getMessage(key, fallback) {
-        const keyMap = {
+    function isPlaceholderToken(token) {
+        const value = String(token || '').trim();
+        if (!value || value.length < 10) return true;
+
+        const upper = value.toUpperCase();
+        const placeholders = [
+            'YOUR_PERSONAL_TOKEN',
+            'YOUR_TOKEN',
+            'PERSONAL_TOKEN',
+            'SYSTEM_TOKEN',
+            'PUT_YOUR_TOKEN_HERE',
+            'REPLACE_ME',
+            'INSERT_TOKEN',
+            'TOKEN_HERE',
+            'GH_TOKEN_PLACEHOLDER',
+            'NULL',
+            'UNDEFINED'
+        ];
+
+        return placeholders.some(pattern => upper === pattern || upper.includes(pattern));
+    }
+
+    // قراءة رسائل الخطأ من CONFIG/auth-messages.json (بصيغة { title, message } أو نص مباشر)
+    function getAuthMessageEntry(key, fallbackTitle = 'ERROR', fallbackMessage = '') {
+        const aliasMap = {
             INVALID_ID: 'INVALID_CREDENTIALS',
             ACCOUNT_DISABLED: 'USER_INACTIVE'
         };
 
         const resolvedKey = state.messages?.[key]
             ? key
-            : (keyMap[key] || key);
+            : (aliasMap[key] || key);
 
-        const value =
-            state.messages?.[resolvedKey] ??
-            DEFAULT_AUTH_MESSAGES[resolvedKey];
+        const raw = state.messages?.[resolvedKey] ?? DEFAULT_AUTH_MESSAGES[resolvedKey];
 
-        if (typeof value === 'string' && value.trim()) {
-            return value.trim();
+        if (raw && typeof raw === 'object') {
+            const title = String(raw.title || fallbackTitle || 'ERROR').trim();
+            const message = String(raw.message || fallbackMessage || resolvedKey).trim();
+            return {
+                title,
+                message,
+                formatted: title ? `${title}: ${message}` : message
+            };
         }
 
-        if (value && typeof value === 'object') {
-            const title = String(value.title || '').trim();
-            const message = String(value.message || '').trim();
-            if (title && message) return `${title}: ${message}`;
-            if (message) return message;
-            if (title) return title;
+        if (typeof raw === 'string' && raw.trim()) {
+            return {
+                title: fallbackTitle || 'ERROR',
+                message: raw.trim(),
+                formatted: raw.trim()
+            };
         }
 
-        return fallback;
+        const title = String(fallbackTitle || 'ERROR').trim();
+        const message = String(fallbackMessage || key).trim();
+        return {
+            title,
+            message,
+            formatted: title ? `${title}: ${message}` : message
+        };
+    }
+
+    function getMessage(key, fallback) {
+        const entry = getAuthMessageEntry(key, '', fallback);
+        return entry.formatted || fallback;
+    }
+
+    function throwAuthError(code, fallbackMessage = '') {
+        const entry = getAuthMessageEntry(code, '', fallbackMessage);
+        const err = new Error(entry.formatted);
+        err.code = code;
+        err.title = entry.title;
+        err.userMessage = entry.message;
+        throw err;
     }
 
     function permissionKey(tool) {
@@ -347,8 +256,8 @@ YODAWY.init = async function () {
             .toUpperCase();
     }
 
-    function normalizeRole(rawRole) {
-        const r = String(rawRole || '')
+    function normalizeRole(roleText) {
+        const r = String(roleText || '')
             .trim()
             .toLowerCase()
             .replace(/[\s-]+/g, '_');
@@ -362,70 +271,47 @@ YODAWY.init = async function () {
         return 'USER';
     }
 
-    function formatRoleLabel(normalizedRole) {
-        const r = normalizeRole(normalizedRole);
-        if (r === 'SUPER_ADMIN') return 'Super Admin';
-        if (r === 'ADMIN') return 'Admin';
+    function formatRoleLabel(roleText) {
+        const normalized = normalizeRole(roleText);
+        if (normalized === 'SUPER_ADMIN') return 'Super Admin';
+        if (normalized === 'ADMIN') return 'Admin';
         return 'User';
     }
 
     function rolePillClass(roleText) {
-        const r = normalizeRole(roleText);
-        if (r === 'SUPER_ADMIN') {
+        const normalized = normalizeRole(roleText);
+        if (normalized === 'SUPER_ADMIN') {
             return 'yd-pill-blue';
         }
-        if (r === 'ADMIN') {
+        if (normalized === 'ADMIN') {
             return 'yd-pill-purple';
         }
         return 'yd-pill-yellow';
     }
 
     // =========================================================
-    // ROLES, PERMISSIONS AND VISIBILITY
+    // ROLES, PERMISSIONS AND VISIBILITY (AUTHORITATIVE REGISTRY)
     // =========================================================
 
-    function getUserRoleCategory(userObj, fallbackUid = '') {
-        if (userObj && typeof userObj === 'object' && userObj.role) {
-            return normalizeRole(userObj.role);
-        }
-        const uid = String(getUserId(userObj) || fallbackUid || '').trim().toUpperCase();
-        const found = state.users.find(u => getUserId(u) === uid);
-        if (found?.role) {
-            return normalizeRole(found.role);
-        }
-        return 'USER';
-    }
-
-    function normalizeVisibilityMode(rawMode) {
-        const mode = String(rawMode || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
-
-        if (mode === 'SUPER_ADMIN' || mode === 'SUPERADMIN' || mode === 'PRIVATE') {
-            return 'SUPER_ADMIN';
-        }
-
-        if (mode === 'ADMIN' || mode === 'ADMINS') {
-            return 'ADMIN';
-        }
-
-        if (mode === 'USER' || mode === 'USERS' || mode === 'ALL_USERS' || mode === 'ALL' || mode === 'PUBLIC') {
-            return 'USER';
-        }
-
-        if (mode === 'SELECTED_USERS' || mode === 'SELECTED') {
-            return 'SELECTED_USERS';
-        }
-
-        return 'SUPER_ADMIN';
+    function isFullyAuthenticated() {
+        return Boolean(
+            state.authenticated &&
+            state.initialized &&
+            state.personalRepoVerified &&
+            state.user &&
+            state.status === 'Connected'
+        );
     }
 
     function isSuperAdmin() {
-        return state.authenticated && state.role === 'SUPER_ADMIN';
+        if (!isFullyAuthenticated()) return false;
+        return normalizeRole(state.user?.role) === 'SUPER_ADMIN';
     }
 
     function isAdmin() {
-        return state.authenticated && (
-            state.role === 'SUPER_ADMIN' || state.role === 'ADMIN'
-        );
+        if (!isFullyAuthenticated()) return false;
+        const role = normalizeRole(state.user?.role);
+        return role === 'SUPER_ADMIN' || role === 'ADMIN';
     }
 
     function canManage() {
@@ -447,15 +333,10 @@ YODAWY.init = async function () {
     }
 
     function permissionGranted(tool) {
-        if (!state.authenticated) return false;
+        if (!isFullyAuthenticated()) return false;
 
-        // Super Admin dashboard includes forced-true access features unless explicitly overridden
-        if (isSuperAdmin() && YODAWY.authConfig?.superAdminForcedTrue !== false) {
-            const explicitRecord = getToolPermissionRecord(tool);
-            if (explicitRecord === false) return false;
-            if (explicitRecord && typeof explicitRecord === 'object' && explicitRecord.granted === false && explicitRecord.forced !== true) {
-                return Boolean(explicitRecord.granted);
-            }
+        // Super Admin Dashboard = Admin Dashboard + Visibility + Forced-True Features
+        if (isSuperAdmin()) {
             return true;
         }
 
@@ -471,6 +352,18 @@ YODAWY.init = async function () {
         }
 
         return false;
+    }
+
+    function permissionType(tool) {
+        const permission = getToolPermissionRecord(tool);
+
+        if (permission && typeof permission === 'object') {
+            return permission.type === 'SUPER_ADMIN'
+                ? 'SUPER_ADMIN'
+                : 'ADMIN';
+        }
+
+        return 'ADMIN';
     }
 
     function permitted(tool) {
@@ -502,7 +395,7 @@ YODAWY.init = async function () {
 
         if (!existing || typeof existing !== 'object') {
             state.visibility[toolKey] = {
-                visibility: 'SUPER_ADMIN',
+                visibility: 'PRIVATE',
                 allowedUsers: [],
                 developmentStatus: 'UNDER DEVELOPMENT',
                 publicationStatus: 'NOT PUBLISHED',
@@ -511,72 +404,53 @@ YODAWY.init = async function () {
         } else {
             if (!Array.isArray(existing.allowedUsers)) {
                 existing.allowedUsers = [];
-            } else {
-                existing.allowedUsers = existing.allowedUsers
-                    .map(id => String(id).trim().toUpperCase())
-                    .filter(Boolean);
             }
-
-            existing.visibility = normalizeVisibilityMode(existing.visibility);
+            if (!existing.visibility) {
+                existing.visibility = 'PRIVATE';
+            }
         }
 
         return state.visibility[toolKey];
     }
 
-    function isToolGloballyEnabled(tool) {
-        if (isSuperAdmin() && YODAWY.authConfig?.superAdminForcedTrue !== false) {
-            const policy = visibilityPolicy(tool);
-            if (policy && typeof policy === 'object' && typeof policy.enabled === 'boolean') {
-                return policy.enabled;
-            }
-            return true;
-        }
-
-        const policy = visibilityPolicy(tool);
-        if (!policy || typeof policy !== 'object') {
-            return false;
-        }
-        return policy.enabled === true;
-    }
-
     function isToolVisibleForUser(tool, targetUserId) {
         const uid = String(targetUserId || '').trim().toUpperCase();
-        if (!uid) return false;
+        const userObj = state.users.find(
+            u => String(u.id || u.userId || u.username || '').trim().toUpperCase() === uid
+        );
+        const role = normalizeRole(userObj?.role);
 
-        const userObj = state.users.find(u => getUserId(u) === uid) ||
-            (uid === CONFIG.userId.toUpperCase() ? state.user : null);
-
-        const roleCategory = getUserRoleCategory(userObj, uid);
-
-        if (roleCategory === 'SUPER_ADMIN') {
+        if (role === 'SUPER_ADMIN') {
             return true;
         }
 
         const policy = visibilityPolicy(tool);
 
-        if (!policy || typeof policy !== 'object' || !policy.visibility) {
-            return false;
-        }
-
-        const mode = normalizeVisibilityMode(policy.visibility);
-
-        if (mode === 'SUPER_ADMIN') {
-            return false;
-        }
-
-        if (mode === 'ADMIN') {
-            return roleCategory === 'ADMIN';
-        }
-
-        if (mode === 'USER') {
+        if (!policy || typeof policy !== 'object') {
             return true;
         }
 
-        if (mode === 'SELECTED_USERS') {
+        const visibility = String(
+            policy.visibility || 'PUBLIC'
+        ).toUpperCase();
+
+        if (visibility === 'PUBLIC' || visibility === 'USER') {
+            return true;
+        }
+
+        if (visibility === 'ADMIN') {
+            return role === 'ADMIN';
+        }
+
+        if (visibility === 'PRIVATE' || visibility === 'SUPER_ADMIN') {
+            return false;
+        }
+
+        if (visibility === 'SELECTED_USERS') {
             const allowedUsers = Array.isArray(policy.allowedUsers)
                 ? policy.allowedUsers.map(value =>
                     String(value).trim().toUpperCase()
-                ).filter(Boolean)
+                )
                 : [];
 
             return allowedUsers.includes(uid);
@@ -586,7 +460,7 @@ YODAWY.init = async function () {
     }
 
     function toolIsVisible(tool) {
-        if (!state.authenticated) return false;
+        if (!isFullyAuthenticated()) return false;
 
         if (isSuperAdmin()) {
             return true;
@@ -595,187 +469,285 @@ YODAWY.init = async function () {
         return isToolVisibleForUser(tool, CONFIG.userId);
     }
 
-    function getSelectableUsersForVisibility() {
-        const currentSuperAdminId = CONFIG.userId.toUpperCase();
-        const currentLoggedUserId = getUserId(state.user);
-
-        return state.users.filter(u => {
-            const uid = getUserId(u);
-            if (!uid) return false;
-            if (uid === currentSuperAdminId || (currentLoggedUserId && uid === currentLoggedUserId)) {
-                return false;
-            }
-            return getUserRoleCategory(u, uid) !== 'SUPER_ADMIN';
-        });
-    }
-
     function setToolVisibilityForUser(toolKey, targetUserId, turnOn) {
         const uid = String(targetUserId || '').trim().toUpperCase();
-        const currentSuperAdminId = CONFIG.userId.toUpperCase();
-        const currentLoggedUserId = getUserId(state.user);
-
-        if (!uid || uid === currentSuperAdminId || (currentLoggedUserId && uid === currentLoggedUserId)) {
-            return;
-        }
+        if (uid === 'Q-001') return;
 
         const record = ensureToolVisibilityRecord(toolKey);
-        const allowedSet = new Set(
+        const currentVis = String(record.visibility || 'PRIVATE').toUpperCase();
+
+        const nonSuperAdminIds = state.users
+            .filter(u => normalizeRole(u.role) !== 'SUPER_ADMIN')
+            .map(u => String(u.id || '').trim().toUpperCase())
+            .filter(Boolean);
+
+        let allowedSet = new Set(
             (Array.isArray(record.allowedUsers) ? record.allowedUsers : [])
                 .map(id => String(id).trim().toUpperCase())
-                .filter(id => id && id !== currentSuperAdminId && id !== currentLoggedUserId)
+                .filter(Boolean)
         );
 
-        const shouldAdd = typeof turnOn === 'boolean'
-            ? turnOn
-            : !allowedSet.has(uid);
-
-        if (shouldAdd) {
-            allowedSet.add(uid);
+        if (currentVis === 'PUBLIC') {
+            if (!turnOn) {
+                record.visibility = 'SELECTED_USERS';
+                allowedSet = new Set(nonSuperAdminIds.filter(id => id !== uid));
+                record.allowedUsers = [...allowedSet];
+                if (record.allowedUsers.length === 0) {
+                    record.visibility = 'PRIVATE';
+                }
+            }
+        } else if (currentVis === 'PRIVATE') {
+            if (turnOn) {
+                record.visibility = 'SELECTED_USERS';
+                allowedSet.add(uid);
+                record.allowedUsers = [...allowedSet];
+            }
         } else {
-            allowedSet.delete(uid);
+            if (turnOn) {
+                allowedSet.add(uid);
+            } else {
+                allowedSet.delete(uid);
+            }
+            record.allowedUsers = [...allowedSet];
+            if (record.allowedUsers.length === 0) {
+                record.visibility = 'PRIVATE';
+            }
         }
 
-        record.allowedUsers = [...allowedSet];
+        record.enabled = record.visibility !== 'PRIVATE';
         state.visibilityDirty = true;
-        state.visibilitySavedMessage = '';
     }
 
     function setToolPolicyMode(toolKey, newMode) {
-        const mode = normalizeVisibilityMode(newMode);
+        const mode = String(newMode || 'PRIVATE').toUpperCase();
         const record = ensureToolVisibilityRecord(toolKey);
 
         record.visibility = mode;
 
-        if (mode !== 'SELECTED_USERS' && state.openSelectedUsersTool === toolKey) {
-            state.openSelectedUsersTool = '';
+        if (mode === 'PRIVATE') {
+            record.allowedUsers = [];
+            record.enabled = false;
+        } else if (mode === 'PUBLIC') {
+            record.enabled = true;
+        } else if (mode === 'SELECTED_USERS') {
+            record.enabled = record.allowedUsers.length > 0;
         }
 
         state.visibilityDirty = true;
-        state.visibilitySavedMessage = '';
     }
 
-    function extractVisibilityMap(visibilityData) {
-        if (!visibilityData || typeof visibilityData !== 'object' || Array.isArray(visibilityData)) {
-            return {};
-        }
-
-        const rawMap = visibilityData.visibility && typeof visibilityData.visibility === 'object'
-            ? visibilityData.visibility
-            : visibilityData.tools && typeof visibilityData.tools === 'object'
-                ? visibilityData.tools
-                : getPermissions(visibilityData);
-
-        const normalizedMap = {};
-        for (const [key, val] of Object.entries(rawMap || {})) {
-            if (val && typeof val === 'object' && !Array.isArray(val)) {
-                normalizedMap[key] = {
-                    ...val,
-                    visibility: normalizeVisibilityMode(val.visibility),
-                    allowedUsers: Array.isArray(val.allowedUsers)
-                        ? val.allowedUsers.map(u => String(u).trim().toUpperCase()).filter(Boolean)
-                        : []
-                };
-            }
-        }
-
-        return normalizedMap;
-    }
+    // =========================================================
+    // PERSONAL REPOSITORY ACCESS & SETTINGS VERIFICATION
+    // =========================================================
 
     function resetAuthState() {
         state.authenticated = false;
         state.initialized = false;
+        state.personalRepoVerified = false;
         state.status = 'unConnected';
-        state.role = 'USER';
-        state.dashboardVariant = 'USER_DASHBOARD';
         state.user = null;
+        state.userRole = 'NONE';
+        state.dashboardVariant = 'NONE';
         state.personalToken = '';
         state.settings = {};
         state.tools = [];
-        YODAWY.isAuthenticated = false;
+        YODAWY.authenticated = false;
+    }
+
+    async function verifyPersonalRepositoryAccess(personalRepository, personalToken) {
+        const expectedOwner = String(OWNER || '').trim();
+        const expectedRepo = String(personalRepository || '').trim();
+        const cleanToken = String(personalToken || '').trim();
+
+        if (!expectedOwner || !expectedRepo) {
+            throwAuthError('UNKNOWN_ERROR');
+        }
+
+        if (isPlaceholderToken(cleanToken)) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
+        const repoApiUrl =
+            `${API}/repos/${encodeURIComponent(expectedOwner)}/${encodeURIComponent(expectedRepo)}`;
+
+        let response;
+        try {
+            response = await fetch(repoApiUrl, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${cleanToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store'
+            });
+        } catch {
+            throwAuthError('NETWORK_ERROR');
+        }
+
+        if (!response.ok) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
+        const repoMetadata = await response.json().catch(() => null);
+        const actualOwner = String(repoMetadata?.owner?.login || '').trim().toLowerCase();
+        const actualRepo = String(repoMetadata?.name || '').trim().toLowerCase();
+
+        if (
+            !repoMetadata ||
+            actualOwner !== expectedOwner.toLowerCase() ||
+            actualRepo !== expectedRepo.toLowerCase()
+        ) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
+        return repoMetadata;
+    }
+
+    async function readPersonalSettingsFile(personalRepository, settingsPath, personalToken) {
+        const cleanToken = String(personalToken || '').trim();
+        const branch = YODAWY.branch || 'main';
+        const url = `${repositoryUrl(personalRepository, settingsPath)}?ref=${encodeURIComponent(branch)}`;
+
+        let response;
+        try {
+            response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${cleanToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store'
+            });
+        } catch {
+            throwAuthError('NETWORK_ERROR');
+        }
+
+        // ملف الإعدادات قد لا يكون منشأً بعد (404) ولكن ذلك لا يُقبل إلا بعد نجاح verifyPersonalRepositoryAccess أولاً
+        if (response.status === 404) {
+            return { tools: {} };
+        }
+
+        if (response.status === 401 || response.status === 403) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
+        if (!response.ok) {
+            throwAuthError('UNKNOWN_ERROR');
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (!payload || typeof payload.content !== 'string') {
+            return { tools: {} };
+        }
+
+        try {
+            const cleaned = payload.content.replace(/\s+/g, '');
+            const binary = atob(cleaned);
+            const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+            const decoded = new TextDecoder('utf-8').decode(bytes);
+            const parsed = JSON.parse(decoded);
+            return parsed && typeof parsed === 'object' ? parsed : { tools: {} };
+        } catch {
+            return { tools: {} };
+        }
     }
 
     // =========================================================
-    // TWO-STAGE AUTHENTICATION (SYSTEM + PERSONAL REPOSITORY)
+    // AUTHENTICATION (TWO-STAGE: SYSTEM + PERSONAL REPOSITORY)
     // =========================================================
 
     async function authenticate() {
         resetAuthState();
 
-        // Stage 1: Validate System Auth Config
-        let authConfig = YODAWY.authConfig;
-        if (!authConfig || typeof authConfig !== 'object') {
-            try {
-                authConfig = await readSystemJson(
-                    YODAWY.dashboardRepository,
-                    'CONFIG/auth-config.json'
-                );
-                YODAWY.authConfig = authConfig;
-            } catch {
-                throw new Error(getMessage('WRONG_SYSTEM', 'SYSTEM ERROR: WRONG SYSTEM'));
+        const authConfig = YODAWY.authConfig;
+
+        const messagesPath =
+            authConfig?.dashboard?.messagesPath ||
+            'CONFIG/auth-messages.json';
+
+        try {
+            const loadedMessages = await readJson(
+                YODAWY.dashboardRepository,
+                messagesPath
+            );
+            const extractedMessages =
+                loadedMessages?.messages && typeof loadedMessages.messages === 'object'
+                    ? loadedMessages.messages
+                    : loadedMessages;
+
+            if (extractedMessages && typeof extractedMessages === 'object') {
+                state.messages = {
+                    ...DEFAULT_AUTH_MESSAGES,
+                    ...extractedMessages
+                };
             }
+        } catch {
+            // الاحتفاظ برسائل authMessages المحملة مسبقاً من الـ Loader
         }
 
-        if (authConfig.provider !== 'github' || authConfig.enabled === false) {
-            throw new Error(getMessage('WRONG_SYSTEM', 'SYSTEM ERROR: WRONG SYSTEM'));
+        if (!authConfig || authConfig.provider !== 'github' || authConfig.enabled === false) {
+            throwAuthError('WRONG_SYSTEM');
         }
 
         const userRegistry = authConfig.userRegistry || {};
-        const registryRepository = userRegistry.repository || YODAWY.dashboardRepository;
-        const registryPath = userRegistry.path || 'CONFIG/auth-users.json';
-        const messagesPath = authConfig.dashboard?.messagesPath || 'CONFIG/auth-messages.json';
-        const permissionsPath = authConfig.permissionsPath || CONFIG.permissionsPath;
-        const visibilityPath = authConfig.visibilityPath || CONFIG.visibilityPath;
+        const registryRepository =
+            userRegistry.repository ||
+            YODAWY.dashboardRepository;
+        const registryPath =
+            userRegistry.path ||
+            'CONFIG/auth-users.json';
+        const permissionsPath =
+            authConfig.permissionsPath ||
+            CONFIG.permissionsPath;
+        const visibilityPath =
+            authConfig.visibilityPath ||
+            CONFIG.visibilityPath;
 
-        // Read system files using SYSTEM_TOKEN only
         let usersData;
-        let messagesData;
         let permissionsData;
         let visibilityData;
 
         try {
             [
                 usersData,
-                messagesData,
                 permissionsData,
                 visibilityData
             ] = await Promise.all([
-                readSystemJson(registryRepository, registryPath),
-                readSystemJson(YODAWY.dashboardRepository, messagesPath).catch(() => ({})),
-                readSystemJson(YODAWY.dashboardRepository, permissionsPath).catch(() => ({})),
-                readSystemJson(YODAWY.dashboardRepository, visibilityPath).catch(() => ({}))
+                readJson(registryRepository, registryPath),
+                readJson(YODAWY.dashboardRepository, permissionsPath).catch(() => ({})),
+                readJson(YODAWY.dashboardRepository, visibilityPath).catch(() => ({}))
             ]);
-        } catch (sysErr) {
-            if (sysErr.status === 0) {
-                throw new Error(getMessage('NETWORK_ERROR', 'CONNECTION ERROR: UNABLE TO CONNECT. PLEASE TRY AGAIN.'));
-            }
-            throw new Error(getMessage('WRONG_SYSTEM', 'SYSTEM ERROR: WRONG SYSTEM'));
+        } catch {
+            throwAuthError('NETWORK_ERROR');
         }
 
-        const rawMessages = messagesData?.messages || messagesData || {};
-        if (rawMessages && typeof rawMessages === 'object') {
-            state.messages = {
-                ...DEFAULT_AUTH_MESSAGES,
-                ...rawMessages
-            };
-        }
-
-        // Stage 2: Resolve User from Authoritative Registry
         const allUsers = getUsers(usersData);
         state.users = allUsers;
 
-        const targetUserId = CONFIG.userId.toUpperCase();
-        const user = allUsers.find(item => getUserId(item) === targetUserId);
+        const targetUserId = String(CONFIG.userId || '').trim().toUpperCase();
+        if (!targetUserId) {
+            throwAuthError('INVALID_CREDENTIALS');
+        }
+
+        const user = allUsers.find(item =>
+            String(
+                item.id ||
+                item.userId ||
+                item.username ||
+                ''
+            ).trim().toUpperCase() === targetUserId
+        );
 
         if (!user) {
-            throw new Error(
-                getMessage('INVALID_CREDENTIALS', 'LOGIN FAILED: INVALID ID OR PASSWORD')
-            );
+            throwAuthError('INVALID_CREDENTIALS');
         }
 
         if (String(user.status || '').trim().toLowerCase() !== 'active') {
-            throw new Error(
-                getMessage('USER_INACTIVE', 'ACCOUNT INACTIVE: YOUR ACCOUNT IS INACTIVE')
-            );
+            throwAuthError('USER_INACTIVE');
         }
 
         const personalRepository = String(
@@ -786,80 +758,26 @@ YODAWY.init = async function () {
         ).trim();
 
         if (!personalRepository) {
-            throw new Error(
-                getMessage('WRONG_SYSTEM', 'SYSTEM ERROR: PERSONAL REPOSITORY MISSING IN REGISTRY')
-            );
+            throwAuthError('UNKNOWN_ERROR');
         }
 
-        // Resolve PERSONAL_TOKEN strictly from Loader configuration (never substitute registry token when Loader token is invalid/missing)
+        // عدم استبدال التوكن الموجود في الـ Loader بأي توكن من سجل المستخدمين
         const configuredPersonalToken = String(YODAWY.personalToken || '').trim();
 
         if (isPlaceholderToken(configuredPersonalToken)) {
-            throw new Error(
-                getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN')
-            );
+            throwAuthError('TOKEN_INVALID');
         }
 
-        // Stage 3: Verify Personal Token can access GET /repos/{OWNER}/{PERSONAL_REPOSITORY}
+        // خطوة إلزامية: التحقق من قدرة PERSONAL_TOKEN على فتح المستودع الشخصي عبر GitHub API
         await verifyPersonalRepositoryAccess(personalRepository, configuredPersonalToken);
+        state.personalRepoVerified = true;
 
-        // Stage 4: Only AFTER repository access is verified, read personal dashboard-settings.json
-        let loadedSettings = {};
-        try {
-            loadedSettings = await readPersonalJson(
-                personalRepository,
-                authConfig.settingsPath || CONFIG.settingsPath,
-                configuredPersonalToken
-            );
-        } catch (settingsErr) {
-            if (settingsErr.status === 404) {
-                loadedSettings = {};
-            } else if (settingsErr.status === 401 || settingsErr.status === 403) {
-                throw new Error(
-                    getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN')
-                );
-            } else if (settingsErr.status === 0) {
-                throw new Error(
-                    getMessage('NETWORK_ERROR', 'CONNECTION ERROR: UNABLE TO CONNECT. PLEASE TRY AGAIN.')
-                );
-            } else {
-                throw new Error(
-                    getMessage('UNKNOWN_ERROR', 'ERROR: AN UNEXPECTED ERROR OCCURRED. PLEASE TRY AGAIN.')
-                );
-            }
-        }
-
-        // Read authoritative visibility from Users Repository if accessible with personalToken
-        let authoritativeVisibility = visibilityData;
-        try {
-            const usersRepoVisibility = await readPersonalJson(
-                CONFIG.usersRepository,
-                visibilityPath,
-                configuredPersonalToken
-            );
-            if (usersRepoVisibility && typeof usersRepoVisibility === 'object') {
-                authoritativeVisibility = usersRepoVisibility;
-            }
-        } catch {
-            // Keep dashboard repository visibilityData fallback if Users repo visibility is not readable by regular user
-        }
-
-        // Stage 5: Determine Authoritative Role & Dashboard Variant from Registry
-        const resolvedRole = normalizeRole(user.role);
-
-        state.role = resolvedRole;
-        state.dashboardVariant = `${resolvedRole}_DASHBOARD`;
-        state.user = {
-            ...user,
-            role: formatRoleLabel(resolvedRole),
-            repository: personalRepository
-        };
-        state.personalToken = configuredPersonalToken;
-        state.permissions = getPermissions(permissionsData);
-        state.visibility = extractVisibilityMap(authoritativeVisibility);
-        state.visibilityDirty = false;
-        state.visibilitySavedMessage = '';
-        state.openSelectedUsersTool = '';
+        // بعد إثبات صلاحية التوكن والمستودع الشخصي فقط، يتم قراءة ملف الإعدادات الشخصية
+        const loadedSettings = await readPersonalSettingsFile(
+            personalRepository,
+            authConfig.settingsPath || CONFIG.settingsPath,
+            configuredPersonalToken
+        );
 
         state.settings = loadedSettings && typeof loadedSettings === 'object'
             ? loadedSettings
@@ -869,17 +787,46 @@ YODAWY.init = async function () {
             state.settings.tools = {};
         }
 
-        // Assign Connected ONLY after all system + personal repository checks pass
+        const authoritativeRole = normalizeRole(user.role);
+
+        state.user = {
+            ...user,
+            role: formatRoleLabel(authoritativeRole),
+            repository: personalRepository
+        };
+        state.userRole = authoritativeRole;
+        state.dashboardVariant = authoritativeRole;
+        state.personalToken = configuredPersonalToken;
+
+        state.permissions = getPermissions(permissionsData);
+        state.visibility =
+            visibilityData?.visibility &&
+            typeof visibilityData.visibility === 'object'
+                ? visibilityData.visibility
+                : visibilityData?.tools &&
+                  typeof visibilityData.tools === 'object'
+                    ? visibilityData.tools
+                    : getPermissions(visibilityData);
+
+        state.visibilityDirty = false;
+        state.error = '';
+        state.errorTitle = '';
+
+        // لا يتم تعيين حالة Connected إلا بعد نجاح جميع الفحوصات السابقة بالكامل
         state.authenticated = true;
         state.initialized = true;
         state.status = 'Connected';
-        YODAWY.isAuthenticated = true;
-        YODAWY.resolvedRole = resolvedRole;
-        YODAWY.dashboardVariant = state.dashboardVariant;
-
         state.section = state.settings.startPage === 'tools' ? 'tools' : 'overview';
 
-        log(`Authenticated as ${state.user.name || CONFIG.userId} (${state.user.role}).`, 'success');
+        YODAWY.authenticated = true;
+        YODAWY.userRole = authoritativeRole;
+        YODAWY.dashboardVariant = authoritativeRole;
+        YODAWY.authError = '';
+
+        log(
+            `Authenticated as ${state.user.name || CONFIG.userId} (${authoritativeRole} DASHBOARD).`,
+            'success'
+        );
     }
 
     // =========================================================
@@ -887,8 +834,9 @@ YODAWY.init = async function () {
     // =========================================================
 
     async function loadTools() {
-        if (!state.authenticated) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
+        if (!isFullyAuthenticated()) {
+            state.tools = [];
+            throwAuthError('TOKEN_INVALID');
         }
 
         const repository = YODAWY.dashboardRepository;
@@ -897,9 +845,10 @@ YODAWY.init = async function () {
         let manifestData;
 
         try {
-            manifestData = await readSystemJson(
+            manifestData = await readJson(
                 repository,
                 CONFIG.manifestPath,
+                undefined,
                 branch
             );
         } catch (error) {
@@ -966,9 +915,10 @@ YODAWY.init = async function () {
 
         const results = await Promise.allSettled(
             normalizedTools.map(async item => {
-                const file = await readSystemText(
+                const file = await readText(
                     repository,
                     item.resolvedPath,
+                    undefined,
                     branch
                 );
 
@@ -1065,7 +1015,7 @@ YODAWY.init = async function () {
         }
 
         log(
-            `Loaded ${state.tools.length} tools from ${repository}/${CONFIG.toolsDirectory}.`,
+            `Loaded ${state.tools.length} tools from ${repository}/${CONFIG.toolsDirectory} using ${CONFIG.manifestPath}.`,
             'success'
         );
     }
@@ -1145,24 +1095,8 @@ YODAWY.init = async function () {
     // =========================================================
 
     function runTool(tool) {
-        if (!state.authenticated || state.status !== 'Connected') {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
-        }
-
-        if (!permitted(tool)) {
+        if (!isFullyAuthenticated() || !permitted(tool) || !toolIsVisible(tool)) {
             throw new Error('Tool permission denied.');
-        }
-
-        if (!toolIsVisible(tool)) {
-            throw new Error('Tool visibility policy denied execution.');
-        }
-
-        if (!isToolGloballyEnabled(tool)) {
-            throw new Error('Tool is globally disabled.');
-        }
-
-        if (!isToolEnabledByUser(tool)) {
-            throw new Error('Tool is turned off in personal settings.');
         }
 
         if (!matchesPage(tool)) {
@@ -1215,14 +1149,15 @@ YODAWY.init = async function () {
     // =========================================================
 
     async function sync() {
-        if (state.loading) return Boolean(state.authenticated && state.status === 'Connected');
+        if (state.loading) return isFullyAuthenticated();
 
         state.loading = true;
         state.error = '';
+        state.errorTitle = '';
         render();
 
         try {
-            if (!state.authenticated || state.status !== 'Connected') {
+            if (!isFullyAuthenticated()) {
                 await authenticate();
             }
 
@@ -1232,7 +1167,6 @@ YODAWY.init = async function () {
                 if (
                     permitted(tool) &&
                     toolIsVisible(tool) &&
-                    isToolGloballyEnabled(tool) &&
                     isToolEnabledByUser(tool) &&
                     matchesPage(tool)
                 ) {
@@ -1244,12 +1178,18 @@ YODAWY.init = async function () {
                 }
             }
 
+            state.status = 'Connected';
             return true;
         } catch (error) {
-            const errMessage = error?.message || getMessage('UNKNOWN_ERROR', 'ERROR: AN UNEXPECTED ERROR OCCURRED. PLEASE TRY AGAIN.');
             resetAuthState();
-            state.error = errMessage;
-            log(state.error, 'error');
+            state.errorTitle = error.title || '';
+            state.error = error.userMessage || error.message || String(error);
+            YODAWY.authError = state.error;
+
+            log(
+                state.errorTitle ? `${state.errorTitle}: ${state.error}` : state.error,
+                'error'
+            );
             return false;
         } finally {
             state.loading = false;
@@ -1262,8 +1202,8 @@ YODAWY.init = async function () {
     // =========================================================
 
     async function writePersonalSettings(updatedSettings, successLogMessage) {
-        if (!state.authenticated || !state.user?.repository || isPlaceholderToken(state.personalToken)) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
+        if (!isFullyAuthenticated()) {
+            throwAuthError('TOKEN_INVALID');
         }
 
         const repository = state.user.repository;
@@ -1277,6 +1217,9 @@ YODAWY.init = async function () {
                 state.personalToken
             );
         } catch (error) {
+            if (error.status === 401 || error.status === 403) {
+                throwAuthError('TOKEN_INVALID');
+            }
             if (error.status !== 404) throw error;
         }
 
@@ -1320,6 +1263,10 @@ YODAWY.init = async function () {
 
         const result = await response.json().catch(() => ({}));
 
+        if (response.status === 401 || response.status === 403) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
         if (!response.ok) {
             throw new Error(
                 result.message ||
@@ -1332,8 +1279,8 @@ YODAWY.init = async function () {
     }
 
     async function saveSettings() {
-        if (!state.authenticated) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
+        if (!isFullyAuthenticated()) {
+            throwAuthError('TOKEN_INVALID');
         }
 
         const displayName = $('#yd-name')?.value.trim() ||
@@ -1361,8 +1308,8 @@ YODAWY.init = async function () {
     }
 
     async function toggleMyToolSwitch(tool, turnOn) {
-        if (!state.authenticated) {
-            throw new Error(getMessage('TOKEN_INVALID', 'AUTHENTICATION FAILED: INVALID OR EXPIRED TOKEN'));
+        if (!isFullyAuthenticated()) {
+            throwAuthError('TOKEN_INVALID');
         }
 
         if (!permitted(tool)) {
@@ -1415,133 +1362,109 @@ YODAWY.init = async function () {
             throw new Error('Super Admin access required to modify visibility.');
         }
 
-        if (state.savingVisibility) {
-            return;
+        const repository = CONFIG.usersRepository;
+        const path = CONFIG.visibilityPath;
+
+        const newVisibility = {};
+
+        const orderedTools = [...state.tools].sort((a, b) =>
+            permissionKey(a).localeCompare(permissionKey(b))
+        );
+
+        for (const tool of orderedTools) {
+            const key = permissionKey(tool);
+            const record = ensureToolVisibilityRecord(key);
+            const visValue = String(record.visibility || 'PRIVATE').toUpperCase();
+            const allowedUsers = Array.isArray(record.allowedUsers)
+                ? record.allowedUsers
+                    .map(s => String(s).trim().toUpperCase())
+                    .filter(Boolean)
+                : [];
+
+            newVisibility[key] = {
+                visibility: visValue,
+                allowedUsers,
+                developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
+                publicationStatus: record.publicationStatus || 'NOT PUBLISHED',
+                enabled: visValue !== 'PRIVATE'
+            };
         }
 
-        state.savingVisibility = true;
-        state.error = '';
-        state.visibilitySavedMessage = '';
-        render();
+        for (const [key, value] of Object.entries(state.visibility)) {
+            if (!newVisibility[key] && value && typeof value === 'object') {
+                newVisibility[key] = value;
+            }
+        }
+
+        let current = null;
 
         try {
-            const repository = CONFIG.usersRepository;
-            const path = CONFIG.visibilityPath;
-
-            const newVisibility = {};
-
-            const orderedTools = [...state.tools].sort((a, b) =>
-                permissionKey(a).localeCompare(permissionKey(b))
-            );
-
-            const currentSuperAdminId = CONFIG.userId.toUpperCase();
-            const currentLoggedUserId = getUserId(state.user);
-
-            for (const tool of orderedTools) {
-                const key = permissionKey(tool);
-                const record = ensureToolVisibilityRecord(key);
-                const visValue = normalizeVisibilityMode(record.visibility);
-                const allowedUsers = Array.isArray(record.allowedUsers)
-                    ? [...new Set(
-                        record.allowedUsers
-                            .map(s => String(s).trim().toUpperCase())
-                            .filter(id => id && id !== currentSuperAdminId && id !== currentLoggedUserId)
-                    )]
-                    : [];
-
-                newVisibility[key] = {
-                    ...record,
-                    visibility: visValue,
-                    allowedUsers,
-                    developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
-                    publicationStatus: record.publicationStatus || 'NOT PUBLISHED',
-                    enabled: Boolean(record.enabled)
-                };
-            }
-
-            for (const [key, value] of Object.entries(state.visibility)) {
-                if (!newVisibility[key] && value && typeof value === 'object') {
-                    newVisibility[key] = value;
-                }
-            }
-
-            let current = null;
-
-            try {
-                current = await YODAWY.request(
-                    repositoryUrl(repository, path),
-                    state.personalToken
-                );
-            } catch (error) {
-                if (error.status !== 404) throw error;
-            }
-
-            const bytes = new TextEncoder().encode(
-                JSON.stringify(newVisibility, null, 2) + '\n'
-            );
-
-            let binary = '';
-
-            for (let index = 0; index < bytes.length; index += 8192) {
-                binary += String.fromCharCode(
-                    ...bytes.subarray(index, index + 8192)
-                );
-            }
-
-            const body = {
-                message: 'Update tool visibility configuration',
-                content: btoa(binary),
-                branch: YODAWY.branch
-            };
-
-            if (current?.sha) {
-                body.sha = current.sha;
-            }
-
-            const response = await fetch(
+            current = await YODAWY.request(
                 repositoryUrl(repository, path),
-                {
-                    method: 'PUT',
-                    headers: {
-                        Authorization: `Bearer ${state.personalToken}`,
-                        Accept: 'application/vnd.github+json',
-                        'Content-Type': 'application/json',
-                        'X-GitHub-Api-Version': '2022-11-28'
-                    },
-                    credentials: 'omit',
-                    cache: 'no-store',
-                    body: JSON.stringify(body)
-                }
+                state.personalToken
             );
-
-            const result = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                throw new Error(
-                    result.message ||
-                    `Visibility save failed: ${response.status}`
-                );
-            }
-
-            state.visibility = newVisibility;
-            state.visibilityDirty = false;
-            state.visibilitySavedMessage = 'Visibility policies saved.';
-            state.error = '';
-
-            log('Tool visibility saved to Users Repository.', 'success');
-        } finally {
-            state.savingVisibility = false;
-            render();
+        } catch (error) {
+            if (error.status !== 404) throw error;
         }
+
+        const bytes = new TextEncoder().encode(
+            JSON.stringify(newVisibility, null, 2) + '\n'
+        );
+
+        let binary = '';
+
+        for (let index = 0; index < bytes.length; index += 8192) {
+            binary += String.fromCharCode(
+                ...bytes.subarray(index, index + 8192)
+            );
+        }
+
+        const body = {
+            message: 'Update tool visibility configuration',
+            content: btoa(binary),
+            branch: YODAWY.branch
+        };
+
+        if (current?.sha) {
+            body.sha = current.sha;
+        }
+
+        const response = await fetch(
+            repositoryUrl(repository, path),
+            {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${state.personalToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'Content-Type': 'application/json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store',
+                body: JSON.stringify(body)
+            }
+        );
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(
+                result.message ||
+                `Visibility save failed: ${response.status}`
+            );
+        }
+
+        state.visibility = newVisibility;
+        state.visibilityDirty = false;
+        state.error = '';
+
+        log('Tool visibility saved to Users Repository.', 'success');
+        render();
     }
 
     // =========================================================
     // DASHBOARD UI & CLEAN MODERN DESIGN SYSTEM
     // =========================================================
-
-    const selectArrowSvgDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(
-        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="${DARK}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`
-    )}`;
 
     const style = document.createElement('style');
 
@@ -1843,21 +1766,17 @@ YODAWY.init = async function () {
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            transition: background .15s, opacity .15s;
+            transition: background .15s;
         }
-        .yd-btn:hover:not(:disabled) {
+        .yd-btn:hover {
             background: ${LIGHT_BG};
-        }
-        .yd-btn:disabled {
-            opacity: .55;
-            cursor: not-allowed;
         }
         .yd-primary {
             background: ${PURPLE};
             color: #fff;
             border-color: ${PURPLE} !important;
         }
-        .yd-primary:hover:not(:disabled) {
+        .yd-primary:hover {
             background: ${DARK};
         }
         .yd-close-btn {
@@ -1943,8 +1862,13 @@ YODAWY.init = async function () {
             border-radius: 8px;
             margin-bottom: 14px;
             font-size: 12px;
-            font-weight: 700;
+            font-weight: 600;
             overflow-wrap: anywhere;
+        }
+        .yd-error-title {
+            font-weight: 800;
+            font-size: 12.5px;
+            margin-bottom: 2px;
         }
         .yd-empty {
             padding: 24px;
@@ -1954,7 +1878,7 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-            HEADER STATUS & COMPACT PROFILE BUTTON
+            HEADER STATUS & COMPACT PROFILE BUTTON (NO HOVER JUMP)
             ===================================================== */
         .yd-header-actions {
             display: flex;
@@ -2130,7 +2054,7 @@ YODAWY.init = async function () {
         }
 
         /* =====================================================
-            SLIM MODERN TABLE & VISIBILITY CONTROLS
+            SLIM MODERN TABLE (SHADCN-INSPIRED COMPACT ROWS)
             ===================================================== */
         .yd-table-card {
             background: #fff;
@@ -2139,20 +2063,15 @@ YODAWY.init = async function () {
             overflow: hidden;
             box-shadow: 0 2px 6px #24152e06;
         }
-        .yd-table-card.yd-vis-table-card {
-            overflow: visible;
-        }
         .yd-table-card-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 10px;
-            min-height: 46px;
-            padding: 6px 14px;
+            height: 44px;
+            padding: 0 14px;
             background: #fff;
             border-bottom: 1px solid #eee8f0;
-            border-radius: 12px 12px 0 0;
-            flex-wrap: wrap;
         }
         .yd-table-card-title {
             display: flex;
@@ -2165,15 +2084,11 @@ YODAWY.init = async function () {
         .yd-table-pills {
             display: flex;
             align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 6px;
         }
         .yd-table-responsive {
             width: 100%;
             overflow-x: auto;
-        }
-        .yd-table-responsive.yd-vis-table-wrap {
-            overflow: visible;
         }
         .yd-table {
             width: 100%;
@@ -2195,9 +2110,9 @@ YODAWY.init = async function () {
             vertical-align: middle;
         }
         .yd-table tbody tr {
-            height: 44px;
+            height: 42px;
             border-bottom: 1px solid #f1ecf3;
-            transition: background .12s, color .12s;
+            transition: background .12s;
         }
         .yd-table tbody tr:last-child {
             border-bottom: 0;
@@ -2215,244 +2130,6 @@ YODAWY.init = async function () {
             font-size: 13px;
             font-weight: 600;
             color: #29242e;
-        }
-        .yd-vis-filter-group {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .yd-vis-filter-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #655c6a;
-            white-space: nowrap;
-        }
-        .yd-vis-select {
-            appearance: none;
-            -webkit-appearance: none;
-            height: 32px;
-            width: 100%;
-            min-width: 165px;
-            padding: 0 30px 0 10px;
-            border: 1px solid #dfd5e3;
-            border-radius: 8px;
-            background-color: #fff;
-            background-image: url("${selectArrowSvgDataUri}");
-            background-repeat: no-repeat;
-            background-position: right 9px center;
-            background-size: 14px 14px;
-            color: #29242e;
-            font: 600 12.5px/1.2 system-ui, -apple-system, sans-serif;
-            cursor: pointer;
-            transition: border-color .14s, background-color .14s, box-shadow .14s;
-        }
-        .yd-vis-select:hover {
-            border-color: ${PURPLE};
-            background-color: #fcfafc;
-        }
-        #yd-modal .yd-vis-select:focus,
-        #yd-modal .yd-vis-select:focus-visible {
-            outline: none !important;
-            border-color: ${PURPLE} !important;
-            box-shadow: 0 0 0 2.5px #875A7B26 !important;
-            background-color: #fff;
-        }
-        .yd-ms-dropdown {
-            position: relative;
-            width: 100%;
-            max-width: 280px;
-        }
-        #yd-modal .yd-ms-trigger {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            width: 100%;
-            height: 32px;
-            padding: 0 9px 0 10px;
-            border: 1px solid #dfd5e3 !important;
-            border-radius: 8px;
-            background: #fff;
-            color: #29242e;
-            font: 600 12.5px/1.2 system-ui, -apple-system, sans-serif;
-            cursor: pointer;
-            text-align: left;
-            transition: border-color .14s, background-color .14s, box-shadow .14s;
-        }
-        #yd-modal .yd-ms-trigger:hover {
-            border-color: ${PURPLE} !important;
-            background: #fcfafc;
-        }
-        #yd-modal .yd-ms-trigger:focus,
-        #yd-modal .yd-ms-trigger:focus-visible,
-        #yd-modal .yd-ms-trigger.open {
-            outline: none !important;
-            border-color: ${PURPLE} !important;
-            box-shadow: 0 0 0 2.5px #875A7B26 !important;
-            background: #fff;
-        }
-        .yd-ms-summary {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            min-width: 0;
-            flex: 1;
-            overflow: hidden;
-        }
-        .yd-ms-placeholder {
-            color: #8c8492;
-            font-weight: 500;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .yd-ms-value {
-            color: #29242e;
-            font-weight: 600;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .yd-ms-inline-id {
-            color: #7c7482;
-            font-weight: 600;
-            font-size: 11.5px;
-        }
-        .yd-ms-count {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            height: 18px;
-            min-width: 18px;
-            padding: 0 6px;
-            border-radius: 999px;
-            background: ${SOFT_BG};
-            color: ${DARK};
-            border: 1px solid #dfd2dc;
-            font-size: 10.5px;
-            font-weight: 800;
-            flex-shrink: 0;
-        }
-        .yd-ms-arrow {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: ${DARK};
-            flex-shrink: 0;
-            transition: transform .15s;
-        }
-        .yd-ms-trigger.open .yd-ms-arrow {
-            transform: rotate(180deg);
-        }
-        .yd-ms-menu {
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
-            right: 0;
-            min-width: 230px;
-            max-height: 210px;
-            overflow-y: auto;
-            padding: 5px;
-            background: #fff;
-            border: 1px solid #dfd5e3;
-            border-radius: 10px;
-            box-shadow: 0 10px 24px #24152e1f;
-            z-index: 2147483010;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .yd-ms-menu[hidden] {
-            display: none !important;
-        }
-        #yd-modal .yd-ms-option {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-            min-height: 32px;
-            padding: 5px 8px;
-            border: 1px solid transparent !important;
-            border-radius: 7px;
-            background: transparent;
-            color: #29242e;
-            font: 600 12px/1.25 system-ui, -apple-system, sans-serif;
-            text-align: left;
-            cursor: pointer;
-            transition: background .12s, border-color .12s, color .12s;
-        }
-        #yd-modal .yd-ms-option:hover {
-            background: ${LIGHT_BG};
-        }
-        #yd-modal .yd-ms-option.selected {
-            background: ${SOFT_BG};
-            color: ${DARK};
-            border-color: #dfd2dc !important;
-        }
-        .yd-ms-checkbox {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 15px;
-            height: 15px;
-            border-radius: 4px;
-            border: 1.5px solid #c9bccd;
-            background: #fff;
-            color: #fff;
-            flex-shrink: 0;
-        }
-        .yd-ms-option.selected .yd-ms-checkbox {
-            background: ${PURPLE};
-            border-color: ${PURPLE};
-        }
-        .yd-ms-option-info {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            flex: 1;
-            min-width: 0;
-        }
-        .yd-ms-option-name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 600;
-        }
-        .yd-ms-option-id {
-            display: inline-flex;
-            align-items: center;
-            height: 18px;
-            padding: 0 6px;
-            border-radius: 5px;
-            background: #f5eff4;
-            color: ${DARK};
-            border: 1px solid #e4d8e2;
-            font-size: 10.5px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-        .yd-ms-empty {
-            padding: 10px 8px;
-            text-align: center;
-            color: #8c8492;
-            font-size: 11.5px;
-            font-weight: 600;
-        }
-        .yd-table tbody tr.yd-vis-row-unavailable {
-            background: #f5f2f6;
-        }
-        .yd-table tbody tr.yd-vis-row-unavailable:hover {
-            background: #efeaf1;
-        }
-        .yd-table tbody tr.yd-vis-row-unavailable .yd-tool-name {
-            color: #938a99;
-            font-weight: 500;
-        }
-        .yd-table tbody tr.yd-vis-row-unavailable .yd-id-badge {
-            background: #f2eef4;
-            color: #938a99;
-            border-color: #e4dce7;
         }
 
         /* =====================================================
@@ -2620,9 +2297,9 @@ YODAWY.init = async function () {
                                     <div class="yd-gb-avatar-lg" id="yd-profile-avatar-lg">?</div>
                                 </div>
                                 <div id="yd-profile-name" class="yd-gb-name">Not Authenticated</div>
-                                <div id="yd-profile-id" class="yd-gb-meta">ID: ${esc(CONFIG.userId)}</div>
+                                <div id="yd-profile-id" class="yd-gb-meta">ID: —</div>
                                 <div class="yd-gb-pills">
-                                    <span id="yd-profile-role" class="yd-pill yd-pill-yellow">Unverified</span>
+                                    <span id="yd-profile-role" class="yd-pill yd-pill-red">Unverified</span>
                                     <span id="yd-profile-connection" class="yd-pill yd-pill-red">unConnected</span>
                                 </div>
                             </div>
@@ -2663,12 +2340,22 @@ YODAWY.init = async function () {
         `;
     }
 
-    function button(label, action, primary = false, iconSvg = '', disabled = false) {
+    function button(label, action, primary = false, iconSvg = '') {
         return `
-            <button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button" ${disabled ? 'disabled' : ''}>
+            <button class="yd-btn ${primary ? 'yd-primary' : ''}" data-action="${esc(action)}" type="button">
                 ${iconSvg}
                 <span>${esc(label)}</span>
             </button>
+        `;
+    }
+
+    function renderErrorBox() {
+        if (!state.error) return '';
+        return `
+            <div class="yd-error">
+                ${state.errorTitle ? `<div class="yd-error-title">${esc(state.errorTitle)}</div>` : ''}
+                <div>${esc(state.error)}</div>
+            </div>
         `;
     }
 
@@ -2720,18 +2407,24 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // OVERVIEW PAGE
+    // OVERVIEW PAGE (SIMPLE, CLEAN, NO TABLE, NO JARGON)
     // =========================================================
 
     function overviewPage() {
-        const visibleTools = state.tools.filter(toolIsVisible);
+        const isConnected = isFullyAuthenticated();
+        const visibleTools = isConnected ? state.tools.filter(toolIsVisible) : [];
         const permittedTools = visibleTools.filter(permitted);
         const enabledTools = permittedTools.filter(isToolEnabledByUser);
 
-        const userName = state.settings.displayName || state.user?.name || CONFIG.userId;
-        const userRole = formatRoleLabel(state.role);
-        const userStatus = state.user?.status || 'Active';
-        const isConnected = state.authenticated && state.status === 'Connected';
+        const userName = isConnected
+            ? (state.settings.displayName || state.user?.name || CONFIG.userId)
+            : 'Not Authenticated';
+        const userRole = isConnected
+            ? formatRoleLabel(state.user?.role)
+            : 'Unverified';
+        const userStatus = isConnected
+            ? (state.user?.status || 'Active')
+            : 'unConnected';
 
         return header(
             'Overview',
@@ -2776,15 +2469,15 @@ YODAWY.init = async function () {
                 </div>
                 <div class="yd-clean-row">
                     <span class="yd-clean-label">User ID</span>
-                    <span class="yd-id-badge">${esc(CONFIG.userId)}</span>
+                    <span class="yd-id-badge">${esc(CONFIG.userId || '—')}</span>
                 </div>
                 <div class="yd-clean-row">
                     <span class="yd-clean-label">Role</span>
-                    <span class="yd-pill ${rolePillClass(userRole)}">${esc(userRole)}</span>
+                    <span class="yd-pill ${isConnected ? rolePillClass(userRole) : 'yd-pill-red'}">${esc(userRole)}</span>
                 </div>
                 <div class="yd-clean-row">
                     <span class="yd-clean-label">Account Status</span>
-                    <span class="yd-pill ${String(userStatus).toLowerCase() === 'active' ? 'yd-pill-green' : 'yd-pill-red'}">${esc(userStatus)}</span>
+                    <span class="yd-pill ${isConnected && String(userStatus).toLowerCase() === 'active' ? 'yd-pill-green' : 'yd-pill-red'}">${esc(userStatus)}</span>
                 </div>
             </div>
 
@@ -2798,12 +2491,12 @@ YODAWY.init = async function () {
                     <span class="yd-pill ${isConnected ? 'yd-pill-green' : 'yd-pill-red'}">${isConnected ? 'Connected to system' : 'unConnected'}</span>
                 </div>
                 <div class="yd-clean-row">
-                    <span class="yd-clean-label">Personal Repository</span>
-                    <span class="yd-pill ${isConnected ? 'yd-pill-green' : 'yd-pill-red'}">${isConnected ? esc(state.user?.repository || 'Verified') : 'unConnected'}</span>
+                    <span class="yd-clean-label">Personal Settings</span>
+                    <span class="yd-pill ${isConnected ? 'yd-pill-green' : 'yd-pill-red'}">${isConnected ? 'Connected' : 'unConnected'}</span>
                 </div>
                 <div class="yd-clean-row">
-                    <span class="yd-clean-label">Dashboard Mode</span>
-                    <span class="yd-pill ${rolePillClass(userRole)}">${esc(userRole)} Dashboard</span>
+                    <span class="yd-clean-label">Tools Sync</span>
+                    <span class="yd-pill ${isConnected && state.tools.length ? 'yd-pill-blue' : 'yd-pill-yellow'}">${isConnected && state.tools.length ? 'Ready' : 'No tools'}</span>
                 </div>
                 <div class="yd-clean-row">
                     <span class="yd-clean-label">Current Site</span>
@@ -2814,7 +2507,7 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // TOOLS PAGE
+    // TOOLS PAGE (SLIM MODERN TABLE, SPLIT PILLS, UNLOCKED/LOCKED PADLOCK)
     // =========================================================
 
     function toolsPage() {
@@ -2892,297 +2585,89 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
-    // VISIBILITY PAGE (SUPER ADMIN ONLY)
-    // =========================================================
-
-    function renderSelectedUsersDropdown(toolKey, allowedUsers, selectableUsers) {
-        const isOpen = state.openSelectedUsersTool === toolKey;
-        const currentSuperAdminId = CONFIG.userId.toUpperCase();
-        const currentLoggedUserId = getUserId(state.user);
-
-        const activeAllowedIds = allowedUsers.filter(
-            uid => uid && uid !== currentSuperAdminId && uid !== currentLoggedUserId
-        );
-
-        const selectedDetails = activeAllowedIds.map(uid => {
-            const match = selectableUsers.find(u => getUserId(u) === uid);
-            return {
-                id: uid,
-                name: match ? getUserName(match) : uid
-            };
-        });
-
-        let summaryHtml = '<span class="yd-ms-placeholder">Select users…</span>';
-
-        if (selectedDetails.length === 1) {
-            summaryHtml = `
-                <span class="yd-ms-value">${esc(selectedDetails[0].name)} <span class="yd-ms-inline-id">(${esc(selectedDetails[0].id)})</span></span>
-                <span class="yd-ms-count">1</span>
-            `;
-        } else if (selectedDetails.length > 1) {
-            summaryHtml = `
-                <span class="yd-ms-value">${esc(selectedDetails[0].name)} +${selectedDetails.length - 1} more</span>
-                <span class="yd-ms-count">${selectedDetails.length}</span>
-            `;
-        }
-
-        const optionsHtml = selectableUsers.length
-            ? selectableUsers.map(u => {
-                const uid = getUserId(u);
-                const uName = getUserName(u);
-                const isSelected = activeAllowedIds.includes(uid);
-
-                return `
-                    <button
-                        type="button"
-                        class="yd-ms-option ${isSelected ? 'selected' : ''}"
-                        role="option"
-                        aria-selected="${isSelected ? 'true' : 'false'}"
-                        data-action="toggle-vis-cell:${esc(toolKey)}:${esc(uid)}"
-                    >
-                        <span class="yd-ms-checkbox">${isSelected ? ICONS.check : ''}</span>
-                        <span class="yd-ms-option-info">
-                            <span class="yd-ms-option-name">${esc(uName)}</span>
-                            <span class="yd-ms-option-id">${esc(uid)}</span>
-                        </span>
-                    </button>
-                `;
-            }).join('')
-            : '<div class="yd-ms-empty">No other registered users available.</div>';
-
-        return `
-            <div class="yd-ms-dropdown">
-                <button
-                    type="button"
-                    class="yd-ms-trigger ${isOpen ? 'open' : ''}"
-                    data-action="toggle-ms-dropdown:${esc(toolKey)}"
-                    aria-haspopup="listbox"
-                    aria-expanded="${isOpen ? 'true' : 'false'}"
-                >
-                    <span class="yd-ms-summary">${summaryHtml}</span>
-                    <span class="yd-ms-arrow">${ICONS.chevronDown}</span>
-                </button>
-                <div class="yd-ms-menu" role="listbox" aria-multiselectable="true" ${isOpen ? '' : 'hidden'}>
-                    ${optionsHtml}
-                </div>
-            </div>
-        `;
-    }
-
-    function visibilityPage() {
-        if (!canManageVisibility()) return deniedPage();
-
-        const selectedUid = state.visibilitySelectedUser || 'ALL';
-        const selectableUsers = getSelectableUsersForVisibility();
-
-        let orderedEntries = [];
-
-        if (selectedUid === 'ALL') {
-            orderedEntries = state.tools.map(tool => ({
-                tool,
-                isAvailableForFilter: true
-            }));
-        } else {
-            const visibleGroup = [];
-            const unavailableGroup = [];
-
-            for (const tool of state.tools) {
-                if (isToolVisibleForUser(tool, selectedUid)) {
-                    visibleGroup.push({
-                        tool,
-                        isAvailableForFilter: true
-                    });
-                } else {
-                    unavailableGroup.push({
-                        tool,
-                        isAvailableForFilter: false
-                    });
-                }
-            }
-
-            orderedEntries = [...visibleGroup, ...unavailableGroup];
-        }
-
-        const saveLabel = state.savingVisibility
-            ? 'Saving…'
-            : state.visibilityDirty
-                ? 'Save Changes *'
-                : 'Save Changes';
-
-        const saveActionBtn = button(
-            saveLabel,
-            'save-visibility',
-            state.visibilityDirty || state.savingVisibility,
-            ICONS.cloud,
-            state.savingVisibility
-        );
-
-        return header('Visibility', saveActionBtn) +
-        `<div class="yd-table-card yd-vis-table-card">
-            <div class="yd-table-card-head">
-                <div class="yd-table-card-title">
-                    ${ICONS.lock}
-                    <span>Tools (${orderedEntries.length})</span>
-                </div>
-                <div class="yd-table-pills">
-                    ${state.visibilitySavedMessage && !state.visibilityDirty
-                        ? `<span class="yd-pill yd-pill-green">${esc(state.visibilitySavedMessage)}</span>`
-                        : `<span class="yd-pill ${state.visibilityDirty ? 'yd-pill-yellow' : 'yd-pill-green'}">${state.visibilityDirty ? 'Unsaved Changes' : 'Synced'}</span>`
-                    }
-                    <div class="yd-vis-filter-group">
-                        <label class="yd-vis-filter-label" for="yd-vis-user-filter">User Filter</label>
-                        <select id="yd-vis-user-filter" class="yd-vis-select" style="width:auto; min-width:190px;">
-                            <option value="ALL" ${selectedUid === 'ALL' ? 'selected' : ''}>All Users</option>
-                            ${state.users.map(u => {
-                                const uid = getUserId(u);
-                                if (!uid) return '';
-                                const uName = getUserName(u);
-                                return `<option value="${esc(uid)}" ${selectedUid === uid ? 'selected' : ''}>${esc(uName)} (${esc(uid)})</option>`;
-                            }).join('')}
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <div class="yd-table-responsive yd-vis-table-wrap">
-                <table class="yd-table">
-                    <thead>
-                        <tr>
-                            <th scope="col" style="width:130px">Tool ID</th>
-                            <th scope="col">Tool Name</th>
-                            <th scope="col" style="width:210px">Visible To</th>
-                            <th scope="col" style="width:290px">Selected Users</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${orderedEntries.map(({ tool, isAvailableForFilter }) => {
-                            const key = permissionKey(tool);
-                            const record = ensureToolVisibilityRecord(key);
-                            const visMode = normalizeVisibilityMode(record.visibility);
-                            const allowedUsers = Array.isArray(record.allowedUsers)
-                                ? record.allowedUsers
-                                : [];
-
-                            return `
-                                <tr class="${isAvailableForFilter ? '' : 'yd-vis-row-unavailable'}">
-                                    <td><span class="yd-id-badge">${esc(key)}</span></td>
-                                    <td><div class="yd-tool-name">${esc(tool.name)}</div></td>
-                                    <td>
-                                        <select class="yd-vis-select" data-vis-policy-tool="${esc(key)}" aria-label="Visible To for ${esc(tool.name)}">
-                                            <option value="SUPER_ADMIN" ${visMode === 'SUPER_ADMIN' ? 'selected' : ''}>Super Admin</option>
-                                            <option value="ADMIN" ${visMode === 'ADMIN' ? 'selected' : ''}>Admin</option>
-                                            <option value="USER" ${visMode === 'USER' ? 'selected' : ''}>All Users</option>
-                                            <option value="SELECTED_USERS" ${visMode === 'SELECTED_USERS' ? 'selected' : ''}>Selected Users</option>
-                                        </select>
-                                    </td>
-                                    <td>
-                                        ${visMode === 'SELECTED_USERS'
-                                            ? renderSelectedUsersDropdown(key, allowedUsers, selectableUsers)
-                                            : ''
-                                        }
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('') || `
-                            <tr>
-                                <td colspan="4" class="yd-empty">No tools found for visibility configuration.</td>
-                            </tr>
-                        `}
-                    </tbody>
-                </table>
-            </div>
-        </div>`;
-    }
-
-    // =========================================================
-    // ROLE-BASED PAGES (SETTINGS, USERS, SHARED, SYSTEM, LOGS)
+    // PRESERVED PAGES (ROLE-GATED BY REGISTRY ROLE)
     // =========================================================
 
     function settingsPage() {
-        return header('Settings') +
-        `<div class="yd-card">
-            <div class="yd-card-title">${ICONS.user}<span>Personal Configuration</span></div>
-            <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:700; color:#655c6a; margin-bottom:4px;" for="yd-name">Display Name</label>
-                    <input id="yd-name" type="text" value="${esc(state.settings.displayName || state.user?.name || CONFIG.userId)}" style="width:100%; height:34px; border:1px solid #e2d8e6; border-radius:8px; padding:0 10px; font-size:13px;" />
-                </div>
-                <div>
-                    <label style="display:block; font-size:12px; font-weight:700; color:#655c6a; margin-bottom:4px;" for="yd-start">Start Page</label>
-                    <select id="yd-start" style="width:100%; height:34px; border:1px solid #e2d8e6; border-radius:8px; padding:0 10px; font-size:13px; background:#fff;">
-                        <option value="overview" ${state.settings.startPage === 'overview' ? 'selected' : ''}>Overview</option>
-                        <option value="tools" ${state.settings.startPage === 'tools' ? 'selected' : ''}>Tools</option>
-                    </select>
-                </div>
-                <div>${button('Save Settings', 'save-settings', true, ICONS.cloud)}</div>
-            </div>
-        </div>`;
+        return header('Settings');
     }
 
     function usersPage() {
         if (!canManage()) return deniedPage();
-        return header('Users') +
-        `<div class="yd-table-card">
-            <div class="yd-table-card-head"><div class="yd-table-card-title">${ICONS.user}<span>Registered Users (${state.users.length})</span></div></div>
-            <div class="yd-table-responsive">
-                <table class="yd-table">
-                    <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Status</th></tr></thead>
-                    <tbody>
-                        ${state.users.map(u => `
-                            <tr>
-                                <td><span class="yd-id-badge">${esc(getUserId(u))}</span></td>
-                                <td><b>${esc(getUserName(u))}</b></td>
-                                <td><span class="yd-pill ${rolePillClass(u.role)}">${esc(formatRoleLabel(u.role))}</span></td>
-                                <td><span class="yd-pill ${String(u.status || '').toLowerCase() === 'active' ? 'yd-pill-green' : 'yd-pill-red'}">${esc(u.status || 'Active')}</span></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>`;
+        return header('Users');
     }
 
     function sharedPage() {
         if (!canManage()) return deniedPage();
-        return header('Shared Tools') +
-        `<div class="yd-card"><div class="yd-empty">Shared tools registry management is handled via authorized policy synchronization.</div></div>`;
+        return header('Shared Tools');
+    }
+
+    function visibilityPage() {
+        if (!canManageVisibility()) return deniedPage();
+        return header('Visibility');
     }
 
     function systemPage() {
         if (!canManage()) return deniedPage();
-        return header('System') +
-        `<div class="yd-card">
-            <div class="yd-card-title">${ICONS.cloud}<span>System Diagnostics</span></div>
-            <div class="yd-clean-row"><span class="yd-clean-label">Dashboard Variant</span><span class="yd-pill ${rolePillClass(state.role)}">${esc(state.dashboardVariant)}</span></div>
-            <div class="yd-clean-row"><span class="yd-clean-label">Dashboard Repository</span><span class="yd-clean-val">${esc(YODAWY.dashboardRepository)}</span></div>
-            <div class="yd-clean-row"><span class="yd-clean-label">Users Repository</span><span class="yd-clean-val">${esc(CONFIG.usersRepository)}</span></div>
-            <div class="yd-clean-row"><span class="yd-clean-label">Personal Repository</span><span class="yd-clean-val">${esc(state.user?.repository || 'Unverified')}</span></div>
-            <div class="yd-clean-row"><span class="yd-clean-label">Branch</span><span class="yd-id-badge">${esc(YODAWY.branch || 'main')}</span></div>
-        </div>`;
+        return header('System');
     }
 
     function logsPage() {
-        return header('Logs', button('Clear Logs', 'clear-logs', false, ICONS.close)) +
-        `<div class="yd-table-card">
-            <div class="yd-table-responsive">
-                <table class="yd-table">
-                    <thead><tr><th style="width:90px">Time</th><th style="width:90px">Type</th><th>Message</th></tr></thead>
-                    <tbody>
-                        ${state.logs.map(l => `
-                            <tr>
-                                <td><span class="yd-id-badge">${esc(l.time)}</span></td>
-                                <td><span class="yd-pill ${l.type === 'error' ? 'yd-pill-red' : l.type === 'success' ? 'yd-pill-green' : 'yd-pill-blue'}">${esc(l.type)}</span></td>
-                                <td>${esc(l.message)}</td>
-                            </tr>
-                        `).join('') || `<tr><td colspan="3" class="yd-empty">No logs recorded.</td></tr>`}
-                    </tbody>
-                </table>
-            </div>
-        </div>`;
+        return header('Logs');
     }
 
     function deniedPage() {
         return header('Access denied') +
             '<div class="yd-error">Your account does not have administrator access.</div>';
+    }
+
+    // =========================================================
+    // ROLE-BASED SIDEBAR SECTIONS (USER / ADMIN / SUPER_ADMIN)
+    // =========================================================
+
+    function getSectionsForCurrentRole() {
+        const baseSections = [
+            ['overview', 'Overview', ICONS.overview],
+            ['tools', 'Tools', ICONS.tools]
+        ];
+
+        if (!isFullyAuthenticated()) {
+            return baseSections;
+        }
+
+        const role = normalizeRole(state.user?.role);
+
+        if (role === 'SUPER_ADMIN') {
+            // Super Admin Dashboard = Admin Dashboard + Visibility + Forced-True Features
+            return [
+                ...baseSections,
+                ['users', 'Users', ICONS.user],
+                ['shared', 'Shared Tools', ICONS.tools],
+                ['visibility', 'Visibility', ICONS.lock],
+                ['system', 'System', ICONS.cloud],
+                ['settings', 'Settings', ICONS.user],
+                ['logs', 'Logs', ICONS.sync]
+            ];
+        }
+
+        if (role === 'ADMIN') {
+            // Admin Dashboard
+            return [
+                ...baseSections,
+                ['users', 'Users', ICONS.user],
+                ['shared', 'Shared Tools', ICONS.tools],
+                ['system', 'System', ICONS.cloud],
+                ['settings', 'Settings', ICONS.user],
+                ['logs', 'Logs', ICONS.sync]
+            ];
+        }
+
+        // User Dashboard
+        return [
+            ...baseSections,
+            ['settings', 'Settings', ICONS.user],
+            ['logs', 'Logs', ICONS.sync]
+        ];
     }
 
     // =========================================================
@@ -3195,28 +2680,25 @@ YODAWY.init = async function () {
 
         if (!sidebarEl || !mainEl) return;
 
-        const isConnected = Boolean(
-            state.authenticated &&
-            state.initialized &&
-            state.status === 'Connected' &&
-            state.user &&
-            !isPlaceholderToken(state.personalToken)
-        );
+        const isConnected = isFullyAuthenticated();
 
-        const statusEl = $('#yd-status');
-        if (statusEl) {
-            statusEl.textContent = state.loading
+        const statusElement = $('#yd-status');
+        if (statusElement) {
+            statusElement.textContent = state.loading
                 ? 'Syncing…'
                 : isConnected
                     ? 'Connected'
                     : 'unConnected';
         }
 
-        const brandTitleEl = $('#yd-brand-title');
-        if (brandTitleEl) {
-            brandTitleEl.textContent = isConnected
-                ? `YODAWY ${formatRoleLabel(state.role).toUpperCase()} DASHBOARD`
-                : 'YODAWY DASHBOARD';
+        const brandTitleElement = $('#yd-brand-title');
+        if (brandTitleElement) {
+            if (isConnected) {
+                const roleLabel = formatRoleLabel(state.user?.role).toUpperCase();
+                brandTitleElement.textContent = `YODAWY DASHBOARD (${roleLabel})`;
+            } else {
+                brandTitleElement.textContent = 'YODAWY DASHBOARD';
+            }
         }
 
         const profileName = isConnected
@@ -3228,9 +2710,13 @@ YODAWY.init = async function () {
             ).trim()
             : 'Not Authenticated';
 
-        const profileId = CONFIG.userId;
-        const profileRole = isConnected ? formatRoleLabel(state.role) : 'Unverified';
-        const initial = isConnected ? (profileName.charAt(0).toUpperCase() || 'U') : '?';
+        const profileId = CONFIG.userId || '—';
+        const profileRole = isConnected
+            ? formatRoleLabel(state.user?.role)
+            : 'Unverified';
+        const initial = isConnected
+            ? (profileName.charAt(0).toUpperCase() || 'U')
+            : '?';
 
         const profileNameElement = $('#yd-profile-name');
         const profileIdElement = $('#yd-profile-id');
@@ -3251,7 +2737,7 @@ YODAWY.init = async function () {
 
         if (profileRoleElement) {
             profileRoleElement.textContent = profileRole;
-            profileRoleElement.className = `yd-pill ${isConnected ? rolePillClass(state.role) : 'yd-pill-yellow'}`;
+            profileRoleElement.className = `yd-pill ${isConnected ? rolePillClass(profileRole) : 'yd-pill-red'}`;
         }
 
         if (profileAvatarElement) {
@@ -3285,34 +2771,7 @@ YODAWY.init = async function () {
                     : '#c94b58';
         }
 
-        // Role-aware sidebar sections:
-        // Unauthenticated: Overview only
-        // USER Dashboard: Overview, Tools, Settings, Logs
-        // ADMIN Dashboard: Overview, Tools, Settings, Users, Shared Tools, System, Logs
-        // SUPER_ADMIN Dashboard: Admin Dashboard + Visibility
-        const sections = [
-            ['overview', 'Overview', ICONS.overview]
-        ];
-
-        if (isConnected) {
-            sections.push(['tools', 'Tools', ICONS.tools]);
-            sections.push(['settings', 'Settings', ICONS.user]);
-
-            if (canManage()) {
-                sections.push(['users', 'Users', ICONS.user]);
-                sections.push(['shared', 'Shared Tools', ICONS.tools]);
-            }
-
-            if (canManageVisibility()) {
-                sections.push(['visibility', 'Visibility', ICONS.lock]);
-            }
-
-            if (canManage()) {
-                sections.push(['system', 'System', ICONS.cloud]);
-            }
-
-            sections.push(['logs', 'Logs', ICONS.sync]);
-        }
+        const sections = getSectionsForCurrentRole();
 
         if (!sections.some(([id]) => id === state.section)) {
             state.section = 'overview';
@@ -3337,23 +2796,17 @@ YODAWY.init = async function () {
         };
 
         mainEl.innerHTML = state.loading
-            ? '<div class="yd-empty">Authenticating & syncing…</div>'
+            ? '<div class="yd-empty">Loading…</div>'
             : !isConnected
                 ? `<div class="yd-card">
-                    <div class="yd-title" style="margin-bottom:10px">Personal Authentication Required</div>
-                    ${state.error
-                        ? `<div class="yd-error" style="margin-bottom:12px">${esc(state.error)}</div>`
-                        : `<div class="yd-empty" style="padding:8px 0 12px;text-align:left;">Verify your USER_ID and PERSONAL_TOKEN in the Loader, then retry connection.</div>`
-                    }
-                    ${button('Retry Authentication', 'refresh-connection', true, ICONS.sync)}
+                    <div class="yd-title" style="margin-bottom:12px">Connect to System</div>
+                    ${button('Connect', 'sync', true, ICONS.sync)}
+                    ${state.error ? `<div style="margin-top:12px">${renderErrorBox()}</div>` : ''}
                 </div>`
-                : (pages[state.section] ? pages[state.section]() : overviewPage());
+                : pages[state.section]();
 
         if (isConnected && state.error) {
-            mainEl.insertAdjacentHTML(
-                'afterbegin',
-                `<div class="yd-error">${esc(state.error)}</div>`
-            );
+            mainEl.insertAdjacentHTML('afterbegin', renderErrorBox());
         }
     }
 
@@ -3365,7 +2818,7 @@ YODAWY.init = async function () {
         overlay.classList.add('open');
         render();
 
-        if (!state.initialized && !state.loading) {
+        if (!isFullyAuthenticated() && !state.loading) {
             void sync();
         }
     });
@@ -3374,7 +2827,6 @@ YODAWY.init = async function () {
         const userFilter = event.target.closest('#yd-vis-user-filter');
         if (userFilter) {
             state.visibilitySelectedUser = userFilter.value || 'ALL';
-            state.openSelectedUsersTool = '';
             render();
             return;
         }
@@ -3389,21 +2841,14 @@ YODAWY.init = async function () {
 
     overlay.addEventListener('click', async event => {
         if (event.target === overlay) {
-            state.openSelectedUsersTool = '';
             overlay.classList.remove('open');
             return;
-        }
-
-        if (state.openSelectedUsersTool && !event.target.closest('.yd-ms-dropdown')) {
-            state.openSelectedUsersTool = '';
-            render();
         }
 
         const nav = event.target.closest('[data-section]');
 
         if (nav) {
             state.section = nav.dataset.section;
-            state.openSelectedUsersTool = '';
             render();
             return;
         }
@@ -3443,17 +2888,16 @@ YODAWY.init = async function () {
 
         try {
             if (action === 'close') {
-                state.openSelectedUsersTool = '';
                 overlay.classList.remove('open');
 
             } else if (action === 'sync') {
+                resetAuthState();
                 await sync();
 
             } else if (action === 'save-settings') {
                 await saveSettings();
 
             } else if (action === 'save-visibility') {
-                state.openSelectedUsersTool = '';
                 await saveVisibilitySettings();
 
             } else if (action === 'clear-logs') {
@@ -3465,7 +2909,6 @@ YODAWY.init = async function () {
                 const trigger = $('#yd-profile-trigger');
 
                 if (menu) menu.hidden = true;
-
                 trigger?.setAttribute('aria-expanded', 'false');
 
                 resetAuthState();
@@ -3473,8 +2916,6 @@ YODAWY.init = async function () {
                 state.permissions = {};
                 state.visibility = {};
                 state.visibilityDirty = false;
-                state.visibilitySavedMessage = '';
-                state.openSelectedUsersTool = '';
 
                 await sync();
 
@@ -3483,22 +2924,30 @@ YODAWY.init = async function () {
                 const trigger = $('#yd-profile-trigger');
 
                 if (menu) menu.hidden = true;
-
                 trigger?.setAttribute('aria-expanded', 'false');
 
-                if (!state.authenticated || state.status !== 'Connected') {
+                if (!isFullyAuthenticated()) {
                     await sync();
-
                 } else {
                     state.loading = true;
                     state.error = '';
+                    state.errorTitle = '';
                     render();
 
                     try {
+                        await verifyPersonalRepositoryAccess(
+                            state.user.repository,
+                            state.personalToken
+                        );
                         await loadTools();
+                        state.status = 'Connected';
                         log('Tools refreshed successfully.', 'success');
                     } catch (error) {
-                        state.error = error.message || String(error);
+                        if (error.code === 'TOKEN_INVALID' || error.code === 'NETWORK_ERROR') {
+                            resetAuthState();
+                        }
+                        state.errorTitle = error.title || '';
+                        state.error = error.userMessage || error.message || String(error);
                         log(state.error, 'error');
                     } finally {
                         state.loading = false;
@@ -3519,11 +2968,6 @@ YODAWY.init = async function () {
                 const nextState = !isToolEnabledByUser(tool);
                 await toggleMyToolSwitch(tool, nextState);
 
-            } else if (action.startsWith('toggle-ms-dropdown:')) {
-                const toolKey = action.slice('toggle-ms-dropdown:'.length);
-                state.openSelectedUsersTool = state.openSelectedUsersTool === toolKey ? '' : toolKey;
-                render();
-
             } else if (action.startsWith('toggle-vis-cell:')) {
                 const parts = action.split(':');
                 const toolKey = parts[1];
@@ -3537,24 +2981,21 @@ YODAWY.init = async function () {
                     throw new Error('Tool not found.');
                 }
 
-                setToolVisibilityForUser(toolKey, targetUid);
-                state.openSelectedUsersTool = toolKey;
+                const currentlyVisible = isToolVisibleForUser(tool, targetUid);
+                setToolVisibilityForUser(toolKey, targetUid, !currentlyVisible);
                 render();
             }
 
         } catch (error) {
-            notify(error.message || String(error));
+            notify(
+                error.userMessage || error.message || String(error),
+                error.title || ''
+            );
         }
     });
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
-            if (state.openSelectedUsersTool) {
-                state.openSelectedUsersTool = '';
-                render();
-                return;
-            }
-
             const menu = $('#yd-profile-menu');
             const trigger = $('#yd-profile-trigger');
 
@@ -3566,13 +3007,8 @@ YODAWY.init = async function () {
         }
     });
 
-    render();
-
+    // تنفيذ الفحص الفعلي للمصادقة عند بدء تشغيل المحرك وعدم إرجاع true إلا إذا نجحت المرحلتان
     const connected = await sync();
-
-    if (connected) {
-        log('Dashboard engine initialized and authenticated.', 'success');
-    }
 
     return connected;
 };
