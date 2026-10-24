@@ -325,53 +325,73 @@ YODAWY.init = async function () {
         return isSuperAdmin();
     }
 
-    function getToolPermissionRecord(tool) {
-        const userPermissions = state.permissions[CONFIG.userId] || {};
-        const key = permissionKey(tool);
+   function getToolPermissionRecord(tool, targetUserId = CONFIG.userId) {
+    const userId = String(targetUserId || '').trim().toUpperCase();
+    const userPermissions = state.permissions[userId] || {};
+    const key = permissionKey(tool);
 
-        return userPermissions[key] ??
-            userPermissions[tool.path] ??
-            userPermissions[tool.name] ??
-            false;
+    const permission =
+        userPermissions[key] ??
+        userPermissions[tool.path] ??
+        userPermissions[tool.name];
+
+    if (typeof permission === 'boolean') {
+        return {
+            granted: permission,
+            forcedState: false,
+            type: 'ADMIN'
+        };
     }
 
-    function permissionGranted(tool) {
-        if (!isFullyAuthenticated()) return false;
-
-        // Super Admin Dashboard = Admin Dashboard + Visibility + Forced-True Features
-        if (isSuperAdmin()) {
-            return true;
-        }
-
-        const permission = getToolPermissionRecord(tool);
-
-        if (typeof permission === 'boolean') {
-            return permission;
-        }
-
-        if (permission && typeof permission === 'object') {
-            return permission.granted === true ||
-                permission.enabled === true;
-        }
-
-        return false;
-    }
-
-    function permissionType(tool) {
-        const permission = getToolPermissionRecord(tool);
-
-        if (permission && typeof permission === 'object') {
-            return permission.type === 'SUPER_ADMIN'
+    if (permission && typeof permission === 'object') {
+        return {
+            ...permission,
+            granted: permission.granted === true ||
+                permission.enabled === true,
+            forcedState: permission.forcedState === true,
+            type: permission.type === 'SUPER_ADMIN'
                 ? 'SUPER_ADMIN'
-                : 'ADMIN';
-        }
-
-        return 'ADMIN';
+                : 'ADMIN'
+        };
     }
 
-    function permitted(tool) {
-        return permissionGranted(tool);
-    }
+    return {
+        granted: false,
+        forcedState: false,
+        type: 'ADMIN'
+    };
+}
+
+function permissionGranted(tool, targetUserId = CONFIG.userId) {
+    if (!isFullyAuthenticated()) return false;
+
+    return getToolPermissionRecord(tool, targetUserId).granted === true;
+}
+
+function permissionType(tool, targetUserId = CONFIG.userId) {
+    return getToolPermissionRecord(tool, targetUserId).type;
+}
+
+function isPermissionForced(tool, targetUserId) {
+    return getToolPermissionRecord(tool, targetUserId).forcedState === true;
+}
+
+function canEditToolPermission(tool, targetUserId) {
+    if (!isFullyAuthenticated()) return false;
+
+    if (isSuperAdmin()) return true;
+
+    if (!isAdmin()) return false;
+
+    const record = getToolPermissionRecord(tool, targetUserId);
+
+    return record.forcedState !== true &&
+        record.type === 'ADMIN';
+}
+
+function permitted(tool) {
+    return permissionGranted(tool, CONFIG.userId);
+}
 
     function isToolEnabledByUser(tool) {
         const key = permissionKey(tool);
