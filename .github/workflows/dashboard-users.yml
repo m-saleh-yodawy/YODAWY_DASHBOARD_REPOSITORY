@@ -1,0 +1,179 @@
+name: DASHBOARD - USERS SYNC
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "CONFIG/auth-users.json"
+      - "CONFIG/tools-permissions.json"
+      - "CONFIG/tools-visibility.json"
+      - ".github/workflows/dashboard-users.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yodawy-dashboard-users-sync-main
+  cancel-in-progress: false
+
+jobs:
+  sync-dashboard-to-users:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Dashboard Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Verify Source Files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for file in \
+            CONFIG/auth-users.json \
+            CONFIG/tools-permissions.json \
+            CONFIG/tools-visibility.json
+          do
+            if [[ ! -f "$file" ]]; then
+              echo "::error::Required source file not found: $file"
+              exit 1
+            fi
+          done
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          for name in (
+              "CONFIG/auth-users.json",
+              "CONFIG/tools-permissions.json",
+              "CONFIG/tools-visibility.json",
+          ):
+              content = Path(name).read_text(
+                  encoding="utf-8-sig"
+              ).strip()
+
+              if not content:
+                  raise SystemExit(
+                      f"Source file is empty: {name}"
+                  )
+
+              try:
+                  data = json.loads(content)
+              except Exception as error:
+                  raise SystemExit(
+                      f"Invalid JSON in {name}: {error}"
+                  )
+
+              if not isinstance(data, dict):
+                  raise SystemExit(
+                      f"Expected a JSON object in {name}"
+                  )
+
+          users = json.loads(
+              Path("CONFIG/auth-users.json").read_text(
+                  encoding="utf-8-sig"
+              )
+          )
+
+          if not isinstance(users.get("users"), list):
+              raise SystemExit(
+                  "CONFIG/auth-users.json must contain a users array."
+              )
+
+          seen_ids = set()
+
+          for user in users["users"]:
+              if not isinstance(user, dict):
+                  raise SystemExit(
+                      "Each users entry must be an object."
+                  )
+
+              user_id = user.get("id")
+
+              if not isinstance(user_id, str) or not user_id.strip():
+                  raise SystemExit(
+                      "Every user must have a non-empty string id."
+                  )
+
+              if user_id in seen_ids:
+                  raise SystemExit(
+                      f"Duplicate user id: {user_id}"
+                  )
+
+              seen_ids.add(user_id)
+
+          print("Dashboard source files validated.")
+          PY
+
+      - name: Verify Sync Token
+        env:
+          SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$SYNC_TOKEN" ]]; then
+            echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
+            exit 1
+          fi
+
+          echo "Sync token is available."
+
+      - name: Checkout Users Repository
+        uses: actions/checkout@v4
+        with:
+          repository: m-saleh-yodawy/YODAWY_USERS_REPOSITORY
+          token: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+          ref: main
+          path: users
+          persist-credentials: true
+
+      - name: Prepare Users Data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p users/CONFIG
+
+          # Dashboard is the source of the current user list.
+          cp CONFIG/auth-users.json \
+            users/CONFIG/users.json
+
+          # Copy permissions without silently resetting them.
+          cp CONFIG/tools-permissions.json \
+            users/CONFIG/tools-permissions.json
+
+          # Copy visibility without silently resetting it.
+          cp CONFIG/tools-visibility.json \
+            users/CONFIG/tools-visibility.json
+
+          echo "Users destination files prepared."
+
+      - name: Commit and Push Changes
+        working-directory: users
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- \
+            CONFIG/users.json \
+            CONFIG/tools-permissions.json \
+            CONFIG/tools-visibility.json
+
+          if git diff --cached --quiet; then
+            echo "No changes to sync."
+            exit 0
+          fi
+
+          git commit -m "Sync dashboard users and tool settings"
+          git push origin HEAD:main
