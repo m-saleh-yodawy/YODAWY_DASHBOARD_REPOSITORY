@@ -66,6 +66,9 @@ YODAWY.init = async function () {
             ...(YODAWY.authMessages || {})
         },
         permissions: {},
+        permissionsRawWrapper: false,
+        permissionsSelectedUser: '',
+        permissionSavingKey: '',
         visibility: {},
         visibilitySelectedUser: 'ALL',
         visibilityDirty: false,
@@ -73,6 +76,8 @@ YODAWY.init = async function () {
         logs: [],
         error: '',
         errorTitle: '',
+        notice: '',
+        noticeTitle: '',
         loading: false,
         authenticated: false,
         initialized: false
@@ -119,9 +124,20 @@ YODAWY.init = async function () {
     }
 
     function notify(message, title = '') {
+        state.notice = '';
+        state.noticeTitle = '';
         state.errorTitle = String(title || '');
         state.error = String(message || '');
         log(state.errorTitle ? `${state.errorTitle}: ${state.error}` : state.error, 'error');
+        render();
+    }
+
+    function notifySuccess(message, title = 'SAVED') {
+        state.error = '';
+        state.errorTitle = '';
+        state.noticeTitle = String(title || '');
+        state.notice = String(message || '');
+        log(state.noticeTitle ? `${state.noticeTitle}: ${state.notice}` : state.notice, 'success');
         render();
     }
 
@@ -152,22 +168,169 @@ YODAWY.init = async function () {
         return YODAWY.readText(repository, path, token, branch);
     }
 
+    // =========================================================
+    // AUTHORITATIVE REPOSITORY & PATH RESOLVERS
+    // =========================================================
+
+    function getPermissionsRepository() {
+        const authConfig = YODAWY.authConfig || {};
+        return String(
+            authConfig.permissions?.repository ||
+            authConfig.permissionsRepository ||
+            YODAWY.dashboardRepository ||
+            ''
+        ).trim();
+    }
+
+    function getPermissionsPath() {
+        const authConfig = YODAWY.authConfig || {};
+        return String(
+            authConfig.permissions?.path ||
+            authConfig.permissionsPath ||
+            CONFIG.permissionsPath
+        ).trim();
+    }
+
+    function getVisibilityRepository() {
+        const authConfig = YODAWY.authConfig || {};
+        return String(
+            authConfig.visibility?.repository ||
+            authConfig.visibilityRepository ||
+            YODAWY.dashboardRepository ||
+            ''
+        ).trim();
+    }
+
+    function getVisibilityPath() {
+        const authConfig = YODAWY.authConfig || {};
+        return String(
+            authConfig.visibility?.path ||
+            authConfig.visibilityPath ||
+            CONFIG.visibilityPath
+        ).trim();
+    }
+
     function getUsers(data) {
         if (Array.isArray(data)) return data;
         if (Array.isArray(data?.users)) return data.users;
         return [];
     }
 
-    function getPermissions(data) {
+    function resolveCanonicalToolKey(rawKey, toolsList = state.tools) {
+        const trimmed = String(rawKey || '').trim();
+        if (!trimmed) return '';
+
+        if (Array.isArray(toolsList) && toolsList.length > 0) {
+            const matchedTool = toolsList.find(tool => {
+                const key = permissionKey(tool);
+                return (
+                    key.toUpperCase() === trimmed.toUpperCase() ||
+                    String(tool.path || '').trim() === trimmed ||
+                    String(tool.name || '').trim() === trimmed
+                );
+            });
+
+            if (matchedTool) {
+                return permissionKey(matchedTool);
+            }
+        }
+
+        return trimmed;
+    }
+
+    function normalizeSinglePermissionEntry(rawEntry, contextLabel = '') {
+        if (typeof rawEntry === 'boolean') {
+            return {
+                granted: rawEntry,
+                forcedState: false,
+                type: 'ADMIN'
+            };
+        }
+
+        if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) {
+            if (rawEntry !== undefined && rawEntry !== null) {
+                log(
+                    `Skipped malformed permission record (${contextLabel}): unsupported value type.`,
+                    'warning'
+                );
+            }
+            return null;
+        }
+
+        const hasExplicitGranted = typeof rawEntry.granted === 'boolean';
+        const hasLegacyEnabled = typeof rawEntry.enabled === 'boolean';
+
+        if (!hasExplicitGranted && !hasLegacyEnabled) {
+            log(
+                `Malformed permission record (${contextLabel}): missing boolean granted/enabled; defaulting granted to false.`,
+                'warning'
+            );
+        }
+
+        const normalized = {
+            ...rawEntry,
+            granted: hasExplicitGranted
+                ? rawEntry.granted
+                : rawEntry.enabled === true,
+            forcedState: rawEntry.forcedState === true,
+            type: rawEntry.type === 'SUPER_ADMIN'
+                ? 'SUPER_ADMIN'
+                : 'ADMIN'
+        };
+
+        delete normalized.enabled;
+        return normalized;
+    }
+
+    function getPermissions(data, toolsList = state.tools) {
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             return {};
         }
 
-        if (data.users && typeof data.users === 'object') {
-            return data.users;
+        const sourceMap =
+            data.users && typeof data.users === 'object' && !Array.isArray(data.users)
+                ? data.users
+                : data;
+
+        const normalizedUsers = {};
+
+        for (const [rawUserId, rawUserPerms] of Object.entries(sourceMap)) {
+            const userId = normalizePermissionUserId(rawUserId);
+            if (!userId) continue;
+
+            if (!rawUserPerms || typeof rawUserPerms !== 'object' || Array.isArray(rawUserPerms)) {
+                log(
+                    `Skipped malformed user permission block for "${rawUserId}".`,
+                    'warning'
+                );
+                continue;
+            }
+
+            if (!normalizedUsers[userId]) {
+                normalizedUsers[userId] = {};
+            }
+
+            for (const [rawToolKey, rawEntry] of Object.entries(rawUserPerms)) {
+                const canonicalKey = resolveCanonicalToolKey(rawToolKey, toolsList);
+                if (!canonicalKey) continue;
+
+                const normalizedEntry = normalizeSinglePermissionEntry(
+                    rawEntry,
+                    `${userId}/${rawToolKey}`
+                );
+
+                if (!normalizedEntry) continue;
+
+                const existing = normalizedUsers[userId][canonicalKey];
+                const isCanonicalMatch = canonicalKey === String(rawToolKey).trim();
+
+                if (!existing || isCanonicalMatch) {
+                    normalizedUsers[userId][canonicalKey] = normalizedEntry;
+                }
+            }
         }
 
-        return data;
+        return normalizedUsers;
     }
 
     function isPlaceholderToken(token) {
@@ -192,7 +355,6 @@ YODAWY.init = async function () {
         return placeholders.some(pattern => upper === pattern || upper.includes(pattern));
     }
 
-    // قراءة رسائل الخطأ من CONFIG/auth-messages.json (بصيغة { title, message } أو نص مباشر)
     function getAuthMessageEntry(key, fallbackTitle = 'ERROR', fallbackMessage = '') {
         const aliasMap = {
             INVALID_ID: 'INVALID_CREDENTIALS',
@@ -247,11 +409,17 @@ YODAWY.init = async function () {
     }
 
     function permissionKey(tool) {
+        if (!tool || typeof tool !== 'object') {
+            return String(tool || '').trim();
+        }
+
         if (tool.id) {
             return String(tool.id).trim();
         }
 
-        return tool.path.split('/').pop()
+        return String(tool.path || '')
+            .split('/')
+            .pop()
             .replace(/\.user\.js$/i, '')
             .replace(/\.js$/i, '')
             .replace(/[^a-zA-Z0-9]+/g, '_')
@@ -308,12 +476,15 @@ YODAWY.init = async function () {
 
     function isSuperAdmin() {
         if (!isFullyAuthenticated()) return false;
+
         return normalizeRole(state.user?.role) === 'SUPER_ADMIN';
     }
 
     function isAdmin() {
         if (!isFullyAuthenticated()) return false;
+
         const role = normalizeRole(state.user?.role);
+
         return role === 'SUPER_ADMIN' || role === 'ADMIN';
     }
 
@@ -325,73 +496,295 @@ YODAWY.init = async function () {
         return isSuperAdmin();
     }
 
-   function getToolPermissionRecord(tool, targetUserId = CONFIG.userId) {
-    const userId = String(targetUserId || '').trim().toUpperCase();
-    const userPermissions = state.permissions[userId] || {};
-    const key = permissionKey(tool);
-
-    const permission =
-        userPermissions[key] ??
-        userPermissions[tool.path] ??
-        userPermissions[tool.name];
-
-    if (typeof permission === 'boolean') {
-        return {
-            granted: permission,
-            forcedState: false,
-            type: 'ADMIN'
-        };
+    function normalizePermissionUserId(userId) {
+        return String(userId || '')
+            .trim()
+            .toUpperCase();
     }
 
-    if (permission && typeof permission === 'object') {
+    function getToolPermissionRecord(
+        tool,
+        targetUserId = CONFIG.userId
+    ) {
+        const userId = normalizePermissionUserId(targetUserId);
+
+        if (!userId || !tool || !state.permissions ||
+            typeof state.permissions !== 'object') {
+            return {
+                granted: false,
+                forcedState: false,
+                type: 'ADMIN'
+            };
+        }
+
+        const userPermissions = state.permissions[userId];
+
+        if (!userPermissions ||
+            typeof userPermissions !== 'object' ||
+            Array.isArray(userPermissions)) {
+            return {
+                granted: false,
+                forcedState: false,
+                type: 'ADMIN'
+            };
+        }
+
+        const key = permissionKey(tool);
+
+        const permission =
+            userPermissions[key] ??
+            userPermissions[tool.path] ??
+            userPermissions[tool.name];
+
+        if (typeof permission === 'boolean') {
+            return {
+                granted: permission,
+                forcedState: false,
+                type: 'ADMIN'
+            };
+        }
+
+        if (!permission ||
+            typeof permission !== 'object' ||
+            Array.isArray(permission)) {
+            return {
+                granted: false,
+                forcedState: false,
+                type: 'ADMIN'
+            };
+        }
+
         return {
             ...permission,
-            granted: permission.granted === true ||
-                permission.enabled === true,
+
+            granted:
+                typeof permission.granted === 'boolean'
+                    ? permission.granted
+                    : permission.enabled === true,
+
             forcedState: permission.forcedState === true,
-            type: permission.type === 'SUPER_ADMIN'
-                ? 'SUPER_ADMIN'
-                : 'ADMIN'
+
+            type:
+                permission.type === 'SUPER_ADMIN'
+                    ? 'SUPER_ADMIN'
+                    : 'ADMIN'
         };
     }
 
-    return {
-        granted: false,
-        forcedState: false,
-        type: 'ADMIN'
-    };
-}
+    function permissionGranted(
+        tool,
+        targetUserId = CONFIG.userId
+    ) {
+        if (!isFullyAuthenticated()) return false;
 
-function permissionGranted(tool, targetUserId = CONFIG.userId) {
-    if (!isFullyAuthenticated()) return false;
+        const userId = normalizePermissionUserId(targetUserId);
 
-    return getToolPermissionRecord(tool, targetUserId).granted === true;
-}
+        if (!userId) return false;
 
-function permissionType(tool, targetUserId = CONFIG.userId) {
-    return getToolPermissionRecord(tool, targetUserId).type;
-}
+        return getToolPermissionRecord(tool, userId).granted === true;
+    }
 
-function isPermissionForced(tool, targetUserId) {
-    return getToolPermissionRecord(tool, targetUserId).forcedState === true;
-}
+    function permissionType(
+        tool,
+        targetUserId = CONFIG.userId
+    ) {
+        return getToolPermissionRecord(tool, targetUserId).type;
+    }
 
-function canEditToolPermission(tool, targetUserId) {
-    if (!isFullyAuthenticated()) return false;
+    function isPermissionForced(
+        tool,
+        targetUserId = CONFIG.userId
+    ) {
+        return getToolPermissionRecord(
+            tool,
+            targetUserId
+        ).forcedState === true;
+    }
 
-    if (isSuperAdmin()) return true;
+    // =========================================================
+    // ADMIN SCOPE VALIDATOR (DENY BY DEFAULT)
+    // =========================================================
 
-    if (!isAdmin()) return false;
+    function resolveAdminScopeConfig(adminUserId) {
+        const normalizedAdminId = normalizePermissionUserId(adminUserId);
+        if (!normalizedAdminId) return null;
 
-    const record = getToolPermissionRecord(tool, targetUserId);
+        const authConfigScopes =
+            YODAWY.authConfig?.adminScopes ||
+            YODAWY.authConfig?.adminScope ||
+            null;
 
-    return record.forcedState !== true &&
-        record.type === 'ADMIN';
-}
+        if (authConfigScopes && typeof authConfigScopes === 'object') {
+            const matchedKey = Object.keys(authConfigScopes).find(
+                k => normalizePermissionUserId(k) === normalizedAdminId
+            );
+            if (matchedKey && authConfigScopes[matchedKey] && typeof authConfigScopes[matchedKey] === 'object') {
+                return authConfigScopes[matchedKey];
+            }
+        }
 
-function permitted(tool) {
-    return permissionGranted(tool, CONFIG.userId);
-}
+        const adminRecord = state.users.find(
+            u => normalizePermissionUserId(u.id || u.userId || u.username) === normalizedAdminId
+        ) || state.user;
+
+        if (!adminRecord || typeof adminRecord !== 'object') {
+            return null;
+        }
+
+        if (adminRecord.adminScope && typeof adminRecord.adminScope === 'object') {
+            return adminRecord.adminScope;
+        }
+
+        if (adminRecord.scope && typeof adminRecord.scope === 'object') {
+            return adminRecord.scope;
+        }
+
+        if (Array.isArray(adminRecord.managedUsers) || Array.isArray(adminRecord.managedTools)) {
+            return {
+                users: adminRecord.managedUsers,
+                tools: adminRecord.managedTools
+            };
+        }
+
+        return null;
+    }
+
+    function canAdminManageUserTool(targetUserId, tool) {
+        if (!isFullyAuthenticated() || !tool) {
+            return false;
+        }
+
+        if (isSuperAdmin()) {
+            return true;
+        }
+
+        if (!isAdmin()) {
+            return false;
+        }
+
+        const adminId = normalizePermissionUserId(CONFIG.userId);
+        const targetId = normalizePermissionUserId(targetUserId);
+        const toolKey = permissionKey(tool);
+
+        if (!adminId || !targetId || !toolKey) {
+            return false;
+        }
+
+        const targetUserRecord = state.users.find(
+            u => normalizePermissionUserId(u.id || u.userId || u.username) === targetId
+        );
+
+        if (!targetUserRecord) {
+            return false;
+        }
+
+        // An Admin may never manage a Super Admin account.
+        if (normalizeRole(targetUserRecord.role) === 'SUPER_ADMIN') {
+            return false;
+        }
+
+        const toolExists = state.tools.some(t => permissionKey(t) === toolKey);
+        if (!toolExists) {
+            return false;
+        }
+
+        const scopeConfig = resolveAdminScopeConfig(adminId);
+        if (!scopeConfig || typeof scopeConfig !== 'object') {
+            // Deny by default when no explicit Admin scope configuration exists.
+            return false;
+        }
+
+        const rawUsers =
+            scopeConfig.users ??
+            scopeConfig.managedUsers ??
+            scopeConfig.allowedUsers;
+
+        const rawTools =
+            scopeConfig.tools ??
+            scopeConfig.managedTools ??
+            scopeConfig.allowedTools;
+
+        if (!Array.isArray(rawUsers) || !Array.isArray(rawTools)) {
+            return false;
+        }
+
+        const scopedUsers = rawUsers
+            .map(u => normalizePermissionUserId(u))
+            .filter(Boolean);
+
+        const scopedTools = rawTools
+            .map(t => resolveCanonicalToolKey(t, state.tools).toUpperCase())
+            .filter(Boolean);
+
+        const isUserInScope = scopedUsers.includes(targetId);
+        const isToolInScope = scopedTools.includes(toolKey.toUpperCase());
+
+        return isUserInScope && isToolInScope;
+    }
+
+    function canEditToolPermission(
+        tool,
+        targetUserId,
+        field = 'granted'
+    ) {
+        if (!isFullyAuthenticated() || !tool) {
+            return false;
+        }
+
+        const targetId = normalizePermissionUserId(targetUserId);
+
+        if (!targetId) return false;
+
+        const normalizedField = String(field || '')
+            .trim()
+            .toLowerCase();
+
+        if (
+            normalizedField !== 'granted' &&
+            normalizedField !== 'forcedstate'
+        ) {
+            return false;
+        }
+
+        if (isSuperAdmin()) {
+            return true;
+        }
+
+        if (!isAdmin()) {
+            return false;
+        }
+
+        // Admin can never modify Forced State.
+        if (normalizedField === 'forcedstate') {
+            return false;
+        }
+
+        // Admin cannot edit another user's permission when Forced State is ON.
+        if (isPermissionForced(tool, targetId)) {
+            return false;
+        }
+
+        // CRITICAL:
+        // Call the real Admin scope validator.
+        if (
+            typeof canAdminManageUserTool !== 'function' ||
+            !canAdminManageUserTool(targetId, tool)
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function permitted(tool) {
+        if (!isFullyAuthenticated() || !tool) {
+            return false;
+        }
+
+        // Permission is evaluated for the authenticated user.
+        // Super Admin does not receive an implicit tool permission bypass.
+        return permissionGranted(tool, CONFIG.userId);
+    }
 
     function isToolEnabledByUser(tool) {
         const key = permissionKey(tool);
@@ -404,19 +797,34 @@ function permitted(tool) {
         return toolsMap[key] === true;
     }
 
+    // =========================================================
+    // VISIBILITY POLICY & FAIL-SAFE ENFORCEMENT
+    // =========================================================
+
     function visibilityPolicy(tool) {
+        if (!tool || !state.visibility || typeof state.visibility !== 'object') {
+            return null;
+        }
+
         const key = permissionKey(tool);
 
-        return state.visibility[key] ??
+        const record =
+            state.visibility[key] ??
             state.visibility[tool.path] ??
             state.visibility[tool.name] ??
-            {};
+            null;
+
+        if (!record || typeof record !== 'object' || Array.isArray(record)) {
+            return null;
+        }
+
+        return record;
     }
 
     function ensureToolVisibilityRecord(toolKey) {
         const existing = state.visibility[toolKey];
 
-        if (!existing || typeof existing !== 'object') {
+        if (!existing || typeof existing !== 'object' || Array.isArray(existing)) {
             state.visibility[toolKey] = {
                 visibility: 'PRIVATE',
                 allowedUsers: [],
@@ -428,8 +836,17 @@ function permitted(tool) {
             if (!Array.isArray(existing.allowedUsers)) {
                 existing.allowedUsers = [];
             }
-            if (!existing.visibility) {
+            if (!existing.visibility || typeof existing.visibility !== 'string') {
                 existing.visibility = 'PRIVATE';
+            }
+            if (!existing.developmentStatus) {
+                existing.developmentStatus = 'UNDER DEVELOPMENT';
+            }
+            if (!existing.publicationStatus) {
+                existing.publicationStatus = 'NOT PUBLISHED';
+            }
+            if (typeof existing.enabled !== 'boolean') {
+                existing.enabled = String(existing.visibility).toUpperCase() !== 'PRIVATE';
             }
         }
 
@@ -437,9 +854,11 @@ function permitted(tool) {
     }
 
     function isToolVisibleForUser(tool, targetUserId) {
-        const uid = String(targetUserId || '').trim().toUpperCase();
+        const uid = normalizePermissionUserId(targetUserId);
+        if (!uid || !tool) return false;
+
         const userObj = state.users.find(
-            u => String(u.id || u.userId || u.username || '').trim().toUpperCase() === uid
+            u => normalizePermissionUserId(u.id || u.userId || u.username) === uid
         );
         const role = normalizeRole(userObj?.role);
 
@@ -449,13 +868,18 @@ function permitted(tool) {
 
         const policy = visibilityPolicy(tool);
 
-        if (!policy || typeof policy !== 'object') {
-            return true;
+        // Fail-safe policy: missing or malformed visibility records default to PRIVATE (denied).
+        if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
+            return false;
+        }
+
+        if (policy.enabled === false) {
+            return false;
         }
 
         const visibility = String(
-            policy.visibility || 'PUBLIC'
-        ).toUpperCase();
+            policy.visibility || 'PRIVATE'
+        ).trim().toUpperCase();
 
         if (visibility === 'PUBLIC' || visibility === 'USER') {
             return true;
@@ -472,7 +896,7 @@ function permitted(tool) {
         if (visibility === 'SELECTED_USERS') {
             const allowedUsers = Array.isArray(policy.allowedUsers)
                 ? policy.allowedUsers.map(value =>
-                    String(value).trim().toUpperCase()
+                    normalizePermissionUserId(value)
                 )
                 : [];
 
@@ -483,7 +907,7 @@ function permitted(tool) {
     }
 
     function toolIsVisible(tool) {
-        if (!isFullyAuthenticated()) return false;
+        if (!isFullyAuthenticated() || !tool) return false;
 
         if (isSuperAdmin()) {
             return true;
@@ -493,20 +917,24 @@ function permitted(tool) {
     }
 
     function setToolVisibilityForUser(toolKey, targetUserId, turnOn) {
-        const uid = String(targetUserId || '').trim().toUpperCase();
-        if (uid === 'Q-001') return;
+        if (!canManageVisibility()) {
+            throw new Error('Super Admin access required to modify visibility.');
+        }
+
+        const uid = normalizePermissionUserId(targetUserId);
+        if (!uid || uid === 'Q-001') return;
 
         const record = ensureToolVisibilityRecord(toolKey);
         const currentVis = String(record.visibility || 'PRIVATE').toUpperCase();
 
         const nonSuperAdminIds = state.users
             .filter(u => normalizeRole(u.role) !== 'SUPER_ADMIN')
-            .map(u => String(u.id || '').trim().toUpperCase())
+            .map(u => normalizePermissionUserId(u.id || u.userId || u.username))
             .filter(Boolean);
 
         let allowedSet = new Set(
             (Array.isArray(record.allowedUsers) ? record.allowedUsers : [])
-                .map(id => String(id).trim().toUpperCase())
+                .map(id => normalizePermissionUserId(id))
                 .filter(Boolean)
         );
 
@@ -542,6 +970,10 @@ function permitted(tool) {
     }
 
     function setToolPolicyMode(toolKey, newMode) {
+        if (!canManageVisibility()) {
+            throw new Error('Super Admin access required to modify visibility.');
+        }
+
         const mode = String(newMode || 'PRIVATE').toUpperCase();
         const record = ensureToolVisibilityRecord(toolKey);
 
@@ -550,10 +982,14 @@ function permitted(tool) {
         if (mode === 'PRIVATE') {
             record.allowedUsers = [];
             record.enabled = false;
-        } else if (mode === 'PUBLIC') {
+        } else if (mode === 'PUBLIC' || mode === 'ADMIN' || mode === 'USER') {
             record.enabled = true;
         } else if (mode === 'SELECTED_USERS') {
             record.enabled = record.allowedUsers.length > 0;
+        } else {
+            record.visibility = 'PRIVATE';
+            record.allowedUsers = [];
+            record.enabled = false;
         }
 
         state.visibilityDirty = true;
@@ -649,7 +1085,6 @@ function permitted(tool) {
             throwAuthError('NETWORK_ERROR');
         }
 
-        // ملف الإعدادات قد لا يكون منشأً بعد (404) ولكن ذلك لا يُقبل إلا بعد نجاح verifyPersonalRepositoryAccess أولاً
         if (response.status === 404) {
             return { tools: {} };
         }
@@ -677,6 +1112,144 @@ function permitted(tool) {
         } catch {
             return { tools: {} };
         }
+    }
+
+    // =========================================================
+    // GITHUB CONTENTS API READ & WRITE HELPERS (WITH SHA)
+    // =========================================================
+
+    function encodeJsonToBase64(data) {
+        const bytes = new TextEncoder().encode(
+            JSON.stringify(data, null, 2) + '\n'
+        );
+
+        let binary = '';
+        for (let index = 0; index < bytes.length; index += 8192) {
+            binary += String.fromCharCode(
+                ...bytes.subarray(index, index + 8192)
+            );
+        }
+
+        return btoa(binary);
+    }
+
+    function decodeBase64Json(base64Content) {
+        const cleaned = String(base64Content || '').replace(/\s+/g, '');
+        const binary = atob(cleaned);
+        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+        const decoded = new TextDecoder('utf-8').decode(bytes);
+        return JSON.parse(decoded);
+    }
+
+    async function fetchRepositoryJsonWithSha(repository, path, token) {
+        const cleanToken = String(token || '').trim();
+        const branch = YODAWY.branch || 'main';
+        const url = `${repositoryUrl(repository, path)}?ref=${encodeURIComponent(branch)}`;
+
+        let response;
+        try {
+            response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${cleanToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store'
+            });
+        } catch {
+            throwAuthError('NETWORK_ERROR');
+        }
+
+        if (response.status === 404) {
+            return { exists: false, sha: '', data: {} };
+        }
+
+        if (response.status === 401 || response.status === 403) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
+        if (!response.ok) {
+            const errPayload = await response.json().catch(() => ({}));
+            throw new Error(
+                errPayload.message || `Failed to read ${repository}/${path}: HTTP ${response.status}`
+            );
+        }
+
+        const payload = await response.json().catch(() => null);
+        if (!payload || typeof payload.content !== 'string') {
+            return { exists: true, sha: payload?.sha || '', data: {} };
+        }
+
+        const parsed = decodeBase64Json(payload.content);
+        return {
+            exists: true,
+            sha: String(payload.sha || ''),
+            data: parsed && typeof parsed === 'object' ? parsed : {}
+        };
+    }
+
+    async function putRepositoryJsonWithSha(repository, path, token, data, sha, commitMessage) {
+        const cleanToken = String(token || '').trim();
+        const branch = YODAWY.branch || 'main';
+
+        const body = {
+            message: commitMessage,
+            content: encodeJsonToBase64(data),
+            branch
+        };
+
+        if (sha) {
+            body.sha = sha;
+        }
+
+        let response;
+        try {
+            response = await fetch(repositoryUrl(repository, path), {
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${cleanToken}`,
+                    Accept: 'application/vnd.github+json',
+                    'Content-Type': 'application/json',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                credentials: 'omit',
+                cache: 'no-store',
+                body: JSON.stringify(body)
+            });
+        } catch {
+            throwAuthError('NETWORK_ERROR');
+        }
+
+        const result = await response.json().catch(() => ({}));
+
+        if (response.status === 401 || response.status === 403) {
+            const authErr = new Error(
+                result.message || 'Repository write access denied for this token.'
+            );
+            authErr.status = response.status;
+            throw authErr;
+        }
+
+        if (response.status === 409 || response.status === 422) {
+            const conflictErr = new Error(
+                result.message || 'Concurrent modification conflict (SHA mismatch).'
+            );
+            conflictErr.status = response.status;
+            conflictErr.isConflict = true;
+            throw conflictErr;
+        }
+
+        if (!response.ok) {
+            const err = new Error(
+                result.message || `Write failed (${response.status})`
+            );
+            err.status = response.status;
+            throw err;
+        }
+
+        return result;
     }
 
     // =========================================================
@@ -709,7 +1282,7 @@ function permitted(tool) {
                 };
             }
         } catch {
-            // الاحتفاظ برسائل authMessages المحملة مسبقاً من الـ Loader
+            // Preserve preloaded authMessages from the bootstrap loader.
         }
 
         if (!authConfig || authConfig.provider !== 'github' || authConfig.enabled === false) {
@@ -723,12 +1296,11 @@ function permitted(tool) {
         const registryPath =
             userRegistry.path ||
             'CONFIG/auth-users.json';
-        const permissionsPath =
-            authConfig.permissionsPath ||
-            CONFIG.permissionsPath;
-        const visibilityPath =
-            authConfig.visibilityPath ||
-            CONFIG.visibilityPath;
+
+        const permissionsRepository = getPermissionsRepository();
+        const permissionsPath = getPermissionsPath();
+        const visibilityRepository = getVisibilityRepository();
+        const visibilityPath = getVisibilityPath();
 
         let usersData;
         let permissionsData;
@@ -741,8 +1313,8 @@ function permitted(tool) {
                 visibilityData
             ] = await Promise.all([
                 readJson(registryRepository, registryPath),
-                readJson(YODAWY.dashboardRepository, permissionsPath).catch(() => ({})),
-                readJson(YODAWY.dashboardRepository, visibilityPath).catch(() => ({}))
+                readJson(permissionsRepository, permissionsPath).catch(() => ({})),
+                readJson(visibilityRepository, visibilityPath).catch(() => ({}))
             ]);
         } catch {
             throwAuthError('NETWORK_ERROR');
@@ -751,18 +1323,18 @@ function permitted(tool) {
         const allUsers = getUsers(usersData);
         state.users = allUsers;
 
-        const targetUserId = String(CONFIG.userId || '').trim().toUpperCase();
+        const targetUserId = normalizePermissionUserId(CONFIG.userId);
         if (!targetUserId) {
             throwAuthError('INVALID_CREDENTIALS');
         }
 
         const user = allUsers.find(item =>
-            String(
+            normalizePermissionUserId(
                 item.id ||
                 item.userId ||
                 item.username ||
                 ''
-            ).trim().toUpperCase() === targetUserId
+            ) === targetUserId
         );
 
         if (!user) {
@@ -784,18 +1356,15 @@ function permitted(tool) {
             throwAuthError('UNKNOWN_ERROR');
         }
 
-        // عدم استبدال التوكن الموجود في الـ Loader بأي توكن من سجل المستخدمين
         const configuredPersonalToken = String(YODAWY.personalToken || '').trim();
 
         if (isPlaceholderToken(configuredPersonalToken)) {
             throwAuthError('TOKEN_INVALID');
         }
 
-        // خطوة إلزامية: التحقق من قدرة PERSONAL_TOKEN على فتح المستودع الشخصي عبر GitHub API
         await verifyPersonalRepositoryAccess(personalRepository, configuredPersonalToken);
         state.personalRepoVerified = true;
 
-        // بعد إثبات صلاحية التوكن والمستودع الشخصي فقط، يتم قراءة ملف الإعدادات الشخصية
         const loadedSettings = await readPersonalSettingsFile(
             personalRepository,
             authConfig.settingsPath || CONFIG.settingsPath,
@@ -821,21 +1390,55 @@ function permitted(tool) {
         state.dashboardVariant = authoritativeRole;
         state.personalToken = configuredPersonalToken;
 
-        state.permissions = getPermissions(permissionsData);
-        state.visibility =
+        state.permissionsRawWrapper = Boolean(
+            permissionsData &&
+            typeof permissionsData === 'object' &&
+            !Array.isArray(permissionsData) &&
+            permissionsData.users &&
+            typeof permissionsData.users === 'object'
+        );
+        state.permissions = getPermissions(permissionsData, state.tools);
+
+        const rawVisibilityMap =
             visibilityData?.visibility &&
             typeof visibilityData.visibility === 'object'
                 ? visibilityData.visibility
                 : visibilityData?.tools &&
                   typeof visibilityData.tools === 'object'
                     ? visibilityData.tools
-                    : getPermissions(visibilityData);
+                    : (visibilityData && typeof visibilityData === 'object' && !Array.isArray(visibilityData)
+                        ? visibilityData
+                        : {});
+
+        state.visibility = {};
+        for (const [k, v] of Object.entries(rawVisibilityMap)) {
+            if (v && typeof v === 'object' && !Array.isArray(v)) {
+                state.visibility[String(k).trim()] = {
+                    ...v,
+                    visibility: String(v.visibility || 'PRIVATE').trim().toUpperCase(),
+                    allowedUsers: Array.isArray(v.allowedUsers)
+                        ? v.allowedUsers.map(u => normalizePermissionUserId(u)).filter(Boolean)
+                        : [],
+                    developmentStatus: v.developmentStatus || 'UNDER DEVELOPMENT',
+                    publicationStatus: v.publicationStatus || 'NOT PUBLISHED',
+                    enabled: typeof v.enabled === 'boolean'
+                        ? v.enabled
+                        : String(v.visibility || 'PRIVATE').trim().toUpperCase() !== 'PRIVATE'
+                };
+            }
+        }
+
+        if (!state.permissionsSelectedUser && allUsers.length > 0) {
+            const firstNonSuper = allUsers.find(u => normalizeRole(u.role) !== 'SUPER_ADMIN') || allUsers[0];
+            state.permissionsSelectedUser = normalizePermissionUserId(
+                firstNonSuper.id || firstNonSuper.userId || firstNonSuper.username
+            );
+        }
 
         state.visibilityDirty = false;
         state.error = '';
         state.errorTitle = '';
 
-        // لا يتم تعيين حالة Connected إلا بعد نجاح جميع الفحوصات السابقة بالكامل
         state.authenticated = true;
         state.initialized = true;
         state.status = 'Connected';
@@ -919,115 +1522,113 @@ function permitted(tool) {
             return `${CONFIG.toolsDirectory}/${rawPath}`;
         }
 
-      
-const normalizedTools = manifestTools
-    .filter(item => item && typeof item === 'object')
-    .map(item => ({
-        ...item,
-        resolvedPath: resolveToolPath(item)
-    }))
-    .filter(item =>
-        item.resolvedPath &&
-        /\.js$/i.test(item.resolvedPath)
-    );
+        const normalizedTools = manifestTools
+            .filter(item => item && typeof item === 'object')
+            .map(item => ({
+                ...item,
+                resolvedPath: resolveToolPath(item)
+            }))
+            .filter(item =>
+                item.resolvedPath &&
+                /\.js$/i.test(item.resolvedPath)
+            );
 
-if (!normalizedTools.length) {
-    throw new Error(
-        `No JavaScript tool paths were found in ${CONFIG.manifestPath}. Each tool needs a .js path or filename.`
-    );
-}
-
-const results = await Promise.allSettled(
-    normalizedTools.map(async item => {
-        const file = await readText(
-            repository,
-            item.resolvedPath,
-            undefined,
-            branch
-        );
-
-        const source = String(
-            typeof file === 'string'
-                ? file
-                : file?.content ?? file?.data ?? ''
-        ).replace(/\u00a0/g, ' ');
-
-        if (!source.trim()) {
+        if (!normalizedTools.length) {
             throw new Error(
-                `Empty tool source: ${item.resolvedPath}`
+                `No JavaScript tool paths were found in ${CONFIG.manifestPath}. Each tool needs a .js path or filename.`
             );
         }
 
-        const header = source.match(
-            /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
+        const results = await Promise.allSettled(
+            normalizedTools.map(async item => {
+                const file = await readText(
+                    repository,
+                    item.resolvedPath,
+                    undefined,
+                    branch
+                );
+
+                const source = String(
+                    typeof file === 'string'
+                        ? file
+                        : file?.content ?? file?.data ?? ''
+                ).replace(/\u00a0/g, ' ');
+
+                if (!source.trim()) {
+                    throw new Error(
+                        `Empty tool source: ${item.resolvedPath}`
+                    );
+                }
+
+                const header = source.match(
+                    /\/\/\s*==UserScript==([\s\S]*?)\/\/\s*==\/UserScript==/
+                );
+
+                if (!header) {
+                    throw new Error(
+                        `Missing userscript metadata: ${item.resolvedPath}`
+                    );
+                }
+
+                const metadata = header[1];
+
+                const values = key => [
+                    ...metadata.matchAll(
+                        new RegExp(
+                            '^\\s*//\\s*@' + key + '\\s+(.+?)\\s*$',
+                            'gm'
+                        )
+                    )
+                ].map(match => match[1].trim());
+
+                return {
+                    id: String(
+                        item.id ||
+                        item.toolId ||
+                        item.tool_id ||
+                        ''
+                    ).trim(),
+
+                    path: item.resolvedPath,
+                    source,
+                    sha: typeof file === 'object' && file
+                        ? file.sha || ''
+                        : '',
+
+                    name:
+                        item.name ||
+                        values('name')[0] ||
+                        item.resolvedPath.split('/').pop(),
+
+                    description:
+                        item.description ||
+                        values('description')[0] ||
+                        '',
+
+                    matches: Array.isArray(item.matches)
+                        ? item.matches
+                        : [
+                            ...values('match'),
+                            ...values('include')
+                        ],
+
+                    excludes: Array.isArray(item.excludes)
+                        ? item.excludes
+                        : [
+                            ...values('exclude'),
+                            ...values('exclude-match')
+                        ],
+
+                    grants: values('grant').filter(
+                        value => value !== 'none'
+                    ),
+
+                    requires: values('require'),
+
+                    enabled: item.enabled !== false
+                };
+            })
         );
-
-        if (!header) {
-            throw new Error(
-                `Missing userscript metadata: ${item.resolvedPath}`
-            );
-        }
-
-        const metadata = header[1];
-
-        const values = key => [
-            ...metadata.matchAll(
-                new RegExp(
-                    '^\\s*//\\s*@' + key + '\\s+(.+?)\\s*$',
-                    'gm'
-                )
-            )
-        ].map(match => match[1].trim());
-
-        return {
-            id: String(
-                item.id ||
-                item.toolId ||
-                item.tool_id ||
-                ''
-            ).trim(),
-
-            path: item.resolvedPath,
-            source,
-            sha: typeof file === 'object' && file
-                ? file.sha || ''
-                : '',
-
-            name:
-                item.name ||
-                values('name')[0] ||
-                item.resolvedPath.split('/').pop(),
-
-            description:
-                item.description ||
-                values('description')[0] ||
-                '',
-
-            matches: Array.isArray(item.matches)
-                ? item.matches
-                : [
-                    ...values('match'),
-                    ...values('include')
-                ],
-
-            excludes: Array.isArray(item.excludes)
-                ? item.excludes
-                : [
-                    ...values('exclude'),
-                    ...values('exclude-match')
-                ],
-
-            grants: values('grant').filter(
-                value => value !== 'none'
-            ),
-
-            requires: values('require'),
-
-            enabled: item.enabled !== false
-        };
-    })
-);
-
 
         state.tools = results
             .filter(result => result.status === 'fulfilled')
@@ -1035,29 +1636,32 @@ const results = await Promise.allSettled(
             .sort((a, b) => permissionKey(a).localeCompare(permissionKey(b)));
 
         results.forEach((result, index) => {
-    if (result.status === 'rejected') {
-        const item = normalizedTools[index];
+            if (result.status === 'rejected') {
+                const item = normalizedTools[index];
 
-        const errorDetails = {
-            tool: item?.name || item?.resolvedPath || 'Unknown Tool',
-            path: item?.resolvedPath || '',
-            error: result.reason?.message || String(result.reason)
-        };
+                const errorDetails = {
+                    tool: item?.name || item?.resolvedPath || 'Unknown Tool',
+                    path: item?.resolvedPath || '',
+                    error: result.reason?.message || String(result.reason)
+                };
 
-        console.error('[YODAWY TOOL LOAD FAILED]', errorDetails);
+                console.error('[YODAWY TOOL LOAD FAILED]', errorDetails);
 
-        log(
-            `${errorDetails.path}: ${errorDetails.error}`,
-            'error'
-        );
-    }
-});
+                log(
+                    `${errorDetails.path}: ${errorDetails.error}`,
+                    'error'
+                );
+            }
+        });
 
         if (!state.tools.length) {
             throw new Error(
                 `The manifest was read, but none of its JavaScript tools could be loaded. Check the tool paths in ${CONFIG.manifestPath}.`
             );
         }
+
+        // Re-normalize permissions against the loaded tools manifest so legacy path/name keys resolve to canonical TOOL-IDs.
+        state.permissions = getPermissions(state.permissions, state.tools);
 
         log(
             `Loaded ${state.tools.length} tools from ${repository}/${CONFIG.toolsDirectory} using ${CONFIG.manifestPath}.`,
@@ -1122,9 +1726,9 @@ const results = await Promise.allSettled(
     }
 
     function matchesPage(tool) {
-        if (!tool.matches.length) return false;
+        if (!tool || !Array.isArray(tool.matches) || !tool.matches.length) return false;
 
-        if (tool.excludes.some(pattern =>
+        if (Array.isArray(tool.excludes) && tool.excludes.some(pattern =>
             simpleMatch(pattern, location.href)
         )) {
             return false;
@@ -1136,55 +1740,70 @@ const results = await Promise.allSettled(
     }
 
     // =========================================================
-    // RUN TOOL
+    // RUN TOOL (STRICT EXECUTION GUARD)
     // =========================================================
 
     function runTool(tool) {
-        if (!isFullyAuthenticated() || !permitted(tool) || !toolIsVisible(tool)) {
+        if (!isFullyAuthenticated() || !tool || typeof tool !== 'object') {
             throw new Error('Tool permission denied.');
         }
 
-        if (!matchesPage(tool)) {
+        const key = permissionKey(tool);
+        const trustedTool = state.tools.find(item => permissionKey(item) === key);
+
+        if (!trustedTool || trustedTool.enabled === false) {
+            throw new Error('Tool is not available in the trusted manifest.');
+        }
+
+        if (!permitted(trustedTool) || !toolIsVisible(trustedTool)) {
+            throw new Error('Tool permission denied.');
+        }
+
+        if (!matchesPage(trustedTool)) {
             throw new Error(
                 'This tool does not match the current page.'
             );
         }
 
-        if (tool.requires.length) {
+        if (!trustedTool.source || typeof trustedTool.source !== 'string' || !trustedTool.source.trim()) {
+            throw new Error(`${trustedTool.name}: empty or invalid tool source.`);
+        }
+
+        if (Array.isArray(trustedTool.requires) && trustedTool.requires.length) {
             throw new Error(
-                `${tool.name}: @require dependencies are not supported.`
+                `${trustedTool.name}: @require dependencies are not supported.`
             );
         }
 
-        const unsupported = tool.grants.filter(
+        const unsupported = (Array.isArray(trustedTool.grants) ? trustedTool.grants : []).filter(
             grant => grant !== 'unsafeWindow'
         );
 
         if (unsupported.length) {
             throw new Error(
-                `${tool.name}: unsupported @grant: ${unsupported.join(', ')}`
+                `${trustedTool.name}: unsupported @grant: ${unsupported.join(', ')}`
             );
         }
 
         const runKey = '__YODAWY_TOOL_' +
-            tool.path.replace(/[^a-zA-Z0-9]/g, '_');
+            trustedTool.path.replace(/[^a-zA-Z0-9]/g, '_');
 
         if (window[runKey]) {
-            log(`${tool.name} is already running.`, 'warning');
+            log(`${trustedTool.name} is already running.`, 'warning');
             return;
         }
 
         try {
             new Function(
                 'unsafeWindow',
-                `"use strict";\n${tool.source}\n`
+                `"use strict";\n${trustedTool.source}\n`
             )(window);
 
             window[runKey] = true;
 
-            log(`Started ${tool.name}.`, 'success');
+            log(`Started ${trustedTool.name}.`, 'success');
         } catch (error) {
-            log(`${tool.name}: ${error.message}`, 'error');
+            log(`${trustedTool.name}: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -1268,21 +1887,9 @@ const results = await Promise.allSettled(
             if (error.status !== 404) throw error;
         }
 
-        const bytes = new TextEncoder().encode(
-            JSON.stringify(updatedSettings, null, 2) + '\n'
-        );
-
-        let binary = '';
-
-        for (let index = 0; index < bytes.length; index += 8192) {
-            binary += String.fromCharCode(
-                ...bytes.subarray(index, index + 8192)
-            );
-        }
-
         const body = {
             message: 'Update dashboard settings',
-            content: btoa(binary),
+            content: encodeJsonToBase64(updatedSettings),
             branch: YODAWY.branch
         };
 
@@ -1349,7 +1956,7 @@ const results = await Promise.allSettled(
 
         await writePersonalSettings(settings, 'Settings saved.');
         state.user.name = displayName;
-        render();
+        notifySuccess('Personal settings saved.', 'SETTINGS');
     }
 
     async function toggleMyToolSwitch(tool, turnOn) {
@@ -1357,13 +1964,14 @@ const results = await Promise.allSettled(
             throwAuthError('TOKEN_INVALID');
         }
 
-        if (!permitted(tool)) {
+        if (!permitted(tool) || !toolIsVisible(tool)) {
             throw new Error('You do not have permission to enable this tool.');
         }
 
         const key = permissionKey(tool);
         const repository = state.user.repository;
 
+        const previousSettings = state.settings;
         const toolsMap = {
             ...(state.settings.tools || {}),
             [key]: Boolean(turnOn)
@@ -1379,13 +1987,16 @@ const results = await Promise.allSettled(
             tools: toolsMap
         };
 
-        state.settings = settings;
-        render();
-
-        await writePersonalSettings(
-            settings,
-            `${tool.name} turned ${turnOn ? 'ON' : 'OFF'}.`
-        );
+        try {
+            await writePersonalSettings(
+                settings,
+                `${tool.name} turned ${turnOn ? 'ON' : 'OFF'}.`
+            );
+        } catch (err) {
+            state.settings = previousSettings;
+            render();
+            throw err;
+        }
 
         if (turnOn && matchesPage(tool)) {
             try {
@@ -1399,18 +2010,267 @@ const results = await Promise.allSettled(
     }
 
     // =========================================================
-    // SAVE VISIBILITY SETTINGS (AUTHORITATIVE USERS REPO)
+    // SAVE TOOL PERMISSION (AUTHORITATIVE READ-MODIFY-WRITE)
+    // =========================================================
+
+    function resolveTrustedTool(toolOrKey) {
+        if (!toolOrKey) return null;
+        const targetKey = typeof toolOrKey === 'object'
+            ? permissionKey(toolOrKey)
+            : String(toolOrKey).trim();
+
+        if (!targetKey) return null;
+
+        return state.tools.find(
+            item =>
+                permissionKey(item).toUpperCase() === targetKey.toUpperCase() ||
+                String(item.path || '').trim() === targetKey ||
+                String(item.name || '').trim() === targetKey
+        ) || null;
+    }
+
+    async function saveToolPermission(targetUserId, tool, changes) {
+        // 1. Require full authentication.
+        if (!isFullyAuthenticated()) {
+            throwAuthError('TOKEN_INVALID');
+        }
+
+        // 8. Deny User permission-record changes.
+        if (!isSuperAdmin() && !isAdmin()) {
+            throw new Error('Access denied: Users cannot modify permission records.');
+        }
+
+        // 2. Verify that the target user exists.
+        const targetId = normalizePermissionUserId(targetUserId);
+        const targetUserObj = state.users.find(
+            u => normalizePermissionUserId(u.id || u.userId || u.username) === targetId
+        );
+
+        if (!targetId || !targetUserObj) {
+            throw new Error(`Target user "${targetUserId}" does not exist in the user registry.`);
+        }
+
+        // 3. Verify that the tool exists in the trusted manifest.
+        const trustedTool = resolveTrustedTool(tool);
+        if (!trustedTool) {
+            throw new Error('Target tool does not exist in the trusted tools manifest.');
+        }
+
+        const toolKey = permissionKey(trustedTool);
+
+        // 4 & 5. Accept only supported fields (granted, forcedState) and require boolean values.
+        if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+            throw new Error('Invalid permission changes payload.');
+        }
+
+        const changeKeys = Object.keys(changes);
+        if (changeKeys.length === 0) {
+            throw new Error('No permission fields specified to update.');
+        }
+
+        const allowedFields = new Set(['granted', 'forcedState']);
+        for (const field of changeKeys) {
+            if (!allowedFields.has(field)) {
+                throw new Error(`Unsupported permission field: "${field}".`);
+            }
+            if (typeof changes[field] !== 'boolean') {
+                throw new Error(`Permission field "${field}" must be a boolean.`);
+            }
+        }
+
+        // 6 & 7. Enforce role & scope rules for every requested field.
+        for (const field of changeKeys) {
+            if (!canEditToolPermission(trustedTool, targetId, field)) {
+                if (field === 'forcedState') {
+                    throw new Error('Only Super Admin can modify forcedState.');
+                }
+                if (isPermissionForced(trustedTool, targetId)) {
+                    throw new Error('Cannot modify permission: Forced State is locked by Super Admin.');
+                }
+                throw new Error(`Admin scope denied for user ${targetId} and tool ${toolKey}.`);
+            }
+        }
+
+        const repository = getPermissionsRepository();
+        const path = getPermissionsPath();
+
+        if (!repository || !path) {
+            throw new Error('Authoritative permissions repository or path is not configured.');
+        }
+
+        const maxAttempts = 2;
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            // 13. Load the authoritative current configuration before saving.
+            const currentFile = await fetchRepositoryJsonWithSha(
+                repository,
+                path,
+                state.personalToken
+            );
+
+            const rawRoot =
+                currentFile.data &&
+                typeof currentFile.data === 'object' &&
+                !Array.isArray(currentFile.data)
+                    ? currentFile.data
+                    : {};
+
+            const hasUsersWrapper = Boolean(
+                rawRoot.users &&
+                typeof rawRoot.users === 'object' &&
+                !Array.isArray(rawRoot.users)
+            );
+
+            const authoritativeUsersMap = getPermissions(rawRoot, state.tools);
+            const authoritativeUserPerms = authoritativeUsersMap[targetId] || {};
+            const authoritativeRecord = authoritativeUserPerms[toolKey] || {
+                granted: false,
+                forcedState: false,
+                type: 'ADMIN'
+            };
+
+            // Re-validate against authoritative server record before writing (prevents stale UI bypass).
+            if (!isSuperAdmin()) {
+                if (Object.prototype.hasOwnProperty.call(changes, 'forcedState')) {
+                    throw new Error('Only Super Admin can modify forcedState.');
+                }
+                if (authoritativeRecord.forcedState === true) {
+                    state.permissions = authoritativeUsersMap;
+                    render();
+                    throw new Error(
+                        'Permission update rejected: Forced State is currently active on the authoritative record.'
+                    );
+                }
+                if (!canAdminManageUserTool(targetId, trustedTool)) {
+                    throw new Error(`Admin scope denied for user ${targetId} and tool ${toolKey}.`);
+                }
+            }
+
+            // 9, 10, 11, 12. Preserve all other users, tools, and unrelated metadata.
+            const updatedRecord = {
+                ...authoritativeRecord,
+                granted: Object.prototype.hasOwnProperty.call(changes, 'granted')
+                    ? changes.granted
+                    : Boolean(authoritativeRecord.granted),
+                forcedState: isSuperAdmin() && Object.prototype.hasOwnProperty.call(changes, 'forcedState')
+                    ? changes.forcedState
+                    : Boolean(authoritativeRecord.forcedState),
+                type: isSuperAdmin() ? 'SUPER_ADMIN' : 'ADMIN'
+            };
+
+            delete updatedRecord.enabled;
+
+            const nextUsersMap = {
+                ...authoritativeUsersMap,
+                [targetId]: {
+                    ...authoritativeUserPerms,
+                    [toolKey]: updatedRecord
+                }
+            };
+
+            const payloadToWrite = hasUsersWrapper
+                ? {
+                    ...rawRoot,
+                    users: nextUsersMap
+                }
+                : nextUsersMap;
+
+            const summaryParts = changeKeys.map(k => `${k}=${changes[k]}`);
+            const commitMsg = `Update permission ${targetId}/${toolKey} (${summaryParts.join(', ')})`;
+
+            try {
+                // 14. Handle GitHub SHA conflicts and concurrent writes.
+                await putRepositoryJsonWithSha(
+                    repository,
+                    path,
+                    state.personalToken,
+                    payloadToWrite,
+                    currentFile.sha,
+                    commitMsg
+                );
+
+                // 15. Update local state ONLY after a successful save.
+                state.permissions = nextUsersMap;
+                state.permissionsRawWrapper = hasUsersWrapper;
+
+                // 16. Display success feedback through the notification system.
+                notifySuccess(
+                    `Updated ${trustedTool.name} (${toolKey}) for ${targetId}: ${summaryParts.join(', ')}.`,
+                    'PERMISSION SAVED'
+                );
+
+                return updatedRecord;
+            } catch (writeErr) {
+                lastError = writeErr;
+                if (writeErr.isConflict && attempt < maxAttempts) {
+                    log(
+                        `SHA conflict detected while saving ${targetId}/${toolKey}; retrying with latest repository state...`,
+                        'warning'
+                    );
+                    continue;
+                }
+                throw writeErr;
+            }
+        }
+
+        throw lastError || new Error('Permission save failed.');
+    }
+
+    // =========================================================
+    // SAVE VISIBILITY SETTINGS (CONSISTENT REPOSITORY & PATH)
     // =========================================================
 
     async function saveVisibilitySettings() {
-        if (!isSuperAdmin()) {
+        if (!canManageVisibility()) {
             throw new Error('Super Admin access required to modify visibility.');
         }
 
-        const repository = CONFIG.usersRepository;
-        const path = CONFIG.visibilityPath;
+        const repository = getVisibilityRepository();
+        const path = getVisibilityPath();
+
+        if (!repository || !path) {
+            throw new Error('Authoritative visibility repository or path is not configured.');
+        }
+
+        const currentFile = await fetchRepositoryJsonWithSha(
+            repository,
+            path,
+            state.personalToken
+        );
+
+        const rawRoot =
+            currentFile.data &&
+            typeof currentFile.data === 'object' &&
+            !Array.isArray(currentFile.data)
+                ? currentFile.data
+                : {};
+
+        const existingVisibilityMap =
+            rawRoot.visibility && typeof rawRoot.visibility === 'object'
+                ? rawRoot.visibility
+                : rawRoot.tools && typeof rawRoot.tools === 'object'
+                    ? rawRoot.tools
+                    : rawRoot;
 
         const newVisibility = {};
+
+        // Preserve any unrelated tool records present in the authoritative file.
+        for (const [key, value] of Object.entries(existingVisibilityMap)) {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                newVisibility[key] = { ...value };
+            }
+        }
+
+        // Preserve any additional records in local state.visibility.
+        for (const [key, value] of Object.entries(state.visibility)) {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                newVisibility[key] = {
+                    ...(newVisibility[key] || {}),
+                    ...value
+                };
+            }
+        }
 
         const orderedTools = [...state.tools].sort((a, b) =>
             permissionKey(a).localeCompare(permissionKey(b))
@@ -1419,14 +2279,15 @@ const results = await Promise.allSettled(
         for (const tool of orderedTools) {
             const key = permissionKey(tool);
             const record = ensureToolVisibilityRecord(key);
-            const visValue = String(record.visibility || 'PRIVATE').toUpperCase();
+            const visValue = String(record.visibility || 'PRIVATE').trim().toUpperCase();
             const allowedUsers = Array.isArray(record.allowedUsers)
                 ? record.allowedUsers
-                    .map(s => String(s).trim().toUpperCase())
+                    .map(s => normalizePermissionUserId(s))
                     .filter(Boolean)
                 : [];
 
             newVisibility[key] = {
+                ...(newVisibility[key] || {}),
                 visibility: visValue,
                 allowedUsers,
                 developmentStatus: record.developmentStatus || 'UNDER DEVELOPMENT',
@@ -1435,76 +2296,26 @@ const results = await Promise.allSettled(
             };
         }
 
-        for (const [key, value] of Object.entries(state.visibility)) {
-            if (!newVisibility[key] && value && typeof value === 'object') {
-                newVisibility[key] = value;
-            }
-        }
+        const payloadToWrite =
+            rawRoot.visibility && typeof rawRoot.visibility === 'object'
+                ? { ...rawRoot, visibility: newVisibility }
+                : rawRoot.tools && typeof rawRoot.tools === 'object'
+                    ? { ...rawRoot, tools: newVisibility }
+                    : newVisibility;
 
-        let current = null;
-
-        try {
-            current = await YODAWY.request(
-                repositoryUrl(repository, path),
-                state.personalToken
-            );
-        } catch (error) {
-            if (error.status !== 404) throw error;
-        }
-
-        const bytes = new TextEncoder().encode(
-            JSON.stringify(newVisibility, null, 2) + '\n'
+        await putRepositoryJsonWithSha(
+            repository,
+            path,
+            state.personalToken,
+            payloadToWrite,
+            currentFile.sha,
+            'Update tool visibility configuration'
         );
-
-        let binary = '';
-
-        for (let index = 0; index < bytes.length; index += 8192) {
-            binary += String.fromCharCode(
-                ...bytes.subarray(index, index + 8192)
-            );
-        }
-
-        const body = {
-            message: 'Update tool visibility configuration',
-            content: btoa(binary),
-            branch: YODAWY.branch
-        };
-
-        if (current?.sha) {
-            body.sha = current.sha;
-        }
-
-        const response = await fetch(
-            repositoryUrl(repository, path),
-            {
-                method: 'PUT',
-                headers: {
-                    Authorization: `Bearer ${state.personalToken}`,
-                    Accept: 'application/vnd.github+json',
-                    'Content-Type': 'application/json',
-                    'X-GitHub-Api-Version': '2022-11-28'
-                },
-                credentials: 'omit',
-                cache: 'no-store',
-                body: JSON.stringify(body)
-            }
-        );
-
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            throw new Error(
-                result.message ||
-                `Visibility save failed: ${response.status}`
-            );
-        }
 
         state.visibility = newVisibility;
         state.visibilityDirty = false;
-        state.error = '';
 
-        log('Tool visibility saved to Users Repository.', 'success');
-        render();
+        notifySuccess('Tool visibility configuration saved.', 'VISIBILITY SAVED');
     }
 
     // =========================================================
@@ -1843,6 +2654,21 @@ const results = await Promise.allSettled(
             color: #c0392b;
             border-color: #f5c2c9 !important;
         }
+        .yd-select,
+        .yd-input {
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 8px;
+            border: 1px solid #dfd5e3;
+            background: #fff;
+            color: #29242e;
+            font: 600 12.5px system-ui, -apple-system, sans-serif;
+            outline: none;
+        }
+        .yd-select:focus,
+        .yd-input:focus {
+            border-color: ${PURPLE};
+        }
 
         /* =====================================================
             ODOO FADE PILLS & COMPACT BADGES
@@ -1915,6 +2741,22 @@ const results = await Promise.allSettled(
             font-size: 12.5px;
             margin-bottom: 2px;
         }
+        .yd-notice {
+            padding: 10px 14px;
+            background: #eafaf1;
+            color: #1e8449;
+            border: 1px solid #c8f0d8;
+            border-radius: 8px;
+            margin-bottom: 14px;
+            font-size: 12px;
+            font-weight: 600;
+            overflow-wrap: anywhere;
+        }
+        .yd-notice-title {
+            font-weight: 800;
+            font-size: 12.5px;
+            margin-bottom: 2px;
+        }
         .yd-empty {
             padding: 24px;
             text-align: center;
@@ -1923,7 +2765,7 @@ const results = await Promise.allSettled(
         }
 
         /* =====================================================
-            HEADER STATUS & COMPACT PROFILE BUTTON (NO HOVER JUMP)
+            HEADER STATUS & COMPACT PROFILE BUTTON
             ===================================================== */
         .yd-header-actions {
             display: flex;
@@ -2099,7 +2941,7 @@ const results = await Promise.allSettled(
         }
 
         /* =====================================================
-            SLIM MODERN TABLE (SHADCN-INSPIRED COMPACT ROWS)
+            SLIM MODERN TABLE
             ===================================================== */
         .yd-table-card {
             background: #fff;
@@ -2107,16 +2949,18 @@ const results = await Promise.allSettled(
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 6px #24152e06;
+            margin-bottom: 14px;
         }
         .yd-table-card-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 10px;
-            height: 44px;
-            padding: 0 14px;
+            min-height: 44px;
+            padding: 8px 14px;
             background: #fff;
             border-bottom: 1px solid #eee8f0;
+            flex-wrap: wrap;
         }
         .yd-table-card-title {
             display: flex;
@@ -2129,7 +2973,8 @@ const results = await Promise.allSettled(
         .yd-table-pills {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            flex-wrap: wrap;
         }
         .yd-table-responsive {
             width: 100%;
@@ -2397,13 +3242,24 @@ const results = await Promise.allSettled(
     }
 
     function renderErrorBox() {
-        if (!state.error) return '';
-        return `
-            <div class="yd-error">
-                ${state.errorTitle ? `<div class="yd-error-title">${esc(state.errorTitle)}</div>` : ''}
-                <div>${esc(state.error)}</div>
-            </div>
-        `;
+        let html = '';
+        if (state.error) {
+            html += `
+                <div class="yd-error">
+                    ${state.errorTitle ? `<div class="yd-error-title">${esc(state.errorTitle)}</div>` : ''}
+                    <div>${esc(state.error)}</div>
+                </div>
+            `;
+        }
+        if (state.notice) {
+            html += `
+                <div class="yd-notice">
+                    ${state.noticeTitle ? `<div class="yd-notice-title">${esc(state.noticeTitle)}</div>` : ''}
+                    <div>${esc(state.notice)}</div>
+                </div>
+            `;
+        }
+        return html;
     }
 
     function renderSwitch({ isOn, action, disabled = false, title = '' }) {
@@ -2423,12 +3279,12 @@ const results = await Promise.allSettled(
         `;
     }
 
-    function renderAccessIcon(allowed) {
+    function renderAccessIcon(allowed, tooltipText = '') {
         if (allowed) {
             return `
                 <div class="yd-access-badge unlocked" aria-label="Permitted">
                     ${ICONS.unlocked}
-                    <span class="yd-tooltip">Permitted</span>
+                    <span class="yd-tooltip">${esc(tooltipText || 'Permitted')}</span>
                 </div>
             `;
         }
@@ -2436,7 +3292,7 @@ const results = await Promise.allSettled(
         return `
             <div class="yd-access-badge locked" aria-label="Permission required">
                 ${ICONS.lock}
-                <span class="yd-tooltip">Permission required to enable this tool</span>
+                <span class="yd-tooltip">${esc(tooltipText || 'Permission required to enable this tool')}</span>
             </div>
         `;
     }
@@ -2454,7 +3310,7 @@ const results = await Promise.allSettled(
     }
 
     // =========================================================
-    // OVERVIEW PAGE (SIMPLE, CLEAN, NO TABLE, NO JARGON)
+    // OVERVIEW PAGE
     // =========================================================
 
     function overviewPage() {
@@ -2554,7 +3410,7 @@ const results = await Promise.allSettled(
     }
 
     // =========================================================
-    // TOOLS PAGE (SLIM MODERN TABLE, SPLIT PILLS, UNLOCKED/LOCKED PADLOCK)
+    // TOOLS PAGE
     // =========================================================
 
     function toolsPage() {
@@ -2632,35 +3488,420 @@ const results = await Promise.allSettled(
     }
 
     // =========================================================
-    // PRESERVED PAGES (ROLE-GATED BY REGISTRY ROLE)
+    // PERMISSION MANAGEMENT UI (INTEGRATED IN USERS & SHARED TOOLS)
     // =========================================================
 
-    function settingsPage() {
-        return header('Settings');
+    function renderPermissionManagementTable(targetUserId) {
+        const targetId = normalizePermissionUserId(targetUserId);
+        const targetUser = state.users.find(
+            u => normalizePermissionUserId(u.id || u.userId || u.username) === targetId
+        );
+
+        if (!targetId || !targetUser) {
+            return `<div class="yd-empty">Select a valid user to manage tool permissions.</div>`;
+        }
+
+        const tools = state.tools;
+        const targetRole = formatRoleLabel(targetUser.role);
+
+        return `
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width:46px">#</th>
+                            <th scope="col" style="width:120px">Tool ID</th>
+                            <th scope="col">Tool Name</th>
+                            <th scope="col" style="width:170px">Edit Lock / Scope</th>
+                            <th scope="col" style="width:130px;text-align:center">Forced State</th>
+                            <th scope="col" style="width:130px;text-align:right">Granted</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tools.map((tool, index) => {
+                            const key = permissionKey(tool);
+                            const record = getToolPermissionRecord(tool, targetId);
+                            const isGranted = record.granted === true;
+                            const isForced = record.forcedState === true;
+
+                            const canEditGranted = canEditToolPermission(tool, targetId, 'granted');
+                            const canEditForced = canEditToolPermission(tool, targetId, 'forcedState');
+
+                            const isSavingGranted =
+                                state.permissionSavingKey === `${targetId}:${key}:granted`;
+                            const isSavingForced =
+                                state.permissionSavingKey === `${targetId}:${key}:forcedState`;
+
+                            let lockBadgeHtml = '';
+                            if (isSuperAdmin()) {
+                                lockBadgeHtml = `<span class="yd-pill yd-pill-blue">Super Admin (Full Edit)</span>`;
+                            } else if (isForced) {
+                                lockBadgeHtml = `<span class="yd-pill yd-pill-red">Locked (Forced State ON)</span>`;
+                            } else if (!canEditGranted) {
+                                lockBadgeHtml = `<span class="yd-pill yd-pill-yellow">Locked (Out of Scope)</span>`;
+                            } else {
+                                lockBadgeHtml = `<span class="yd-pill yd-pill-green">Authorized (${esc(targetRole)})</span>`;
+                            }
+
+                            const forcedSwitch = renderSwitch({
+                                isOn: isForced,
+                                action: `toggle-perm-forced:${targetId}:${key}`,
+                                disabled: !canEditForced || Boolean(state.permissionSavingKey),
+                                title: canEditForced
+                                    ? `Set Forced State ${isForced ? 'OFF' : 'ON'} for ${targetId}`
+                                    : 'Only Super Admin can change Forced State'
+                            });
+
+                            const grantedSwitch = renderSwitch({
+                                isOn: isGranted,
+                                action: `toggle-perm-granted:${targetId}:${key}`,
+                                disabled: !canEditGranted || Boolean(state.permissionSavingKey),
+                                title: canEditGranted
+                                    ? `Set Granted ${isGranted ? 'OFF' : 'ON'} for ${targetId}`
+                                    : isForced
+                                        ? 'Editing locked because Forced State is ON'
+                                        : 'You are not authorized to edit this user/tool permission'
+                            });
+
+                            return `
+                                <tr>
+                                    <th scope="row">${index + 1}</th>
+                                    <td><span class="yd-id-badge">${esc(key)}</span></td>
+                                    <td><div class="yd-tool-name">${esc(tool.name)}</div></td>
+                                    <td>${lockBadgeHtml}</td>
+                                    <td style="text-align:center">
+                                        ${isSavingForced ? '<span class="yd-pill yd-pill-purple">Saving…</span>' : forcedSwitch}
+                                    </td>
+                                    <td style="text-align:right">
+                                        ${isSavingGranted ? '<span class="yd-pill yd-pill-purple">Saving…</span>' : grantedSwitch}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('') || `
+                            <tr>
+                                <td colspan="6" class="yd-empty">No tools loaded in manifest.</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        `;
     }
 
     function usersPage() {
         if (!canManage()) return deniedPage();
-        return header('Users');
+
+        const usersList = state.users;
+        if (!state.permissionsSelectedUser && usersList.length > 0) {
+            state.permissionsSelectedUser = normalizePermissionUserId(
+                usersList[0].id || usersList[0].userId || usersList[0].username
+            );
+        }
+
+        const selectedUid = normalizePermissionUserId(state.permissionsSelectedUser);
+
+        return header(
+            'Users & Permissions',
+            button('Reload', 'sync', true, ICONS.sync)
+        ) +
+        `<div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.user}
+                    <span>Registered Users (${usersList.length})</span>
+                </div>
+            </div>
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width:50px">#</th>
+                            <th scope="col" style="width:120px">User ID</th>
+                            <th scope="col">Name</th>
+                            <th scope="col" style="width:130px">Role</th>
+                            <th scope="col" style="width:110px">Status</th>
+                            <th scope="col" style="width:140px;text-align:right">Permissions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${usersList.map((u, idx) => {
+                            const uid = normalizePermissionUserId(u.id || u.userId || u.username);
+                            const roleLabel = formatRoleLabel(u.role);
+                            const isActive = String(u.status || '').toLowerCase() === 'active';
+                            const isSelected = uid === selectedUid;
+                            return `
+                                <tr>
+                                    <th scope="row">${idx + 1}</th>
+                                    <td><span class="yd-id-badge">${esc(uid)}</span></td>
+                                    <td><div class="yd-tool-name">${esc(u.name || uid)}</div></td>
+                                    <td><span class="yd-pill ${rolePillClass(roleLabel)}">${esc(roleLabel)}</span></td>
+                                    <td><span class="yd-pill ${isActive ? 'yd-pill-green' : 'yd-pill-red'}">${esc(u.status || 'Unknown')}</span></td>
+                                    <td style="text-align:right">
+                                        <button
+                                            class="yd-btn ${isSelected ? 'yd-primary' : ''}"
+                                            data-action="select-perm-user:${esc(uid)}"
+                                            type="button"
+                                        >
+                                            <span>${isSelected ? 'Managing' : 'Manage'}</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('') || `
+                            <tr>
+                                <td colspan="6" class="yd-empty">No users found.</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.lock}
+                    <span>Tool Permissions — User: ${esc(selectedUid || 'None')}</span>
+                </div>
+                <div class="yd-table-pills">
+                    <label for="yd-perm-user-filter" class="yd-clean-label">Target User:</label>
+                    <select id="yd-perm-user-filter" class="yd-select">
+                        ${usersList.map(u => {
+                            const uid = normalizePermissionUserId(u.id || u.userId || u.username);
+                            return `<option value="${esc(uid)}" ${uid === selectedUid ? 'selected' : ''}>${esc(uid)} — ${esc(u.name || uid)} (${esc(formatRoleLabel(u.role))})</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            </div>
+            ${renderPermissionManagementTable(selectedUid)}
+        </div>`;
     }
 
     function sharedPage() {
         if (!canManage()) return deniedPage();
-        return header('Shared Tools');
+
+        const usersList = state.users;
+        if (!state.permissionsSelectedUser && usersList.length > 0) {
+            state.permissionsSelectedUser = normalizePermissionUserId(
+                usersList[0].id || usersList[0].userId || usersList[0].username
+            );
+        }
+
+        const selectedUid = normalizePermissionUserId(state.permissionsSelectedUser);
+
+        return header(
+            'Shared Tools & Permission Matrix',
+            button('Reload', 'sync', true, ICONS.sync)
+        ) +
+        `<div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.tools}
+                    <span>Permission Management (${esc(selectedUid || 'None')})</span>
+                </div>
+                <div class="yd-table-pills">
+                    <label for="yd-perm-user-filter" class="yd-clean-label">User:</label>
+                    <select id="yd-perm-user-filter" class="yd-select">
+                        ${usersList.map(u => {
+                            const uid = normalizePermissionUserId(u.id || u.userId || u.username);
+                            return `<option value="${esc(uid)}" ${uid === selectedUid ? 'selected' : ''}>${esc(uid)} — ${esc(u.name || uid)}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            </div>
+            ${renderPermissionManagementTable(selectedUid)}
+        </div>`;
     }
+
+    // =========================================================
+    // VISIBILITY PAGE (SUPER ADMIN ONLY)
+    // =========================================================
 
     function visibilityPage() {
         if (!canManageVisibility()) return deniedPage();
-        return header('Visibility');
+
+        const nonSuperUsers = state.users.filter(u => normalizeRole(u.role) !== 'SUPER_ADMIN');
+        const selectedUser = state.visibilitySelectedUser || 'ALL';
+
+        return header(
+            'Visibility',
+            button(
+                state.visibilityDirty ? 'Save Visibility *' : 'Save Visibility',
+                'save-visibility',
+                true,
+                ICONS.cloud
+            )
+        ) +
+        `<div class="yd-table-card">
+            <div class="yd-table-card-head">
+                <div class="yd-table-card-title">
+                    ${ICONS.lock}
+                    <span>Global Tool Visibility (${state.tools.length})</span>
+                </div>
+                <div class="yd-table-pills">
+                    <label for="yd-vis-user-filter" class="yd-clean-label">Inspect User:</label>
+                    <select id="yd-vis-user-filter" class="yd-select">
+                        <option value="ALL" ${selectedUser === 'ALL' ? 'selected' : ''}>All Users</option>
+                        ${nonSuperUsers.map(u => {
+                            const uid = normalizePermissionUserId(u.id || u.userId || u.username);
+                            return `<option value="${esc(uid)}" ${selectedUser === uid ? 'selected' : ''}>${esc(uid)} — ${esc(u.name || uid)}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width:50px">#</th>
+                            <th scope="col" style="width:120px">Tool ID</th>
+                            <th scope="col">Tool</th>
+                            <th scope="col" style="width:180px">Policy Mode</th>
+                            <th scope="col" style="width:160px">Allowed Users</th>
+                            ${selectedUser !== 'ALL' ? `<th scope="col" style="width:140px;text-align:right">Visible to ${esc(selectedUser)}</th>` : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${state.tools.map((tool, index) => {
+                            const key = permissionKey(tool);
+                            const record = ensureToolVisibilityRecord(key);
+                            const mode = String(record.visibility || 'PRIVATE').toUpperCase();
+                            const allowedList = Array.isArray(record.allowedUsers) ? record.allowedUsers : [];
+
+                            return `
+                                <tr>
+                                    <th scope="row">${index + 1}</th>
+                                    <td><span class="yd-id-badge">${esc(key)}</span></td>
+                                    <td><div class="yd-tool-name">${esc(tool.name)}</div></td>
+                                    <td>
+                                        <select class="yd-select" data-vis-policy-tool="${esc(key)}">
+                                            ${['PRIVATE', 'PUBLIC', 'ADMIN', 'SELECTED_USERS'].map(opt => `
+                                                <option value="${opt}" ${mode === opt ? 'selected' : ''}>${opt}</option>
+                                            `).join('')}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <span class="yd-pill ${mode === 'PUBLIC' ? 'yd-pill-green' : mode === 'PRIVATE' ? 'yd-pill-red' : 'yd-pill-blue'}">
+                                            ${mode === 'PUBLIC' ? 'All Users' : mode === 'PRIVATE' ? 'Super Admin Only' : mode === 'ADMIN' ? 'Admins' : `${allowedList.length} Selected`}
+                                        </span>
+                                    </td>
+                                    ${selectedUser !== 'ALL' ? `
+                                        <td style="text-align:right">
+                                            ${renderSwitch({
+                                                isOn: isToolVisibleForUser(tool, selectedUser),
+                                                action: `toggle-vis-cell:${key}:${selectedUser}`,
+                                                disabled: false,
+                                                title: `Toggle visibility of ${tool.name} for ${selectedUser}`
+                                            })}
+                                        </td>
+                                    ` : ''}
+                                </tr>
+                            `;
+                        }).join('') || `
+                            <tr>
+                                <td colspan="6" class="yd-empty">No tools available.</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    }
+
+    // =========================================================
+    // SETTINGS, SYSTEM & LOGS PAGES
+    // =========================================================
+
+    function settingsPage() {
+        const displayName = state.settings.displayName || state.user?.name || CONFIG.userId;
+        const startPage = state.settings.startPage === 'tools' ? 'tools' : 'overview';
+
+        return header(
+            'Settings',
+            button('Save Settings', 'save-settings', true, ICONS.cloud)
+        ) +
+        `<div class="yd-card">
+            <div class="yd-card-title">
+                ${ICONS.user}
+                <span>Personal Dashboard Preferences</span>
+            </div>
+            <div class="yd-clean-row">
+                <label class="yd-clean-label" for="yd-name">Display Name</label>
+                <input id="yd-name" class="yd-input" type="text" value="${esc(displayName)}" />
+            </div>
+            <div class="yd-clean-row">
+                <label class="yd-clean-label" for="yd-start">Default Start Section</label>
+                <select id="yd-start" class="yd-select">
+                    <option value="overview" ${startPage === 'overview' ? 'selected' : ''}>Overview</option>
+                    <option value="tools" ${startPage === 'tools' ? 'selected' : ''}>Tools</option>
+                </select>
+            </div>
+        </div>`;
     }
 
     function systemPage() {
         if (!canManage()) return deniedPage();
-        return header('System');
+
+        return header('System') +
+        `<div class="yd-card">
+            <div class="yd-card-title">
+                ${ICONS.cloud}
+                <span>Repository & Configuration Paths</span>
+            </div>
+            <div class="yd-clean-row">
+                <span class="yd-clean-label">Dashboard Repository</span>
+                <span class="yd-id-badge">${esc(YODAWY.dashboardRepository || '—')}</span>
+            </div>
+            <div class="yd-clean-row">
+                <span class="yd-clean-label">Permissions Target</span>
+                <span class="yd-id-badge">${esc(`${getPermissionsRepository()}/${getPermissionsPath()}`)}</span>
+            </div>
+            <div class="yd-clean-row">
+                <span class="yd-clean-label">Visibility Target</span>
+                <span class="yd-id-badge">${esc(`${getVisibilityRepository()}/${getVisibilityPath()}`)}</span>
+            </div>
+            <div class="yd-clean-row">
+                <span class="yd-clean-label">Personal Repository</span>
+                <span class="yd-id-badge">${esc(state.user?.repository || '—')}</span>
+            </div>
+        </div>`;
     }
 
     function logsPage() {
-        return header('Logs');
+        return header(
+            'Logs',
+            button('Clear Logs', 'clear-logs', false)
+        ) +
+        `<div class="yd-table-card">
+            <div class="yd-table-responsive">
+                <table class="yd-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width:110px">Time</th>
+                            <th scope="col" style="width:100px">Level</th>
+                            <th scope="col">Message</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${state.logs.map(item => `
+                            <tr>
+                                <td>${esc(item.time)}</td>
+                                <td>
+                                    <span class="yd-pill ${item.type === 'error' ? 'yd-pill-red' : item.type === 'success' ? 'yd-pill-green' : item.type === 'warning' ? 'yd-pill-yellow' : 'yd-pill-blue'}">
+                                        ${esc(item.type.toUpperCase())}
+                                    </span>
+                                </td>
+                                <td style="white-space:normal">${esc(item.message)}</td>
+                            </tr>
+                        `).join('') || `
+                            <tr>
+                                <td colspan="3" class="yd-empty">No logs recorded.</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
     }
 
     function deniedPage() {
@@ -2685,7 +3926,6 @@ const results = await Promise.allSettled(
         const role = normalizeRole(state.user?.role);
 
         if (role === 'SUPER_ADMIN') {
-            // Super Admin Dashboard = Admin Dashboard + Visibility + Forced-True Features
             return [
                 ...baseSections,
                 ['users', 'Users', ICONS.user],
@@ -2698,7 +3938,6 @@ const results = await Promise.allSettled(
         }
 
         if (role === 'ADMIN') {
-            // Admin Dashboard
             return [
                 ...baseSections,
                 ['users', 'Users', ICONS.user],
@@ -2709,7 +3948,6 @@ const results = await Promise.allSettled(
             ];
         }
 
-        // User Dashboard
         return [
             ...baseSections,
             ['settings', 'Settings', ICONS.user],
@@ -2848,11 +4086,11 @@ const results = await Promise.allSettled(
                 ? `<div class="yd-card">
                     <div class="yd-title" style="margin-bottom:12px">Connect to System</div>
                     ${button('Connect', 'sync', true, ICONS.sync)}
-                    ${state.error ? `<div style="margin-top:12px">${renderErrorBox()}</div>` : ''}
+                    ${(state.error || state.notice) ? `<div style="margin-top:12px">${renderErrorBox()}</div>` : ''}
                 </div>`
                 : pages[state.section]();
 
-        if (isConnected && state.error) {
+        if (isConnected && (state.error || state.notice)) {
             mainEl.insertAdjacentHTML('afterbegin', renderErrorBox());
         }
     }
@@ -2878,11 +4116,24 @@ const results = await Promise.allSettled(
             return;
         }
 
+        const permUserFilter = event.target.closest('#yd-perm-user-filter');
+        if (permUserFilter) {
+            state.permissionsSelectedUser = normalizePermissionUserId(permUserFilter.value);
+            state.error = '';
+            state.notice = '';
+            render();
+            return;
+        }
+
         const policySelect = event.target.closest('[data-vis-policy-tool]');
         if (policySelect) {
-            const toolKey = policySelect.dataset.visPolicyTool;
-            setToolPolicyMode(toolKey, policySelect.value);
-            render();
+            try {
+                const toolKey = policySelect.dataset.visPolicyTool;
+                setToolPolicyMode(toolKey, policySelect.value);
+                render();
+            } catch (error) {
+                notify(error.message || String(error), 'VISIBILITY ERROR');
+            }
         }
     });
 
@@ -2896,6 +4147,8 @@ const results = await Promise.allSettled(
 
         if (nav) {
             state.section = nav.dataset.section;
+            state.error = '';
+            state.notice = '';
             render();
             return;
         }
@@ -2938,6 +4191,7 @@ const results = await Promise.allSettled(
                 overlay.classList.remove('open');
 
             } else if (action === 'sync') {
+                state.notice = '';
                 resetAuthState();
                 await sync();
 
@@ -2963,6 +4217,7 @@ const results = await Promise.allSettled(
                 state.permissions = {};
                 state.visibility = {};
                 state.visibilityDirty = false;
+                state.notice = '';
 
                 await sync();
 
@@ -2979,6 +4234,7 @@ const results = await Promise.allSettled(
                     state.loading = true;
                     state.error = '';
                     state.errorTitle = '';
+                    state.notice = '';
                     render();
 
                     try {
@@ -3000,6 +4256,61 @@ const results = await Promise.allSettled(
                         state.loading = false;
                         render();
                     }
+                }
+
+            } else if (action.startsWith('select-perm-user:')) {
+                const targetUid = normalizePermissionUserId(
+                    action.slice('select-perm-user:'.length)
+                );
+                state.permissionsSelectedUser = targetUid;
+                state.error = '';
+                state.notice = '';
+                render();
+
+            } else if (action.startsWith('toggle-perm-granted:')) {
+                const parts = action.split(':');
+                const targetUid = normalizePermissionUserId(parts[1]);
+                const toolKey = parts.slice(2).join(':');
+                const tool = resolveTrustedTool(toolKey);
+
+                if (!tool) {
+                    throw new Error('Tool not found in manifest.');
+                }
+
+                const currentGranted = permissionGranted(tool, targetUid);
+                state.permissionSavingKey = `${targetUid}:${permissionKey(tool)}:granted`;
+                render();
+
+                try {
+                    await saveToolPermission(targetUid, tool, {
+                        granted: !currentGranted
+                    });
+                } finally {
+                    state.permissionSavingKey = '';
+                    render();
+                }
+
+            } else if (action.startsWith('toggle-perm-forced:')) {
+                const parts = action.split(':');
+                const targetUid = normalizePermissionUserId(parts[1]);
+                const toolKey = parts.slice(2).join(':');
+                const tool = resolveTrustedTool(toolKey);
+
+                if (!tool) {
+                    throw new Error('Tool not found in manifest.');
+                }
+
+                const currentForced = isPermissionForced(tool, targetUid);
+                state.permissionSavingKey = `${targetUid}:${permissionKey(tool)}:forcedState`;
+                render();
+
+                try {
+                    await saveToolPermission(targetUid, tool, {
+                        forcedState: !currentForced
+                    });
+                } finally {
+                    state.permissionSavingKey = '';
+                    render();
                 }
 
             } else if (action.startsWith('toggle-my-tool:')) {
@@ -3036,7 +4347,7 @@ const results = await Promise.allSettled(
         } catch (error) {
             notify(
                 error.userMessage || error.message || String(error),
-                error.title || ''
+                error.title || 'OPERATION FAILED'
             );
         }
     });
