@@ -13,6 +13,13 @@
       "repository": "Q-002_OMAR_SALEH",
       "role": "User",
       "status": "Active"
+    },
+    {
+      "id": "Q-003",
+      "name": "MOAAZ SALEH",
+      "repository": "Q-002_MOAAZ_SALEH",
+      "role": "Admin",
+      "status": "Active"
     }
   ]
 }
