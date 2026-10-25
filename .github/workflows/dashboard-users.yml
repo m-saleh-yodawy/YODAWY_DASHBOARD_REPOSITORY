@@ -1,14 +1,6 @@
-name: DASHBOARD - USERS SYNC
+name: DASHBOARD - USERS WORKFLOW
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "CONFIG/auth-users.json"
-      - "CONFIG/tools-permissions.json"
-      - "CONFIG/tools-visibility.json"
-      - ".github/workflows/dashboard-users.yml"
   workflow_dispatch:
 
 permissions:
@@ -49,11 +41,15 @@ jobs:
           import json
           from pathlib import Path
 
-          for name in (
+          paths = (
               "CONFIG/auth-users.json",
               "CONFIG/tools-permissions.json",
               "CONFIG/tools-visibility.json",
-          ):
+          )
+
+          parsed = {}
+
+          for name in paths:
               content = Path(name).read_text(
                   encoding="utf-8-sig"
               ).strip()
@@ -75,11 +71,9 @@ jobs:
                       f"Expected a JSON object in {name}"
                   )
 
-          users = json.loads(
-              Path("CONFIG/auth-users.json").read_text(
-                  encoding="utf-8-sig"
-              )
-          )
+              parsed[name] = data
+
+          users = parsed["CONFIG/auth-users.json"]
 
           if not isinstance(users.get("users"), list):
               raise SystemExit(
@@ -101,14 +95,22 @@ jobs:
                       "Every user must have a non-empty string id."
                   )
 
-              if user_id in seen_ids:
+              normalized_id = user_id.strip().upper()
+
+              if normalized_id in seen_ids:
                   raise SystemExit(
-                      f"Duplicate user id: {user_id}"
+                      f"Duplicate user id: {normalized_id}"
                   )
 
-              seen_ids.add(user_id)
+              seen_ids.add(normalized_id)
+
+          if not users["users"]:
+              raise SystemExit(
+                  "No users configured. Add a user before syncing."
+              )
 
           print("Dashboard source files validated.")
+          print(f"Users found: {len(users['users'])}")
           PY
 
       - name: Verify Sync Token
@@ -183,6 +185,7 @@ jobs:
           set -euo pipefail
 
           response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
 
           http_code="$(curl \
             --silent \
@@ -208,4 +211,3 @@ jobs:
           fi
 
           echo "USERS SYNC was dispatched successfully."
-          rm -f "$response_file"
