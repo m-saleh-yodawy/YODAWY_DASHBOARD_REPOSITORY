@@ -26,5 +26,19 @@
       "granted": false,
       "type": "ADMIN"
     }
+  },
+  "Q-003": {
+    "TOOL-001": {
+      "granted": false,
+      "type": "ADMIN"
+    },
+    "TOOL-002": {
+      "granted": false,
+      "type": "ADMIN"
+    },
+    "TOOL-003": {
+      "granted": false,
+      "type": "ADMIN"
+    }
   }
 }
