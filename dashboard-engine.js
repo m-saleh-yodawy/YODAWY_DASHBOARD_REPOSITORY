@@ -1307,7 +1307,9 @@ YODAWY.init = async function () {
 
         const repository = getUserRegistryRepository();
         const path = getUserRegistryPath();
-        const token = String(state.personalToken || '').trim();
+        const token = String(
+    YODAWY.registryToken || ''
+).trim();
 
         if (!repository || !path || !token || isPlaceholderToken(token)) {
             throw new Error(
