@@ -1,0 +1,296 @@
+name: DASHBOARD WORKFLOW
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "CONFIG/auth-users.json"
+      - "CONFIG/tools-permissions.json"
+      - "CONFIG/tools-visibility.json"
+      - "TOOLS_CACHE/tools-manifest.json"
+      - ".github/workflows/dashboard.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yodawy-dashboard-bootstrap-main
+  cancel-in-progress: false
+
+jobs:
+  initialize-dashboard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Dashboard Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Initialize Dashboard Data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import tempfile
+          from pathlib import Path
+
+          users_path = Path("CONFIG/auth-users.json")
+          permissions_path = Path("CONFIG/tools-permissions.json")
+          visibility_path = Path("CONFIG/tools-visibility.json")
+          manifest_path = Path("TOOLS_CACHE/tools-manifest.json")
+
+          for path in (users_path, manifest_path):
+              if not path.is_file():
+                  raise SystemExit(f"Required file missing: {path}")
+
+          def read_json(path, default):
+              text = path.read_text(
+                  encoding="utf-8-sig"
+              ).strip()
+
+              if not text:
+                  return default
+
+              try:
+                  return json.loads(text)
+              except Exception as error:
+                  raise SystemExit(
+                      f"Invalid JSON in {path}: {error}"
+                  )
+
+          users_data = read_json(users_path, None)
+
+          if not isinstance(users_data, dict):
+              raise SystemExit(
+                  "auth-users.json must contain a JSON object."
+              )
+
+          users = users_data.get("users")
+
+          if not isinstance(users, list) or not users:
+              raise SystemExit(
+                  "auth-users.json must contain at least one user."
+              )
+
+          seen_users = set()
+
+          for user in users:
+              if not isinstance(user, dict):
+                  raise SystemExit("Every user must be an object.")
+
+              user_id = str(user.get("id", "")).strip().upper()
+
+              if not user_id:
+                  raise SystemExit("Every user needs a non-empty id.")
+
+              if user_id in seen_users:
+                  raise SystemExit(f"Duplicate user id: {user_id}")
+
+              seen_users.add(user_id)
+
+              if str(user.get("status", "")).strip().lower() != "active":
+                  print(f"Inactive user detected: {user_id}")
+
+          manifest = read_json(manifest_path, None)
+
+          if isinstance(manifest, list):
+              tools = manifest
+          elif isinstance(manifest, dict):
+              tools = manifest.get("tools", [])
+          else:
+              tools = []
+
+          if not isinstance(tools, list) or not tools:
+              raise SystemExit(
+                  "tools-manifest.json must contain a non-empty tools array."
+              )
+
+          tool_ids = []
+
+          for tool in tools:
+              if not isinstance(tool, dict):
+                  continue
+
+              tool_id = str(
+                  tool.get("id")
+                  or tool.get("toolId")
+                  or tool.get("tool_id")
+                  or ""
+              ).strip()
+
+              if tool_id and tool_id not in tool_ids:
+                  tool_ids.append(tool_id)
+
+          if not tool_ids:
+              raise SystemExit(
+                  "No tool IDs found in tools-manifest.json."
+              )
+
+          def read_config(path):
+              if not path.exists():
+                  return {}
+
+              data = read_json(path, {})
+
+              if not isinstance(data, dict):
+                  raise SystemExit(
+                      f"{path} must contain a JSON object."
+                  )
+
+              return data
+
+          permissions = read_config(permissions_path)
+          visibility = read_config(visibility_path)
+
+          # Preserve existing permissions.
+          # Add defaults only for missing user/tool records.
+          for user in users:
+              user_id = str(user["id"]).strip().upper()
+              role = str(user.get("role", "")).strip().lower()
+              status = str(user.get("status", "")).strip().lower()
+
+              is_super_admin = role.replace("-", "_").replace(" ", "_") in (
+                  "super_admin",
+                  "superadmin",
+              )
+
+              user_permissions = permissions.get(user_id)
+
+              if not isinstance(user_permissions, dict):
+                  user_permissions = {}
+                  permissions[user_id] = user_permissions
+
+              for tool_id in tool_ids:
+                  if tool_id not in user_permissions:
+                      user_permissions[tool_id] = {
+                          "granted": (
+                              is_super_admin and status == "active"
+                          ),
+                          "type": (
+                              "SUPER_ADMIN"
+                              if is_super_admin
+                              else "ADMIN"
+                          ),
+                      }
+
+          # Preserve existing visibility settings.
+          # Create safe defaults for newly discovered tools.
+          for tool_id in tool_ids:
+              existing = visibility.get(tool_id)
+
+              if not isinstance(existing, dict):
+                  visibility[tool_id] = {
+                      "visibility": "SUPER_ADMIN",
+                      "allowedUsers": [],
+                      "developmentStatus": "UNDER DEVELOPMENT",
+                      "publicationStatus": "NOT PUBLISHED",
+                      "enabled": False,
+                  }
+              else:
+                  existing.setdefault("visibility", "SUPER_ADMIN")
+                  existing.setdefault("allowedUsers", [])
+                  existing.setdefault(
+                      "developmentStatus", "UNDER DEVELOPMENT"
+                  )
+                  existing.setdefault(
+                      "publicationStatus", "NOT PUBLISHED"
+                  )
+                  existing.setdefault("enabled", False)
+
+          def write_json(path, data):
+              path.parent.mkdir(parents=True, exist_ok=True)
+
+              output = json.dumps(
+                  data,
+                  ensure_ascii=False,
+                  indent=2,
+              ) + "\n"
+
+              old = (
+                  path.read_text(encoding="utf-8-sig")
+                  if path.exists()
+                  else ""
+              )
+
+              if old == output:
+                  print(f"UNCHANGED: {path}")
+                  return
+
+              path.write_text(output, encoding="utf-8")
+              print(f"UPDATED: {path}")
+
+          write_json(permissions_path, permissions)
+          write_json(visibility_path, visibility)
+
+          print(f"Users validated: {len(users)}")
+          print(f"Tools discovered: {len(tool_ids)}")
+          print("Dashboard initialization completed.")
+          PY
+
+      - name: Commit Initialized Dashboard Data
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- \
+            CONFIG/tools-permissions.json \
+            CONFIG/tools-visibility.json
+
+          if git diff --cached --quiet; then
+            echo "Dashboard configuration is already initialized."
+          else
+            git commit -m "Initialize dashboard users and tool settings"
+            git push origin HEAD:main
+          fi
+
+      - name: Dispatch DASHBOARD - USERS WORKFLOW
+        env:
+          SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$SYNC_TOKEN" ]]; then
+            echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
+            exit 1
+          fi
+
+          response_file="$(mktemp)"
+
+          http_code="$(curl \
+            --silent \
+            --show-error \
+            --output "$response_file" \
+            --write-out "%{http_code}" \
+            --request POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${SYNC_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Content-Type: application/json" \
+            --data '{"ref":"main"}' \
+            "https://api.github.com/repos/m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY/actions/workflows/dashboard-users.yml/dispatches")"
+
+          if [[ "$http_code" != "204" ]]; then
+            echo "::error::Failed to dispatch DASHBOARD - USERS WORKFLOW. HTTP ${http_code}"
+
+            if [[ -s "$response_file" ]]; then
+              cat "$response_file"
+            fi
+
+            rm -f "$response_file"
+            exit 1
+          fi
+
+          rm -f "$response_file"
+          echo "DASHBOARD - USERS WORKFLOW dispatched successfully."
