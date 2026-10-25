@@ -1,1 +1,23 @@
-
+{
+  "TOOL-001": {
+    "visibility": "SUPER_ADMIN",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
+  },
+  "TOOL-002": {
+    "visibility": "SUPER_ADMIN",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
+  },
+  "TOOL-003": {
+    "visibility": "SUPER_ADMIN",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
+  }
+}
