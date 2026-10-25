@@ -58,6 +58,11 @@ YODAWY.init = async function () {
         userRole: 'NONE',
         dashboardVariant: 'NONE',
         users: [],
+        userFormOpen: false,
+        userFormId: '',
+        userFormDraft: null,
+        userSaving: false,
+        userSavingTargetId: '',
         personalToken: '',
         personalRepoVerified: false,
         settings: {},
@@ -108,6 +113,9 @@ YODAWY.init = async function () {
         bolt: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
         cloud: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>`,
         user: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>`,
+        plus: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`,
+        edit: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`,
+        trash: `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`,
         close: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
         alertBadge: `<svg viewBox="0 0 14 14" width="10" height="10" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#c94b58"></circle><path fill="#fff" d="M6 10H8V12H6V10ZM6 2H8V8H6V2Z"></path></svg>`,
         okBadge: `<svg viewBox="0 0 14 14" width="10" height="10" xmlns="http://www.w3.org/2000/svg"><circle cx="7" cy="7" r="7" fill="#39865b"></circle><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7.2L6.1 9.3L10.2 4.8"></path></svg>`
@@ -171,6 +179,25 @@ YODAWY.init = async function () {
     // =========================================================
     // AUTHORITATIVE REPOSITORY & PATH RESOLVERS
     // =========================================================
+
+    function getUserRegistryRepository() {
+        const authConfig = YODAWY.authConfig || {};
+        const registryConfig = authConfig.userRegistry || {};
+        return String(
+            registryConfig.repository ||
+            YODAWY.dashboardRepository ||
+            ''
+        ).trim();
+    }
+
+    function getUserRegistryPath() {
+        const authConfig = YODAWY.authConfig || {};
+        const registryConfig = authConfig.userRegistry || {};
+        return String(
+            registryConfig.path ||
+            'CONFIG/auth-users.json'
+        ).trim();
+    }
 
     function getPermissionsRepository() {
         const authConfig = YODAWY.authConfig || {};
@@ -500,6 +527,16 @@ YODAWY.init = async function () {
         return String(userId || '')
             .trim()
             .toUpperCase();
+    }
+
+    function getAuthenticatedUserId() {
+        return normalizePermissionUserId(
+            state.user?.id ||
+            state.user?.userId ||
+            state.user?.username ||
+            CONFIG.userId ||
+            ''
+        );
     }
 
     function getToolPermissionRecord(
@@ -1007,6 +1044,11 @@ YODAWY.init = async function () {
         state.user = null;
         state.userRole = 'NONE';
         state.dashboardVariant = 'NONE';
+        state.userFormOpen = false;
+        state.userFormId = '';
+        state.userFormDraft = null;
+        state.userSaving = false;
+        state.userSavingTargetId = '';
         state.personalToken = '';
         state.settings = {};
         state.tools = [];
@@ -1253,6 +1295,391 @@ YODAWY.init = async function () {
     }
 
     // =========================================================
+    // USER REGISTRY MANAGEMENT (SUPER ADMIN ONLY)
+    // =========================================================
+
+    async function mutateUserRegistry(mutator, commitMessage) {
+        if (!isFullyAuthenticated() || !isSuperAdmin()) {
+            throw new Error(
+                'Only an authenticated Super Admin can manage users.'
+            );
+        }
+
+        const repository = getUserRegistryRepository();
+        const path = getUserRegistryPath();
+        const token = String(state.personalToken || '').trim();
+
+        if (!repository || !path || !token || isPlaceholderToken(token)) {
+            throw new Error(
+                'User registry configuration or Personal Token is missing.'
+            );
+        }
+
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            const currentFile = await fetchRepositoryJsonWithSha(
+                repository,
+                path,
+                token
+            );
+
+            if (!currentFile.exists || !currentFile.sha) {
+                throw new Error(
+                    `User registry not found or missing SHA: ${repository}/${path}`
+                );
+            }
+
+            const rawRoot = currentFile.data;
+            const hasValidRegistryStructure =
+                Array.isArray(rawRoot) ||
+                Boolean(
+                    rawRoot &&
+                    typeof rawRoot === 'object' &&
+                    Array.isArray(rawRoot.users)
+                );
+
+            if (!hasValidRegistryStructure) {
+                throw new Error('Invalid user registry format.');
+            }
+
+            const currentUsers = getUsers(rawRoot);
+
+            if (!Array.isArray(currentUsers)) {
+                throw new Error('Invalid user registry format.');
+            }
+
+            const nextUsers = mutator(
+                currentUsers.map(user => ({ ...user }))
+            );
+
+            if (!Array.isArray(nextUsers)) {
+                throw new Error('Invalid user registry update.');
+            }
+
+            const seenIds = new Set();
+
+            for (const user of nextUsers) {
+                const id = normalizePermissionUserId(
+                    user.id || user.userId || user.username
+                );
+
+                if (!id) {
+                    throw new Error(
+                        'Every employee must have a User ID.'
+                    );
+                }
+
+                const normalizedId = id.toUpperCase();
+
+                if (seenIds.has(normalizedId)) {
+                    throw new Error(`Duplicate User ID: ${id}`);
+                }
+
+                seenIds.add(normalizedId);
+            }
+
+            const activeSuperAdmins = nextUsers.filter(user =>
+                normalizeRole(user.role) === 'SUPER_ADMIN' &&
+                String(user.status || '').trim().toLowerCase() === 'active'
+            );
+
+            if (activeSuperAdmins.length === 0) {
+                throw new Error(
+                    'At least one active Super Admin must remain.'
+                );
+            }
+
+            const payload = Array.isArray(rawRoot)
+                ? nextUsers
+                : {
+                    ...(rawRoot && typeof rawRoot === 'object'
+                        ? rawRoot
+                        : {}),
+                    users: nextUsers
+                };
+
+            try {
+                await putRepositoryJsonWithSha(
+                    repository,
+                    path,
+                    token,
+                    payload,
+                    currentFile.sha,
+                    commitMessage
+                );
+
+                state.users = nextUsers;
+                return nextUsers;
+
+            } catch (error) {
+                if ((error.isConflict || error.status === 409) && attempt < 2) {
+                    log(
+                        'SHA conflict detected while saving user registry; retrying with latest repository state...',
+                        'warning'
+                    );
+                    continue;
+                }
+
+                throw error;
+            }
+        }
+
+        throw new Error('Unable to save the user registry.');
+    }
+
+    async function addRegistryUser(userData) {
+        if (!isFullyAuthenticated() || !isSuperAdmin()) {
+            throw new Error(
+                'Only an authenticated Super Admin can manage users.'
+            );
+        }
+
+        const id = normalizePermissionUserId(userData?.id);
+        const name = String(userData?.name || '').trim();
+        const repository = String(userData?.repository || '').trim();
+
+        if (!id) {
+            throw new Error('Enter a User ID.');
+        }
+
+        if (!name) {
+            throw new Error('Enter an employee name.');
+        }
+
+        if (!repository || !/^[A-Za-z0-9._-]+$/.test(repository)) {
+            throw new Error('Enter a valid repository name.');
+        }
+
+        const role = formatRoleLabel(userData?.role);
+        const status =
+            String(userData?.status || '').trim().toLowerCase() === 'inactive'
+                ? 'Inactive'
+                : 'Active';
+
+        await mutateUserRegistry(users => {
+            const duplicate = users.some(user =>
+                normalizePermissionUserId(
+                    user.id || user.userId || user.username
+                ).toUpperCase() === id.toUpperCase()
+            );
+
+            if (duplicate) {
+                throw new Error(`User ID "${id}" already exists.`);
+            }
+
+            users.push({
+                id,
+                name,
+                repository,
+                role,
+                status
+            });
+
+            return users;
+        }, `Add dashboard user ${id}`);
+
+        state.userFormOpen = false;
+        state.userFormId = '';
+        state.userFormDraft = null;
+        state.permissionsSelectedUser = id;
+
+        notifySuccess(
+            `Employee ${id} was added to the registry.`,
+            'USER ADDED'
+        );
+    }
+
+    async function updateRegistryUser(targetId, userData) {
+        if (!isFullyAuthenticated() || !isSuperAdmin()) {
+            throw new Error(
+                'Only an authenticated Super Admin can manage users.'
+            );
+        }
+
+        const id = normalizePermissionUserId(targetId);
+        const name = String(userData?.name || '').trim();
+        const repository = String(userData?.repository || '').trim();
+
+        if (!id || !name) {
+            throw new Error('User ID and name are required.');
+        }
+
+        if (!repository || !/^[A-Za-z0-9._-]+$/.test(repository)) {
+            throw new Error('Enter a valid repository name.');
+        }
+
+        const nextRole = formatRoleLabel(userData?.role);
+        const nextStatus =
+            String(userData?.status || '').trim().toLowerCase() === 'inactive'
+                ? 'Inactive'
+                : 'Active';
+
+        const currentUserId = getAuthenticatedUserId();
+
+        if (
+            id === currentUserId &&
+            (
+                normalizeRole(nextRole) !== 'SUPER_ADMIN' ||
+                nextStatus !== 'Active'
+            )
+        ) {
+            throw new Error(
+                'You cannot demote or deactivate the signed-in Super Admin.'
+            );
+        }
+
+        await mutateUserRegistry(users => {
+            const index = users.findIndex(user =>
+                normalizePermissionUserId(
+                    user.id || user.userId || user.username
+                ) === id
+            );
+
+            if (index < 0) {
+                throw new Error(`Employee "${id}" was not found.`);
+            }
+
+            const current = users[index];
+
+            users[index] = {
+                ...current,
+                id: normalizePermissionUserId(
+                    current.id || current.userId || current.username || id
+                ),
+                name,
+                repository,
+                role: nextRole,
+                status: nextStatus
+            };
+
+            return users;
+        }, `Update dashboard user ${id}`);
+
+        if (id === currentUserId && state.user) {
+            state.user = {
+                ...state.user,
+                name,
+                repository,
+                role: nextRole,
+                status: nextStatus
+            };
+        }
+
+        state.userFormOpen = false;
+        state.userFormId = '';
+        state.userFormDraft = null;
+
+        notifySuccess(
+            `Employee ${id} was updated.`,
+            'USER UPDATED'
+        );
+    }
+
+    async function deleteRegistryUser(targetId) {
+        if (!isFullyAuthenticated() || !isSuperAdmin()) {
+            throw new Error(
+                'Only an authenticated Super Admin can manage users.'
+            );
+        }
+
+        const id = normalizePermissionUserId(targetId);
+
+        if (!id) {
+            throw new Error('Invalid User ID.');
+        }
+
+        const currentUserId = getAuthenticatedUserId();
+
+        if (id === currentUserId) {
+            throw new Error(
+                'You cannot delete the currently signed-in account.'
+            );
+        }
+
+        const target = state.users.find(user =>
+            normalizePermissionUserId(
+                user.id || user.userId || user.username
+            ) === id
+        );
+
+        if (!target) {
+            throw new Error(`Employee "${id}" was not found.`);
+        }
+
+        if (normalizeRole(target.role) === 'SUPER_ADMIN') {
+            throw new Error(
+                'Deleting a Super Admin is blocked to prevent lockout.'
+            );
+        }
+
+        await mutateUserRegistry(
+            users => {
+                const authoritativeTarget = users.find(user =>
+                    normalizePermissionUserId(
+                        user.id || user.userId || user.username
+                    ) === id
+                );
+
+                if (!authoritativeTarget) {
+                    throw new Error(`Employee "${id}" was not found.`);
+                }
+
+                if (normalizeRole(authoritativeTarget.role) === 'SUPER_ADMIN') {
+                    throw new Error(
+                        'Deleting a Super Admin is blocked to prevent lockout.'
+                    );
+                }
+
+                return users.filter(user =>
+                    normalizePermissionUserId(
+                        user.id || user.userId || user.username
+                    ) !== id
+                );
+            },
+            `Delete dashboard user ${id}`
+        );
+
+        if (state.permissionsSelectedUser === id) {
+            const nextDefaultUser =
+                state.users.find(u => normalizeRole(u.role) !== 'SUPER_ADMIN') ||
+                state.users[0];
+            state.permissionsSelectedUser = nextDefaultUser
+                ? normalizePermissionUserId(
+                    nextDefaultUser.id || nextDefaultUser.userId || nextDefaultUser.username
+                )
+                : '';
+        }
+
+        if (state.visibilitySelectedUser === id) {
+            state.visibilitySelectedUser = 'ALL';
+        }
+
+        state.userFormOpen = false;
+        state.userFormId = '';
+        state.userFormDraft = null;
+
+        notifySuccess(
+            `Employee ${id} was removed from the registry.`,
+            'USER DELETED'
+        );
+    }
+
+    function readUserFormInputs() {
+        const isEditing = Boolean(state.userFormId);
+        return {
+            id: isEditing
+                ? state.userFormId
+                : normalizePermissionUserId($('#yd-user-id')?.value || ''),
+            name: String($('#yd-user-name')?.value || '').trim(),
+            repository: String($('#yd-user-repository')?.value || '').trim(),
+            role: formatRoleLabel($('#yd-user-role')?.value || 'User'),
+            status:
+                String($('#yd-user-status')?.value || 'Active').trim().toLowerCase() === 'inactive'
+                    ? 'Inactive'
+                    : 'Active'
+        };
+    }
+
+    // =========================================================
     // AUTHENTICATION (TWO-STAGE: SYSTEM + PERSONAL REPOSITORY)
     // =========================================================
 
@@ -1289,13 +1716,8 @@ YODAWY.init = async function () {
             throwAuthError('WRONG_SYSTEM');
         }
 
-        const userRegistry = authConfig.userRegistry || {};
-        const registryRepository =
-            userRegistry.repository ||
-            YODAWY.dashboardRepository;
-        const registryPath =
-            userRegistry.path ||
-            'CONFIG/auth-users.json';
+        const registryRepository = getUserRegistryRepository();
+        const registryPath = getUserRegistryPath();
 
         const permissionsRepository = getPermissionsRepository();
         const permissionsPath = getPermissionsPath();
@@ -2622,10 +3044,14 @@ YODAWY.init = async function () {
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            transition: background .15s;
+            transition: background .15s, opacity .15s;
         }
         .yd-btn:hover {
             background: ${LIGHT_BG};
+        }
+        .yd-btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
         }
         .yd-primary {
             background: ${PURPLE};
@@ -2634,6 +3060,49 @@ YODAWY.init = async function () {
         }
         .yd-primary:hover {
             background: ${DARK};
+        }
+        .yd-btn-danger {
+            background: #fdf0f0;
+            color: #c0392b;
+            border-color: #f5c2c9 !important;
+        }
+        .yd-btn-danger:hover {
+            background: #fbe2e2;
+        }
+        .yd-row-actions {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+        }
+        .yd-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .yd-form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .yd-form-field .yd-input,
+        .yd-form-field .yd-select {
+            width: 100%;
+        }
+        .yd-form-field .yd-input[disabled] {
+            background: #f3eff5;
+            color: #7c7482;
+            cursor: not-allowed;
+        }
+        .yd-form-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #f2edf4;
         }
         .yd-close-btn {
             display: inline-flex;
@@ -3131,7 +3600,8 @@ YODAWY.init = async function () {
             .yd-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
-            .yd-info-grid {
+            .yd-info-grid,
+            .yd-form-grid {
                 grid-template-columns: 1fr;
             }
             #yd-sidebar {
@@ -3588,6 +4058,119 @@ YODAWY.init = async function () {
         `;
     }
 
+    function renderUserManagementForm() {
+        if (!isSuperAdmin() || !state.userFormOpen) {
+            return '';
+        }
+
+        const isEditing = Boolean(state.userFormId);
+        const existingUser = isEditing
+            ? state.users.find(
+                u => normalizePermissionUserId(u.id || u.userId || u.username) === state.userFormId
+            )
+            : null;
+
+        const draft = state.userFormDraft || {
+            id: isEditing ? state.userFormId : '',
+            name: existingUser ? String(existingUser.name || '').trim() : '',
+            repository: existingUser
+                ? String(
+                    existingUser.repository ||
+                    existingUser.personalRepository ||
+                    existingUser.personal_repository ||
+                    ''
+                ).trim()
+                : '',
+            role: existingUser ? formatRoleLabel(existingUser.role) : 'User',
+            status: existingUser && String(existingUser.status || '').trim().toLowerCase() === 'inactive'
+                ? 'Inactive'
+                : 'Active'
+        };
+
+        const roleValue = formatRoleLabel(draft.role);
+        const statusValue = String(draft.status || 'Active').trim().toLowerCase() === 'inactive'
+            ? 'Inactive'
+            : 'Active';
+
+        return `
+            <div class="yd-card">
+                <div class="yd-card-title">
+                    ${ICONS.user}
+                    <span>${isEditing ? `Edit Employee (${esc(state.userFormId)})` : 'Add New Employee'}</span>
+                </div>
+                <div class="yd-form-grid">
+                    <div class="yd-form-field">
+                        <label class="yd-clean-label" for="yd-user-id">User ID</label>
+                        <input
+                            id="yd-user-id"
+                            class="yd-input"
+                            type="text"
+                            value="${esc(isEditing ? state.userFormId : draft.id)}"
+                            placeholder="e.g. Q-002"
+                            ${isEditing || state.userSaving ? 'readonly disabled' : ''}
+                        />
+                    </div>
+                    <div class="yd-form-field">
+                        <label class="yd-clean-label" for="yd-user-name">Employee Name</label>
+                        <input
+                            id="yd-user-name"
+                            class="yd-input"
+                            type="text"
+                            value="${esc(draft.name)}"
+                            placeholder="e.g. MOHAMED SALEH"
+                            ${state.userSaving ? 'disabled' : ''}
+                        />
+                    </div>
+                    <div class="yd-form-field">
+                        <label class="yd-clean-label" for="yd-user-repository">Personal Repository</label>
+                        <input
+                            id="yd-user-repository"
+                            class="yd-input"
+                            type="text"
+                            value="${esc(draft.repository)}"
+                            placeholder="e.g. Q-002_EMPLOYEE_NAME"
+                            ${state.userSaving ? 'disabled' : ''}
+                        />
+                    </div>
+                    <div class="yd-form-field">
+                        <label class="yd-clean-label" for="yd-user-role">Role</label>
+                        <select id="yd-user-role" class="yd-select" ${state.userSaving ? 'disabled' : ''}>
+                            <option value="User" ${roleValue === 'User' ? 'selected' : ''}>User</option>
+                            <option value="Admin" ${roleValue === 'Admin' ? 'selected' : ''}>Admin</option>
+                            <option value="Super Admin" ${roleValue === 'Super Admin' ? 'selected' : ''}>Super Admin</option>
+                        </select>
+                    </div>
+                    <div class="yd-form-field">
+                        <label class="yd-clean-label" for="yd-user-status">Status</label>
+                        <select id="yd-user-status" class="yd-select" ${state.userSaving ? 'disabled' : ''}>
+                            <option value="Active" ${statusValue === 'Active' ? 'selected' : ''}>Active</option>
+                            <option value="Inactive" ${statusValue === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="yd-form-actions">
+                    <button
+                        class="yd-btn"
+                        data-action="cancel-user-form"
+                        type="button"
+                        ${state.userSaving ? 'disabled' : ''}
+                    >
+                        <span>Cancel</span>
+                    </button>
+                    <button
+                        class="yd-btn yd-primary"
+                        data-action="save-registry-user"
+                        type="button"
+                        ${state.userSaving ? 'disabled' : ''}
+                    >
+                        ${ICONS.cloud}
+                        <span>${state.userSaving ? 'Saving…' : 'Save Employee'}</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
     function usersPage() {
         if (!canManage()) return deniedPage();
 
@@ -3599,17 +4182,32 @@ YODAWY.init = async function () {
         }
 
         const selectedUid = normalizePermissionUserId(state.permissionsSelectedUser);
+        const superAdminView = isSuperAdmin();
+        const currentUserId = getAuthenticatedUserId();
+
+        const topActions = `
+            <div class="yd-table-pills">
+                ${superAdminView ? button('Add User', 'open-add-user-form', true, ICONS.plus) : ''}
+                ${button('Reload', 'sync', !superAdminView, ICONS.sync)}
+            </div>
+        `;
 
         return header(
             'Users & Permissions',
-            button('Reload', 'sync', true, ICONS.sync)
+            topActions
         ) +
+        renderUserManagementForm() +
         `<div class="yd-table-card">
             <div class="yd-table-card-head">
                 <div class="yd-table-card-title">
                     ${ICONS.user}
                     <span>Registered Users (${usersList.length})</span>
                 </div>
+                ${superAdminView ? `
+                    <div class="yd-table-pills">
+                        <span class="yd-pill yd-pill-blue">Registry: ${esc(getUserRegistryPath())}</span>
+                    </div>
+                ` : ''}
             </div>
             <div class="yd-table-responsive">
                 <table class="yd-table">
@@ -3618,22 +4216,35 @@ YODAWY.init = async function () {
                             <th scope="col" style="width:50px">#</th>
                             <th scope="col" style="width:120px">User ID</th>
                             <th scope="col">Name</th>
+                            <th scope="col" style="width:210px">Repository</th>
                             <th scope="col" style="width:130px">Role</th>
                             <th scope="col" style="width:110px">Status</th>
                             <th scope="col" style="width:140px;text-align:right">Permissions</th>
+                            ${superAdminView ? '<th scope="col" style="width:165px;text-align:right">Actions</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
                         ${usersList.map((u, idx) => {
                             const uid = normalizePermissionUserId(u.id || u.userId || u.username);
+                            const repoName = String(
+                                u.repository ||
+                                u.personalRepository ||
+                                u.personal_repository ||
+                                '—'
+                            ).trim();
                             const roleLabel = formatRoleLabel(u.role);
                             const isActive = String(u.status || '').toLowerCase() === 'active';
                             const isSelected = uid === selectedUid;
+                            const isRowSaving = state.userSaving && state.userSavingTargetId === uid;
+                            const isSelf = uid === currentUserId;
+                            const isTargetSuperAdmin = normalizeRole(u.role) === 'SUPER_ADMIN';
+
                             return `
                                 <tr>
                                     <th scope="row">${idx + 1}</th>
                                     <td><span class="yd-id-badge">${esc(uid)}</span></td>
                                     <td><div class="yd-tool-name">${esc(u.name || uid)}</div></td>
+                                    <td><span class="yd-id-badge">${esc(repoName)}</span></td>
                                     <td><span class="yd-pill ${rolePillClass(roleLabel)}">${esc(roleLabel)}</span></td>
                                     <td><span class="yd-pill ${isActive ? 'yd-pill-green' : 'yd-pill-red'}">${esc(u.status || 'Unknown')}</span></td>
                                     <td style="text-align:right">
@@ -3645,11 +4256,45 @@ YODAWY.init = async function () {
                                             <span>${isSelected ? 'Managing' : 'Manage'}</span>
                                         </button>
                                     </td>
+                                    ${superAdminView ? `
+                                        <td style="text-align:right">
+                                            ${isRowSaving ? '<span class="yd-pill yd-pill-purple">Saving…</span>' : `
+                                                <div class="yd-row-actions">
+                                                    <button
+                                                        class="yd-btn"
+                                                        data-action="edit-registry-user:${esc(uid)}"
+                                                        type="button"
+                                                        ${state.userSaving ? 'disabled' : ''}
+                                                        title="Edit ${esc(uid)}"
+                                                    >
+                                                        ${ICONS.edit}
+                                                        <span>Edit</span>
+                                                    </button>
+                                                    <button
+                                                        class="yd-btn yd-btn-danger"
+                                                        data-action="delete-registry-user:${esc(uid)}"
+                                                        type="button"
+                                                        ${state.userSaving ? 'disabled' : ''}
+                                                        title="${esc(
+                                                            isSelf
+                                                                ? 'Cannot delete signed-in account'
+                                                                : isTargetSuperAdmin
+                                                                    ? 'Super Admin deletion is blocked'
+                                                                    : `Delete ${uid}`
+                                                        )}"
+                                                    >
+                                                        ${ICONS.trash}
+                                                        <span>Delete</span>
+                                                    </button>
+                                                </div>
+                                            `}
+                                        </td>
+                                    ` : ''}
                                 </tr>
                             `;
                         }).join('') || `
                             <tr>
-                                <td colspan="6" class="yd-empty">No users found.</td>
+                                <td colspan="${superAdminView ? 8 : 7}" class="yd-empty">No users found.</td>
                             </tr>
                         `}
                     </tbody>
@@ -3851,6 +4496,10 @@ YODAWY.init = async function () {
             <div class="yd-clean-row">
                 <span class="yd-clean-label">Dashboard Repository</span>
                 <span class="yd-id-badge">${esc(YODAWY.dashboardRepository || '—')}</span>
+            </div>
+            <div class="yd-clean-row">
+                <span class="yd-clean-label">User Registry Target</span>
+                <span class="yd-id-badge">${esc(`${getUserRegistryRepository()}/${getUserRegistryPath()}`)}</span>
             </div>
             <div class="yd-clean-row">
                 <span class="yd-clean-label">Permissions Target</span>
@@ -4204,6 +4853,118 @@ YODAWY.init = async function () {
             } else if (action === 'clear-logs') {
                 state.logs = [];
                 render();
+
+            } else if (action === 'open-add-user-form') {
+                if (!isFullyAuthenticated() || !isSuperAdmin()) {
+                    throw new Error('Only an authenticated Super Admin can manage users.');
+                }
+
+                state.userFormOpen = true;
+                state.userFormId = '';
+                state.userFormDraft = {
+                    id: '',
+                    name: '',
+                    repository: '',
+                    role: 'User',
+                    status: 'Active'
+                };
+                state.error = '';
+                state.notice = '';
+                render();
+
+            } else if (action === 'cancel-user-form') {
+                state.userFormOpen = false;
+                state.userFormId = '';
+                state.userFormDraft = null;
+                state.error = '';
+                state.notice = '';
+                render();
+
+            } else if (action.startsWith('edit-registry-user:')) {
+                if (!isFullyAuthenticated() || !isSuperAdmin()) {
+                    throw new Error('Only an authenticated Super Admin can manage users.');
+                }
+
+                const targetUid = normalizePermissionUserId(
+                    action.slice('edit-registry-user:'.length)
+                );
+
+                const targetUser = state.users.find(
+                    u => normalizePermissionUserId(u.id || u.userId || u.username) === targetUid
+                );
+
+                if (!targetUid || !targetUser) {
+                    throw new Error(`Employee "${targetUid}" was not found.`);
+                }
+
+                state.userFormOpen = true;
+                state.userFormId = targetUid;
+                state.userFormDraft = {
+                    id: targetUid,
+                    name: String(targetUser.name || '').trim(),
+                    repository: String(
+                        targetUser.repository ||
+                        targetUser.personalRepository ||
+                        targetUser.personal_repository ||
+                        ''
+                    ).trim(),
+                    role: formatRoleLabel(targetUser.role),
+                    status:
+                        String(targetUser.status || '').trim().toLowerCase() === 'inactive'
+                            ? 'Inactive'
+                            : 'Active'
+                };
+                state.error = '';
+                state.notice = '';
+                render();
+
+            } else if (action === 'save-registry-user') {
+                if (!isFullyAuthenticated() || !isSuperAdmin()) {
+                    throw new Error('Only an authenticated Super Admin can manage users.');
+                }
+
+                const formValues = readUserFormInputs();
+                state.userFormDraft = formValues;
+                state.userSaving = true;
+                state.userSavingTargetId = state.userFormId || formValues.id;
+                state.error = '';
+                state.notice = '';
+                render();
+
+                try {
+                    if (state.userFormId) {
+                        await updateRegistryUser(state.userFormId, formValues);
+                    } else {
+                        await addRegistryUser(formValues);
+                    }
+                } finally {
+                    state.userSaving = false;
+                    state.userSavingTargetId = '';
+                    render();
+                }
+
+            } else if (action.startsWith('delete-registry-user:')) {
+                if (!isFullyAuthenticated() || !isSuperAdmin()) {
+                    throw new Error('Only an authenticated Super Admin can manage users.');
+                }
+
+                const targetUid = normalizePermissionUserId(
+                    action.slice('delete-registry-user:'.length)
+                );
+
+                state.userSaving = true;
+                state.userSavingTargetId = targetUid;
+                state.error = '';
+                state.notice = '';
+                render();
+
+                try {
+                    await deleteRegistryUser(targetUid);
+                } finally {
+                    state.userSaving = false;
+                    state.userSavingTargetId = '';
+                    render();
+                }
 
             } else if (action === 'refresh-connection') {
                 const menu = $('#yd-profile-menu');
