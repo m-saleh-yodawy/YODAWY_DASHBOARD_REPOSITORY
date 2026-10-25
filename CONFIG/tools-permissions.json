@@ -12,5 +12,19 @@
       "granted": false,
       "type": "SUPER_ADMIN"
     }
+  },
+  "Q-002": {
+    "TOOL-001": {
+      "granted": false,
+      "type": "ADMIN"
+    },
+    "TOOL-002": {
+      "granted": false,
+      "type": "ADMIN"
+    },
+    "TOOL-003": {
+      "granted": false,
+      "type": "ADMIN"
+    }
   }
 }
