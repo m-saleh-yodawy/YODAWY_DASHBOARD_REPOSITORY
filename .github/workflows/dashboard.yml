@@ -48,8 +48,14 @@ jobs:
 
           def skip_initialization(reason):
               print(f"SKIP: {reason}")
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+
+              with open(
+                  os.environ["GITHUB_OUTPUT"],
+                  "a",
+                  encoding="utf-8"
+              ) as output:
                   output.write("skip=true\n")
+
               raise SystemExit(0)
 
           def read_json(path, default):
@@ -70,7 +76,8 @@ jobs:
           # Missing or empty user registry means there are no users yet.
           if not users_path.is_file():
               skip_initialization(
-                  "CONFIG/auth-users.json does not exist. No users to initialize."
+                  "CONFIG/auth-users.json does not exist. "
+                  "No users to initialize."
               )
 
           users_text = users_path.read_text(
@@ -79,7 +86,8 @@ jobs:
 
           if not users_text:
               skip_initialization(
-                  "CONFIG/auth-users.json is empty. No users to initialize."
+                  "CONFIG/auth-users.json is empty. "
+                  "No users to initialize."
               )
 
           users_data = read_json(users_path, None)
@@ -106,6 +114,9 @@ jobs:
                   "No users found in CONFIG/auth-users.json."
               )
 
+          # Validate users.
+          # A new user is allowed to have an empty ID temporarily.
+          # The Users workflow will allocate the ID later.
           seen_users = set()
 
           for user in users:
@@ -115,13 +126,22 @@ jobs:
                   )
 
               user_id = str(
-                  user.get("id", "")
+                  user.get("id") or ""
               ).strip().upper()
 
               if not user_id:
-                  raise SystemExit(
-                      "Every user needs a non-empty id."
+                  if not str(
+                      user.get("name", "")
+                  ).strip():
+                      raise SystemExit(
+                          "Every user needs a non-empty name."
+                      )
+
+                  print(
+                      "ID pending allocation for: "
+                      f"{user['name']}"
                   )
+                  continue
 
               if user_id in seen_users:
                   raise SystemExit(
@@ -133,7 +153,9 @@ jobs:
               if str(
                   user.get("status", "")
               ).strip().lower() != "active":
-                  print(f"Inactive user detected: {user_id}")
+                  print(
+                      f"Inactive user detected: {user_id}"
+                  )
 
           # Do not initialize users or tool settings without a valid manifest.
           if not manifest_path.is_file():
@@ -152,7 +174,8 @@ jobs:
 
           if not isinstance(tools, list) or not tools:
               raise SystemExit(
-                  "tools-manifest.json must contain a non-empty tools array."
+                  "tools-manifest.json must contain "
+                  "a non-empty tools array."
               )
 
           tool_ids = []
@@ -193,13 +216,27 @@ jobs:
           visibility = read_config(visibility_path)
 
           # Preserve existing permissions.
-          # Add defaults only for missing user/tool records.
+          # Add defaults only for users who already have an ID.
+          # Users with an empty ID will receive permissions after ID allocation.
           for user in users:
-              user_id = str(user["id"]).strip().upper()
-              role = str(user.get("role", "")).strip().lower()
-              status = str(user.get("status", "")).strip().lower()
+              user_id = str(
+                  user.get("id") or ""
+              ).strip().upper()
 
-              is_super_admin = role.replace("-", "_").replace(" ", "_") in (
+              if not user_id:
+                  continue
+
+              role = str(
+                  user.get("role", "")
+              ).strip().lower()
+
+              status = str(
+                  user.get("status", "")
+              ).strip().lower()
+
+              is_super_admin = role.replace(
+                  "-", "_"
+              ).replace(" ", "_") in (
                   "super_admin",
                   "superadmin",
               )
@@ -214,7 +251,8 @@ jobs:
                   if tool_id not in user_permissions:
                       user_permissions[tool_id] = {
                           "granted": (
-                              is_super_admin and status == "active"
+                              is_super_admin
+                              and status == "active"
                           ),
                           "type": (
                               "SUPER_ADMIN"
@@ -237,18 +275,36 @@ jobs:
                       "enabled": False,
                   }
               else:
-                  existing.setdefault("visibility", "SUPER_ADMIN")
-                  existing.setdefault("allowedUsers", [])
                   existing.setdefault(
-                      "developmentStatus", "UNDER DEVELOPMENT"
+                      "visibility",
+                      "SUPER_ADMIN"
                   )
+
                   existing.setdefault(
-                      "publicationStatus", "NOT PUBLISHED"
+                      "allowedUsers",
+                      []
                   )
-                  existing.setdefault("enabled", False)
+
+                  existing.setdefault(
+                      "developmentStatus",
+                      "UNDER DEVELOPMENT"
+                  )
+
+                  existing.setdefault(
+                      "publicationStatus",
+                      "NOT PUBLISHED"
+                  )
+
+                  existing.setdefault(
+                      "enabled",
+                      False
+                  )
 
           def write_json(path, data):
-              path.parent.mkdir(parents=True, exist_ok=True)
+              path.parent.mkdir(
+                  parents=True,
+                  exist_ok=True
+              )
 
               output = json.dumps(
                   data,
@@ -257,7 +313,9 @@ jobs:
               ) + "\n"
 
               old = (
-                  path.read_text(encoding="utf-8-sig")
+                  path.read_text(
+                      encoding="utf-8-sig"
+                  )
                   if path.exists()
                   else ""
               )
@@ -266,11 +324,22 @@ jobs:
                   print(f"UNCHANGED: {path}")
                   return
 
-              path.write_text(output, encoding="utf-8")
+              path.write_text(
+                  output,
+                  encoding="utf-8"
+              )
+
               print(f"UPDATED: {path}")
 
-          write_json(permissions_path, permissions)
-          write_json(visibility_path, visibility)
+          write_json(
+              permissions_path,
+              permissions
+          )
+
+          write_json(
+              visibility_path,
+              visibility
+          )
 
           print(f"Users validated: {len(users)}")
           print(f"Tools discovered: {len(tool_ids)}")
