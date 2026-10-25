@@ -73,16 +73,17 @@ jobs:
 
               parsed[name] = data
 
-          users = parsed["CONFIG/auth-users.json"]
+          users_data = parsed["CONFIG/auth-users.json"]
+          users = users_data.get("users")
 
-          if not isinstance(users.get("users"), list):
+          if not isinstance(users, list):
               raise SystemExit(
                   "CONFIG/auth-users.json must contain a users array."
               )
 
           seen_ids = set()
 
-          for user in users["users"]:
+          for user in users:
               if not isinstance(user, dict):
                   raise SystemExit(
                       "Each users entry must be an object."
@@ -90,9 +91,28 @@ jobs:
 
               user_id = user.get("id")
 
-              if not isinstance(user_id, str) or not user_id.strip():
+              # Allow a blank ID for a new employee.
+              # The USERS SYNC workflow will allocate the ID.
+              if user_id is None or (
+                  isinstance(user_id, str)
+                  and not user_id.strip()
+              ):
+                  if not str(
+                      user.get("name", "")
+                  ).strip():
+                      raise SystemExit(
+                          "Every user needs a non-empty name."
+                      )
+
+                  print(
+                      "ID pending allocation for: "
+                      f"{user['name']}"
+                  )
+                  continue
+
+              if not isinstance(user_id, str):
                   raise SystemExit(
-                      "Every user must have a non-empty string id."
+                      "User ID must be a string or empty."
                   )
 
               normalized_id = user_id.strip().upper()
@@ -104,13 +124,14 @@ jobs:
 
               seen_ids.add(normalized_id)
 
-          if not users["users"]:
+          if not users:
               raise SystemExit(
                   "No users configured. Add a user before syncing."
               )
 
           print("Dashboard source files validated.")
-          print(f"Users found: {len(users['users'])}")
+          print(f"Users found: {len(users)}")
+          print("Blank IDs will be allocated by USERS SYNC.")
           PY
 
       - name: Verify Sync Token
@@ -183,6 +204,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          if [[ -z "$SYNC_TOKEN" ]]; then
+            echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
+            exit 1
+          fi
 
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
