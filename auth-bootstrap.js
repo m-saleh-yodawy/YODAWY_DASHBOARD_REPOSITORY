@@ -190,9 +190,13 @@
             'USER';
 
         const YODAWY = {
-            userId: C.USER_ID,
-            personalToken: PERSONAL,
-            personalRepository,
+    userId: C.USER_ID,
+    personalToken: PERSONAL,
+
+    // Central user registry access
+    registryToken: SYSTEM,
+
+    personalRepository,
             owner: OWNER,
             dashboardRepository: REPO,
             usersRepository: 'YODAWY_USERS_REPOSITORY',
