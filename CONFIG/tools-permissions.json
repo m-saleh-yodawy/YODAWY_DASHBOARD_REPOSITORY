@@ -9,7 +9,7 @@
       "type": "SUPER_ADMIN"
     },
     "TOOL-003": {
-      "granted": true,
+      "granted": false,
       "type": "SUPER_ADMIN"
     }
   }
