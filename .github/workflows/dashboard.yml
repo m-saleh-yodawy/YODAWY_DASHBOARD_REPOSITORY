@@ -23,6 +23,7 @@ concurrency:
 jobs:
   initialize-dashboard:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout Dashboard Repository
@@ -36,8 +37,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
-          import json, os, re
+          import json
+          import re
           from pathlib import Path
 
           request_path = Path("NETWORK/user-request.json")
@@ -50,37 +53,125 @@ jobs:
           def read_json(path, default):
               if not path.is_file():
                   return default
-              text = path.read_text(encoding="utf-8-sig").strip()
-              return json.loads(text) if text else default
+
+              content = path.read_text(encoding="utf-8-sig").strip()
+
+              if not content:
+                  return default
+
+              return json.loads(content)
 
           def write_json(path, data):
               path.parent.mkdir(parents=True, exist_ok=True)
-              output = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-              old = path.read_text(encoding="utf-8-sig") if path.is_file() else ""
+
+              output = (
+                  json.dumps(data, ensure_ascii=False, indent=2)
+                  + "\n"
+              )
+
+              old = (
+                  path.read_text(encoding="utf-8-sig")
+                  if path.is_file()
+                  else ""
+              )
+
               if old != output:
                   path.write_text(output, encoding="utf-8")
 
+          def normalize_id(value):
+              return str(value or "").strip().upper()
+
+          def normalize_role(value):
+              role = re.sub(
+                  r"[\s_-]+",
+                  "_",
+                  str(value or "USER").strip().upper()
+              )
+
+              if role == "SUPERADMIN":
+                  role = "SUPER_ADMIN"
+
+              if role not in ("SUPER_ADMIN", "ADMIN", "USER"):
+                  return "USER"
+
+              return role
+
+          def merge_users(existing_users, incoming_users):
+              result = list(existing_users)
+              indexes = {}
+
+              for index, user in enumerate(result):
+                  if not isinstance(user, dict):
+                      raise ValueError(
+                          "auth-users.json contains an invalid user record"
+                      )
+
+                  uid = normalize_id(user.get("id"))
+
+                  if uid:
+                      if uid in indexes:
+                          raise ValueError(
+                              f"Duplicate user ID in auth-users.json: {uid}"
+                          )
+
+                      indexes[uid] = index
+
+              for incoming in incoming_users:
+                  if not isinstance(incoming, dict):
+                      raise ValueError(
+                          "The response contains an invalid user record"
+                      )
+
+                  uid = normalize_id(incoming.get("id"))
+
+                  if not uid:
+                      raise ValueError(
+                          "The response contains a user without an ID"
+                      )
+
+                  if uid in indexes:
+                      index = indexes[uid]
+
+                      merged = dict(result[index])
+                      merged.update(incoming)
+                      result[index] = merged
+                  else:
+                      indexes[uid] = len(result)
+                      result.append(dict(incoming))
+
+              return result
+
           response_data = read_json(response_path, {})
           users_data = read_json(users_path, {"users": []})
+
           if not isinstance(users_data, dict):
-              raise SystemExit(1)
+              raise ValueError("CONFIG/auth-users.json must be an object")
 
           users = users_data.get("users", [])
-          if not isinstance(users, list):
-              raise SystemExit(1)
 
-          if isinstance(response_data, dict) and response_data.get("status") == "SUCCESS":
-              if isinstance(response_data.get("users"), list):
-                  users = response_data["users"]
+          if not isinstance(users, list):
+              raise ValueError("The users property must be a list")
+
+          if (
+              isinstance(response_data, dict)
+              and response_data.get("status") == "SUCCESS"
+          ):
+              incoming_users = response_data.get("users")
+
+              if isinstance(incoming_users, list):
+                  users = merge_users(users, incoming_users)
+
               elif isinstance(response_data.get("user"), dict):
-                  u = response_data["user"]
-                  uid = str(u.get("id") or "").strip().upper()
-                  if uid:
-                      idx = next((i for i, item in enumerate(users) if str(item.get("id") or "").strip().upper() == uid), None)
-                      if idx is not None:
-                          users[idx] = u
-                      else:
-                          users.append(u)
+                  users = merge_users(
+                      users,
+                      [response_data["user"]]
+                  )
+
+              else:
+                  raise ValueError(
+                      "SUCCESS response contains no valid user data"
+                  )
+
               users_data["users"] = users
               write_json(users_path, users_data)
 
@@ -89,105 +180,170 @@ jobs:
 
           for user in users:
               if not isinstance(user, dict):
-                  raise SystemExit(1)
-              uid = str(user.get("id") or "").strip().upper()
+                  raise ValueError(
+                      "auth-users.json contains an invalid user record"
+                  )
+
+              uid = normalize_id(user.get("id"))
+
               if not uid:
                   if not str(user.get("name") or "").strip():
-                      raise SystemExit(1)
+                      raise ValueError(
+                          "A user record has neither an ID nor a name"
+                      )
                   continue
+
               if uid in seen_users:
-                  raise SystemExit(1)
+                  raise ValueError(f"Duplicate user ID: {uid}")
+
               seen_users.add(uid)
-              if str(user.get("status", "Active")).strip().lower() == "active":
+
+              status = str(
+                  user.get("status", "Active")
+              ).strip().lower()
+
+              if status == "active":
                   active_ids.add(uid)
 
           permissions = read_json(permissions_path, {})
           visibility = read_json(visibility_path, {})
-          if not isinstance(permissions, dict) or not isinstance(visibility, dict):
-              raise SystemExit(1)
+
+          if not isinstance(permissions, dict):
+              raise ValueError(
+                  "CONFIG/tools-permissions.json must be an object"
+              )
+
+          if not isinstance(visibility, dict):
+              raise ValueError(
+                  "CONFIG/tools-visibility.json must be an object"
+              )
 
           tool_ids = []
-          if manifest_path.is_file():
-              manifest = read_json(manifest_path, None)
-              tools = manifest if isinstance(manifest, list) else (manifest.get("tools", []) if isinstance(manifest, dict) else [])
-              if isinstance(tools, list):
-                  for tool in tools:
-                      if isinstance(tool, dict):
-                          tid = str(tool.get("id") or tool.get("toolId") or tool.get("tool_id") or "").strip()
-                          if tid and tid not in tool_ids:
-                              tool_ids.append(tid)
+          manifest = read_json(manifest_path, [])
 
-          for tid in list(visibility.keys()):
+          if isinstance(manifest, list):
+              tools = manifest
+          elif isinstance(manifest, dict):
+              tools = manifest.get("tools", [])
+          else:
+              tools = []
+
+          if not isinstance(tools, list):
+              raise ValueError("The tools manifest must contain a list")
+
+          for tool in tools:
+              if not isinstance(tool, dict):
+                  continue
+
+              tid = str(
+                  tool.get("id")
+                  or tool.get("toolId")
+                  or tool.get("tool_id")
+                  or ""
+              ).strip()
+
+              if tid and tid not in tool_ids:
+                  tool_ids.append(tid)
+
+          for tid in visibility:
               if tid not in tool_ids:
                   tool_ids.append(tid)
-          for rec in permissions.values():
-              if isinstance(rec, dict):
-                  for tid in rec.keys():
-                      if tid not in tool_ids:
-                          tool_ids.append(tid)
+
+          for user_permissions in permissions.values():
+              if not isinstance(user_permissions, dict):
+                  continue
+
+              for tid in user_permissions:
+                  if tid not in tool_ids:
+                      tool_ids.append(tid)
 
           for user in users:
-              uid = str(user.get("id") or "").strip().upper()
+              uid = normalize_id(user.get("id"))
+
               if not uid or uid not in active_ids:
                   continue
-              raw_role = user.get("role") or user.get("ROLE") or "USER"
-              role = re.sub(r"[\s\-_]+", "_", str(raw_role).strip().upper())
-              if role == "SUPERADMIN":
-                  role = "SUPER_ADMIN"
-              is_super_admin = role == "SUPER_ADMIN"
-              role_type = role if role in ("SUPER_ADMIN", "ADMIN", "USER") else "USER"
+
+              role = normalize_role(
+                  user.get("role") or user.get("ROLE") or "USER"
+              )
 
               user_permissions = permissions.get(uid)
+
               if not isinstance(user_permissions, dict):
                   user_permissions = {}
                   permissions[uid] = user_permissions
 
               for tid in tool_ids:
-                  if tid not in user_permissions or not isinstance(user_permissions[tid], dict):
+                  current = user_permissions.get(tid)
+
+                  if not isinstance(current, dict):
                       user_permissions[tid] = {
-                          "granted": is_super_admin,
-                          "type": role_type,
+                          "granted": role == "SUPER_ADMIN",
+                          "type": role
                       }
                   else:
-                      user_permissions[tid]["granted"] = bool(user_permissions[tid].get("granted", False))
-                      user_permissions[tid]["type"] = role_type
-
-          for uid in list(permissions.keys()):
-              if uid not in active_ids:
-                  permissions.pop(uid, None)
+                      current["granted"] = bool(
+                          current.get(
+                              "granted",
+                              role == "SUPER_ADMIN"
+                          )
+                      )
+                      current["type"] = role
 
           for tid in tool_ids:
               existing = visibility.get(tid)
+
               if not isinstance(existing, dict):
                   visibility[tid] = {
                       "visibility": "SUPER_ADMIN",
                       "allowedUsers": [],
                       "developmentStatus": "UNDER DEVELOPMENT",
                       "publicationStatus": "NOT PUBLISHED",
-                      "enabled": False,
+                      "enabled": False
                   }
-              else:
-                  existing.setdefault("visibility", "SUPER_ADMIN")
-                  allowed = existing.get("allowedUsers", [])
-                  existing["allowedUsers"] = [
-                      str(u).strip() for u in (allowed if isinstance(allowed, list) else [])
-                      if str(u).strip() in active_ids
-                  ]
-                  existing.setdefault("developmentStatus", "UNDER DEVELOPMENT")
-                  existing.setdefault("publicationStatus", "NOT PUBLISHED")
-                  existing.setdefault("enabled", False)
+                  continue
+
+              existing.setdefault("visibility", "SUPER_ADMIN")
+
+              allowed_users = existing.get("allowedUsers", [])
+
+              if not isinstance(allowed_users, list):
+                  allowed_users = []
+
+              existing["allowedUsers"] = list(
+                  dict.fromkeys(
+                      normalize_id(uid)
+                      for uid in allowed_users
+                      if normalize_id(uid) in active_ids
+                  )
+              )
+
+              existing.setdefault(
+                  "developmentStatus",
+                  "UNDER DEVELOPMENT"
+              )
+              existing.setdefault(
+                  "publicationStatus",
+                  "NOT PUBLISHED"
+              )
+              existing.setdefault("enabled", False)
 
           write_json(permissions_path, permissions)
           write_json(visibility_path, visibility)
-          write_json(response_path, {})
-          write_json(request_path, {})
+
+          if isinstance(response_data, dict) and response_data.get("status") == "SUCCESS":
+              write_json(response_path, {})
+              write_json(request_path, {})
+
+          print("Dashboard initialization completed successfully.")
           PY
 
-      - name: Commit Synchronized Dashboard Data & Clear Network Files
+      - name: Commit Synchronized Dashboard Data
         if: steps.initialize.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -199,6 +355,6 @@ jobs:
             NETWORK/user-response.json
 
           if ! git diff --cached --quiet; then
-            git commit -m "Synchronize dashboard data and clear network files [skip ci]"
+            git commit -m "Synchronize dashboard data [skip ci]"
             git push origin HEAD:main
           fi
