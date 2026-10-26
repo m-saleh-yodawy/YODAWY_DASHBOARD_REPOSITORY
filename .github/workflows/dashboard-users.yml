@@ -1,6 +1,11 @@
 name: DASHBOARD - USERS WORKFLOW
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - REQUESTS/user-request.json
   workflow_dispatch:
 
 permissions:
@@ -42,30 +47,32 @@ jobs:
           import json
           from pathlib import Path
 
-          paths = (
-              "CONFIG/auth-users.json",
-              "CONFIG/tools-permissions.json",
-              "CONFIG/tools-visibility.json",
-          )
+          defaults = {
+              "CONFIG/auth-users.json": {"users": []},
+              "CONFIG/tools-permissions.json": {},
+              "CONFIG/tools-visibility.json": {},
+          }
 
           parsed = {}
 
-          for name in paths:
+          for name, default_value in defaults.items():
               content = Path(name).read_text(
                   encoding="utf-8-sig"
               ).strip()
 
               if not content:
-                  raise SystemExit(
-                      f"Source file is empty: {name}"
+                  print(
+                      f"NOTICE: {name} is empty. "
+                      "Using an empty default structure."
                   )
-
-              try:
-                  data = json.loads(content)
-              except Exception as error:
-                  raise SystemExit(
-                      f"Invalid JSON in {name}: {error}"
-                  )
+                  data = default_value
+              else:
+                  try:
+                      data = json.loads(content)
+                  except Exception as error:
+                      raise SystemExit(
+                          f"Invalid JSON in {name}: {error}"
+                      )
 
               if not isinstance(data, dict):
                   raise SystemExit(
@@ -74,67 +81,7 @@ jobs:
 
               parsed[name] = data
 
-          users_data = parsed["CONFIG/auth-users.json"]
-          users = users_data.get("users")
-
-          if not isinstance(users, list):
-              raise SystemExit(
-                  "CONFIG/auth-users.json must contain a users array."
-              )
-
-          seen_ids = set()
-
-          for user in users:
-              if not isinstance(user, dict):
-                  raise SystemExit(
-                      "Each users entry must be an object."
-                  )
-
-              user_id = user.get("id")
-
-              # Allow a blank ID for a new employee.
-              # The USERS SYNC workflow will allocate the ID.
-              if user_id is None or (
-                  isinstance(user_id, str)
-                  and not user_id.strip()
-              ):
-                  if not str(
-                      user.get("name", "")
-                  ).strip():
-                      raise SystemExit(
-                          "Every user needs a non-empty name."
-                      )
-
-                  print(
-                      "ID pending allocation for: "
-                      f"{user['name']}"
-                  )
-                  continue
-
-              if not isinstance(user_id, str):
-                  raise SystemExit(
-                      "User ID must be a string or empty."
-                  )
-
-              normalized_id = user_id.strip().upper()
-
-              if normalized_id in seen_ids:
-                  raise SystemExit(
-                      f"Duplicate user id: {normalized_id}"
-                  )
-
-              seen_ids.add(normalized_id)
-
-          if not users:
-              raise SystemExit(
-                  "No users configured. Add a user before syncing."
-              )
-
-          # Validate the incoming user request.
-          request_path = Path(
-              "REQUESTS/user-request.json"
-          )
-
+          request_path = Path("REQUESTS/user-request.json")
           request_content = request_path.read_text(
               encoding="utf-8-sig"
           ).strip()
@@ -165,9 +112,9 @@ jobs:
           if "requests" in request_data:
               requests = request_data["requests"]
 
-              if not isinstance(requests, list):
+              if not isinstance(requests, list) or not requests:
                   raise SystemExit(
-                      "'requests' must be a JSON array."
+                      "'requests' must be a non-empty JSON array."
                   )
 
               for index, request in enumerate(requests):
@@ -184,10 +131,6 @@ jobs:
                           f"{action}"
                       )
 
-              print(
-                  f"User requests found: {len(requests)}"
-              )
-
           else:
               action = request_data.get("action")
 
@@ -196,11 +139,79 @@ jobs:
                       f"Invalid user request action: {action}"
                   )
 
-              print(f"User request action: {action}")
+              requests = [request_data]
 
+          users_data = parsed["CONFIG/auth-users.json"]
+          users = users_data.get("users")
+
+          if not isinstance(users, list):
+              raise SystemExit(
+                  "CONFIG/auth-users.json must contain a users array."
+              )
+
+          seen_ids = set()
+
+          for user in users:
+              if not isinstance(user, dict):
+                  raise SystemExit(
+                      "Each users entry must be an object."
+                  )
+
+              user_id = user.get("id")
+
+              if user_id is None or (
+                  isinstance(user_id, str)
+                  and not user_id.strip()
+              ):
+                  if not str(user.get("name", "")).strip():
+                      raise SystemExit(
+                          "Every user needs a non-empty name."
+                      )
+
+                  print(
+                      "ID pending allocation for: "
+                      f"{user['name']}"
+                  )
+                  continue
+
+              if not isinstance(user_id, str):
+                  raise SystemExit(
+                      "User ID must be a string or empty."
+                  )
+
+              normalized_id = user_id.strip().upper()
+
+              if normalized_id in seen_ids:
+                  raise SystemExit(
+                      f"Duplicate user id: {normalized_id}"
+                  )
+
+              seen_ids.add(normalized_id)
+
+          if not users:
+              has_add_user = any(
+                  request.get("action") == "ADD_USER"
+                  for request in requests
+              )
+
+              if not has_add_user:
+                  raise SystemExit(
+                      "No users configured. An ADD_USER request "
+                      "is required to initialize the first user."
+                  )
+
+              print(
+                  "Empty users list accepted because an ADD_USER "
+                  "request will initialize the first user."
+              )
+
+          print(
+              f"User requests found: {len(requests)}"
+          )
+          print(
+              f"Existing users found: {len(users)}"
+          )
           print("Dashboard source files validated.")
-          print(f"Users found: {len(users)}")
-          print("Blank IDs will be allocated by USERS SYNC.")
           PY
 
       - name: Verify Sync Token
@@ -234,20 +245,116 @@ jobs:
           mkdir -p users/CONFIG
           mkdir -p users/REQUESTS
 
-          cp CONFIG/auth-users.json \
-            users/CONFIG/users.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
 
-          cp CONFIG/tools-permissions.json \
-            users/CONFIG/tools-permissions.json
+          source_defaults = {
+              "CONFIG/auth-users.json": {"users": []},
+              "CONFIG/tools-permissions.json": {},
+              "CONFIG/tools-visibility.json": {},
+          }
 
-          cp CONFIG/tools-visibility.json \
-            users/CONFIG/tools-visibility.json
+          destination_paths = {
+              "CONFIG/auth-users.json":
+                  "users/CONFIG/users.json",
+              "CONFIG/tools-permissions.json":
+                  "users/CONFIG/tools-permissions.json",
+              "CONFIG/tools-visibility.json":
+                  "users/CONFIG/tools-visibility.json",
+          }
 
-          cp REQUESTS/user-request.json \
-            users/REQUESTS/user-request.json
+          for source_name, default_value in source_defaults.items():
+              source_path = Path(source_name)
+              content = source_path.read_text(
+                  encoding="utf-8-sig"
+              ).strip()
 
-          echo "Users destination files prepared."
-          echo "User request file copied."
+              if not content:
+                  data = default_value
+                  print(
+                      f"Initialized empty source: {source_name}"
+                  )
+              else:
+                  try:
+                      data = json.loads(content)
+                  except Exception as error:
+                      raise SystemExit(
+                          f"Invalid JSON in {source_name}: {error}"
+                      )
+
+              if not isinstance(data, dict):
+                  raise SystemExit(
+                      f"Expected a JSON object in {source_name}"
+                  )
+
+              if source_name == "CONFIG/auth-users.json":
+                  if not isinstance(data.get("users"), list):
+                      raise SystemExit(
+                          "CONFIG/auth-users.json must contain "
+                          "a users array."
+                      )
+
+              destination = Path(
+                  destination_paths[source_name]
+              )
+
+              destination.parent.mkdir(
+                  parents=True,
+                  exist_ok=True
+              )
+
+              destination.write_text(
+                  json.dumps(
+                      data,
+                      ensure_ascii=False,
+                      indent=2
+                  ) + "\n",
+                  encoding="utf-8"
+              )
+
+              print(
+                  f"Prepared destination: {destination}"
+              )
+
+          request_content = Path(
+              "REQUESTS/user-request.json"
+          ).read_text(
+              encoding="utf-8-sig"
+          ).strip()
+
+          if not request_content:
+              raise SystemExit(
+                  "REQUESTS/user-request.json is empty."
+              )
+
+          request_data = json.loads(request_content)
+
+          if not isinstance(request_data, dict):
+              raise SystemExit(
+                  "User request must be a JSON object."
+              )
+
+          destination_request = Path(
+              "users/REQUESTS/user-request.json"
+          )
+
+          destination_request.parent.mkdir(
+              parents=True,
+              exist_ok=True
+          )
+
+          destination_request.write_text(
+              json.dumps(
+                  request_data,
+                  ensure_ascii=False,
+                  indent=2
+              ) + "\n",
+              encoding="utf-8"
+          )
+
+          print("User request copied successfully.")
+          PY
 
       - name: Commit and Push Changes
         working-directory: users
