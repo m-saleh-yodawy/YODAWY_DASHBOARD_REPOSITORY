@@ -18,6 +18,8 @@ concurrency:
 jobs:
   sync-dashboard-to-users:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
       - name: Checkout Dashboard Repository
         uses: actions/checkout@v4
@@ -31,56 +33,167 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
-          import json, os, re, uuid
+          import json
+          import os
+          import re
           from pathlib import Path
 
-          def skip():
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-                  f.write("skip=true\n")
+          output_path = os.environ["GITHUB_OUTPUT"]
+          request_path = Path("NETWORK/user-request.json")
+
+          def set_output(key, value):
+              with open(output_path, "a", encoding="utf-8") as file:
+                  file.write(f"{key}={value}\n")
+
+          def skip(reason):
+              print(reason)
+              set_output("skip", "true")
               raise SystemExit(0)
 
-          req_path = Path("NETWORK/user-request.json")
-          if not req_path.is_file():
-              skip()
+          if not request_path.is_file():
+              skip("No request file exists.")
 
-          raw = req_path.read_text(encoding="utf-8-sig").strip()
+          raw = request_path.read_text(
+              encoding="utf-8-sig"
+          ).strip()
+
           if not raw:
-              skip()
+              skip("The request file is empty.")
 
-          data = json.loads(raw)
+          try:
+              data = json.loads(raw)
+          except json.JSONDecodeError as error:
+              raise SystemExit(
+                  f"Invalid request JSON: {error}"
+              )
+
           if not isinstance(data, dict) or not data:
-              skip()
+              skip("No valid request object exists.")
 
-          action = str(data.get("action") or "").strip().upper()
+          action = str(
+              data.get("action") or ""
+          ).strip().upper()
+
           if action in {"NONE", "NO_ACTION"}:
-              skip()
+              skip("The request does not require processing.")
 
           if not action:
               if not str(data.get("name") or "").strip():
-                  skip()
+                  skip("No action or user name was supplied.")
               action = "ADD_USER"
-              data["action"] = action
 
-          if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER"}:
-              raise SystemExit(1)
+          if action not in {
+              "ADD_USER",
+              "EDIT_USER",
+              "DELETE_USER"
+          }:
+              raise SystemExit(
+                  f"Unsupported request action: {action}"
+              )
 
-          if not str(data.get("request_id") or "").strip():
-              data["request_id"] = f"req_{uuid.uuid4().hex[:10]}"
+          request_id = str(
+              data.get("request_id") or ""
+          ).strip()
+
+          if not request_id:
+              raise SystemExit(
+                  "Missing request_id. Generate it in the "
+                  "Dashboard Engine before submitting the request."
+              )
+
+          if len(request_id) > 200:
+              raise SystemExit("request_id is too long.")
+
+          data["action"] = action
 
           if action == "ADD_USER":
               name = str(data.get("name") or "").strip()
-              raw_role = data.get("ROLE") if "ROLE" in data else data.get("role", "USER")
-              role = re.sub(r"[\s\-_]+", "_", str(raw_role).strip().upper())
+
+              raw_role = (
+                  data["ROLE"]
+                  if "ROLE" in data
+                  else data.get("role", "USER")
+              )
+
+              role = re.sub(
+                  r"[\s_-]+",
+                  "_",
+                  str(raw_role).strip().upper()
+              )
+
               if role == "SUPERADMIN":
                   role = "SUPER_ADMIN"
-              if not name or role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
-                  raise SystemExit(1)
-              data["ROLE"] = role
-              data["status"] = "Inactive" if str(data.get("status", "Active")).strip().casefold() == "inactive" else "Active"
-              data["developer"] = bool(data.get("developer", False))
 
-          req_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+              if not name:
+                  raise SystemExit(
+                      "ADD_USER requires a user name."
+                  )
+
+              if role not in {
+                  "SUPER_ADMIN",
+                  "ADMIN",
+                  "USER"
+              }:
+                  raise SystemExit(
+                      f"Invalid user role: {role}"
+                  )
+
+              data["name"] = name
+              data["ROLE"] = role
+
+              status = str(
+                  data.get("status", "Active")
+              ).strip().casefold()
+
+              data["status"] = (
+                  "Inactive"
+                  if status == "inactive"
+                  else "Active"
+              )
+
+              developer = data.get("developer", False)
+
+              if isinstance(developer, str):
+                  developer = (
+                      developer.strip().casefold()
+                      in {"true", "1", "yes"}
+                  )
+              else:
+                  developer = bool(developer)
+
+              data["developer"] = developer
+
+          elif action in {"EDIT_USER", "DELETE_USER"}:
+              uid = str(
+                  data.get("id")
+                  or data.get("user_id")
+                  or ""
+              ).strip()
+
+              if not uid:
+                  raise SystemExit(
+                      f"{action} requires a user ID."
+                  )
+
+              data["id"] = uid.upper()
+
+          request_path.write_text(
+              json.dumps(
+                  data,
+                  ensure_ascii=False,
+                  indent=2
+              ) + "\n",
+              encoding="utf-8"
+          )
+
+          set_output("skip", "false")
+          set_output("request_id", request_id)
+
+          print(
+              f"Validated {action} request: {request_id}"
+          )
           PY
 
       - name: Checkout Users Repository
@@ -93,33 +206,39 @@ jobs:
           path: users
           persist-credentials: true
 
-      - name: Transfer Request and Empty Dashboard Request File
+      - name: Transfer Request to Users Repository
         if: steps.validate.outputs.skip != 'true'
+        id: transfer
         shell: bash
         run: |
           set -euo pipefail
+
           mkdir -p users/NETWORK
-          cp NETWORK/user-request.json users/NETWORK/user-request.json
-          cmp -s NETWORK/user-request.json users/NETWORK/user-request.json || exit 1
+
+          cp \
+            NETWORK/user-request.json \
+            users/NETWORK/user-request.json
+
+          cmp -s \
+            NETWORK/user-request.json \
+            users/NETWORK/user-request.json
 
           cd users
+
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add NETWORK/user-request.json
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- NETWORK/user-request.json
+
           if ! git diff --cached --quiet; then
-            git commit -m "Sync user request from Dashboard [skip ci]"
+            git commit \
+              -m "Sync user request from Dashboard [skip ci]"
+
             git push origin HEAD:main
           fi
 
-          cd ..
-          printf "{}\n" > NETWORK/user-request.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add NETWORK/user-request.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Clear dashboard user request [skip ci]"
-            git push origin HEAD:main
-          fi
+          echo "Request transferred to Users Repository."
 
       - name: Dispatch Users Workflow
         if: steps.validate.outputs.skip != 'true'
@@ -128,7 +247,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -s -f \
+
+          if [ -z "${SYNC_TOKEN:-}" ]; then
+            echo "Missing YODAWY_REPOSITORIES_SYNC_TOKEN."
+            exit 1
+          fi
+
+          curl --silent --show-error --fail-with-body \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 2 \
             -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${SYNC_TOKEN}" \
@@ -136,3 +264,64 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"ref":"main"}' \
             "https://api.github.com/repos/m-saleh-yodawy/YODAWY_USERS_REPOSITORY/actions/workflows/users.yml/dispatches"
+
+      - name: Clear Dashboard Request After Dispatch
+        if: steps.validate.outputs.skip != 'true'
+        shell: bash
+        env:
+          REQUEST_ID: ${{ steps.validate.outputs.request_id }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("NETWORK/user-request.json")
+          expected_id = os.environ["REQUEST_ID"]
+
+          if not path.is_file():
+              print("Dashboard request is already cleared.")
+              raise SystemExit(0)
+
+          raw = path.read_text(
+              encoding="utf-8-sig"
+          ).strip()
+
+          if not raw:
+              print("Dashboard request is already empty.")
+              raise SystemExit(0)
+
+          data = json.loads(raw)
+
+          if not isinstance(data, dict):
+              raise SystemExit(
+                  "Dashboard request is not a JSON object."
+              )
+
+          current_id = str(
+              data.get("request_id") or ""
+          ).strip()
+
+          if current_id != expected_id:
+              raise SystemExit(
+                  "Request ID changed during processing. "
+                  "Refusing to clear a different request."
+              )
+
+          path.write_text("{}\n", encoding="utf-8")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- NETWORK/user-request.json
+
+          if ! git diff --cached --quiet; then
+            git commit \
+              -m "Clear transferred dashboard request [skip ci]"
+
+            git push origin HEAD:main
+          fi
