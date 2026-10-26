@@ -13,32 +13,18 @@
       "type": "SUPER_ADMIN"
     }
   },
-  "Q-002": {
-    "TOOL-001": {
-      "granted": false,
-      "type": "ADMIN"
-    },
-    "TOOL-002": {
-      "granted": false,
-      "type": "ADMIN"
-    },
-    "TOOL-003": {
-      "granted": false,
-      "type": "ADMIN"
-    }
-  },
   "Q-003": {
     "TOOL-001": {
       "granted": false,
-      "type": "ADMIN"
+      "type": "USER"
     },
     "TOOL-002": {
       "granted": false,
-      "type": "ADMIN"
+      "type": "USER"
     },
     "TOOL-003": {
       "granted": false,
-      "type": "ADMIN"
+      "type": "USER"
     }
   }
 }
