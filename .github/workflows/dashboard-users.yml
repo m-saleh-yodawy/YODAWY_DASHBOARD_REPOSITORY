@@ -27,30 +27,38 @@ jobs:
           persist-credentials: true
 
       - name: Validate Request
+        id: validate
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, re, uuid
+          import json, os, re, uuid
           from pathlib import Path
+
+          def skip():
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+                  f.write("skip=true\n")
+              raise SystemExit(0)
 
           req_path = Path("NETWORK/user-request.json")
           if not req_path.is_file():
-              raise SystemExit(1)
+              skip()
 
           raw = req_path.read_text(encoding="utf-8-sig").strip()
           if not raw:
-              raise SystemExit(1)
+              skip()
 
           data = json.loads(raw)
-          if not isinstance(data, dict):
-              raise SystemExit(1)
+          if not isinstance(data, dict) or not data:
+              skip()
 
           action = str(data.get("action") or "").strip().upper()
           if action in {"NONE", "NO_ACTION"}:
-              raise SystemExit(0)
+              skip()
 
           if not action:
+              if not str(data.get("name") or "").strip():
+                  skip()
               action = "ADD_USER"
               data["action"] = action
 
@@ -76,6 +84,7 @@ jobs:
           PY
 
       - name: Checkout Users Repository
+        if: steps.validate.outputs.skip != 'true'
         uses: actions/checkout@v4
         with:
           repository: m-saleh-yodawy/YODAWY_USERS_REPOSITORY
@@ -84,13 +93,15 @@ jobs:
           path: users
           persist-credentials: true
 
-      - name: Transfer and Push Request
+      - name: Transfer Request and Empty Dashboard Request File
+        if: steps.validate.outputs.skip != 'true'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p users/NETWORK
           cp NETWORK/user-request.json users/NETWORK/user-request.json
           cmp -s NETWORK/user-request.json users/NETWORK/user-request.json || exit 1
+
           cd users
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -100,7 +111,18 @@ jobs:
             git push origin HEAD:main
           fi
 
+          cd ..
+          printf "{}\n" > NETWORK/user-request.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add NETWORK/user-request.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Clear dashboard user request [skip ci]"
+            git push origin HEAD:main
+          fi
+
       - name: Dispatch Users Workflow
+        if: steps.validate.outputs.skip != 'true'
         env:
           SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
         shell: bash
