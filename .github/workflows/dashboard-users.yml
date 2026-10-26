@@ -5,12 +5,11 @@ on:
     branches:
       - main
     paths:
-      - NETWORK/user-request.json
-
+      - "NETWORK/user-request.json"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: yodawy-dashboard-users-sync-main
@@ -19,109 +18,58 @@ concurrency:
 jobs:
   sync-dashboard-to-users:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Checkout Dashboard Repository
       - name: Checkout Dashboard Repository
         uses: actions/checkout@v4
         with:
           repository: m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY
           ref: main
-          persist-credentials: false
+          persist-credentials: true
 
-      # 2. Validate the User Request
-      - name: Validate User Request
+      - name: Validate Request Payload
+        id: validate
         shell: bash
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
-          import json
+          import json, os, uuid
           from pathlib import Path
 
-          request_path = Path("NETWORK/user-request.json")
+          req_file = Path("NETWORK/user-request.json")
+          if not req_file.is_file():
+              raise SystemExit(1)
 
-          if not request_path.is_file():
-              raise SystemExit(
-                  "ERROR: NETWORK/user-request.json was not found."
-              )
-
-          content = request_path.read_text(
-              encoding="utf-8-sig"
-          ).strip()
-
+          content = req_file.read_text(encoding="utf-8-sig").strip()
           if not content:
-              raise SystemExit(
-                  "ERROR: NETWORK/user-request.json is empty."
-              )
+              raise SystemExit(1)
 
-          try:
-              data = json.loads(content)
-          except json.JSONDecodeError as error:
-              raise SystemExit(
-                  f"ERROR: Invalid user request JSON: {error}"
-              )
-
+          data = json.loads(content)
           if not isinstance(data, dict):
-              raise SystemExit(
-                  "ERROR: User request must be a JSON object."
-              )
+              raise SystemExit(1)
 
-          allowed_actions = {
-              "ADD_USER",
-              "EDIT_USER",
-              "DELETE_USER"
-          }
+          req_id = str(data.get("request_id") or "").strip()
+          if not req_id:
+              req_id = f"req_{uuid.uuid4().hex[:10]}"
+              data["request_id"] = req_id
 
-          if "requests" in data:
-              requests = data["requests"]
+          name = str(data.get("name") or "").strip()
+          role = str(data.get("ROLE") or data.get("role") or "").strip().upper()
+          status = str(data.get("status") or "Active").strip()
+          developer = bool(data.get("developer", False))
 
-              if not isinstance(requests, list) or not requests:
-                  raise SystemExit(
-                      "ERROR: 'requests' must be a non-empty array."
-                  )
+          if not name or role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
+              raise SystemExit(1)
 
-              for index, request in enumerate(requests):
-                  if not isinstance(request, dict):
-                      raise SystemExit(
-                          f"ERROR: Request {index} must be an object."
-                      )
+          data["ROLE"] = role
+          data["status"] = status
+          data["developer"] = developer
 
-                  action = request.get("action")
+          req_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-                  if action not in allowed_actions:
-                      raise SystemExit(
-                          f"ERROR: Invalid action in request {index}: "
-                          f"{action}"
-                      )
-          else:
-              action = data.get("action")
-
-              if action not in allowed_actions:
-                  raise SystemExit(
-                      f"ERROR: Invalid user request action: {action}"
-                  )
-
-          print("User request JSON is valid.")
-          print(f"Request format: {len(data.get('requests', [data]))} request(s).")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"request_id={req_id}\n")
           PY
 
-      # 3. Verify Repository Sync Token
-      - name: Verify Sync Token
-        env:
-          SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${SYNC_TOKEN}" ]]; then
-            echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
-            exit 1
-          fi
-
-          echo "Repository sync token is available."
-
-      # 4. Checkout Users Repository
       - name: Checkout Users Repository
         uses: actions/checkout@v4
         with:
@@ -131,88 +79,38 @@ jobs:
           path: users
           persist-credentials: true
 
-      # 5. Transfer User Request to Users Repository
-      - name: Transfer User Request
+      - name: Transfer Request File
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p users/NETWORK
+          cp NETWORK/user-request.json users/NETWORK/user-request.json
+          cmp -s NETWORK/user-request.json users/NETWORK/user-request.json || exit 1
 
-          SOURCE_FILE="NETWORK/user-request.json"
-          DESTINATION_FILE="users/NETWORK/user-request.json"
-
-          if [[ ! -f "${SOURCE_FILE}" ]]; then
-            echo "::error::Source request file does not exist."
-            exit 1
-          fi
-
-          mkdir -p "users/NETWORK"
-
-          cp "${SOURCE_FILE}" "${DESTINATION_FILE}"
-
-          if ! cmp -s "${SOURCE_FILE}" "${DESTINATION_FILE}"; then
-            echo "::error::User request transfer verification failed."
-            exit 1
-          fi
-
-          echo "User request transferred successfully:"
-          echo "Dashboard: ${SOURCE_FILE}"
-          echo "Users:     ${DESTINATION_FILE}"
-
-      # 6. Commit and Push Request to Users Repository
-      - name: Commit and Push User Request
+      - name: Push to Users Repository
         working-directory: users
         shell: bash
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- NETWORK/user-request.json
-
-          if git diff --cached --quiet; then
-            echo "The request file is already up to date."
-          else
-            git commit -m "Sync user request from Dashboard"
-
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add NETWORK/user-request.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Sync request ${{ steps.validate.outputs.request_id }}"
             git push origin HEAD:main
-
-            echo "User request pushed to Users Repository."
           fi
 
-      # 7. Trigger Users Workflow
-      - name: Dispatch USERS SYNC
+      - name: Dispatch Users Workflow
         env:
           SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-
-          RESPONSE_FILE="$(mktemp)"
-          trap 'rm -f "${RESPONSE_FILE}"' EXIT
-
-          HTTP_CODE="$(curl \
-            --silent \
-            --show-error \
-            --output "${RESPONSE_FILE}" \
-            --write-out "%{http_code}" \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer ${SYNC_TOKEN}" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --header "Content-Type: application/json" \
-            --data '{"ref":"main"}' \
-            "https://api.github.com/repos/m-saleh-yodawy/YODAWY_USERS_REPOSITORY/actions/workflows/users.yml/dispatches")"
-
-          if [[ "${HTTP_CODE}" != "204" ]]; then
-            echo "::error::Failed to dispatch USERS SYNC. HTTP ${HTTP_CODE}"
-
-            if [[ -s "${RESPONSE_FILE}" ]]; then
-              cat "${RESPONSE_FILE}"
-            fi
-
-            exit 1
-          fi
-
-          echo "USERS SYNC was dispatched successfully."
+          curl -s -f \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${SYNC_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Content-Type: application/json" \
+            -d '{"ref":"main"}' \
+            "https://api.github.com/repos/m-saleh-yodawy/YODAWY_USERS_REPOSITORY/actions/workflows/users.yml/dispatches"
