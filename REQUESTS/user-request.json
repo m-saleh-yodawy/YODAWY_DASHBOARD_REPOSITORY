@@ -1,1 +1,7 @@
-
+{
+  "action": "ADD_USER",
+  "name": "MOHAMED SALEH",
+  "role": "ADMIN",
+  "status": "Active",
+  "developer": true
+}
