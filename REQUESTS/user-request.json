@@ -1,7 +1,7 @@
 {
   "action": "ADD_USER",
   "name": "MOHAMED SALEH",
-  "role": "ADMIN",
+  "role": "SUPER ADMIN",
   "status": "Active",
   "developer": true
 }
