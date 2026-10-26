@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - REQUESTS/user-request.json
+      - NETWORK/user-request.json
+
   workflow_dispatch:
 
 permissions:
@@ -20,200 +21,92 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout Dashboard Repository
       - name: Checkout Dashboard Repository
         uses: actions/checkout@v4
         with:
+          repository: m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY
           ref: main
           persist-credentials: false
 
-      - name: Verify Source Files
+      # 2. Validate the User Request
+      - name: Validate User Request
         shell: bash
         run: |
           set -euo pipefail
-
-          for file in \
-            CONFIG/auth-users.json \
-            CONFIG/tools-permissions.json \
-            CONFIG/tools-visibility.json \
-            REQUESTS/user-request.json
-          do
-            if [[ ! -f "$file" ]]; then
-              echo "::error::Required source file not found: $file"
-              exit 1
-            fi
-          done
 
           python3 - <<'PY'
           import json
           from pathlib import Path
 
-          defaults = {
-              "CONFIG/auth-users.json": {"users": []},
-              "CONFIG/tools-permissions.json": {},
-              "CONFIG/tools-visibility.json": {},
-          }
+          request_path = Path("NETWORK/user-request.json")
 
-          parsed = {}
+          if not request_path.is_file():
+              raise SystemExit(
+                  "ERROR: NETWORK/user-request.json was not found."
+              )
 
-          for name, default_value in defaults.items():
-              content = Path(name).read_text(
-                  encoding="utf-8-sig"
-              ).strip()
-
-              if not content:
-                  print(
-                      f"NOTICE: {name} is empty. "
-                      "Using an empty default structure."
-                  )
-                  data = default_value
-              else:
-                  try:
-                      data = json.loads(content)
-                  except Exception as error:
-                      raise SystemExit(
-                          f"Invalid JSON in {name}: {error}"
-                      )
-
-              if not isinstance(data, dict):
-                  raise SystemExit(
-                      f"Expected a JSON object in {name}"
-                  )
-
-              parsed[name] = data
-
-          request_path = Path("REQUESTS/user-request.json")
-          request_content = request_path.read_text(
+          content = request_path.read_text(
               encoding="utf-8-sig"
           ).strip()
 
-          if not request_content:
+          if not content:
               raise SystemExit(
-                  "REQUESTS/user-request.json is empty."
+                  "ERROR: NETWORK/user-request.json is empty."
               )
 
           try:
-              request_data = json.loads(request_content)
-          except Exception as error:
+              data = json.loads(content)
+          except json.JSONDecodeError as error:
               raise SystemExit(
-                  f"Invalid user request JSON: {error}"
+                  f"ERROR: Invalid user request JSON: {error}"
               )
 
-          if not isinstance(request_data, dict):
+          if not isinstance(data, dict):
               raise SystemExit(
-                  "User request must be a JSON object."
+                  "ERROR: User request must be a JSON object."
               )
 
           allowed_actions = {
               "ADD_USER",
               "EDIT_USER",
-              "DELETE_USER",
+              "DELETE_USER"
           }
 
-          if "requests" in request_data:
-              requests = request_data["requests"]
+          if "requests" in data:
+              requests = data["requests"]
 
               if not isinstance(requests, list) or not requests:
                   raise SystemExit(
-                      "'requests' must be a non-empty JSON array."
+                      "ERROR: 'requests' must be a non-empty array."
                   )
 
               for index, request in enumerate(requests):
                   if not isinstance(request, dict):
                       raise SystemExit(
-                          f"Request at index {index} must be an object."
+                          f"ERROR: Request {index} must be an object."
                       )
 
                   action = request.get("action")
 
                   if action not in allowed_actions:
                       raise SystemExit(
-                          f"Invalid action at request index {index}: "
+                          f"ERROR: Invalid action in request {index}: "
                           f"{action}"
                       )
-
           else:
-              action = request_data.get("action")
+              action = data.get("action")
 
               if action not in allowed_actions:
                   raise SystemExit(
-                      f"Invalid user request action: {action}"
+                      f"ERROR: Invalid user request action: {action}"
                   )
 
-              requests = [request_data]
-
-          users_data = parsed["CONFIG/auth-users.json"]
-          users = users_data.get("users")
-
-          if not isinstance(users, list):
-              raise SystemExit(
-                  "CONFIG/auth-users.json must contain a users array."
-              )
-
-          seen_ids = set()
-
-          for user in users:
-              if not isinstance(user, dict):
-                  raise SystemExit(
-                      "Each users entry must be an object."
-                  )
-
-              user_id = user.get("id")
-
-              if user_id is None or (
-                  isinstance(user_id, str)
-                  and not user_id.strip()
-              ):
-                  if not str(user.get("name", "")).strip():
-                      raise SystemExit(
-                          "Every user needs a non-empty name."
-                      )
-
-                  print(
-                      "ID pending allocation for: "
-                      f"{user['name']}"
-                  )
-                  continue
-
-              if not isinstance(user_id, str):
-                  raise SystemExit(
-                      "User ID must be a string or empty."
-                  )
-
-              normalized_id = user_id.strip().upper()
-
-              if normalized_id in seen_ids:
-                  raise SystemExit(
-                      f"Duplicate user id: {normalized_id}"
-                  )
-
-              seen_ids.add(normalized_id)
-
-          if not users:
-              has_add_user = any(
-                  request.get("action") == "ADD_USER"
-                  for request in requests
-              )
-
-              if not has_add_user:
-                  raise SystemExit(
-                      "No users configured. An ADD_USER request "
-                      "is required to initialize the first user."
-                  )
-
-              print(
-                  "Empty users list accepted because an ADD_USER "
-                  "request will initialize the first user."
-              )
-
-          print(
-              f"User requests found: {len(requests)}"
-          )
-          print(
-              f"Existing users found: {len(users)}"
-          )
-          print("Dashboard source files validated.")
+          print("User request JSON is valid.")
+          print(f"Request format: {len(data.get('requests', [data]))} request(s).")
           PY
 
+      # 3. Verify Repository Sync Token
       - name: Verify Sync Token
         env:
           SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
@@ -221,13 +114,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "$SYNC_TOKEN" ]]; then
+          if [[ -z "${SYNC_TOKEN}" ]]; then
             echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
             exit 1
           fi
 
-          echo "Sync token is available."
+          echo "Repository sync token is available."
 
+      # 4. Checkout Users Repository
       - name: Checkout Users Repository
         uses: actions/checkout@v4
         with:
@@ -237,126 +131,35 @@ jobs:
           path: users
           persist-credentials: true
 
-      - name: Prepare Users Data
+      # 5. Transfer User Request to Users Repository
+      - name: Transfer User Request
         shell: bash
         run: |
           set -euo pipefail
 
-          mkdir -p users/CONFIG
-          mkdir -p users/REQUESTS
+          SOURCE_FILE="NETWORK/user-request.json"
+          DESTINATION_FILE="users/NETWORK/user-request.json"
 
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
+          if [[ ! -f "${SOURCE_FILE}" ]]; then
+            echo "::error::Source request file does not exist."
+            exit 1
+          fi
 
-          source_defaults = {
-              "CONFIG/auth-users.json": {"users": []},
-              "CONFIG/tools-permissions.json": {},
-              "CONFIG/tools-visibility.json": {},
-          }
+          mkdir -p "users/NETWORK"
 
-          destination_paths = {
-              "CONFIG/auth-users.json":
-                  "users/CONFIG/users.json",
-              "CONFIG/tools-permissions.json":
-                  "users/CONFIG/tools-permissions.json",
-              "CONFIG/tools-visibility.json":
-                  "users/CONFIG/tools-visibility.json",
-          }
+          cp "${SOURCE_FILE}" "${DESTINATION_FILE}"
 
-          for source_name, default_value in source_defaults.items():
-              source_path = Path(source_name)
-              content = source_path.read_text(
-                  encoding="utf-8-sig"
-              ).strip()
+          if ! cmp -s "${SOURCE_FILE}" "${DESTINATION_FILE}"; then
+            echo "::error::User request transfer verification failed."
+            exit 1
+          fi
 
-              if not content:
-                  data = default_value
-                  print(
-                      f"Initialized empty source: {source_name}"
-                  )
-              else:
-                  try:
-                      data = json.loads(content)
-                  except Exception as error:
-                      raise SystemExit(
-                          f"Invalid JSON in {source_name}: {error}"
-                      )
+          echo "User request transferred successfully:"
+          echo "Dashboard: ${SOURCE_FILE}"
+          echo "Users:     ${DESTINATION_FILE}"
 
-              if not isinstance(data, dict):
-                  raise SystemExit(
-                      f"Expected a JSON object in {source_name}"
-                  )
-
-              if source_name == "CONFIG/auth-users.json":
-                  if not isinstance(data.get("users"), list):
-                      raise SystemExit(
-                          "CONFIG/auth-users.json must contain "
-                          "a users array."
-                      )
-
-              destination = Path(
-                  destination_paths[source_name]
-              )
-
-              destination.parent.mkdir(
-                  parents=True,
-                  exist_ok=True
-              )
-
-              destination.write_text(
-                  json.dumps(
-                      data,
-                      ensure_ascii=False,
-                      indent=2
-                  ) + "\n",
-                  encoding="utf-8"
-              )
-
-              print(
-                  f"Prepared destination: {destination}"
-              )
-
-          request_content = Path(
-              "REQUESTS/user-request.json"
-          ).read_text(
-              encoding="utf-8-sig"
-          ).strip()
-
-          if not request_content:
-              raise SystemExit(
-                  "REQUESTS/user-request.json is empty."
-              )
-
-          request_data = json.loads(request_content)
-
-          if not isinstance(request_data, dict):
-              raise SystemExit(
-                  "User request must be a JSON object."
-              )
-
-          destination_request = Path(
-              "users/REQUESTS/user-request.json"
-          )
-
-          destination_request.parent.mkdir(
-              parents=True,
-              exist_ok=True
-          )
-
-          destination_request.write_text(
-              json.dumps(
-                  request_data,
-                  ensure_ascii=False,
-                  indent=2
-              ) + "\n",
-              encoding="utf-8"
-          )
-
-          print("User request copied successfully.")
-          PY
-
-      - name: Commit and Push Changes
+      # 6. Commit and Push Request to Users Repository
+      - name: Commit and Push User Request
         working-directory: users
         shell: bash
         run: |
@@ -366,20 +169,19 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add -- \
-            CONFIG/users.json \
-            CONFIG/tools-permissions.json \
-            CONFIG/tools-visibility.json \
-            REQUESTS/user-request.json
+          git add -- NETWORK/user-request.json
 
           if git diff --cached --quiet; then
-            echo "No changes to sync."
+            echo "The request file is already up to date."
           else
-            git commit -m "Sync dashboard users, requests and tool settings"
+            git commit -m "Sync user request from Dashboard"
+
             git push origin HEAD:main
-            echo "Dashboard data pushed to Users Repository."
+
+            echo "User request pushed to Users Repository."
           fi
 
+      # 7. Trigger Users Workflow
       - name: Dispatch USERS SYNC
         env:
           SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
@@ -387,18 +189,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "$SYNC_TOKEN" ]]; then
-            echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
-            exit 1
-          fi
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "${RESPONSE_FILE}"' EXIT
 
-          response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
-
-          http_code="$(curl \
+          HTTP_CODE="$(curl \
             --silent \
             --show-error \
-            --output "$response_file" \
+            --output "${RESPONSE_FILE}" \
             --write-out "%{http_code}" \
             --request POST \
             --header "Accept: application/vnd.github+json" \
@@ -408,11 +205,11 @@ jobs:
             --data '{"ref":"main"}' \
             "https://api.github.com/repos/m-saleh-yodawy/YODAWY_USERS_REPOSITORY/actions/workflows/users.yml/dispatches")"
 
-          if [[ "$http_code" != "204" ]]; then
-            echo "::error::Failed to dispatch USERS SYNC. HTTP ${http_code}"
+          if [[ "${HTTP_CODE}" != "204" ]]; then
+            echo "::error::Failed to dispatch USERS SYNC. HTTP ${HTTP_CODE}"
 
-            if [[ -s "$response_file" ]]; then
-              cat "$response_file"
+            if [[ -s "${RESPONSE_FILE}" ]]; then
+              cat "${RESPONSE_FILE}"
             fi
 
             exit 1
