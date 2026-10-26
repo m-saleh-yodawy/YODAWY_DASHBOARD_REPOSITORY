@@ -29,7 +29,8 @@ jobs:
           for file in \
             CONFIG/auth-users.json \
             CONFIG/tools-permissions.json \
-            CONFIG/tools-visibility.json
+            CONFIG/tools-visibility.json \
+            REQUESTS/user-request.json
           do
             if [[ ! -f "$file" ]]; then
               echo "::error::Required source file not found: $file"
@@ -129,6 +130,74 @@ jobs:
                   "No users configured. Add a user before syncing."
               )
 
+          # Validate the incoming user request.
+          request_path = Path(
+              "REQUESTS/user-request.json"
+          )
+
+          request_content = request_path.read_text(
+              encoding="utf-8-sig"
+          ).strip()
+
+          if not request_content:
+              raise SystemExit(
+                  "REQUESTS/user-request.json is empty."
+              )
+
+          try:
+              request_data = json.loads(request_content)
+          except Exception as error:
+              raise SystemExit(
+                  f"Invalid user request JSON: {error}"
+              )
+
+          if not isinstance(request_data, dict):
+              raise SystemExit(
+                  "User request must be a JSON object."
+              )
+
+          allowed_actions = {
+              "ADD_USER",
+              "EDIT_USER",
+              "DELETE_USER",
+          }
+
+          if "requests" in request_data:
+              requests = request_data["requests"]
+
+              if not isinstance(requests, list):
+                  raise SystemExit(
+                      "'requests' must be a JSON array."
+                  )
+
+              for index, request in enumerate(requests):
+                  if not isinstance(request, dict):
+                      raise SystemExit(
+                          f"Request at index {index} must be an object."
+                      )
+
+                  action = request.get("action")
+
+                  if action not in allowed_actions:
+                      raise SystemExit(
+                          f"Invalid action at request index {index}: "
+                          f"{action}"
+                      )
+
+              print(
+                  f"User requests found: {len(requests)}"
+              )
+
+          else:
+              action = request_data.get("action")
+
+              if action not in allowed_actions:
+                  raise SystemExit(
+                      f"Invalid user request action: {action}"
+                  )
+
+              print(f"User request action: {action}")
+
           print("Dashboard source files validated.")
           print(f"Users found: {len(users)}")
           print("Blank IDs will be allocated by USERS SYNC.")
@@ -163,6 +232,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p users/CONFIG
+          mkdir -p users/REQUESTS
 
           cp CONFIG/auth-users.json \
             users/CONFIG/users.json
@@ -173,7 +243,11 @@ jobs:
           cp CONFIG/tools-visibility.json \
             users/CONFIG/tools-visibility.json
 
+          cp REQUESTS/user-request.json \
+            users/REQUESTS/user-request.json
+
           echo "Users destination files prepared."
+          echo "User request file copied."
 
       - name: Commit and Push Changes
         working-directory: users
@@ -188,12 +262,13 @@ jobs:
           git add -- \
             CONFIG/users.json \
             CONFIG/tools-permissions.json \
-            CONFIG/tools-visibility.json
+            CONFIG/tools-visibility.json \
+            REQUESTS/user-request.json
 
           if git diff --cached --quiet; then
             echo "No changes to sync."
           else
-            git commit -m "Sync dashboard users and tool settings"
+            git commit -m "Sync dashboard users, requests and tool settings"
             git push origin HEAD:main
             echo "Dashboard data pushed to Users Repository."
           fi
