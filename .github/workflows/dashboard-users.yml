@@ -26,48 +26,53 @@ jobs:
           ref: main
           persist-credentials: true
 
-      - name: Validate Request Payload
-        id: validate
+      - name: Validate Request
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os, uuid
+          import json, re, uuid
           from pathlib import Path
 
-          req_file = Path("NETWORK/user-request.json")
-          if not req_file.is_file():
+          req_path = Path("NETWORK/user-request.json")
+          if not req_path.is_file():
               raise SystemExit(1)
 
-          content = req_file.read_text(encoding="utf-8-sig").strip()
-          if not content:
+          raw = req_path.read_text(encoding="utf-8-sig").strip()
+          if not raw:
               raise SystemExit(1)
 
-          data = json.loads(content)
+          data = json.loads(raw)
           if not isinstance(data, dict):
               raise SystemExit(1)
 
-          req_id = str(data.get("request_id") or "").strip()
-          if not req_id:
-              req_id = f"req_{uuid.uuid4().hex[:10]}"
-              data["request_id"] = req_id
+          action = str(data.get("action") or "").strip().upper()
+          if action in {"NONE", "NO_ACTION"}:
+              raise SystemExit(0)
 
-          name = str(data.get("name") or "").strip()
-          role = str(data.get("ROLE") or data.get("role") or "").strip().upper()
-          status = str(data.get("status") or "Active").strip()
-          developer = bool(data.get("developer", False))
+          if not action:
+              action = "ADD_USER"
+              data["action"] = action
 
-          if not name or role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
+          if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER"}:
               raise SystemExit(1)
 
-          data["ROLE"] = role
-          data["status"] = status
-          data["developer"] = developer
+          if not str(data.get("request_id") or "").strip():
+              data["request_id"] = f"req_{uuid.uuid4().hex[:10]}"
 
-          req_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          if action == "ADD_USER":
+              name = str(data.get("name") or "").strip()
+              raw_role = data.get("ROLE") if "ROLE" in data else data.get("role", "USER")
+              role = re.sub(r"[\s\-_]+", "_", str(raw_role).strip().upper())
+              if role == "SUPERADMIN":
+                  role = "SUPER_ADMIN"
+              if not name or role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
+                  raise SystemExit(1)
+              data["ROLE"] = role
+              data["status"] = "Inactive" if str(data.get("status", "Active")).strip().casefold() == "inactive" else "Active"
+              data["developer"] = bool(data.get("developer", False))
 
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-              f.write(f"request_id={req_id}\n")
+          req_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
 
       - name: Checkout Users Repository
@@ -79,24 +84,19 @@ jobs:
           path: users
           persist-credentials: true
 
-      - name: Transfer Request File
+      - name: Transfer and Push Request
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p users/NETWORK
           cp NETWORK/user-request.json users/NETWORK/user-request.json
           cmp -s NETWORK/user-request.json users/NETWORK/user-request.json || exit 1
-
-      - name: Push to Users Repository
-        working-directory: users
-        shell: bash
-        run: |
-          set -euo pipefail
+          cd users
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add NETWORK/user-request.json
           if ! git diff --cached --quiet; then
-            git commit -m "Sync request ${{ steps.validate.outputs.request_id }}"
+            git commit -m "Sync user request from Dashboard [skip ci]"
             git push origin HEAD:main
           fi
 
