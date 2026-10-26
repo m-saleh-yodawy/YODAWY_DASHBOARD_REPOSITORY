@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - "NETWORK/user-response.json"
       - "CONFIG/auth-users.json"
       - "CONFIG/tools-permissions.json"
       - "CONFIG/tools-visibility.json"
@@ -30,244 +31,135 @@ jobs:
           ref: main
           persist-credentials: true
 
-      - name: Initialize Dashboard Data
+      - name: Process User Response & Initialize Dashboard Data
         id: initialize
         shell: bash
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
-          import json
-          import os
+          import json, os, re
           from pathlib import Path
 
+          request_path = Path("NETWORK/user-request.json")
+          response_path = Path("NETWORK/user-response.json")
           users_path = Path("CONFIG/auth-users.json")
           permissions_path = Path("CONFIG/tools-permissions.json")
           visibility_path = Path("CONFIG/tools-visibility.json")
           manifest_path = Path("TOOLS_CACHE/tools-manifest.json")
 
-          def skip_initialization(reason):
-              print(f"SKIP: {reason}")
-
-              with open(
-                  os.environ["GITHUB_OUTPUT"],
-                  "a",
-                  encoding="utf-8"
-              ) as output:
-                  output.write("skip=true\n")
-
-              raise SystemExit(0)
-
           def read_json(path, default):
-              text = path.read_text(
-                  encoding="utf-8-sig"
-              ).strip()
-
-              if not text:
+              if not path.is_file():
                   return default
+              text = path.read_text(encoding="utf-8-sig").strip()
+              return json.loads(text) if text else default
 
-              try:
-                  return json.loads(text)
-              except Exception as error:
-                  raise SystemExit(
-                      f"Invalid JSON in {path}: {error}"
-                  )
+          def write_json(path, data):
+              path.parent.mkdir(parents=True, exist_ok=True)
+              output = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+              old = path.read_text(encoding="utf-8-sig") if path.is_file() else ""
+              if old != output:
+                  path.write_text(output, encoding="utf-8")
 
-          # Missing or empty user registry means there are no users yet.
-          if not users_path.is_file():
-              skip_initialization(
-                  "CONFIG/auth-users.json does not exist. "
-                  "No users to initialize."
-              )
-
-          users_text = users_path.read_text(
-              encoding="utf-8-sig"
-          ).strip()
-
-          if not users_text:
-              skip_initialization(
-                  "CONFIG/auth-users.json is empty. "
-                  "No users to initialize."
-              )
-
-          users_data = read_json(users_path, None)
-
+          response_data = read_json(response_path, {})
+          users_data = read_json(users_path, {"users": []})
           if not isinstance(users_data, dict):
-              raise SystemExit(
-                  "auth-users.json must contain a JSON object."
-              )
+              raise SystemExit(1)
 
-          users = users_data.get("users")
-
-          if users is None or users == []:
-              skip_initialization(
-                  "No users found in CONFIG/auth-users.json."
-              )
-
+          users = users_data.get("users", [])
           if not isinstance(users, list):
-              raise SystemExit(
-                  "auth-users.json field 'users' must be an array."
-              )
+              raise SystemExit(1)
 
-          if not users:
-              skip_initialization(
-                  "No users found in CONFIG/auth-users.json."
-              )
+          if isinstance(response_data, dict) and response_data.get("status") == "SUCCESS":
+              if isinstance(response_data.get("users"), list):
+                  users = response_data["users"]
+              elif isinstance(response_data.get("user"), dict):
+                  u = response_data["user"]
+                  uid = str(u.get("id") or "").strip().upper()
+                  if uid:
+                      idx = next((i for i, item in enumerate(users) if str(item.get("id") or "").strip().upper() == uid), None)
+                      if idx is not None:
+                          users[idx] = u
+                      else:
+                          users.append(u)
+              users_data["users"] = users
+              write_json(users_path, users_data)
 
-          # Validate users.
-          # A new user is allowed to have an empty ID temporarily.
-          # The Users workflow will allocate the ID later.
           seen_users = set()
+          active_ids = set()
 
           for user in users:
               if not isinstance(user, dict):
-                  raise SystemExit(
-                      "Every user must be an object."
-                  )
-
-              user_id = str(
-                  user.get("id") or ""
-              ).strip().upper()
-
-              if not user_id:
-                  if not str(
-                      user.get("name", "")
-                  ).strip():
-                      raise SystemExit(
-                          "Every user needs a non-empty name."
-                      )
-
-                  print(
-                      "ID pending allocation for: "
-                      f"{user['name']}"
-                  )
+                  raise SystemExit(1)
+              uid = str(user.get("id") or "").strip().upper()
+              if not uid:
+                  if not str(user.get("name") or "").strip():
+                      raise SystemExit(1)
                   continue
+              if uid in seen_users:
+                  raise SystemExit(1)
+              seen_users.add(uid)
+              if str(user.get("status", "Active")).strip().lower() == "active":
+                  active_ids.add(uid)
 
-              if user_id in seen_users:
-                  raise SystemExit(
-                      f"Duplicate user id: {user_id}"
-                  )
-
-              seen_users.add(user_id)
-
-              if str(
-                  user.get("status", "")
-              ).strip().lower() != "active":
-                  print(
-                      f"Inactive user detected: {user_id}"
-                  )
-
-          # Do not initialize users or tool settings without a valid manifest.
-          if not manifest_path.is_file():
-              raise SystemExit(
-                  f"Required file missing: {manifest_path}"
-              )
-
-          manifest = read_json(manifest_path, None)
-
-          if isinstance(manifest, list):
-              tools = manifest
-          elif isinstance(manifest, dict):
-              tools = manifest.get("tools", [])
-          else:
-              tools = []
-
-          if not isinstance(tools, list) or not tools:
-              raise SystemExit(
-                  "tools-manifest.json must contain "
-                  "a non-empty tools array."
-              )
+          permissions = read_json(permissions_path, {})
+          visibility = read_json(visibility_path, {})
+          if not isinstance(permissions, dict) or not isinstance(visibility, dict):
+              raise SystemExit(1)
 
           tool_ids = []
+          if manifest_path.is_file():
+              manifest = read_json(manifest_path, None)
+              tools = manifest if isinstance(manifest, list) else (manifest.get("tools", []) if isinstance(manifest, dict) else [])
+              if isinstance(tools, list):
+                  for tool in tools:
+                      if isinstance(tool, dict):
+                          tid = str(tool.get("id") or tool.get("toolId") or tool.get("tool_id") or "").strip()
+                          if tid and tid not in tool_ids:
+                              tool_ids.append(tid)
 
-          for tool in tools:
-              if not isinstance(tool, dict):
-                  continue
+          for tid in list(visibility.keys()):
+              if tid not in tool_ids:
+                  tool_ids.append(tid)
+          for rec in permissions.values():
+              if isinstance(rec, dict):
+                  for tid in rec.keys():
+                      if tid not in tool_ids:
+                          tool_ids.append(tid)
 
-              tool_id = str(
-                  tool.get("id")
-                  or tool.get("toolId")
-                  or tool.get("tool_id")
-                  or ""
-              ).strip()
-
-              if tool_id and tool_id not in tool_ids:
-                  tool_ids.append(tool_id)
-
-          if not tool_ids:
-              raise SystemExit(
-                  "No tool IDs found in tools-manifest.json."
-              )
-
-          def read_config(path):
-              if not path.exists():
-                  return {}
-
-              data = read_json(path, {})
-
-              if not isinstance(data, dict):
-                  raise SystemExit(
-                      f"{path} must contain a JSON object."
-                  )
-
-              return data
-
-          permissions = read_config(permissions_path)
-          visibility = read_config(visibility_path)
-
-          # Preserve existing permissions.
-          # Add defaults only for users who already have an ID.
-          # Users with an empty ID will receive permissions after ID allocation.
           for user in users:
-              user_id = str(
-                  user.get("id") or ""
-              ).strip().upper()
-
-              if not user_id:
+              uid = str(user.get("id") or "").strip().upper()
+              if not uid or uid not in active_ids:
                   continue
+              raw_role = user.get("role") or user.get("ROLE") or "USER"
+              role = re.sub(r"[\s\-_]+", "_", str(raw_role).strip().upper())
+              if role == "SUPERADMIN":
+                  role = "SUPER_ADMIN"
+              is_super_admin = role == "SUPER_ADMIN"
+              role_type = role if role in ("SUPER_ADMIN", "ADMIN", "USER") else "USER"
 
-              role = str(
-                  user.get("role", "")
-              ).strip().lower()
-
-              status = str(
-                  user.get("status", "")
-              ).strip().lower()
-
-              is_super_admin = role.replace(
-                  "-", "_"
-              ).replace(" ", "_") in (
-                  "super_admin",
-                  "superadmin",
-              )
-
-              user_permissions = permissions.get(user_id)
-
+              user_permissions = permissions.get(uid)
               if not isinstance(user_permissions, dict):
                   user_permissions = {}
-                  permissions[user_id] = user_permissions
+                  permissions[uid] = user_permissions
 
-              for tool_id in tool_ids:
-                  if tool_id not in user_permissions:
-                      user_permissions[tool_id] = {
-                          "granted": (
-                              is_super_admin
-                              and status == "active"
-                          ),
-                          "type": (
-                              "SUPER_ADMIN"
-                              if is_super_admin
-                              else "ADMIN"
-                          ),
+              for tid in tool_ids:
+                  if tid not in user_permissions or not isinstance(user_permissions[tid], dict):
+                      user_permissions[tid] = {
+                          "granted": is_super_admin,
+                          "type": role_type,
                       }
+                  else:
+                      user_permissions[tid]["granted"] = bool(user_permissions[tid].get("granted", False))
+                      user_permissions[tid]["type"] = role_type
 
-          # Preserve existing visibility settings.
-          # Create safe defaults for newly discovered tools.
-          for tool_id in tool_ids:
-              existing = visibility.get(tool_id)
+          for uid in list(permissions.keys()):
+              if uid not in active_ids:
+                  permissions.pop(uid, None)
 
+          for tid in tool_ids:
+              existing = visibility.get(tid)
               if not isinstance(existing, dict):
-                  visibility[tool_id] = {
+                  visibility[tid] = {
                       "visibility": "SUPER_ADMIN",
                       "allowedUsers": [],
                       "developmentStatus": "UNDER DEVELOPMENT",
@@ -275,135 +167,38 @@ jobs:
                       "enabled": False,
                   }
               else:
-                  existing.setdefault(
-                      "visibility",
-                      "SUPER_ADMIN"
-                  )
+                  existing.setdefault("visibility", "SUPER_ADMIN")
+                  allowed = existing.get("allowedUsers", [])
+                  existing["allowedUsers"] = [
+                      str(u).strip() for u in (allowed if isinstance(allowed, list) else [])
+                      if str(u).strip() in active_ids
+                  ]
+                  existing.setdefault("developmentStatus", "UNDER DEVELOPMENT")
+                  existing.setdefault("publicationStatus", "NOT PUBLISHED")
+                  existing.setdefault("enabled", False)
 
-                  existing.setdefault(
-                      "allowedUsers",
-                      []
-                  )
-
-                  existing.setdefault(
-                      "developmentStatus",
-                      "UNDER DEVELOPMENT"
-                  )
-
-                  existing.setdefault(
-                      "publicationStatus",
-                      "NOT PUBLISHED"
-                  )
-
-                  existing.setdefault(
-                      "enabled",
-                      False
-                  )
-
-          def write_json(path, data):
-              path.parent.mkdir(
-                  parents=True,
-                  exist_ok=True
-              )
-
-              output = json.dumps(
-                  data,
-                  ensure_ascii=False,
-                  indent=2,
-              ) + "\n"
-
-              old = (
-                  path.read_text(
-                      encoding="utf-8-sig"
-                  )
-                  if path.exists()
-                  else ""
-              )
-
-              if old == output:
-                  print(f"UNCHANGED: {path}")
-                  return
-
-              path.write_text(
-                  output,
-                  encoding="utf-8"
-              )
-
-              print(f"UPDATED: {path}")
-
-          write_json(
-              permissions_path,
-              permissions
-          )
-
-          write_json(
-              visibility_path,
-              visibility
-          )
-
-          print(f"Users validated: {len(users)}")
-          print(f"Tools discovered: {len(tool_ids)}")
-          print("Dashboard initialization completed.")
+          write_json(permissions_path, permissions)
+          write_json(visibility_path, visibility)
+          write_json(response_path, {})
+          write_json(request_path, {})
           PY
 
-      - name: Commit Initialized Dashboard Data
-        if: steps.initialize.outcome == 'success' && steps.initialize.outputs.skip != 'true'
+      - name: Commit Synchronized Dashboard Data & Clear Network Files
+        if: steps.initialize.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -- \
+            CONFIG/auth-users.json \
             CONFIG/tools-permissions.json \
-            CONFIG/tools-visibility.json
+            CONFIG/tools-visibility.json \
+            NETWORK/user-request.json \
+            NETWORK/user-response.json
 
-          if git diff --cached --quiet; then
-            echo "Dashboard configuration is already initialized."
-          else
-            git commit -m "Initialize dashboard users and tool settings"
+          if ! git diff --cached --quiet; then
+            git commit -m "Synchronize dashboard data and clear network files [skip ci]"
             git push origin HEAD:main
           fi
-
-      - name: Dispatch DASHBOARD - USERS WORKFLOW
-        if: steps.initialize.outcome == 'success' && steps.initialize.outputs.skip != 'true'
-        env:
-          SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ -z "$SYNC_TOKEN" ]]; then
-            echo "::error::YODAWY_REPOSITORIES_SYNC_TOKEN is missing."
-            exit 1
-          fi
-
-          response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
-
-          http_code="$(curl \
-            --silent \
-            --show-error \
-            --output "$response_file" \
-            --write-out "%{http_code}" \
-            --request POST \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer ${SYNC_TOKEN}" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --header "Content-Type: application/json" \
-            --data '{"ref":"main"}' \
-            "https://api.github.com/repos/m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY/actions/workflows/dashboard-users.yml/dispatches")"
-
-          if [[ "$http_code" != "204" ]]; then
-            echo "::error::Failed to dispatch DASHBOARD - USERS WORKFLOW. HTTP ${http_code}"
-
-            if [[ -s "$response_file" ]]; then
-              cat "$response_file"
-            fi
-
-            exit 1
-          fi
-
-          echo "DASHBOARD - USERS WORKFLOW dispatched successfully."
