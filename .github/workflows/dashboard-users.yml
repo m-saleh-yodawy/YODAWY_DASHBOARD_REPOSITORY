@@ -8,12 +8,13 @@ on:
       - "NETWORK/user-request.json"
       - "NETWORK/users-request.json"
       - "NETWORK/users-request-*.json"
+      - "NETWORK/dashboard-users-request-*.json"
   workflow_dispatch:
     inputs:
       sequence:
         description: "Sequence number"
         required: false
-        default: "001"
+        default: ""
         type: string
 
 permissions:
@@ -32,18 +33,20 @@ jobs:
       SOURCE_REPO: YODAWY_DASHBOARD_REPOSITORY
       TARGET_REPO: YODAWY_USERS_REPOSITORY
       BRANCH: main
-      INPUT_SEQ: ${{ inputs.sequence || '001' }}
+      INPUT_SEQ: ${{ inputs.sequence || '' }}
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
-      - name: Send Request and Create Target Receipt
+      - name: Allocate Sequence and Transmit Requests to Users Repository
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import base64
+          import copy
           import json
           import os
+          import random
           import re
           import time
           import urllib.error
@@ -56,7 +59,7 @@ jobs:
           SOURCE_REPO = os.environ["SOURCE_REPO"]
           TARGET_REPO = os.environ["TARGET_REPO"]
           BRANCH = os.environ["BRANCH"]
-          INPUT_SEQ = os.environ.get("INPUT_SEQ", "001").strip() or "001"
+          INPUT_SEQ = os.environ.get("INPUT_SEQ", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
 
@@ -76,35 +79,53 @@ jobs:
 
           def api_req(method, endpoint, body=None, allow_404=False):
               data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
-              req = urllib.request.Request(API + endpoint, data=data, headers=HEADERS, method=method)
-              try:
-                  with urllib.request.urlopen(req, timeout=45) as resp:
-                      raw = resp.read().decode("utf-8")
-                      return json.loads(raw) if raw else {}
-              except urllib.error.HTTPError as err:
-                  if allow_404 and err.code == 404:
-                      return None
-                  detail = err.read().decode("utf-8", errors="replace")
-                  raise RuntimeError(f"HTTP {err.code} on {method} {endpoint}: {detail}") from err
+              for attempt in range(1, 6):
+                  req = urllib.request.Request(API + endpoint, data=data, headers=HEADERS, method=method)
+                  try:
+                      with urllib.request.urlopen(req, timeout=45) as resp:
+                          raw = resp.read().decode("utf-8")
+                          return json.loads(raw) if raw else {}
+                  except urllib.error.HTTPError as err:
+                      if allow_404 and err.code == 404:
+                          return None
+                      detail = err.read().decode("utf-8", errors="replace")
+                      if err.code in {429, 500, 502, 503, 504} and attempt < 5:
+                          retry_after = int(err.headers.get("Retry-After", "0") or 0)
+                          time.sleep(max(retry_after, attempt * 2 + random.uniform(0.1, 1.0)))
+                          continue
+                      raise RuntimeError(f"HTTP {err.code} on {method} {endpoint}: {detail}") from err
+                  except urllib.error.URLError as err:
+                      if attempt < 5:
+                          time.sleep(attempt * 2)
+                          continue
+                      raise RuntimeError(f"Network error on {endpoint}: {err}") from err
 
           def content_url(repo, path):
               return f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}?ref={BRANCH}"
 
-          def read_json(repo, path):
+          def read_json(repo, path, default=None):
               res = api_req("GET", content_url(repo, path), allow_404=True)
               if not res or not isinstance(res.get("content"), str):
-                  return None, None
+                  return copy.deepcopy(default), None
               raw = base64.b64decode(res["content"].encode("ascii")).decode("utf-8-sig").strip()
               if not raw:
-                  return {}, res.get("sha")
+                  return copy.deepcopy(default), res.get("sha")
               return json.loads(raw), res.get("sha")
 
-          def write_json(repo, path, data, msg):
+          def write_json(repo, path, data, msg, create_only=False):
               content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
               encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
-              for attempt in range(1, 6):
+              if create_only:
                   _, sha = read_json(repo, path)
+                  if sha is not None:
+                      raise RuntimeError("HTTP 422: File already exists")
+                  api_req("PUT", endpoint, {"message": f"{msg} [skip ci]", "content": encoded, "branch": BRANCH})
+                  return
+              for attempt in range(1, 7):
+                  cur, sha = read_json(repo, path)
+                  if cur == data and sha is not None:
+                      return
                   payload = {"message": f"{msg} [skip ci]", "content": encoded, "branch": BRANCH}
                   if sha:
                       payload["sha"] = sha
@@ -112,113 +133,209 @@ jobs:
                       api_req("PUT", endpoint, payload)
                       return
                   except RuntimeError as err:
-                      if ("HTTP 409" not in str(err) and "HTTP 422" not in str(err)) or attempt == 5:
-                          raise
-                      time.sleep(attempt * 2)
+                      if ("HTTP 409" in str(err) or "HTTP 422" in str(err)) and attempt < 6:
+                          time.sleep(attempt * 1.5 + random.uniform(0.1, 0.5))
+                          continue
+                      raise
 
-          candidates = [
-              f"NETWORK/users-request-{INPUT_SEQ}.json",
-              "NETWORK/users-request.json",
-              "NETWORK/user-request.json",
-          ]
+          def mutate_json(repo, path, default, mutator, msg):
+              endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 7):
+                  cur, sha = read_json(repo, path, default)
+                  updated = mutator(copy.deepcopy(cur))
+                  if updated == cur and sha is not None:
+                      return updated
+                  content = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
+                  payload = {
+                      "message": f"{msg} [skip ci]",
+                      "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+                      "branch": BRANCH,
+                  }
+                  if sha:
+                      payload["sha"] = sha
+                  try:
+                      api_req("PUT", endpoint, payload)
+                      return updated
+                  except RuntimeError as err:
+                      if ("HTTP 409" in str(err) or "HTTP 422" in str(err)) and attempt < 6:
+                          time.sleep(attempt * 1.5 + random.uniform(0.1, 0.5))
+                          continue
+                      raise
 
-          source_path = None
-          raw_data = None
-          for path in candidates:
-              data, _ = read_json(SOURCE_REPO, path)
-              if isinstance(data, dict) and data:
-                  source_path = path
-                  raw_data = data
-                  break
+          def list_network_files(repo):
+              res = api_req("GET", f"/repos/{OWNER}/{repo}/contents/NETWORK?ref={BRANCH}", allow_404=True)
+              if not isinstance(res, list):
+                  return []
+              return sorted(str(i.get("name", "")) for i in res if isinstance(i, dict))
 
-          if not raw_data:
-              raise SystemExit(0)
+          def next_base_seq():
+              names = set(list_network_files(SOURCE_REPO)) | set(list_network_files(TARGET_REPO))
+              reg, _ = read_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"transactions": {}})
+              max_s = 0
+              pat = re.compile(r"^(?:dashboard-users|users)-request-(\d{3,})\.json$")
+              for n in names:
+                  m = pat.match(n)
+                  if m:
+                      max_s = max(max_s, int(m.group(1)))
+              for tx in (reg.get("transactions") or {}).values():
+                  if isinstance(tx, dict) and tx.get("requestType") == "DASHBOARD_USERS_SYNC":
+                      s = str(tx.get("sequence", "0"))
+                      if s.isdigit():
+                          max_s = max(max_s, int(s))
+              return max_s + 1
 
-          seq_match = re.search(r"-(\d{3,})\.json$", source_path or "")
-          seq = seq_match.group(1) if seq_match else (INPUT_SEQ if re.fullmatch(r"\d{3,}", INPUT_SEQ) else "001")
+          reg_state, _ = read_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"transactions": {}, "completedRequestIds": []})
+          known_txs = reg_state.get("transactions", {})
+          completed_ids = set(reg_state.get("completedRequestIds", []))
 
-          payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else dict(raw_data)
-          action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
-          if action in {"NONE", "NO_ACTION"}:
-              raise SystemExit(0)
-          if not action:
-              if str(payload.get("name") or "").strip():
-                  action = "ADD_USER"
-              elif isinstance(payload.get("users"), list):
-                  action = "SYNC_USERS"
+          source_files = list_network_files(SOURCE_REPO)
+          candidate_paths = []
+          if INPUT_SEQ and re.fullmatch(r"\d{3,}", INPUT_SEQ):
+              candidate_paths.append(f"NETWORK/dashboard-users-request-{INPUT_SEQ}.json")
+              candidate_paths.append(f"NETWORK/users-request-{INPUT_SEQ}.json")
+          for n in source_files:
+              if re.fullmatch(r"(?:dashboard-users|users)-request-\d{3,}\.json", n):
+                  p = f"NETWORK/{n}"
+                  if p not in candidate_paths:
+                      candidate_paths.append(p)
+          for legacy_p in ["NETWORK/users-request.json", "NETWORK/user-request.json"]:
+              if legacy_p.split("/")[1] in source_files and legacy_p not in candidate_paths:
+                  candidate_paths.append(legacy_p)
+
+          dispatched_count = 0
+
+          for source_path in candidate_paths:
+              raw_data, _ = read_json(SOURCE_REPO, source_path)
+              if not isinstance(raw_data, dict) or not raw_data:
+                  continue
+
+              req_id_existing = str(raw_data.get("requestId") or raw_data.get("request_id") or "").strip()
+              if req_id_existing and (req_id_existing in completed_ids or known_txs.get(req_id_existing, {}).get("status") in {"SENT", "PROCESSING", "PROCESSED", "COMPLETED"}):
+                  target_check_seq = str(raw_data.get("sequence") or "001")
+                  t_check, _ = read_json(TARGET_REPO, f"NETWORK/dashboard-users-request-{target_check_seq}.json")
+                  if t_check and t_check.get("requestId") == req_id_existing:
+                      continue
+
+              payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else dict(raw_data)
+              action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
+              if action in {"NONE", "NO_ACTION"}:
+                  continue
+              if not action:
+                  if str(payload.get("name") or "").strip():
+                      action = "ADD_USER"
+                  elif isinstance(payload.get("users"), list):
+                      action = "SYNC_USERS"
+                  else:
+                      continue
+
+              if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
+                  raise RuntimeError(f"Unsupported action: {action}")
+
+              request_id = req_id_existing or str(payload.get("requestId") or payload.get("request_id") or "").strip()
+              if not request_id:
+                  request_id = f"DASH-USERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
+
+              if action == "ADD_USER":
+                  name = str(payload.get("name") or "").strip()
+                  if not name:
+                      raise RuntimeError("ADD_USER requires name")
+                  raw_role = payload.get("role") or payload.get("ROLE") or "USER"
+                  role = re.sub(r"[\s_-]+", "_", str(raw_role).strip().upper())
+                  if role == "SUPERADMIN":
+                      role = "SUPER_ADMIN"
+                  if role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
+                      raise RuntimeError(f"Invalid role: {role}")
+                  status_val = "Inactive" if str(payload.get("status", "Active")).strip().casefold() == "inactive" else "Active"
+                  dev = payload.get("developer", False)
+                  dev = dev.strip().casefold() in {"true", "1", "yes"} if isinstance(dev, str) else bool(dev)
+                  normalized_payload = {"action": action, "name": name, "role": role, "ROLE": role, "status": status_val, "developer": dev}
+              elif action in {"EDIT_USER", "DELETE_USER"}:
+                  uid = str(payload.get("id") or payload.get("user_id") or payload.get("userId") or "").strip().upper()
+                  if not uid:
+                      raise RuntimeError(f"{action} requires user ID")
+                  normalized_payload = dict(payload)
+                  normalized_payload["action"] = action
+                  normalized_payload["id"] = uid
               else:
-                  raise SystemExit(0)
+                  normalized_payload = dict(payload)
+                  normalized_payload["action"] = "SYNC_USERS"
 
-          if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
-              raise RuntimeError(f"Unsupported action: {action}")
+              seq_match = re.search(r"-(\d{3,})\.json$", source_path)
+              preferred_seq = int(seq_match.group(1)) if seq_match else next_base_seq()
 
-          request_id = str(raw_data.get("requestId") or raw_data.get("request_id") or payload.get("requestId") or payload.get("request_id") or "").strip()
-          if not request_id:
-              request_id = f"DASH-USERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
+              allocated_seq = None
+              request_obj = None
+              channel_path = None
 
-          if action == "ADD_USER":
-              name = str(payload.get("name") or "").strip()
-              if not name:
-                  raise RuntimeError("ADD_USER requires name")
-              raw_role = payload.get("role") or payload.get("ROLE") or "USER"
-              role = re.sub(r"[\s_-]+", "_", str(raw_role).strip().upper())
-              if role == "SUPERADMIN":
-                  role = "SUPER_ADMIN"
-              if role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
-                  raise RuntimeError(f"Invalid role: {role}")
-              status_val = "Inactive" if str(payload.get("status", "Active")).strip().casefold() == "inactive" else "Active"
-              dev = payload.get("developer", False)
-              dev = dev.strip().casefold() in {"true", "1", "yes"} if isinstance(dev, str) else bool(dev)
-              normalized_payload = {"action": action, "name": name, "role": role, "ROLE": role, "status": status_val, "developer": dev}
-          elif action in {"EDIT_USER", "DELETE_USER"}:
-              uid = str(payload.get("id") or payload.get("user_id") or payload.get("userId") or "").strip().upper()
-              if not uid:
-                  raise RuntimeError(f"{action} requires user ID")
-              normalized_payload = dict(payload)
-              normalized_payload["action"] = action
-              normalized_payload["id"] = uid
-          else:
-              normalized_payload = dict(payload)
-              normalized_payload["action"] = "SYNC_USERS"
+              for offset in range(25):
+                  cand_seq = f"{preferred_seq + offset:03d}"
+                  cand_channel_path = f"NETWORK/dashboard-users-request-{cand_seq}.json"
+                  existing_target, _ = read_json(TARGET_REPO, cand_channel_path)
+                  if isinstance(existing_target, dict) and existing_target and existing_target.get("requestId") != request_id:
+                      continue
+                  ts = now()
+                  cand_obj = {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "request_id": request_id,
+                      "sequence": cand_seq,
+                      "requestType": "DASHBOARD_USERS_SYNC",
+                      "status": "SENT",
+                      "createdAt": raw_data.get("createdAt") or ts,
+                      "sentAt": ts,
+                      "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+                      "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
+                      "requestPath": cand_channel_path,
+                      "action": action,
+                      "payload": normalized_payload,
+                      **normalized_payload,
+                  }
+                  try:
+                      if not existing_target:
+                          write_json(TARGET_REPO, cand_channel_path, cand_obj, f"Deliver dashboard request {request_id}", create_only=True)
+                      else:
+                          write_json(TARGET_REPO, cand_channel_path, cand_obj, f"Update dashboard request {request_id}")
+                      allocated_seq = cand_seq
+                      request_obj = cand_obj
+                      channel_path = cand_channel_path
+                      break
+                  except RuntimeError as err:
+                      if "HTTP 422" in str(err) or "HTTP 409" in str(err):
+                          continue
+                      raise
 
-          canonical_req_path = f"NETWORK/users-request-{seq}.json"
-          receipt_path = f"NETWORK/dashboard-request-receiptor-{seq}.json"
-          ts = now()
+              if not allocated_seq:
+                  raise RuntimeError(f"Failed to allocate sequence for request {request_id}")
 
-          request_obj = {
-              "protocolVersion": 1,
-              "requestId": request_id,
-              "request_id": request_id,
-              "sequence": seq,
-              "requestType": "DASHBOARD_USERS_SYNC",
-              "status": "REQUESTED",
-              "createdAt": ts,
-              "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
-              "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
-              "action": action,
-              "payload": normalized_payload,
-              **normalized_payload,
-          }
+              compat_path = f"NETWORK/users-request-{allocated_seq}.json"
+              write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
+              write_json(SOURCE_REPO, compat_path, request_obj, f"Record compat users request {request_id}")
+              write_json(TARGET_REPO, compat_path, request_obj, f"Deliver compat users request {request_id}")
 
-          receipt_obj = {
-              "protocolVersion": 1,
-              "requestId": request_id,
-              "request_id": request_id,
-              "sequence": seq,
-              "requestType": "DASHBOARD_USERS_SYNC",
-              "status": "RECEIVED",
-              "receivedAt": ts,
-              "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
-              "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
-              "requestPath": canonical_req_path,
-          }
+              if source_path in {"NETWORK/user-request.json", "NETWORK/users-request.json"}:
+                  write_json(SOURCE_REPO, source_path, {}, f"Clear legacy unsequenced request {request_id}")
 
-          write_json(SOURCE_REPO, canonical_req_path, request_obj, f"Record users request {request_id}")
-          if source_path in {"NETWORK/user-request.json", "NETWORK/users-request.json"}:
-              write_json(SOURCE_REPO, source_path, {}, f"Clear legacy request {request_id}")
+              def _record_sent(reg):
+                  reg.setdefault("protocolVersion", 1)
+                  tx = reg.setdefault("transactions", {}).setdefault(request_id, {})
+                  tx.update({
+                      "requestId": request_id,
+                      "sequence": allocated_seq,
+                      "requestType": "DASHBOARD_USERS_SYNC",
+                      "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+                      "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
+                      "status": "SENT",
+                      "createdAt": request_obj["createdAt"],
+                      "sentAt": request_obj["sentAt"],
+                      "requestPath": channel_path,
+                      "responseRequired": True,
+                  })
+                  reg["updatedAt"] = now()
+                  return reg
 
-          write_json(TARGET_REPO, canonical_req_path, request_obj, f"Receive dashboard request {request_id}")
-          write_json(TARGET_REPO, receipt_path, receipt_obj, f"Create dashboard request receipt {request_id}")
+              mutate_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _record_sent, f"Track sent transaction {request_id}")
+              dispatched_count += 1
 
-          api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/actions/workflows/users.yml/dispatches", {"ref": BRANCH})
+          if dispatched_count > 0:
+              api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/actions/workflows/users.yml/dispatches", {"ref": BRANCH})
           PY
