@@ -1,11 +1,11 @@
 {
   "protocolVersion": 1,
-  "requestId": "TEST-DASH-USERS-001",
-  "request_id": "TEST-DASH-USERS-001",
-  "requestType": "DASHBOARD_USERS_SYNC",
+  "requestId": "USERS-DASH-20261030T171116Z-593447D7",
+  "request_id": "USERS-DASH-20261030T171116Z-593447D7",
+  "requestType": "USERS_DASHBOARD_SYNC",
   "responseType": "USERS_DASHBOARD_RESPONSE",
   "status": "COMPLETED",
-  "sequence": "001",
+  "sequence": "002",
   "sourceInfo": {
     "owner": "m-saleh-yodawy",
     "repository": "YODAWY_USERS_REPOSITORY",
@@ -22,15 +22,8 @@
     "branch": "main"
   },
   "target": "YODAWY_DASHBOARD_REPOSITORY",
-  "action": "ADD_USER",
-  "user": {
-    "name": "TEST USER ONE",
-    "role": "USER",
-    "status": "Active",
-    "developer": false,
-    "id": "Q-001",
-    "repository": "Q-001_TEST_USER_ONE"
-  },
+  "action": "SYNC_USERS",
+  "user": null,
   "users": [
     {
       "name": "TEST USER ONE",
@@ -39,14 +32,23 @@
       "developer": false,
       "id": "Q-001",
       "repository": "Q-001_TEST_USER_ONE"
+    },
+    {
+      "name": "TEST USER ONE",
+      "role": "USER",
+      "status": "Active",
+      "developer": false,
+      "id": "Q-002",
+      "repository": "Q-002_TEST_USER_ONE"
     }
   ],
   "permissions": {
-    "Q-001": {}
+    "Q-001": {},
+    "Q-002": {}
   },
   "visibility": {},
-  "processedAt": "2026-10-30T17:09:32Z",
-  "processed_at": "2026-10-30T17:09:32Z",
-  "responseSentAt": "2026-10-30T17:09:32Z",
-  "completedAt": "2026-10-30T17:09:52Z"
+  "processedAt": "2026-10-30T17:11:16Z",
+  "processed_at": "2026-10-30T17:11:16Z",
+  "responseSentAt": "2026-10-30T17:11:16Z",
+  "completedAt": "2026-10-30T17:11:34Z"
 }
