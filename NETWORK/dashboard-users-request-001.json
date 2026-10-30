@@ -4,8 +4,20 @@
   "request_id": "TEST-DASH-USERS-001",
   "sequence": "001",
   "requestType": "DASHBOARD_USERS_SYNC",
-  "status": "SENT",
+  "status": "Active",
   "createdAt": "2026-10-30T12:00:00Z",
+  "sentAt": "2026-10-30T17:08:39Z",
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "branch": "main"
+  },
+  "requestPath": "NETWORK/dashboard-users-request-001.json",
   "action": "ADD_USER",
   "payload": {
     "action": "ADD_USER",
@@ -14,5 +26,9 @@
     "ROLE": "USER",
     "status": "Active",
     "developer": false
-  }
+  },
+  "name": "TEST USER ONE",
+  "role": "USER",
+  "ROLE": "USER",
+  "developer": false
 }
