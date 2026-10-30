@@ -1,0 +1,18 @@
+{
+  "protocolVersion": 1,
+  "requestId": "TEST-DASH-USERS-001",
+  "request_id": "TEST-DASH-USERS-001",
+  "sequence": "001",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "status": "SENT",
+  "createdAt": "2026-10-30T12:00:00Z",
+  "action": "ADD_USER",
+  "payload": {
+    "action": "ADD_USER",
+    "name": "TEST USER ONE",
+    "role": "USER",
+    "ROLE": "USER",
+    "status": "Active",
+    "developer": false
+  }
+}
