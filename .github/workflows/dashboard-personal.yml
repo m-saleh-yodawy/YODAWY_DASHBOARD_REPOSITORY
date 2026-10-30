@@ -1,0 +1,270 @@
+name: DASHBOARD - PERSONAL WORKFLOW
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "NETWORK/personal-request.json"
+      - "NETWORK/personal-request-*.json"
+  workflow_dispatch:
+    inputs:
+      sequence:
+        description: "Sequence number"
+        required: false
+        default: "001"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yodawy-dashboard-personal-comm
+  cancel-in-progress: false
+
+jobs:
+  send-personal-request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OWNER: m-saleh-yodawy
+      SOURCE_REPO: YODAWY_DASHBOARD_REPOSITORY
+      BRANCH: main
+      INPUT_SEQ: ${{ inputs.sequence || '001' }}
+      SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+
+    steps:
+      - name: Send Personal Request and Relay Response
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import re
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import uuid
+          from datetime import datetime, timezone
+
+          OWNER = os.environ["OWNER"]
+          SOURCE_REPO = os.environ["SOURCE_REPO"]
+          BRANCH = os.environ["BRANCH"]
+          INPUT_SEQ = os.environ.get("INPUT_SEQ", "001").strip() or "001"
+          TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
+          API = "https://api.github.com"
+
+          PROTECTED_REPOS = {
+              "yodawy_dashboard_repository",
+              "yodawy_users_repository",
+              "yodawy_tools_repository",
+              "yodawy_template_repository",
+          }
+          ALLOWED_SETTINGS_KEYS = {"displayName", "startPage", "dashboardOpen", "tools"}
+          ALLOWED_REQUEST_TYPES = {
+              "DASHBOARD_PERSONAL_SYNC",
+              "UPDATE_DASHBOARD_SETTINGS",
+              "UPDATE_SETTINGS",
+              "TOGGLE_PERSONAL_TOOL",
+          }
+
+          if not TOKEN:
+              raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
+
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "Content-Type": "application/json",
+              "User-Agent": "Yodawy-Dashboard-Personal",
+          }
+
+          def now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def api_req(method, endpoint, body=None, allow_404=False):
+              data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+              req = urllib.request.Request(API + endpoint, data=data, headers=HEADERS, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=45) as resp:
+                      raw = resp.read().decode("utf-8")
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as err:
+                  if allow_404 and err.code == 404:
+                      return None
+                  detail = err.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"HTTP {err.code} on {method} {endpoint}: {detail}") from err
+
+          def content_url(repo, path):
+              return f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}?ref={BRANCH}"
+
+          def read_json(repo, path):
+              res = api_req("GET", content_url(repo, path), allow_404=True)
+              if not res or not isinstance(res.get("content"), str):
+                  return None, None
+              raw = base64.b64decode(res["content"].encode("ascii")).decode("utf-8-sig").strip()
+              if not raw:
+                  return {}, res.get("sha")
+              return json.loads(raw), res.get("sha")
+
+          def write_json(repo, path, data, msg):
+              content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+              encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+              endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 6):
+                  _, sha = read_json(repo, path)
+                  payload = {"message": f"{msg} [skip ci]", "content": encoded, "branch": BRANCH}
+                  if sha:
+                      payload["sha"] = sha
+                  try:
+                      api_req("PUT", endpoint, payload)
+                      return
+                  except RuntimeError as err:
+                      if ("HTTP 409" not in str(err) and "HTTP 422" not in str(err)) or attempt == 5:
+                          raise
+                      time.sleep(attempt * 2)
+
+          candidates = [
+              f"NETWORK/personal-request-{INPUT_SEQ}.json",
+              "NETWORK/personal-request.json",
+          ]
+
+          source_path = None
+          raw_data = None
+          for path in candidates:
+              data, _ = read_json(SOURCE_REPO, path)
+              if isinstance(data, dict) and data:
+                  source_path = path
+                  raw_data = data
+                  break
+
+          if not raw_data:
+              raise SystemExit(0)
+
+          seq_match = re.search(r"-(\d{3,})\.json$", source_path or "")
+          seq = seq_match.group(1) if seq_match else (INPUT_SEQ if re.fullmatch(r"\d{3,}", INPUT_SEQ) else "001")
+
+          request_id = str(raw_data.get("requestId") or raw_data.get("request_id") or "").strip()
+          if not request_id:
+              request_id = f"DASH-PERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
+
+          req_type = str(raw_data.get("requestType") or raw_data.get("action") or "DASHBOARD_PERSONAL_SYNC").strip().upper()
+          if req_type not in ALLOWED_REQUEST_TYPES:
+              raise RuntimeError(f"Unsupported requestType: {req_type}")
+
+          payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else {}
+          dest = raw_data.get("destination") if isinstance(raw_data.get("destination"), dict) else {}
+
+          target_repo = str(
+              dest.get("repository")
+              or raw_data.get("repository")
+              or payload.get("repository")
+              or ""
+          ).strip()
+
+          if "/" in target_repo:
+              target_repo = target_repo.rsplit("/", 1)[-1]
+
+          user_id = str(raw_data.get("userId") or payload.get("userId") or "").strip().upper()
+
+          if not target_repo and user_id:
+              auth_users, _ = read_json(SOURCE_REPO, "CONFIG/auth-users.json")
+              for u in (auth_users or {}).get("users", []):
+                  if isinstance(u, dict) and str(u.get("id", "")).strip().upper() == user_id:
+                      target_repo = str(u.get("repository", "")).strip()
+                      break
+
+          if not target_repo or target_repo.casefold() in PROTECTED_REPOS:
+              raise RuntimeError(f"Invalid or protected target personal repository: {target_repo!r}")
+
+          settings_updates = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
+          if not settings_updates:
+              for k in ALLOWED_SETTINGS_KEYS:
+                  if k in payload:
+                      settings_updates[k] = payload[k]
+                  elif k in raw_data:
+                      settings_updates[k] = raw_data[k]
+
+          if req_type == "TOGGLE_PERSONAL_TOOL":
+              tool_id = str(payload.get("toolId") or raw_data.get("toolId") or "").strip()
+              enabled = payload.get("enabled") if "enabled" in payload else raw_data.get("enabled")
+              if not re.fullmatch(r"TOOL-\d{3,}", tool_id) or not isinstance(enabled, bool):
+                  raise RuntimeError("TOGGLE_PERSONAL_TOOL requires valid toolId and boolean enabled")
+              normalized_payload = {"action": "TOGGLE_PERSONAL_TOOL", "userId": user_id, "toolId": tool_id, "enabled": enabled}
+          else:
+              invalid = [k for k in settings_updates if k not in ALLOWED_SETTINGS_KEYS]
+              if invalid or not settings_updates:
+                  raise RuntimeError(f"Invalid or empty settings updates: {invalid}")
+              normalized_payload = {"action": "UPDATE_DASHBOARD_SETTINGS", "userId": user_id, "settings": settings_updates}
+
+          canonical_req_path = f"NETWORK/personal-request-{seq}.json"
+          target_receipt_path = f"NETWORK/dashboard-request-receiptor-{seq}.json"
+          target_resp_path = f"NETWORK/dashboard-response-{seq}.json"
+          source_resp_receipt_path = f"NETWORK/personal-response-receiptor-{seq}.json"
+          ts = now()
+
+          request_obj = {
+              "protocolVersion": 1,
+              "requestId": request_id,
+              "sequence": seq,
+              "requestType": "DASHBOARD_PERSONAL_SYNC",
+              "status": "REQUESTED",
+              "createdAt": ts,
+              "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+              "destination": {"owner": OWNER, "repository": target_repo, "branch": BRANCH},
+              "payload": normalized_payload,
+          }
+
+          receipt_obj = {
+              "protocolVersion": 1,
+              "requestId": request_id,
+              "sequence": seq,
+              "requestType": "DASHBOARD_PERSONAL_SYNC",
+              "status": "RECEIVED",
+              "receivedAt": ts,
+              "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+              "destination": {"owner": OWNER, "repository": target_repo, "branch": BRANCH},
+              "requestPath": canonical_req_path,
+          }
+
+          write_json(SOURCE_REPO, canonical_req_path, request_obj, f"Record personal request {request_id}")
+          if source_path == "NETWORK/personal-request.json":
+              write_json(SOURCE_REPO, source_path, {}, f"Clear unsequenced personal request {request_id}")
+
+          write_json(target_repo, canonical_req_path, request_obj, f"Receive dashboard personal request {request_id}")
+          write_json(target_repo, target_receipt_path, receipt_obj, f"Create dashboard request receipt {request_id}")
+
+          api_req("POST", f"/repos/{OWNER}/{target_repo}/actions/workflows/personal.yml/dispatches", {"ref": BRANCH})
+
+          deadline = time.time() + 300
+          response_data = None
+          while time.time() < deadline:
+              resp, _ = read_json(target_repo, target_resp_path)
+              if isinstance(resp, dict) and resp.get("requestId") == request_id:
+                  response_data = resp
+                  break
+              time.sleep(6)
+
+          if not response_data:
+              raise RuntimeError(f"Timed out waiting for response from {target_repo} for {request_id}")
+
+          resp_receipt = {
+              "protocolVersion": 1,
+              "requestId": request_id,
+              "sequence": seq,
+              "requestType": "DASHBOARD_PERSONAL_SYNC",
+              "status": "RECEIVED",
+              "receivedAt": now(),
+              "source": {"owner": OWNER, "repository": target_repo, "branch": BRANCH},
+              "destination": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+              "responsePath": target_resp_path,
+          }
+
+          write_json(SOURCE_REPO, target_resp_path, response_data, f"Receive personal response {request_id}")
+          write_json(SOURCE_REPO, source_resp_receipt_path, resp_receipt, f"Create personal response receipt {request_id}")
+
+          api_req("POST", f"/repos/{OWNER}/{SOURCE_REPO}/actions/workflows/dashboard.yml/dispatches", {"ref": BRANCH})
+          PY
