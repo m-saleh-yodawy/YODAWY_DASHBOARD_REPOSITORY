@@ -1,0 +1,51 @@
+{
+  "protocolVersion": 1,
+  "requestId": "TEST-DASH-USERS-001",
+  "request_id": "TEST-DASH-USERS-001",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "responseType": "USERS_DASHBOARD_RESPONSE",
+  "status": "SUCCESS",
+  "sequence": "001",
+  "sourceInfo": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "branch": "main"
+  },
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "target": "YODAWY_DASHBOARD_REPOSITORY",
+  "action": "ADD_USER",
+  "user": {
+    "name": "TEST USER ONE",
+    "role": "USER",
+    "status": "Active",
+    "developer": false,
+    "id": "Q-001",
+    "repository": "Q-001_TEST_USER_ONE"
+  },
+  "users": [
+    {
+      "name": "TEST USER ONE",
+      "role": "USER",
+      "status": "Active",
+      "developer": false,
+      "id": "Q-001",
+      "repository": "Q-001_TEST_USER_ONE"
+    }
+  ],
+  "permissions": {
+    "Q-001": {}
+  },
+  "visibility": {},
+  "processedAt": "2026-10-30T17:09:32Z",
+  "processed_at": "2026-10-30T17:09:32Z",
+  "responseSentAt": "2026-10-30T17:09:32Z"
+}
