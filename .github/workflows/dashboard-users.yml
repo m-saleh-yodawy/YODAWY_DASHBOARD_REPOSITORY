@@ -6,322 +6,219 @@ on:
       - main
     paths:
       - "NETWORK/user-request.json"
+      - "NETWORK/users-request.json"
+      - "NETWORK/users-request-*.json"
   workflow_dispatch:
+    inputs:
+      sequence:
+        description: "Sequence number"
+        required: false
+        default: "001"
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: yodawy-dashboard-users-sync-main
+  group: yodawy-dashboard-users-comm
   cancel-in-progress: false
 
 jobs:
-  sync-dashboard-to-users:
+  send-users-request:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      OWNER: m-saleh-yodawy
+      SOURCE_REPO: YODAWY_DASHBOARD_REPOSITORY
+      TARGET_REPO: YODAWY_USERS_REPOSITORY
+      BRANCH: main
+      INPUT_SEQ: ${{ inputs.sequence || '001' }}
+      SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
-      - name: Checkout Dashboard Repository
-        uses: actions/checkout@v4
-        with:
-          repository: m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY
-          ref: main
-          persist-credentials: true
-
-      - name: Validate Request
-        id: validate
+      - name: Send Request and Create Target Receipt
         shell: bash
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
+          import base64
           import json
           import os
           import re
-          from pathlib import Path
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import uuid
+          from datetime import datetime, timezone
 
-          output_path = os.environ["GITHUB_OUTPUT"]
-          request_path = Path("NETWORK/user-request.json")
+          OWNER = os.environ["OWNER"]
+          SOURCE_REPO = os.environ["SOURCE_REPO"]
+          TARGET_REPO = os.environ["TARGET_REPO"]
+          BRANCH = os.environ["BRANCH"]
+          INPUT_SEQ = os.environ.get("INPUT_SEQ", "001").strip() or "001"
+          TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
+          API = "https://api.github.com"
 
-          def set_output(key, value):
-              with open(output_path, "a", encoding="utf-8") as file:
-                  file.write(f"{key}={value}\n")
+          if not TOKEN:
+              raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
 
-          def skip(reason):
-              print(reason)
-              set_output("skip", "true")
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "Content-Type": "application/json",
+              "User-Agent": "Yodawy-Dashboard-Users",
+          }
+
+          def now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def api_req(method, endpoint, body=None, allow_404=False):
+              data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+              req = urllib.request.Request(API + endpoint, data=data, headers=HEADERS, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=45) as resp:
+                      raw = resp.read().decode("utf-8")
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as err:
+                  if allow_404 and err.code == 404:
+                      return None
+                  detail = err.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(f"HTTP {err.code} on {method} {endpoint}: {detail}") from err
+
+          def content_url(repo, path):
+              return f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}?ref={BRANCH}"
+
+          def read_json(repo, path):
+              res = api_req("GET", content_url(repo, path), allow_404=True)
+              if not res or not isinstance(res.get("content"), str):
+                  return None, None
+              raw = base64.b64decode(res["content"].encode("ascii")).decode("utf-8-sig").strip()
+              if not raw:
+                  return {}, res.get("sha")
+              return json.loads(raw), res.get("sha")
+
+          def write_json(repo, path, data, msg):
+              content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+              encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+              endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 6):
+                  _, sha = read_json(repo, path)
+                  payload = {"message": f"{msg} [skip ci]", "content": encoded, "branch": BRANCH}
+                  if sha:
+                      payload["sha"] = sha
+                  try:
+                      api_req("PUT", endpoint, payload)
+                      return
+                  except RuntimeError as err:
+                      if ("HTTP 409" not in str(err) and "HTTP 422" not in str(err)) or attempt == 5:
+                          raise
+                      time.sleep(attempt * 2)
+
+          candidates = [
+              f"NETWORK/users-request-{INPUT_SEQ}.json",
+              "NETWORK/users-request.json",
+              "NETWORK/user-request.json",
+          ]
+
+          source_path = None
+          raw_data = None
+          for path in candidates:
+              data, _ = read_json(SOURCE_REPO, path)
+              if isinstance(data, dict) and data:
+                  source_path = path
+                  raw_data = data
+                  break
+
+          if not raw_data:
               raise SystemExit(0)
 
-          if not request_path.is_file():
-              skip("No request file exists.")
+          seq_match = re.search(r"-(\d{3,})\.json$", source_path or "")
+          seq = seq_match.group(1) if seq_match else (INPUT_SEQ if re.fullmatch(r"\d{3,}", INPUT_SEQ) else "001")
 
-          raw = request_path.read_text(
-              encoding="utf-8-sig"
-          ).strip()
-
-          if not raw:
-              skip("The request file is empty.")
-
-          try:
-              data = json.loads(raw)
-          except json.JSONDecodeError as error:
-              raise SystemExit(
-                  f"Invalid request JSON: {error}"
-              )
-
-          if not isinstance(data, dict) or not data:
-              skip("No valid request object exists.")
-
-          action = str(
-              data.get("action") or ""
-          ).strip().upper()
-
+          payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else dict(raw_data)
+          action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
           if action in {"NONE", "NO_ACTION"}:
-              skip("The request does not require processing.")
-
+              raise SystemExit(0)
           if not action:
-              if not str(data.get("name") or "").strip():
-                  skip("No action or user name was supplied.")
-              action = "ADD_USER"
+              if str(payload.get("name") or "").strip():
+                  action = "ADD_USER"
+              elif isinstance(payload.get("users"), list):
+                  action = "SYNC_USERS"
+              else:
+                  raise SystemExit(0)
 
-          if action not in {
-              "ADD_USER",
-              "EDIT_USER",
-              "DELETE_USER"
-          }:
-              raise SystemExit(
-                  f"Unsupported request action: {action}"
-              )
+          if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
+              raise RuntimeError(f"Unsupported action: {action}")
 
-          request_id = str(
-              data.get("request_id") or ""
-          ).strip()
-
+          request_id = str(raw_data.get("requestId") or raw_data.get("request_id") or payload.get("requestId") or payload.get("request_id") or "").strip()
           if not request_id:
-              raise SystemExit(
-                  "Missing request_id. Generate it in the "
-                  "Dashboard Engine before submitting the request."
-              )
-
-          if len(request_id) > 200:
-              raise SystemExit("request_id is too long.")
-
-          data["action"] = action
+              request_id = f"DASH-USERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
 
           if action == "ADD_USER":
-              name = str(data.get("name") or "").strip()
-
-              raw_role = (
-                  data["ROLE"]
-                  if "ROLE" in data
-                  else data.get("role", "USER")
-              )
-
-              role = re.sub(
-                  r"[\s_-]+",
-                  "_",
-                  str(raw_role).strip().upper()
-              )
-
+              name = str(payload.get("name") or "").strip()
+              if not name:
+                  raise RuntimeError("ADD_USER requires name")
+              raw_role = payload.get("role") or payload.get("ROLE") or "USER"
+              role = re.sub(r"[\s_-]+", "_", str(raw_role).strip().upper())
               if role == "SUPERADMIN":
                   role = "SUPER_ADMIN"
-
-              if not name:
-                  raise SystemExit(
-                      "ADD_USER requires a user name."
-                  )
-
-              if role not in {
-                  "SUPER_ADMIN",
-                  "ADMIN",
-                  "USER"
-              }:
-                  raise SystemExit(
-                      f"Invalid user role: {role}"
-                  )
-
-              data["name"] = name
-              data["ROLE"] = role
-
-              status = str(
-                  data.get("status", "Active")
-              ).strip().casefold()
-
-              data["status"] = (
-                  "Inactive"
-                  if status == "inactive"
-                  else "Active"
-              )
-
-              developer = data.get("developer", False)
-
-              if isinstance(developer, str):
-                  developer = (
-                      developer.strip().casefold()
-                      in {"true", "1", "yes"}
-                  )
-              else:
-                  developer = bool(developer)
-
-              data["developer"] = developer
-
+              if role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
+                  raise RuntimeError(f"Invalid role: {role}")
+              status_val = "Inactive" if str(payload.get("status", "Active")).strip().casefold() == "inactive" else "Active"
+              dev = payload.get("developer", False)
+              dev = dev.strip().casefold() in {"true", "1", "yes"} if isinstance(dev, str) else bool(dev)
+              normalized_payload = {"action": action, "name": name, "role": role, "ROLE": role, "status": status_val, "developer": dev}
           elif action in {"EDIT_USER", "DELETE_USER"}:
-              uid = str(
-                  data.get("id")
-                  or data.get("user_id")
-                  or ""
-              ).strip()
-
+              uid = str(payload.get("id") or payload.get("user_id") or payload.get("userId") or "").strip().upper()
               if not uid:
-                  raise SystemExit(
-                      f"{action} requires a user ID."
-                  )
+                  raise RuntimeError(f"{action} requires user ID")
+              normalized_payload = dict(payload)
+              normalized_payload["action"] = action
+              normalized_payload["id"] = uid
+          else:
+              normalized_payload = dict(payload)
+              normalized_payload["action"] = "SYNC_USERS"
 
-              data["id"] = uid.upper()
+          canonical_req_path = f"NETWORK/users-request-{seq}.json"
+          receipt_path = f"NETWORK/dashboard-request-receiptor-{seq}.json"
+          ts = now()
 
-          request_path.write_text(
-              json.dumps(
-                  data,
-                  ensure_ascii=False,
-                  indent=2
-              ) + "\n",
-              encoding="utf-8"
-          )
+          request_obj = {
+              "protocolVersion": 1,
+              "requestId": request_id,
+              "request_id": request_id,
+              "sequence": seq,
+              "requestType": "DASHBOARD_USERS_SYNC",
+              "status": "REQUESTED",
+              "createdAt": ts,
+              "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+              "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
+              "action": action,
+              "payload": normalized_payload,
+              **normalized_payload,
+          }
 
-          set_output("skip", "false")
-          set_output("request_id", request_id)
+          receipt_obj = {
+              "protocolVersion": 1,
+              "requestId": request_id,
+              "request_id": request_id,
+              "sequence": seq,
+              "requestType": "DASHBOARD_USERS_SYNC",
+              "status": "RECEIVED",
+              "receivedAt": ts,
+              "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
+              "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
+              "requestPath": canonical_req_path,
+          }
 
-          print(
-              f"Validated {action} request: {request_id}"
-          )
+          write_json(SOURCE_REPO, canonical_req_path, request_obj, f"Record users request {request_id}")
+          if source_path in {"NETWORK/user-request.json", "NETWORK/users-request.json"}:
+              write_json(SOURCE_REPO, source_path, {}, f"Clear legacy request {request_id}")
+
+          write_json(TARGET_REPO, canonical_req_path, request_obj, f"Receive dashboard request {request_id}")
+          write_json(TARGET_REPO, receipt_path, receipt_obj, f"Create dashboard request receipt {request_id}")
+
+          api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/actions/workflows/users.yml/dispatches", {"ref": BRANCH})
           PY
-
-      - name: Checkout Users Repository
-        if: steps.validate.outputs.skip != 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: m-saleh-yodawy/YODAWY_USERS_REPOSITORY
-          token: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
-          ref: main
-          path: users
-          persist-credentials: true
-
-      - name: Transfer Request to Users Repository
-        if: steps.validate.outputs.skip != 'true'
-        id: transfer
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p users/NETWORK
-
-          cp \
-            NETWORK/user-request.json \
-            users/NETWORK/user-request.json
-
-          cmp -s \
-            NETWORK/user-request.json \
-            users/NETWORK/user-request.json
-
-          cd users
-
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- NETWORK/user-request.json
-
-          if ! git diff --cached --quiet; then
-            git commit \
-              -m "Sync user request from Dashboard [skip ci]"
-
-            git push origin HEAD:main
-          fi
-
-          echo "Request transferred to Users Repository."
-
-      - name: Dispatch Users Workflow
-        if: steps.validate.outputs.skip != 'true'
-        env:
-          SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -z "${SYNC_TOKEN:-}" ]; then
-            echo "Missing YODAWY_REPOSITORIES_SYNC_TOKEN."
-            exit 1
-          fi
-
-          curl --silent --show-error --fail-with-body \
-            --retry 3 \
-            --retry-all-errors \
-            --retry-delay 2 \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${SYNC_TOKEN}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            -H "Content-Type: application/json" \
-            -d '{"ref":"main"}' \
-            "https://api.github.com/repos/m-saleh-yodawy/YODAWY_USERS_REPOSITORY/actions/workflows/users.yml/dispatches"
-
-      - name: Clear Dashboard Request After Dispatch
-        if: steps.validate.outputs.skip != 'true'
-        shell: bash
-        env:
-          REQUEST_ID: ${{ steps.validate.outputs.request_id }}
-        run: |
-          set -euo pipefail
-
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          path = Path("NETWORK/user-request.json")
-          expected_id = os.environ["REQUEST_ID"]
-
-          if not path.is_file():
-              print("Dashboard request is already cleared.")
-              raise SystemExit(0)
-
-          raw = path.read_text(
-              encoding="utf-8-sig"
-          ).strip()
-
-          if not raw:
-              print("Dashboard request is already empty.")
-              raise SystemExit(0)
-
-          data = json.loads(raw)
-
-          if not isinstance(data, dict):
-              raise SystemExit(
-                  "Dashboard request is not a JSON object."
-              )
-
-          current_id = str(
-              data.get("request_id") or ""
-          ).strip()
-
-          if current_id != expected_id:
-              raise SystemExit(
-                  "Request ID changed during processing. "
-                  "Refusing to clear a different request."
-              )
-
-          path.write_text("{}\n", encoding="utf-8")
-          PY
-
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- NETWORK/user-request.json
-
-          if ! git diff --cached --quiet; then
-            git commit \
-              -m "Clear transferred dashboard request [skip ci]"
-
-            git push origin HEAD:main
-          fi
