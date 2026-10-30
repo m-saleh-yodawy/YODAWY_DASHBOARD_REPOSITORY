@@ -7,6 +7,14 @@
       "developer": false,
       "id": "Q-001",
       "repository": "Q-001_TEST_USER_ONE"
+    },
+    {
+      "name": "TEST USER ONE",
+      "role": "USER",
+      "status": "Active",
+      "developer": false,
+      "id": "Q-002",
+      "repository": "Q-002_TEST_USER_ONE"
     }
   ]
 }
