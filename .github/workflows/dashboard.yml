@@ -6,58 +6,40 @@ on:
       - main
     paths:
       - "NETWORK/user-response.json"
+      - "NETWORK/dashboard-response*.json"
+      - "NETWORK/*-response-receiptor*.json"
       - "CONFIG/auth-users.json"
       - "CONFIG/tools-permissions.json"
       - "CONFIG/tools-visibility.json"
       - "TOOLS_CACHE/tools-manifest.json"
-      - ".github/workflows/dashboard.yml"
-
   repository_dispatch:
     types:
       - tools_dashboard_sync_requested
-
+      - dashboard_response_received
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: yodawy-dashboard-bootstrap-main
+  group: yodawy-dashboard-central-main
   cancel-in-progress: false
 
 jobs:
-
-  # ==================================================
-  # JOB 1: RECEIVE REQUEST AND SYNC TOOLS CACHE
-  # ==================================================
-
   sync-tools-cache:
-    name: Receive Request and Sync Tools
-    if: >-
-      github.event_name == 'repository_dispatch' &&
-      github.event.action == 'tools_dashboard_sync_requested'
+    if: github.event_name == 'repository_dispatch' && github.event.action == 'tools_dashboard_sync_requested'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     env:
       OWNER: m-saleh-yodawy
       TOOLS_REPO: YODAWY_TOOLS_REPOSITORY
       DASHBOARD_REPO: YODAWY_DASHBOARD_REPOSITORY
       BRANCH: main
       REQUEST_ID: ${{ github.event.client_payload.requestId }}
-      REQUEST_TYPE: ${{ github.event.client_payload.requestType }}
-      REQUEST_SOURCE_OWNER: ${{ github.event.client_payload.sourceOwner }}
-      REQUEST_SOURCE_REPO: ${{ github.event.client_payload.sourceRepository }}
-      REQUEST_SOURCE_BRANCH: ${{ github.event.client_payload.sourceBranch }}
-      REQUEST_DEST_OWNER: ${{ github.event.client_payload.destinationOwner }}
-      REQUEST_DEST_REPO: ${{ github.event.client_payload.destinationRepository }}
-      REQUEST_DEST_BRANCH: ${{ github.event.client_payload.destinationBranch }}
-      REQUEST_PATH: ${{ github.event.client_payload.requestPath }}
+      SEQUENCE: ${{ github.event.client_payload.sequence || '001' }}
+      SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
-      # --------------------------------------------------
-      # 1. Checkout Dashboard Repository
-      # --------------------------------------------------
       - name: Checkout Dashboard Repository
         uses: actions/checkout@v4
         with:
@@ -65,11 +47,8 @@ jobs:
           ref: main
           token: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
           path: dashboard
-          fetch-depth: 0
+          fetch-depth: 1
 
-      # --------------------------------------------------
-      # 2. Checkout Tools Repository
-      # --------------------------------------------------
       - name: Checkout Tools Repository
         uses: actions/checkout@v4
         with:
@@ -79,656 +58,220 @@ jobs:
           path: tools-source
           fetch-depth: 1
 
-      # --------------------------------------------------
-      # 3. Validate Request and Source Catalog
-      # --------------------------------------------------
-      - name: Validate Request and Prepare Tools Sync
-        id: sync
+      - name: Validate Request and Synchronize Tools Cache
         shell: bash
         run: |
           set -euo pipefail
-
-          python3 <<'PY'
+          python3 - <<'PY'
+          import base64
           import hashlib
           import json
           import os
           import re
           import shutil
-          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
           from datetime import datetime, timezone
           from pathlib import Path
 
           ROOT = Path.cwd()
           DASHBOARD = ROOT / "dashboard"
           SOURCE = ROOT / "tools-source"
-
           SOURCE_TOOLS = SOURCE / "TOOLS"
           CATALOG_FILE = SOURCE / "CONFIG" / "tools.json"
-
           CACHE_ROOT = DASHBOARD / "TOOLS_CACHE"
           CACHE_TOOLS = CACHE_ROOT / "TOOLS"
           MANIFEST_FILE = CACHE_ROOT / "tools-manifest.json"
 
-          RECEIPT_FILE = (
-              DASHBOARD
-              / "NETWORK"
-              / "tools-dashboard-request-receiptor.json"
-          )
-
-          RESPONSE_FILE = (
-              DASHBOARD
-              / "NETWORK"
-              / "tools-dashboard-response.json"
-          )
-
+          OWNER = os.environ["OWNER"]
+          TOOLS_REPO = os.environ["TOOLS_REPO"]
+          DASHBOARD_REPO = os.environ["DASHBOARD_REPO"]
+          BRANCH = os.environ["BRANCH"]
+          SEQ = os.environ.get("SEQUENCE", "001").strip() or "001"
           REQUEST_ID = os.environ.get("REQUEST_ID", "").strip()
-          REQUEST_TYPE = os.environ.get("REQUEST_TYPE", "").strip()
+          TOKEN = os.environ["SYNC_TOKEN"].strip()
+
+          REQ_FILE = DASHBOARD / "NETWORK" / f"dashboard-request-{SEQ}.json"
+          LEGACY_REQ_FILE = SOURCE / "NETWORK" / "tools-dashboard-request.json"
+          RECEIPT_FILE = DASHBOARD / "NETWORK" / f"tools-request-receiptor-{SEQ}.json"
+          LEGACY_RECEIPT_FILE = DASHBOARD / "NETWORK" / "tools-dashboard-request-receiptor.json"
+          RESP_FILE = DASHBOARD / "NETWORK" / f"tools-response-{SEQ}.json"
+          LEGACY_RESP_FILE = DASHBOARD / "NETWORK" / "tools-dashboard-response.json"
 
           def utc_now():
-              return datetime.now(timezone.utc).isoformat()
-
-          def fail(message):
-              print(f"::error::{message}")
-              raise RuntimeError(message)
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
           def write_json(path, data):
               path.parent.mkdir(parents=True, exist_ok=True)
-
-              temp = path.with_suffix(path.suffix + ".tmp")
-
-              temp.write_text(
-                  json.dumps(
-                      data,
-                      ensure_ascii=False,
-                      indent=2
-                  ) + "\n",
-                  encoding="utf-8"
-              )
-
-              temp.replace(path)
+              tmp = path.with_suffix(path.suffix + ".tmp")
+              tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+              tmp.replace(path)
 
           def read_json(path):
-              try:
-                  return json.loads(
-                      path.read_text(encoding="utf-8-sig")
-                  )
-              except Exception as error:
-                  fail(f"Cannot read {path}: {error}")
-
-          def normalize_path(value):
-              return str(value or "").replace("\\", "/").strip()
-
-          def path_key(value):
-              return normalize_path(value).casefold()
+              return json.loads(path.read_text(encoding="utf-8-sig"))
 
           def sha256_file(path):
               digest = hashlib.sha256()
-
-              with path.open("rb") as file:
-                  for chunk in iter(
-                      lambda: file.read(1024 * 1024),
-                      b""
-                  ):
+              with path.open("rb") as f:
+                  for chunk in iter(lambda: f.read(1048576), b""):
                       digest.update(chunk)
-
               return digest.hexdigest()
 
-          def read_metadata(source_text, field):
-              pattern = (
-                  r"(?im)^\s*//\s*@"
-                  + re.escape(field)
-                  + r"\s+(.+?)\s*$"
-              )
+          def read_meta(text, field):
+              m = re.search(r"(?im)^\s*//\s*@" + re.escape(field) + r"\s+(.+?)\s*$", text)
+              return m.group(1).strip() if m else ""
 
-              match = re.search(pattern, source_text)
+          req_data = read_json(REQ_FILE) if REQ_FILE.is_file() else read_json(LEGACY_REQ_FILE)
+          if not REQUEST_ID:
+              REQUEST_ID = str(req_data.get("requestId", "")).strip()
+          if not REQUEST_ID or req_data.get("requestId") != REQUEST_ID:
+              raise RuntimeError("Invalid or mismatched requestId for tools cache sync")
 
-              return match.group(1).strip() if match else ""
-
-          def validate_request():
-              if not REQUEST_ID:
-                  fail("Missing requestId in repository_dispatch payload.")
-
-              if REQUEST_TYPE != "TOOLS_DASHBOARD_SYNC":
-                  fail(
-                      "Unexpected requestType: "
-                      f"{REQUEST_TYPE!r}"
-                  )
-
-              if os.environ.get("REQUEST_SOURCE_OWNER") != "m-saleh-yodawy":
-                  fail("Invalid request source owner.")
-
-              if os.environ.get("REQUEST_SOURCE_REPO") != "YODAWY_TOOLS_REPOSITORY":
-                  fail("Invalid request source repository.")
-
-              if os.environ.get("REQUEST_SOURCE_BRANCH") != "main":
-                  fail("Invalid request source branch.")
-
-              if os.environ.get("REQUEST_DEST_OWNER") != "m-saleh-yodawy":
-                  fail("Invalid request destination owner.")
-
-              if os.environ.get("REQUEST_DEST_REPO") != "YODAWY_DASHBOARD_REPOSITORY":
-                  fail("Invalid request destination repository.")
-
-              if os.environ.get("REQUEST_DEST_BRANCH") != "main":
-                  fail("Invalid request destination branch.")
-
-              expected_path = "NETWORK/tools-dashboard-request.json"
-
-              supplied_path = (
-                  os.environ.get("REQUEST_PATH", "").strip()
-                  or expected_path
-              )
-
-              if supplied_path != expected_path:
-                  fail(
-                      "Unexpected request path: "
-                      f"{supplied_path}"
-                  )
-
-              request_file = SOURCE / expected_path
-
-              if not request_file.is_file():
-                  fail(
-                      "Request file was not found in the source repository: "
-                      f"{expected_path}"
-                  )
-
-              request_data = read_json(request_file)
-
-              if not isinstance(request_data, dict):
-                  fail("The request file must contain a JSON object.")
-
-              if request_data.get("requestId") != REQUEST_ID:
-                  fail(
-                      "The requestId in the file does not match "
-                      "the dispatch payload."
-                  )
-
-              if request_data.get("requestType") != REQUEST_TYPE:
-                  fail(
-                      "The requestType in the file does not match "
-                      "the dispatch payload."
-                  )
-
-              if request_data.get("status") != "REQUESTED":
-                  fail(
-                      "The request status must be REQUESTED; received "
-                      f"{request_data.get('status')!r}."
-                  )
-
-              source = request_data.get("source", {})
-              destination = request_data.get("destination", {})
-
-              if not isinstance(source, dict) or not isinstance(destination, dict):
-                  fail("The request source/destination is invalid.")
-
-              if (
-                  source.get("owner") != "m-saleh-yodawy"
-                  or source.get("repository") != "YODAWY_TOOLS_REPOSITORY"
-                  or source.get("branch") != "main"
-              ):
-                  fail("The request file contains an invalid source.")
-
-              if (
-                  destination.get("owner") != "m-saleh-yodawy"
-                  or destination.get("repository") != "YODAWY_DASHBOARD_REPOSITORY"
-                  or destination.get("branch") != "main"
-              ):
-                  fail("The request file contains an invalid destination.")
-
-              return request_data
-
-          def create_receipt(status, message=None, summary=None):
-              receipt = {
-                  "requestId": REQUEST_ID,
-                  "requestType": "TOOLS_DASHBOARD_SYNC",
-                  "status": status,
-                  "updatedAt": utc_now(),
-                  "source": {
-                      "owner": "m-saleh-yodawy",
-                      "repository": "YODAWY_TOOLS_REPOSITORY",
-                      "branch": "main"
-                  },
-                  "destination": {
-                      "owner": "m-saleh-yodawy",
-                      "repository": "YODAWY_DASHBOARD_REPOSITORY",
-                      "branch": "main"
-                  }
-              }
-
-              if message:
-                  receipt["message"] = message
-
-              if summary:
-                  receipt["summary"] = summary
-
-              write_json(RECEIPT_FILE, receipt)
-
-          def create_response(status, message=None, summary=None):
-              response = {
-                  "requestId": REQUEST_ID,
-                  "requestType": "TOOLS_DASHBOARD_SYNC",
-                  "status": status,
-                  "completedAt": utc_now(),
-                  "source": {
-                      "owner": "m-saleh-yodawy",
-                      "repository": "YODAWY_TOOLS_REPOSITORY",
-                      "branch": "main"
-                  },
-                  "destination": {
-                      "owner": "m-saleh-yodawy",
-                      "repository": "YODAWY_DASHBOARD_REPOSITORY",
-                      "branch": "main"
-                  }
-              }
-
-              if message:
-                  response["message"] = message
-
-              if summary:
-                  response["summary"] = summary
-
-              write_json(RESPONSE_FILE, response)
-
-          summary = {
-              "activeTools": 0,
-              "copiedFiles": 0,
-              "manifestPath": "TOOLS_CACHE/tools-manifest.json"
-          }
+          summary = {"activeTools": 0, "copiedFiles": 0, "manifestPath": "TOOLS_CACHE/tools-manifest.json"}
 
           try:
-              request_data = validate_request()
-
-              create_receipt(
-                  "PROCESSING",
-                  "Request validated. Starting tools synchronization."
-              )
-
-              payload = request_data.get("payload", {})
-
-              if not isinstance(payload, dict):
-                  fail("The request payload must be an object.")
-
-              if payload.get("syncMode") != "FULL_RECONCILIATION":
-                  fail("Unsupported tools synchronization mode.")
-
-              if not SOURCE_TOOLS.is_dir():
-                  fail("The source TOOLS directory does not exist.")
-
-              if not CATALOG_FILE.is_file():
-                  fail("CONFIG/tools.json was not found.")
-
               catalog = read_json(CATALOG_FILE)
-
-              if not isinstance(catalog, dict):
-                  fail("CONFIG/tools.json must be a JSON object.")
-
-              catalog_tools = catalog.get("tools")
-
-              if not isinstance(catalog_tools, list):
-                  fail(
-                      'CONFIG/tools.json must contain a "tools" array.'
-                  )
-
+              catalog_tools = catalog.get("tools", [])
               catalog_by_path = {}
-              catalog_by_id = {}
-              seen_paths = {}
-
               for item in catalog_tools:
-                  if not isinstance(item, dict):
-                      fail("Every catalog tool must be a JSON object.")
-
-                  tool_id = str(item.get("id", "")).strip()
-                  tool_path = normalize_path(item.get("path", ""))
-
-                  if not tool_id:
-                      fail("A catalog tool has a missing ID.")
-
-                  if not tool_path:
-                      fail(f"Tool {tool_id} has a missing path.")
-
-                  if tool_id in catalog_by_id:
-                      fail(f"Duplicate catalog tool ID: {tool_id}")
-
-                  catalog_by_id[tool_id] = item
-
-                  key = path_key(tool_path)
-
-                  if key in seen_paths:
-                      fail(
-                          "Duplicate catalog path: "
-                          f"{seen_paths[key]} and {tool_path}"
-                      )
-
-                  seen_paths[key] = tool_path
-
-                  if not tool_path.startswith("TOOLS/"):
-                      continue
-
-                  if not tool_path.casefold().endswith(".js"):
-                      continue
-
-                  if tool_path.casefold().endswith(".min.js"):
-                      continue
-
-                  catalog_by_path[key] = item
+                  t_path = str(item.get("path", "")).replace("\\", "/").strip()
+                  if t_path.startswith("TOOLS/") and t_path.casefold().endswith(".js") and not t_path.casefold().endswith(".min.js"):
+                      catalog_by_path[t_path.casefold()] = item
 
               source_files = sorted(
-                  (
-                      path
-                      for path in SOURCE_TOOLS.rglob("*")
-                      if path.is_file()
-                      and path.suffix.casefold() == ".js"
-                      and not path.name.casefold().endswith(".min.js")
-                  ),
-                  key=lambda path: path.as_posix().casefold()
+                  (p for p in SOURCE_TOOLS.rglob("*") if p.is_file() and p.suffix.casefold() == ".js" and not p.name.casefold().endswith(".min.js")),
+                  key=lambda p: p.as_posix().casefold(),
               )
-
               source_by_path = {}
-
-              for source_file in source_files:
-                  relative_path = source_file.relative_to(
-                      SOURCE
-                  ).as_posix()
-
-                  key = path_key(relative_path)
-
-                  if key in source_by_path:
-                      fail(
-                          "Duplicate source JavaScript path: "
-                          f"{relative_path}"
-                      )
-
-                  source_by_path[key] = source_file
-
+              for sf in source_files:
+                  rel = sf.relative_to(SOURCE).as_posix()
+                  key = rel.casefold()
                   if key not in catalog_by_path:
-                      fail(
-                          "A JavaScript file has no matching entry "
-                          "in CONFIG/tools.json: "
-                          f"{relative_path}. "
-                          "Register the file before syncing."
-                      )
+                      raise RuntimeError(f"Unregistered JS file: {rel}")
+                  source_by_path[key] = sf
 
               active_tools = []
-
               for key, item in catalog_by_path.items():
-                  status = str(
-                      item.get("status", "")
-                  ).strip().casefold()
-
-                  if status != "active":
-                      continue
-
-                  if key not in source_by_path:
-                      fail(
-                          "An ACTIVE catalog tool has no matching "
-                          f"source file: {item.get('path')} "
-                          f"(ID: {item.get('id')})."
-                      )
-
-                  active_tools.append(
-                      (key, item, source_by_path[key])
-                  )
-
-              active_tools.sort(
-                  key=lambda entry: normalize_path(
-                      entry[1].get("path", "")
-                  ).casefold()
-              )
+                  if str(item.get("status", "")).strip().casefold() == "active":
+                      if key not in source_by_path:
+                          raise RuntimeError(f"Missing active tool file: {item.get('path')}")
+                      active_tools.append((key, item, source_by_path[key]))
 
               if not active_tools:
-                  fail(
-                      "No ACTIVE JavaScript tools were found. "
-                      "The current cache was not replaced."
-                  )
+                  raise RuntimeError("No active JavaScript tools found")
 
               manifest_tools = []
               files_to_copy = []
-
-              for key, catalog_item, source_file in active_tools:
-                  tool_id = str(
-                      catalog_item.get("id", "")
-                  ).strip()
-
-                  catalog_path = normalize_path(
-                      catalog_item.get("path", "")
-                  )
-
-                  source_text = source_file.read_text(
-                      encoding="utf-8",
-                      errors="replace"
-                  )
-
-                  script_name = read_metadata(
-                      source_text,
-                      "name"
-                  )
-
-                  script_description = read_metadata(
-                      source_text,
-                      "description"
-                  )
-
-                  script_author = read_metadata(
-                      source_text,
-                      "author"
-                  )
-
-                  script_version = read_metadata(
-                      source_text,
-                      "version"
-                  )
-
-                  relative_path = source_file.relative_to(
-                      SOURCE_TOOLS
-                  ).as_posix()
-
-                  cached_path = (
-                      Path("TOOLS_CACHE")
-                      / "TOOLS"
-                      / relative_path
-                  ).as_posix()
-
+              for _, item, sf in active_tools:
+                  text = sf.read_text(encoding="utf-8", errors="replace")
+                  rel = sf.relative_to(SOURCE_TOOLS).as_posix()
+                  cached_path = (Path("TOOLS_CACHE") / "TOOLS" / rel).as_posix()
                   manifest_tools.append({
-                      "id": tool_id,
-                      "name": (
-                          str(catalog_item.get("name", "")).strip()
-                          or script_name
-                          or source_file.stem
-                      ),
-                      "description": (
-                          str(
-                              catalog_item.get("description", "")
-                          ).strip()
-                          or script_description
-                      ),
-                      "version": (
-                          str(
-                              catalog_item.get("version", "")
-                          ).strip()
-                          or script_version
-                      ),
-                      "author": script_author,
+                      "id": str(item.get("id", "")).strip(),
+                      "name": str(item.get("name", "")).strip() or read_meta(text, "name") or sf.stem,
+                      "description": str(item.get("description", "")).strip() or read_meta(text, "description"),
+                      "version": str(item.get("version", "")).strip() or read_meta(text, "version"),
+                      "author": read_meta(text, "author"),
                       "path": cached_path,
-                      "file": source_file.name,
-                      "sha256": sha256_file(source_file)
+                      "file": sf.name,
+                      "sha256": sha256_file(sf),
                   })
+                  files_to_copy.append((sf, rel))
 
-                  files_to_copy.append(
-                      (source_file, relative_path)
-                  )
-
-              # Build a complete replacement cache in a temporary
-              # directory so deleted and renamed files disappear.
-              CACHE_ROOT.mkdir(
-                  parents=True,
-                  exist_ok=True
-              )
-
-              temporary_cache = CACHE_ROOT / "TOOLS.tmp"
+              CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+              tmp_cache = CACHE_ROOT / "TOOLS.tmp"
               old_cache = CACHE_ROOT / "TOOLS.old"
+              if tmp_cache.exists():
+                  shutil.rmtree(tmp_cache)
+              tmp_cache.mkdir(parents=True, exist_ok=True)
 
-              if temporary_cache.exists():
-                  shutil.rmtree(temporary_cache)
+              for sf, rel in files_to_copy:
+                  dest = tmp_cache / rel
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(sf, dest)
 
-              temporary_cache.mkdir(
-                  parents=True,
-                  exist_ok=True
-              )
-
-              for source_file, relative_path in files_to_copy:
-                  destination = temporary_cache / relative_path
-
-                  destination.parent.mkdir(
-                      parents=True,
-                      exist_ok=True
-                  )
-
-                  shutil.copy2(
-                      source_file,
-                      destination
-                  )
-
-              # Prepare the manifest before replacing the live cache.
               manifest = {
-                  "repository": (
-                      "m-saleh-yodawy/YODAWY_TOOLS_REPOSITORY"
-                  ),
-                  "branch": "main",
+                  "repository": f"{OWNER}/{TOOLS_REPO}",
+                  "branch": BRANCH,
                   "sourceCatalog": "CONFIG/tools.json",
-                  "tools": manifest_tools
+                  "tools": manifest_tools,
               }
-
-              temporary_manifest = (
-                  CACHE_ROOT / "tools-manifest.json.tmp"
-              )
-
-              temporary_manifest.write_text(
-                  json.dumps(
-                      manifest,
-                      ensure_ascii=False,
-                      indent=2
-                  ) + "\n",
-                  encoding="utf-8"
-              )
+              write_json(MANIFEST_FILE, manifest)
 
               if old_cache.exists():
                   shutil.rmtree(old_cache)
-
               if CACHE_TOOLS.exists():
                   CACHE_TOOLS.rename(old_cache)
-
-              try:
-                  temporary_cache.rename(CACHE_TOOLS)
-              except Exception:
-                  if old_cache.exists() and not CACHE_TOOLS.exists():
-                      old_cache.rename(CACHE_TOOLS)
-                  raise
-
+              tmp_cache.rename(CACHE_TOOLS)
               if old_cache.exists():
                   shutil.rmtree(old_cache)
-
-              temporary_manifest.replace(MANIFEST_FILE)
 
               summary["activeTools"] = len(manifest_tools)
               summary["copiedFiles"] = len(files_to_copy)
-
-              create_receipt(
-                  "COMPLETED",
-                  "Dashboard tools cache and manifest synchronized.",
-                  summary
-              )
-
-              create_response(
-                  "COMPLETED",
-                  "Tools synchronization completed successfully.",
-                  summary
-              )
-
-              print(
-                  "Successfully synchronized "
-                  f"{len(manifest_tools)} active tools."
-              )
-
-              for item in manifest_tools:
-                  print(
-                      f"{item['id']} | "
-                      f"{item['name']} | "
-                      f"{item['path']}"
-                  )
-
-              with open(
-                  os.environ["GITHUB_OUTPUT"],
-                  "a",
-                  encoding="utf-8"
-              ) as output:
-                  output.write("sync_success=true\n")
-
-          except Exception as error:
-              print(f"::error::Tools synchronization failed: {error}")
-
-              try:
-                  create_receipt(
-                      "FAILED",
-                      str(error),
-                      summary
-                  )
-
-                  create_response(
-                      "FAILED",
-                      str(error),
-                      summary
-                  )
-              except Exception as report_error:
-                  print(
-                      "::error::Could not write failure response: "
-                      f"{report_error}"
-                  )
-
-              sys.exit(1)
+              status_val = "COMPLETED"
+              msg = "Tools synchronization completed successfully."
+          except Exception as err:
+              status_val = "FAILED"
+              msg = str(err)
+              raise
+          finally:
+              ts = utc_now()
+              receipt_payload = {
+                  "protocolVersion": 1,
+                  "requestId": REQUEST_ID,
+                  "sequence": SEQ,
+                  "requestType": "TOOLS_DASHBOARD_SYNC",
+                  "status": status_val,
+                  "updatedAt": ts,
+                  "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
+                  "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                  "message": msg,
+                  "summary": summary,
+              }
+              response_payload = {
+                  "protocolVersion": 1,
+                  "requestId": REQUEST_ID,
+                  "sequence": SEQ,
+                  "requestType": "TOOLS_DASHBOARD_SYNC",
+                  "status": status_val,
+                  "completedAt": ts,
+                  "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                  "destination": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
+                  "message": msg,
+                  "summary": summary,
+              }
+              write_json(RECEIPT_FILE, receipt_payload)
+              write_json(LEGACY_RECEIPT_FILE, receipt_payload)
+              write_json(RESP_FILE, response_payload)
+              write_json(LEGACY_RESP_FILE, response_payload)
           PY
 
-      # --------------------------------------------------
-      # 4. Commit the cache, manifest, receipt and response
-      # --------------------------------------------------
       - name: Commit Dashboard Tools Sync Result
         if: always()
-        shell: bash
         working-directory: dashboard
+        shell: bash
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- \
-            TOOLS_CACHE/TOOLS \
-            TOOLS_CACHE/tools-manifest.json \
-            NETWORK/tools-dashboard-request-receiptor.json \
-            NETWORK/tools-dashboard-response.json
-
-          if git diff --cached --quiet; then
-            echo "No Dashboard sync files changed."
-            exit 0
-          fi
-
-          if [[ "${{ steps.sync.outcome }}" == "success" ]]; then
+          git add -A TOOLS_CACHE NETWORK
+          if ! git diff --cached --quiet; then
             git commit -m "Sync Dashboard tools cache and manifest [skip ci]"
-          else
-            git commit -m "Record Dashboard tools sync failure [skip ci]"
+            git push origin HEAD:main
           fi
 
-          git push origin HEAD:main
-
-  # ==================================================
-  # JOB 2: EXISTING USER AND PERMISSIONS INITIALIZATION
-  # ==================================================
-
-  initialize-dashboard:
-    name: Initialize Dashboard User Data
-    if: github.event_name != 'repository_dispatch'
+  process-dashboard-responses:
+    if: github.event_name != 'repository_dispatch' || github.event.action == 'dashboard_response_received'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      OWNER: m-saleh-yodawy
+      DASHBOARD_REPO: YODAWY_DASHBOARD_REPOSITORY
+      USERS_REPO: YODAWY_USERS_REPOSITORY
+      BRANCH: main
+      SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
       - name: Checkout Dashboard Repository
@@ -737,387 +280,222 @@ jobs:
           ref: main
           persist-credentials: true
 
-      - name: Process User Response and Initialize Dashboard Data
-        id: initialize
+      - name: Process Responses and Reconcile Dashboard Configs
         shell: bash
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
           import json
           import re
+          from datetime import datetime, timezone
           from pathlib import Path
 
-          request_path = Path("NETWORK/user-request.json")
-          response_path = Path("NETWORK/user-response.json")
-          users_path = Path("CONFIG/auth-users.json")
-          permissions_path = Path("CONFIG/tools-permissions.json")
-          visibility_path = Path("CONFIG/tools-visibility.json")
-          manifest_path = Path("TOOLS_CACHE/tools-manifest.json")
+          NETWORK = Path("NETWORK")
+          USERS_PATH = Path("CONFIG/auth-users.json")
+          PERMISSIONS_PATH = Path("CONFIG/tools-permissions.json")
+          VISIBILITY_PATH = Path("CONFIG/tools-visibility.json")
+          MANIFEST_PATH = Path("TOOLS_CACHE/tools-manifest.json")
+          PROCESSED_PATH = NETWORK / "processed-transactions.json"
+
+          def utc_now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
           def read_json(path, default):
               if not path.is_file():
                   return default
-
-              content = path.read_text(
-                  encoding="utf-8-sig"
-              ).strip()
-
-              if not content:
-                  return default
-
-              return json.loads(content)
+              raw = path.read_text(encoding="utf-8-sig").strip()
+              return json.loads(raw) if raw else default
 
           def write_json(path, data):
-              path.parent.mkdir(
-                  parents=True,
-                  exist_ok=True
-              )
+              path.parent.mkdir(parents=True, exist_ok=True)
+              out = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+              old = path.read_text(encoding="utf-8-sig") if path.is_file() else ""
+              if old != out:
+                  path.write_text(out, encoding="utf-8")
 
-              output = (
-                  json.dumps(
-                      data,
-                      ensure_ascii=False,
-                      indent=2
-                  ) + "\n"
-              )
+          def norm_id(val):
+              return str(val or "").strip().upper()
 
-              old = (
-                  path.read_text(encoding="utf-8-sig")
-                  if path.is_file()
-                  else ""
-              )
+          def norm_role(val):
+              r = re.sub(r"[\s_-]+", "_", str(val or "USER").strip().upper())
+              if r == "SUPERADMIN":
+                  r = "SUPER_ADMIN"
+              return r if r in {"SUPER_ADMIN", "ADMIN", "USER"} else "USER"
 
-              if old != output:
-                  path.write_text(
-                      output,
-                      encoding="utf-8"
-                  )
-
-          def normalize_id(value):
-              return str(value or "").strip().upper()
-
-          def normalize_role(value):
-              role = re.sub(
-                  r"[\s_-]+",
-                  "_",
-                  str(value or "USER").strip().upper()
-              )
-
-              if role == "SUPERADMIN":
-                  role = "SUPER_ADMIN"
-
-              if role not in (
-                  "SUPER_ADMIN",
-                  "ADMIN",
-                  "USER"
-              ):
-                  return "USER"
-
-              return role
-
-          def merge_users(existing_users, incoming_users):
-              result = list(existing_users)
-              indexes = {}
-
-              for index, user in enumerate(result):
-                  if not isinstance(user, dict):
-                      raise ValueError(
-                          "auth-users.json contains an invalid user record"
-                      )
-
-                  uid = normalize_id(user.get("id"))
-
-                  if uid:
-                      if uid in indexes:
-                          raise ValueError(
-                              "Duplicate user ID in auth-users.json: "
-                              f"{uid}"
-                          )
-
-                      indexes[uid] = index
-
-              for incoming in incoming_users:
-                  if not isinstance(incoming, dict):
-                      raise ValueError(
-                          "The response contains an invalid user record"
-                      )
-
-                  uid = normalize_id(incoming.get("id"))
-
+          def merge_users(existing, incoming):
+              result = list(existing)
+              idx_map = {}
+              for i, u in enumerate(result):
+                  if isinstance(u, dict) and norm_id(u.get("id")):
+                      idx_map[norm_id(u.get("id"))] = i
+              for inc in incoming:
+                  if not isinstance(inc, dict):
+                      continue
+                  uid = norm_id(inc.get("id"))
                   if not uid:
-                      raise ValueError(
-                          "The response contains a user without an ID"
-                      )
-
-                  if uid in indexes:
-                      index = indexes[uid]
-
-                      merged = dict(result[index])
-                      merged.update(incoming)
-                      result[index] = merged
+                      continue
+                  if uid in idx_map:
+                      merged = dict(result[idx_map[uid]])
+                      merged.update(inc)
+                      result[idx_map[uid]] = merged
                   else:
-                      indexes[uid] = len(result)
-                      result.append(dict(incoming))
-
+                      idx_map[uid] = len(result)
+                      result.append(dict(inc))
               return result
 
-          response_data = read_json(response_path, {})
-          users_data = read_json(
-              users_path,
-              {"users": []}
-          )
+          processed = read_json(PROCESSED_PATH, {"completedRequestIds": []})
+          completed_ids = set(processed.get("completedRequestIds", []))
 
-          if not isinstance(users_data, dict):
-              raise ValueError(
-                  "CONFIG/auth-users.json must be an object"
-              )
+          users_data = read_json(USERS_PATH, {"users": []})
+          users = users_data.get("users", []) if isinstance(users_data, dict) else []
+          permissions = read_json(PERMISSIONS_PATH, {})
+          visibility = read_json(VISIBILITY_PATH, {})
 
-          users = users_data.get("users", [])
+          NETWORK.mkdir(parents=True, exist_ok=True)
+          response_files = sorted(NETWORK.glob("dashboard-response*.json"))
+          legacy_resp = NETWORK / "user-response.json"
+          if legacy_resp.is_file():
+              response_files.append(legacy_resp)
 
-          if not isinstance(users, list):
-              raise ValueError(
-                  "The users property must be a list"
-              )
-
-          if (
-              isinstance(response_data, dict)
-              and response_data.get("status") == "SUCCESS"
-          ):
-              incoming_users = response_data.get("users")
-
-              if isinstance(incoming_users, list):
-                  users = merge_users(
-                      users,
-                      incoming_users
-                  )
-
-              elif isinstance(response_data.get("user"), dict):
-                  users = merge_users(
-                      users,
-                      [response_data["user"]]
-                  )
-
-              else:
-                  raise ValueError(
-                      "SUCCESS response contains no valid user data"
-                  )
-
-              users_data["users"] = users
-              write_json(users_path, users_data)
-
-          seen_users = set()
-          active_ids = set()
-
-          for user in users:
-              if not isinstance(user, dict):
-                  raise ValueError(
-                      "auth-users.json contains an invalid user record"
-                  )
-
-              uid = normalize_id(user.get("id"))
-
-              if not uid:
-                  if not str(user.get("name") or "").strip():
-                      raise ValueError(
-                          "A user record has neither an ID nor a name"
-                      )
+          for resp_file in response_files:
+              resp = read_json(resp_file, {})
+              if not isinstance(resp, dict) or not resp:
                   continue
 
-              if uid in seen_users:
-                  raise ValueError(
-                      f"Duplicate user ID: {uid}"
-                  )
+              req_id = str(resp.get("requestId") or resp.get("request_id") or "").strip()
+              status = str(resp.get("status") or "").strip().upper()
+              if not req_id or req_id in completed_ids:
+                  if req_id in completed_ids:
+                      resp_file.unlink(missing_ok=True)
+                  continue
 
-              seen_users.add(uid)
+              seq_match = re.search(r"-(\d{3,})\.json$", resp_file.name)
+              seq = str(resp.get("sequence") or (seq_match.group(1) if seq_match else "001")).strip()
 
-              status = str(
-                  user.get("status", "Active")
-              ).strip().lower()
+              source_info = resp.get("sourceInfo") or resp.get("source") or {}
+              source_repo = source_info.get("repository", "") if isinstance(source_info, dict) else str(source_info)
+              req_type = str(resp.get("requestType") or "").strip().upper()
 
-              if status == "active":
-                  active_ids.add(uid)
+              if "USERS" in source_repo.upper() or req_type in {"DASHBOARD_USERS_SYNC", "USERS_DASHBOARD_SYNC", "SYNC_USERS"}:
+                  receipt_file = NETWORK / f"users-response-receiptor-{seq}.json"
+                  req_file = NETWORK / f"users-request-{seq}.json"
+                  if receipt_file.is_file():
+                      rec = read_json(receipt_file, {})
+                      rec_id = str(rec.get("requestId") or rec.get("request_id") or "").strip()
+                      if rec_id and rec_id != req_id:
+                          raise RuntimeError(f"Receipt requestId mismatch for {req_id}")
+                  if req_file.is_file():
+                      orig_req = read_json(req_file, {})
+                      orig_id = str(orig_req.get("requestId") or orig_req.get("request_id") or "").strip()
+                      if orig_id and orig_id != req_id:
+                          raise RuntimeError(f"Original requestId mismatch for {req_id}")
 
-          permissions = read_json(
-              permissions_path,
-              {}
-          )
+                  if status in {"SUCCESS", "COMPLETED"}:
+                      inc_users = resp.get("users")
+                      if isinstance(inc_users, list):
+                          users = merge_users(users, inc_users)
+                      elif isinstance(resp.get("user"), dict):
+                          users = merge_users(users, [resp["user"]])
+                      if isinstance(resp.get("permissions"), dict):
+                          permissions.update(resp["permissions"])
+                      if isinstance(resp.get("visibility"), dict):
+                          visibility.update(resp["visibility"])
 
-          visibility = read_json(
-              visibility_path,
-              {}
-          )
+                  completed_ids.add(req_id)
+                  resp_file.unlink(missing_ok=True)
+                  if receipt_file.is_file():
+                      receipt_file.unlink(missing_ok=True)
+                  if req_file.is_file():
+                      req_file.unlink(missing_ok=True)
 
-          if not isinstance(permissions, dict):
-              raise ValueError(
-                  "CONFIG/tools-permissions.json must be an object"
-              )
+              elif req_type == "DASHBOARD_PERSONAL_SYNC":
+                  receipt_file = NETWORK / f"personal-response-receiptor-{seq}.json"
+                  req_file = NETWORK / f"personal-request-{seq}.json"
+                  if req_file.is_file():
+                      orig_req = read_json(req_file, {})
+                      if str(orig_req.get("requestId", "")).strip() != req_id:
+                          raise RuntimeError(f"Personal response requestId mismatch for {req_id}")
+                  if receipt_file.is_file():
+                      rec = read_json(receipt_file, {})
+                      if str(rec.get("requestId", "")).strip() != req_id:
+                          raise RuntimeError(f"Personal receipt requestId mismatch for {req_id}")
 
-          if not isinstance(visibility, dict):
-              raise ValueError(
-                  "CONFIG/tools-visibility.json must be an object"
-              )
+                  completed_ids.add(req_id)
+                  resp_file.unlink(missing_ok=True)
+                  if receipt_file.is_file():
+                      receipt_file.unlink(missing_ok=True)
+                  if req_file.is_file():
+                      req_file.unlink(missing_ok=True)
 
+          users_data["users"] = users
+          write_json(USERS_PATH, users_data)
+
+          active_ids = {
+              norm_id(u.get("id"))
+              for u in users
+              if isinstance(u, dict) and norm_id(u.get("id")) and str(u.get("status", "Active")).strip().casefold() == "active"
+          }
+
+          manifest = read_json(MANIFEST_PATH, {})
+          tools_list = manifest.get("tools", []) if isinstance(manifest, dict) else (manifest if isinstance(manifest, list) else [])
           tool_ids = []
-          manifest = read_json(manifest_path, [])
-
-          if isinstance(manifest, list):
-              tools = manifest
-          elif isinstance(manifest, dict):
-              tools = manifest.get("tools", [])
-          else:
-              tools = []
-
-          if not isinstance(tools, list):
-              raise ValueError(
-                  "The tools manifest must contain a list"
-              )
-
-          for tool in tools:
-              if not isinstance(tool, dict):
-                  continue
-
-              tid = str(
-                  tool.get("id")
-                  or tool.get("toolId")
-                  or tool.get("tool_id")
-                  or ""
-              ).strip()
-
-              if tid and tid not in tool_ids:
-                  tool_ids.append(tid)
-
-          for tid in visibility:
+          for t in tools_list:
+              if isinstance(t, dict):
+                  tid = str(t.get("id") or t.get("toolId") or "").strip()
+                  if tid and tid not in tool_ids:
+                      tool_ids.append(tid)
+          for tid in list(visibility.keys()):
               if tid not in tool_ids:
                   tool_ids.append(tid)
 
-          for user_permissions in permissions.values():
-              if not isinstance(user_permissions, dict):
+          for u in users:
+              if not isinstance(u, dict):
                   continue
-
-              for tid in user_permissions:
-                  if tid not in tool_ids:
-                      tool_ids.append(tid)
-
-          for user in users:
-              uid = normalize_id(user.get("id"))
-
+              uid = norm_id(u.get("id"))
               if not uid or uid not in active_ids:
                   continue
-
-              role = normalize_role(
-                  user.get("role")
-                  or user.get("ROLE")
-                  or "USER"
-              )
-
-              user_permissions = permissions.get(uid)
-
-              if not isinstance(user_permissions, dict):
-                  user_permissions = {}
-                  permissions[uid] = user_permissions
-
+              role = norm_role(u.get("role") or u.get("ROLE"))
+              u_perms = permissions.setdefault(uid, {})
               for tid in tool_ids:
-                  current = user_permissions.get(tid)
-
-                  if not isinstance(current, dict):
-                      user_permissions[tid] = {
-                          "granted": role == "SUPER_ADMIN",
-                          "type": role
-                      }
+                  cur = u_perms.get(tid)
+                  if not isinstance(cur, dict):
+                      u_perms[tid] = {"granted": role == "SUPER_ADMIN", "type": role}
                   else:
-                      current["granted"] = bool(
-                          current.get(
-                              "granted",
-                              role == "SUPER_ADMIN"
-                          )
-                      )
-                      current["type"] = role
+                      cur["granted"] = bool(cur.get("granted", role == "SUPER_ADMIN"))
+                      cur["type"] = role
 
           for tid in tool_ids:
-              existing = visibility.get(tid)
-
-              if not isinstance(existing, dict):
+              ex = visibility.get(tid)
+              if not isinstance(ex, dict):
                   visibility[tid] = {
                       "visibility": "SUPER_ADMIN",
                       "allowedUsers": [],
                       "developmentStatus": "UNDER DEVELOPMENT",
                       "publicationStatus": "NOT PUBLISHED",
-                      "enabled": False
+                      "enabled": False,
                   }
-                  continue
+              else:
+                  ex.setdefault("visibility", "SUPER_ADMIN")
+                  allowed = ex.get("allowedUsers", [])
+                  ex["allowedUsers"] = list(dict.fromkeys(norm_id(uid) for uid in (allowed if isinstance(allowed, list) else []) if norm_id(uid) in active_ids))
+                  ex.setdefault("developmentStatus", "UNDER DEVELOPMENT")
+                  ex.setdefault("publicationStatus", "NOT PUBLISHED")
+                  ex.setdefault("enabled", False)
 
-              existing.setdefault(
-                  "visibility",
-                  "SUPER_ADMIN"
-              )
-
-              allowed_users = existing.get(
-                  "allowedUsers",
-                  []
-              )
-
-              if not isinstance(allowed_users, list):
-                  allowed_users = []
-
-              existing["allowedUsers"] = list(
-                  dict.fromkeys(
-                      normalize_id(uid)
-                      for uid in allowed_users
-                      if normalize_id(uid) in active_ids
-                  )
-              )
-
-              existing.setdefault(
-                  "developmentStatus",
-                  "UNDER DEVELOPMENT"
-              )
-
-              existing.setdefault(
-                  "publicationStatus",
-                  "NOT PUBLISHED"
-              )
-
-              existing.setdefault("enabled", False)
-
-          write_json(
-              permissions_path,
-              permissions
-          )
-
-          write_json(
-              visibility_path,
-              visibility
-          )
-
-          if (
-              isinstance(response_data, dict)
-              and response_data.get("status") == "SUCCESS"
-          ):
-              write_json(response_path, {})
-              write_json(request_path, {})
-
-          print(
-              "Dashboard user initialization completed successfully."
-          )
+          write_json(PERMISSIONS_PATH, permissions)
+          write_json(VISIBILITY_PATH, visibility)
+          processed["completedRequestIds"] = sorted(completed_ids)[-500:]
+          processed["updatedAt"] = utc_now()
+          write_json(PROCESSED_PATH, processed)
           PY
 
       - name: Commit Synchronized Dashboard Data
-        if: steps.initialize.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add -- \
-            CONFIG/auth-users.json \
-            CONFIG/tools-permissions.json \
-            CONFIG/tools-visibility.json \
-            NETWORK/user-request.json \
-            NETWORK/user-response.json
-
+          git add -A CONFIG NETWORK
           if ! git diff --cached --quiet; then
             git commit -m "Synchronize dashboard data [skip ci]"
             git push origin HEAD:main
