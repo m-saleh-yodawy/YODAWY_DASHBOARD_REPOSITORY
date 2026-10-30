@@ -5,9 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "NETWORK/user-response.json"
-      - "NETWORK/dashboard-response*.json"
-      - "NETWORK/*-response-receiptor*.json"
+      - "NETWORK/*response*.json"
       - "CONFIG/auth-users.json"
       - "CONFIG/tools-permissions.json"
       - "CONFIG/tools-visibility.json"
@@ -63,16 +61,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import base64
           import hashlib
           import json
           import os
           import re
           import shutil
-          import time
-          import urllib.error
-          import urllib.parse
-          import urllib.request
           from datetime import datetime, timezone
           from pathlib import Path
 
@@ -84,6 +77,7 @@ jobs:
           CACHE_ROOT = DASHBOARD / "TOOLS_CACHE"
           CACHE_TOOLS = CACHE_ROOT / "TOOLS"
           MANIFEST_FILE = CACHE_ROOT / "tools-manifest.json"
+          PROCESSED_FILE = DASHBOARD / "NETWORK" / "processed-transactions.json"
 
           OWNER = os.environ["OWNER"]
           TOOLS_REPO = os.environ["TOOLS_REPO"]
@@ -91,14 +85,11 @@ jobs:
           BRANCH = os.environ["BRANCH"]
           SEQ = os.environ.get("SEQUENCE", "001").strip() or "001"
           REQUEST_ID = os.environ.get("REQUEST_ID", "").strip()
-          TOKEN = os.environ["SYNC_TOKEN"].strip()
 
-          REQ_FILE = DASHBOARD / "NETWORK" / f"dashboard-request-{SEQ}.json"
-          LEGACY_REQ_FILE = SOURCE / "NETWORK" / "tools-dashboard-request.json"
+          CHANNEL_REQ_FILE = DASHBOARD / "NETWORK" / f"tools-dashboard-request-{SEQ}.json"
+          COMPAT_REQ_FILE = DASHBOARD / "NETWORK" / f"dashboard-request-{SEQ}.json"
           RECEIPT_FILE = DASHBOARD / "NETWORK" / f"tools-request-receiptor-{SEQ}.json"
-          LEGACY_RECEIPT_FILE = DASHBOARD / "NETWORK" / "tools-dashboard-request-receiptor.json"
           RESP_FILE = DASHBOARD / "NETWORK" / f"tools-response-{SEQ}.json"
-          LEGACY_RESP_FILE = DASHBOARD / "NETWORK" / "tools-dashboard-response.json"
 
           def utc_now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -109,8 +100,11 @@ jobs:
               tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
               tmp.replace(path)
 
-          def read_json(path):
-              return json.loads(path.read_text(encoding="utf-8-sig"))
+          def read_json(path, default=None):
+              if not path.is_file():
+                  return default
+              raw = path.read_text(encoding="utf-8-sig").strip()
+              return json.loads(raw) if raw else default
 
           def sha256_file(path):
               digest = hashlib.sha256()
@@ -123,16 +117,32 @@ jobs:
               m = re.search(r"(?im)^\s*//\s*@" + re.escape(field) + r"\s+(.+?)\s*$", text)
               return m.group(1).strip() if m else ""
 
-          req_data = read_json(REQ_FILE) if REQ_FILE.is_file() else read_json(LEGACY_REQ_FILE)
+          req_data = read_json(CHANNEL_REQ_FILE) or read_json(COMPAT_REQ_FILE)
+          if not isinstance(req_data, dict) or not req_data:
+              raise RuntimeError(f"Missing tools sync request for sequence {SEQ}")
           if not REQUEST_ID:
               REQUEST_ID = str(req_data.get("requestId", "")).strip()
           if not REQUEST_ID or req_data.get("requestId") != REQUEST_ID:
               raise RuntimeError("Invalid or mismatched requestId for tools cache sync")
 
+          received_ts = utc_now()
+          write_json(RECEIPT_FILE, {
+              "protocolVersion": 1,
+              "requestId": REQUEST_ID,
+              "sequence": SEQ,
+              "requestType": "TOOLS_DASHBOARD_SYNC",
+              "status": "RECEIVED",
+              "receivedAt": received_ts,
+              "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
+              "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+          })
+
           summary = {"activeTools": 0, "copiedFiles": 0, "manifestPath": "TOOLS_CACHE/tools-manifest.json"}
+          status_val = "FAILED"
+          msg = ""
 
           try:
-              catalog = read_json(CATALOG_FILE)
+              catalog = read_json(CATALOG_FILE, {})
               catalog_tools = catalog.get("tools", [])
               catalog_by_path = {}
               for item in catalog_tools:
@@ -215,6 +225,13 @@ jobs:
           except Exception as err:
               status_val = "FAILED"
               msg = str(err)
+              write_json(DASHBOARD / "NETWORK" / "FAILED" / f"{REQUEST_ID}.json", {
+                  "requestId": REQUEST_ID,
+                  "sequence": SEQ,
+                  "request": req_data,
+                  "error": msg,
+                  "failedAt": utc_now(),
+              })
               raise
           finally:
               ts = utc_now()
@@ -223,7 +240,9 @@ jobs:
                   "requestId": REQUEST_ID,
                   "sequence": SEQ,
                   "requestType": "TOOLS_DASHBOARD_SYNC",
-                  "status": status_val,
+                  "status": "PROCESSED" if status_val == "COMPLETED" else "FAILED",
+                  "receivedAt": received_ts,
+                  "processedAt": ts,
                   "updatedAt": ts,
                   "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
                   "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
@@ -243,9 +262,26 @@ jobs:
                   "summary": summary,
               }
               write_json(RECEIPT_FILE, receipt_payload)
-              write_json(LEGACY_RECEIPT_FILE, receipt_payload)
               write_json(RESP_FILE, response_payload)
-              write_json(LEGACY_RESP_FILE, response_payload)
+              proc = read_json(PROCESSED_FILE, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []})
+              proc.setdefault("transactions", {})[REQUEST_ID] = {
+                  "requestId": REQUEST_ID,
+                  "sequence": SEQ,
+                  "requestType": "TOOLS_DASHBOARD_SYNC",
+                  "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
+                  "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                  "status": status_val,
+                  "receivedAt": received_ts,
+                  "processedAt": ts,
+                  "responseSentAt": ts,
+                  "resultSummary": summary,
+                  "lastError": None if status_val == "COMPLETED" else msg,
+              }
+              if status_val == "COMPLETED":
+                  if REQUEST_ID not in proc.setdefault("processedRequestIds", []):
+                      proc["processedRequestIds"].append(REQUEST_ID)
+              proc["updatedAt"] = ts
+              write_json(PROCESSED_FILE, proc)
           PY
 
       - name: Commit Dashboard Tools Sync Result
@@ -257,10 +293,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A TOOLS_CACHE NETWORK
-          if ! git diff --cached --quiet; then
-            git commit -m "Sync Dashboard tools cache and manifest [skip ci]"
-            git push origin HEAD:main
+          if git diff --cached --quiet; then
+            exit 0
           fi
+          git commit -m "Sync Dashboard tools cache and manifest [skip ci]"
+          for attempt in 1 2 3 4; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort || true; exit 1; }
+          done
+          exit 1
 
   process-dashboard-responses:
     if: github.event_name != 'repository_dispatch' || github.event.action == 'dashboard_response_received'
@@ -270,48 +314,154 @@ jobs:
       OWNER: m-saleh-yodawy
       DASHBOARD_REPO: YODAWY_DASHBOARD_REPOSITORY
       USERS_REPO: YODAWY_USERS_REPOSITORY
+      TOOLS_REPO: YODAWY_TOOLS_REPOSITORY
       BRANCH: main
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
-      - name: Checkout Dashboard Repository
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: true
-
-      - name: Process Responses and Reconcile Dashboard Configs
+      - name: Process Responses and Reconcile Dashboard Configs Atomically
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import base64
+          import copy
           import json
+          import os
+          import random
           import re
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
           from datetime import datetime, timezone
-          from pathlib import Path
 
-          NETWORK = Path("NETWORK")
-          USERS_PATH = Path("CONFIG/auth-users.json")
-          PERMISSIONS_PATH = Path("CONFIG/tools-permissions.json")
-          VISIBILITY_PATH = Path("CONFIG/tools-visibility.json")
-          MANIFEST_PATH = Path("TOOLS_CACHE/tools-manifest.json")
-          PROCESSED_PATH = NETWORK / "processed-transactions.json"
+          OWNER = os.environ["OWNER"]
+          DASHBOARD_REPO = os.environ["DASHBOARD_REPO"]
+          USERS_REPO = os.environ["USERS_REPO"]
+          TOOLS_REPO = os.environ["TOOLS_REPO"]
+          BRANCH = os.environ["BRANCH"]
+          TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
+          API = "https://api.github.com"
+
+          USERS_PATH = "CONFIG/auth-users.json"
+          PERMISSIONS_PATH = "CONFIG/tools-permissions.json"
+          VISIBILITY_PATH = "CONFIG/tools-visibility.json"
+          MANIFEST_PATH = "TOOLS_CACHE/tools-manifest.json"
+          PROCESSED_PATH = "NETWORK/processed-transactions.json"
+          LEGACY_USER_RESP_PATH = "NETWORK/user-response.json"
+
+          if not TOKEN:
+              raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
+
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "Content-Type": "application/json",
+              "User-Agent": "Yodawy-Dashboard-Central-Processor",
+          }
 
           def utc_now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-          def read_json(path, default):
-              if not path.is_file():
-                  return default
-              raw = path.read_text(encoding="utf-8-sig").strip()
-              return json.loads(raw) if raw else default
+          def api_req(method, endpoint, body=None, allow_404=False):
+              data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+              for attempt in range(1, 6):
+                  req = urllib.request.Request(API + endpoint, data=data, headers=HEADERS, method=method)
+                  try:
+                      with urllib.request.urlopen(req, timeout=45) as resp:
+                          raw = resp.read().decode("utf-8")
+                          return json.loads(raw) if raw else {}
+                  except urllib.error.HTTPError as err:
+                      if allow_404 and err.code == 404:
+                          return None
+                      detail = err.read().decode("utf-8", errors="replace")
+                      if err.code in {429, 500, 502, 503, 504} and attempt < 5:
+                          retry_after = int(err.headers.get("Retry-After", "0") or 0)
+                          time.sleep(max(retry_after, attempt * 2 + random.uniform(0.1, 1.0)))
+                          continue
+                      raise RuntimeError(f"HTTP {err.code} on {method} {endpoint}: {detail}") from err
+                  except urllib.error.URLError as err:
+                      if attempt < 5:
+                          time.sleep(attempt * 2)
+                          continue
+                      raise RuntimeError(f"Network error on {endpoint}: {err}") from err
 
-          def write_json(path, data):
-              path.parent.mkdir(parents=True, exist_ok=True)
-              out = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-              old = path.read_text(encoding="utf-8-sig") if path.is_file() else ""
-              if old != out:
-                  path.write_text(out, encoding="utf-8")
+          def read_json(repo, path, default=None):
+              url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}?ref={BRANCH}"
+              res = api_req("GET", url, allow_404=True)
+              if not res or not isinstance(res.get("content"), str):
+                  return copy.deepcopy(default), None
+              raw = base64.b64decode(res["content"]).decode("utf-8-sig").strip()
+              return (json.loads(raw) if raw else copy.deepcopy(default)), res.get("sha")
+
+          def write_json(repo, path, data, msg):
+              content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+              encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
+              url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 7):
+                  cur, sha = read_json(repo, path)
+                  if cur == data and sha is not None:
+                      return
+                  payload = {"message": f"{msg} [skip ci]", "content": encoded, "branch": BRANCH}
+                  if sha:
+                      payload["sha"] = sha
+                  try:
+                      api_req("PUT", url, payload)
+                      return
+                  except RuntimeError as err:
+                      if ("HTTP 409" in str(err) or "HTTP 422" in str(err)) and attempt < 6:
+                          time.sleep(attempt * 1.5 + random.uniform(0.1, 0.5))
+                          continue
+                      raise
+
+          def delete_file(repo, path, msg):
+              url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 5):
+                  _, sha = read_json(repo, path)
+                  if not sha:
+                      return
+                  try:
+                      api_req("DELETE", url, {"message": f"{msg} [skip ci]", "sha": sha, "branch": BRANCH})
+                      return
+                  except RuntimeError as err:
+                      if ("HTTP 409" in str(err) or "HTTP 422" in str(err)) and attempt < 4:
+                          time.sleep(attempt * 1.5)
+                          continue
+                      if "HTTP 404" in str(err):
+                          return
+                      raise
+
+          def mutate_json(repo, path, default, mutator, msg):
+              url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 7):
+                  cur, sha = read_json(repo, path, default)
+                  updated = mutator(copy.deepcopy(cur))
+                  if updated == cur and sha is not None:
+                      return updated
+                  content = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
+                  payload = {
+                      "message": f"{msg} [skip ci]",
+                      "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+                      "branch": BRANCH,
+                  }
+                  if sha:
+                      payload["sha"] = sha
+                  try:
+                      api_req("PUT", url, payload)
+                      return updated
+                  except RuntimeError as err:
+                      if ("HTTP 409" in str(err) or "HTTP 422" in str(err)) and attempt < 6:
+                          time.sleep(attempt * 1.5 + random.uniform(0.1, 0.5))
+                          continue
+                      raise
+
+          def list_network_files():
+              res = api_req("GET", f"/repos/{OWNER}/{DASHBOARD_REPO}/contents/NETWORK?ref={BRANCH}", allow_404=True)
+              if not isinstance(res, list):
+                  return []
+              return sorted(str(i.get("name", "")) for i in res if isinstance(i, dict))
 
           def norm_id(val):
               return str(val or "").strip().upper()
@@ -343,100 +493,221 @@ jobs:
                       result.append(dict(inc))
               return result
 
-          processed = read_json(PROCESSED_PATH, {"completedRequestIds": []})
-          completed_ids = set(processed.get("completedRequestIds", []))
+          processed_reg, _ = read_json(DASHBOARD_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []})
+          completed_ids = set(processed_reg.get("completedRequestIds", []))
 
-          users_data = read_json(USERS_PATH, {"users": []})
-          users = users_data.get("users", []) if isinstance(users_data, dict) else []
-          permissions = read_json(PERMISSIONS_PATH, {})
-          visibility = read_json(VISIBILITY_PATH, {})
+          net_names = list_network_files()
+          resp_candidates = [
+              f"NETWORK/{n}" for n in net_names
+              if re.fullmatch(r"(?:users-dashboard|personal-dashboard|dashboard)-response-\d{3,}\.json", n)
+          ]
 
-          NETWORK.mkdir(parents=True, exist_ok=True)
-          response_files = sorted(NETWORK.glob("dashboard-response*.json"))
-          legacy_resp = NETWORK / "user-response.json"
-          if legacy_resp.is_file():
-              response_files.append(legacy_resp)
-
-          for resp_file in response_files:
-              resp = read_json(resp_file, {})
+          for resp_path in resp_candidates:
+              resp, _ = read_json(DASHBOARD_REPO, resp_path, {})
               if not isinstance(resp, dict) or not resp:
                   continue
 
               req_id = str(resp.get("requestId") or resp.get("request_id") or "").strip()
               status = str(resp.get("status") or "").strip().upper()
-              if not req_id or req_id in completed_ids:
-                  if req_id in completed_ids:
-                      resp_file.unlink(missing_ok=True)
+              seq_m = re.search(r"-(\d{3,})\.json$", resp_path)
+              seq = str(resp.get("sequence") or (seq_m.group(1) if seq_m else "001")).strip()
+
+              if not req_id:
+                  continue
+              if req_id in completed_ids:
+                  delete_file(DASHBOARD_REPO, resp_path, f"Remove already completed response {req_id}")
                   continue
 
-              seq_match = re.search(r"-(\d{3,})\.json$", resp_file.name)
-              seq = str(resp.get("sequence") or (seq_match.group(1) if seq_match else "001")).strip()
+              if int(resp.get("protocolVersion", 1)) != 1:
+                  write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {"response": resp, "error": "Unsupported protocolVersion", "failedAt": utc_now()}, f"Reject unsupported protocol {req_id}")
+                  continue
 
               source_info = resp.get("sourceInfo") or resp.get("source") or {}
               source_repo = source_info.get("repository", "") if isinstance(source_info, dict) else str(source_info)
               req_type = str(resp.get("requestType") or "").strip().upper()
 
               if "USERS" in source_repo.upper() or req_type in {"DASHBOARD_USERS_SYNC", "USERS_DASHBOARD_SYNC", "SYNC_USERS"}:
-                  receipt_file = NETWORK / f"users-response-receiptor-{seq}.json"
-                  req_file = NETWORK / f"users-request-{seq}.json"
-                  if receipt_file.is_file():
-                      rec = read_json(receipt_file, {})
-                      rec_id = str(rec.get("requestId") or rec.get("request_id") or "").strip()
-                      if rec_id and rec_id != req_id:
-                          raise RuntimeError(f"Receipt requestId mismatch for {req_id}")
-                  if req_file.is_file():
-                      orig_req = read_json(req_file, {})
+                  ch_req_path = f"NETWORK/dashboard-users-request-{seq}.json"
+                  compat_req_path = f"NETWORK/users-request-{seq}.json"
+                  orig_req, _ = read_json(DASHBOARD_REPO, ch_req_path)
+                  if not orig_req:
+                      orig_req, _ = read_json(DASHBOARD_REPO, compat_req_path)
+
+                  if req_type != "USERS_DASHBOARD_SYNC":
+                      if not isinstance(orig_req, dict) or not orig_req:
+                          write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {"response": resp, "error": "Missing original request for response", "failedAt": utc_now()}, f"Preserve orphan response {req_id}")
+                          continue
                       orig_id = str(orig_req.get("requestId") or orig_req.get("request_id") or "").strip()
-                      if orig_id and orig_id != req_id:
-                          raise RuntimeError(f"Original requestId mismatch for {req_id}")
+                      if orig_id != req_id:
+                          write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {"request": orig_req, "response": resp, "error": "RequestId mismatch", "failedAt": utc_now()}, f"Preserve mismatched response {req_id}")
+                          continue
+
+                  ts_recv = utc_now()
+                  receipt_path = f"NETWORK/users-dashboard-response-receiptor-{seq}.json"
+                  compat_receipt_path = f"NETWORK/users-response-receiptor-{seq}.json"
+                  receipt_obj = {
+                      "protocolVersion": 1,
+                      "requestId": req_id,
+                      "request_id": req_id,
+                      "sequence": seq,
+                      "requestType": req_type or "DASHBOARD_USERS_SYNC",
+                      "status": "RECEIVED",
+                      "receivedAt": ts_recv,
+                      "source": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
+                      "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                      "responsePath": resp_path,
+                  }
+                  write_json(DASHBOARD_REPO, receipt_path, receipt_obj, f"Create response receipt {req_id}")
+                  write_json(DASHBOARD_REPO, compat_receipt_path, receipt_obj, f"Create compat response receipt {req_id}")
+
+                  if status in {"FAILED", "REJECTED", "ERROR"}:
+                      def _mark_fail(reg):
+                          tx = reg.setdefault("transactions", {}).setdefault(req_id, {"requestId": req_id, "sequence": seq})
+                          tx["status"] = "FAILED"
+                          tx["failedAt"] = utc_now()
+                          tx["lastError"] = resp.get("error") or resp.get("message") or "Users operation failed"
+                          return reg
+                      mutate_json(DASHBOARD_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _mark_fail, f"Record failed response {req_id}")
+                      write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {"request": orig_req, "response": resp, "failedAt": utc_now()}, f"Preserve failed transaction {req_id}")
+                      continue
 
                   if status in {"SUCCESS", "COMPLETED"}:
                       inc_users = resp.get("users")
-                      if isinstance(inc_users, list):
-                          users = merge_users(users, inc_users)
-                      elif isinstance(resp.get("user"), dict):
-                          users = merge_users(users, [resp["user"]])
+                      inc_user = resp.get("user")
+                      def _mut_u(u_doc):
+                          cur_list = u_doc.get("users", []) if isinstance(u_doc, dict) else []
+                          if isinstance(inc_users, list):
+                              cur_list = merge_users(cur_list, inc_users)
+                          elif isinstance(inc_user, dict):
+                              cur_list = merge_users(cur_list, [inc_user])
+                          return {"users": cur_list}
+                      mutate_json(DASHBOARD_REPO, USERS_PATH, {"users": []}, _mut_u, f"Update auth-users from {req_id}")
+
                       if isinstance(resp.get("permissions"), dict):
-                          permissions.update(resp["permissions"])
+                          mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, lambda p: {**(p or {}), **resp["permissions"]}, f"Update permissions from {req_id}")
                       if isinstance(resp.get("visibility"), dict):
-                          visibility.update(resp["visibility"])
+                          mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, lambda v: {**(v or {}), **resp["visibility"]}, f"Update visibility from {req_id}")
 
+                      ts_done = utc_now()
+                      resp_copy = dict(resp)
+                      resp_copy["status"] = "COMPLETED"
+                      resp_copy["completedAt"] = ts_done
+                      write_json(DASHBOARD_REPO, LEGACY_USER_RESP_PATH, resp_copy, f"Update persistent last user response {req_id}")
+
+                      def _mark_done(reg):
+                          reg.setdefault("protocolVersion", 1)
+                          c_list = reg.setdefault("completedRequestIds", [])
+                          p_list = reg.setdefault("processedRequestIds", [])
+                          if req_id not in c_list:
+                              c_list.append(req_id)
+                          if req_id not in p_list:
+                              p_list.append(req_id)
+                          reg["completedRequestIds"] = c_list[-500:]
+                          reg["processedRequestIds"] = p_list[-500:]
+                          tx = reg.setdefault("transactions", {}).setdefault(req_id, {"requestId": req_id, "sequence": seq})
+                          tx.update({
+                              "requestId": req_id,
+                              "sequence": seq,
+                              "requestType": req_type or "DASHBOARD_USERS_SYNC",
+                              "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                              "destination": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
+                              "status": "COMPLETED",
+                              "responseReceivedAt": ts_recv,
+                              "completedAt": ts_done,
+                              "result": {"action": resp.get("action"), "user": resp.get("user")},
+                          })
+                          reg["updatedAt"] = ts_done
+                          return reg
+                      mutate_json(DASHBOARD_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _mark_done, f"Complete transaction {req_id}")
+                      completed_ids.add(req_id)
+
+                      delete_file(DASHBOARD_REPO, resp_path, f"Cleanup response {req_id}")
+                      delete_file(DASHBOARD_REPO, f"NETWORK/dashboard-response-{seq}.json", f"Cleanup compat response {req_id}")
+                      delete_file(DASHBOARD_REPO, receipt_path, f"Cleanup receipt {req_id}")
+                      delete_file(DASHBOARD_REPO, compat_receipt_path, f"Cleanup compat receipt {req_id}")
+                      delete_file(DASHBOARD_REPO, ch_req_path, f"Cleanup request {req_id}")
+                      delete_file(DASHBOARD_REPO, compat_req_path, f"Cleanup compat request {req_id}")
+                      delete_file(USERS_REPO, f"NETWORK/dashboard-users-request-{seq}.json", f"Cleanup target request {req_id}")
+                      delete_file(USERS_REPO, f"NETWORK/users-request-{seq}.json", f"Cleanup target compat request {req_id}")
+                      delete_file(USERS_REPO, f"NETWORK/dashboard-users-request-receiptor-{seq}.json", f"Cleanup target receipt {req_id}")
+                      delete_file(USERS_REPO, f"NETWORK/dashboard-request-receiptor-{seq}.json", f"Cleanup target compat receipt {req_id}")
+                      delete_file(USERS_REPO, f"NETWORK/users-dashboard-response-{seq}.json", f"Cleanup target response {req_id}")
+
+              elif req_type in {"DASHBOARD_PERSONAL_SYNC", "UPDATE_DASHBOARD_SETTINGS", "UPDATE_SETTINGS", "TOGGLE_PERSONAL_TOOL"}:
+                  ch_req_path = f"NETWORK/dashboard-personal-request-{seq}.json"
+                  compat_req_path = f"NETWORK/personal-request-{seq}.json"
+                  orig_req, _ = read_json(DASHBOARD_REPO, ch_req_path)
+                  if not orig_req:
+                      orig_req, _ = read_json(DASHBOARD_REPO, compat_req_path)
+
+                  if not isinstance(orig_req, dict) or str(orig_req.get("requestId") or orig_req.get("request_id") or "").strip() != req_id:
+                      write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {"request": orig_req, "response": resp, "error": "Personal response missing or mismatched original request", "failedAt": utc_now()}, f"Preserve invalid personal response {req_id}")
+                      continue
+
+                  ts_recv = utc_now()
+                  rec_path = f"NETWORK/personal-response-receiptor-{seq}.json"
+                  rec_obj = {
+                      "protocolVersion": 1,
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "requestType": "DASHBOARD_PERSONAL_SYNC",
+                      "status": "RECEIVED",
+                      "receivedAt": ts_recv,
+                      "source": source_info,
+                      "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                      "responsePath": resp_path,
+                  }
+                  write_json(DASHBOARD_REPO, rec_path, rec_obj, f"Create personal response receipt {req_id}")
+
+                  if status in {"REJECTED", "FAILED", "ERROR"}:
+                      def _mark_p_fail(reg):
+                          tx = reg.setdefault("transactions", {}).setdefault(req_id, {"requestId": req_id, "sequence": seq})
+                          tx["status"] = "FAILED"
+                          tx["failedAt"] = utc_now()
+                          tx["lastError"] = resp.get("details") or "Personal operation rejected"
+                          return reg
+                      mutate_json(DASHBOARD_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _mark_p_fail, f"Record failed personal transaction {req_id}")
+                      write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {"request": orig_req, "response": resp, "failedAt": utc_now()}, f"Preserve failed personal tx {req_id}")
+                      continue
+
+                  ts_done = utc_now()
+                  def _mark_p_done(reg):
+                      c_list = reg.setdefault("completedRequestIds", [])
+                      p_list = reg.setdefault("processedRequestIds", [])
+                      if req_id not in c_list:
+                          c_list.append(req_id)
+                      if req_id not in p_list:
+                          p_list.append(req_id)
+                      tx = reg.setdefault("transactions", {}).setdefault(req_id, {"requestId": req_id, "sequence": seq})
+                      tx.update({
+                          "requestId": req_id,
+                          "sequence": seq,
+                          "requestType": "DASHBOARD_PERSONAL_SYNC",
+                          "status": "COMPLETED",
+                          "responseReceivedAt": ts_recv,
+                          "completedAt": ts_done,
+                          "result": resp.get("result", {}),
+                      })
+                      reg["updatedAt"] = ts_done
+                      return reg
+                  mutate_json(DASHBOARD_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _mark_p_done, f"Complete personal transaction {req_id}")
                   completed_ids.add(req_id)
-                  resp_file.unlink(missing_ok=True)
-                  if receipt_file.is_file():
-                      receipt_file.unlink(missing_ok=True)
-                  if req_file.is_file():
-                      req_file.unlink(missing_ok=True)
 
-              elif req_type == "DASHBOARD_PERSONAL_SYNC":
-                  receipt_file = NETWORK / f"personal-response-receiptor-{seq}.json"
-                  req_file = NETWORK / f"personal-request-{seq}.json"
-                  if req_file.is_file():
-                      orig_req = read_json(req_file, {})
-                      if str(orig_req.get("requestId", "")).strip() != req_id:
-                          raise RuntimeError(f"Personal response requestId mismatch for {req_id}")
-                  if receipt_file.is_file():
-                      rec = read_json(receipt_file, {})
-                      if str(rec.get("requestId", "")).strip() != req_id:
-                          raise RuntimeError(f"Personal receipt requestId mismatch for {req_id}")
+                  delete_file(DASHBOARD_REPO, resp_path, f"Cleanup personal response {req_id}")
+                  delete_file(DASHBOARD_REPO, f"NETWORK/dashboard-response-{seq}.json", f"Cleanup compat personal response {req_id}")
+                  delete_file(DASHBOARD_REPO, rec_path, f"Cleanup personal receipt {req_id}")
+                  delete_file(DASHBOARD_REPO, ch_req_path, f"Cleanup personal request {req_id}")
+                  delete_file(DASHBOARD_REPO, compat_req_path, f"Cleanup compat personal request {req_id}")
 
-                  completed_ids.add(req_id)
-                  resp_file.unlink(missing_ok=True)
-                  if receipt_file.is_file():
-                      receipt_file.unlink(missing_ok=True)
-                  if req_file.is_file():
-                      req_file.unlink(missing_ok=True)
-
-          users_data["users"] = users
-          write_json(USERS_PATH, users_data)
-
+          users_doc, _ = read_json(DASHBOARD_REPO, USERS_PATH, {"users": []})
+          users = users_doc.get("users", []) if isinstance(users_doc, dict) else []
           active_ids = {
               norm_id(u.get("id"))
               for u in users
               if isinstance(u, dict) and norm_id(u.get("id")) and str(u.get("status", "Active")).strip().casefold() == "active"
           }
 
-          manifest = read_json(MANIFEST_PATH, {})
+          manifest, _ = read_json(DASHBOARD_REPO, MANIFEST_PATH, {})
           tools_list = manifest.get("tools", []) if isinstance(manifest, dict) else (manifest if isinstance(manifest, list) else [])
           tool_ids = []
           for t in tools_list:
@@ -444,59 +715,51 @@ jobs:
                   tid = str(t.get("id") or t.get("toolId") or "").strip()
                   if tid and tid not in tool_ids:
                       tool_ids.append(tid)
-          for tid in list(visibility.keys()):
-              if tid not in tool_ids:
-                  tool_ids.append(tid)
 
-          for u in users:
-              if not isinstance(u, dict):
-                  continue
-              uid = norm_id(u.get("id"))
-              if not uid or uid not in active_ids:
-                  continue
-              role = norm_role(u.get("role") or u.get("ROLE"))
-              u_perms = permissions.setdefault(uid, {})
+          def _reconcile_vis(visibility):
+              visibility = visibility if isinstance(visibility, dict) else {}
+              for tid in list(visibility.keys()):
+                  if tid not in tool_ids:
+                      tool_ids.append(tid)
               for tid in tool_ids:
-                  cur = u_perms.get(tid)
-                  if not isinstance(cur, dict):
-                      u_perms[tid] = {"granted": role == "SUPER_ADMIN", "type": role}
+                  ex = visibility.get(tid)
+                  if not isinstance(ex, dict):
+                      visibility[tid] = {
+                          "visibility": "SUPER_ADMIN",
+                          "allowedUsers": [],
+                          "developmentStatus": "UNDER DEVELOPMENT",
+                          "publicationStatus": "NOT PUBLISHED",
+                          "enabled": False,
+                      }
                   else:
-                      cur["granted"] = bool(cur.get("granted", role == "SUPER_ADMIN"))
-                      cur["type"] = role
+                      ex.setdefault("visibility", "SUPER_ADMIN")
+                      allowed = ex.get("allowedUsers", [])
+                      ex["allowedUsers"] = list(dict.fromkeys(norm_id(uid) for uid in (allowed if isinstance(allowed, list) else []) if norm_id(uid) in active_ids))
+                      ex.setdefault("developmentStatus", "UNDER DEVELOPMENT")
+                      ex.setdefault("publicationStatus", "NOT PUBLISHED")
+                      ex.setdefault("enabled", False)
+              return visibility
 
-          for tid in tool_ids:
-              ex = visibility.get(tid)
-              if not isinstance(ex, dict):
-                  visibility[tid] = {
-                      "visibility": "SUPER_ADMIN",
-                      "allowedUsers": [],
-                      "developmentStatus": "UNDER DEVELOPMENT",
-                      "publicationStatus": "NOT PUBLISHED",
-                      "enabled": False,
-                  }
-              else:
-                  ex.setdefault("visibility", "SUPER_ADMIN")
-                  allowed = ex.get("allowedUsers", [])
-                  ex["allowedUsers"] = list(dict.fromkeys(norm_id(uid) for uid in (allowed if isinstance(allowed, list) else []) if norm_id(uid) in active_ids))
-                  ex.setdefault("developmentStatus", "UNDER DEVELOPMENT")
-                  ex.setdefault("publicationStatus", "NOT PUBLISHED")
-                  ex.setdefault("enabled", False)
+          mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, _reconcile_vis, "Reconcile dashboard tools visibility")
 
-          write_json(PERMISSIONS_PATH, permissions)
-          write_json(VISIBILITY_PATH, visibility)
-          processed["completedRequestIds"] = sorted(completed_ids)[-500:]
-          processed["updatedAt"] = utc_now()
-          write_json(PROCESSED_PATH, processed)
+          def _reconcile_perms(permissions):
+              permissions = permissions if isinstance(permissions, dict) else {}
+              for u in users:
+                  if not isinstance(u, dict):
+                      continue
+                  uid = norm_id(u.get("id"))
+                  if not uid or uid not in active_ids:
+                      continue
+                  role = norm_role(u.get("role") or u.get("ROLE"))
+                  u_perms = permissions.setdefault(uid, {})
+                  for tid in tool_ids:
+                      cur = u_perms.get(tid)
+                      if not isinstance(cur, dict):
+                          u_perms[tid] = {"granted": role == "SUPER_ADMIN", "type": role}
+                      else:
+                          cur["granted"] = bool(cur.get("granted", role == "SUPER_ADMIN"))
+                          cur["type"] = role
+              return permissions
+
+          mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, _reconcile_perms, "Reconcile dashboard tools permissions")
           PY
-
-      - name: Commit Synchronized Dashboard Data
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A CONFIG NETWORK
-          if ! git diff --cached --quiet; then
-            git commit -m "Synchronize dashboard data [skip ci]"
-            git push origin HEAD:main
-          fi
