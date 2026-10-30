@@ -15,14 +15,31 @@
         "repository": "YODAWY_USERS_REPOSITORY",
         "branch": "main"
       },
-      "status": "SENT",
+      "status": "COMPLETED",
       "createdAt": "2026-10-30T12:00:00Z",
       "sentAt": "2026-10-30T17:08:39Z",
       "requestPath": "NETWORK/dashboard-users-request-001.json",
-      "responseRequired": true
+      "responseRequired": true,
+      "responseReceivedAt": "2026-10-30T17:09:46Z",
+      "completedAt": "2026-10-30T17:09:52Z",
+      "result": {
+        "action": "ADD_USER",
+        "user": {
+          "name": "TEST USER ONE",
+          "role": "USER",
+          "status": "Active",
+          "developer": false,
+          "id": "Q-001",
+          "repository": "Q-001_TEST_USER_ONE"
+        }
+      }
     }
   },
-  "processedRequestIds": [],
-  "completedRequestIds": [],
-  "updatedAt": "2026-10-30T17:08:46Z"
+  "processedRequestIds": [
+    "TEST-DASH-USERS-001"
+  ],
+  "completedRequestIds": [
+    "TEST-DASH-USERS-001"
+  ],
+  "updatedAt": "2026-10-30T17:09:52Z"
 }
