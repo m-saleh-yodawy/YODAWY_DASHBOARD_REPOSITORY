@@ -27,7 +27,11 @@ concurrency:
 
 jobs:
   sync-tools-cache:
-    if: github.event_name == 'repository_dispatch' && github.event.action == 'tools_dashboard_sync_requested'
+    if: >-
+      (github.event_name == 'repository_dispatch' && github.event.action == 'tools_dashboard_sync_requested') ||
+      github.event_name == ' push' ||
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -37,6 +41,7 @@ jobs:
       BRANCH: main
       REQUEST_ID: ${{ github.event.client_payload.requestId || '' }}
       SEQUENCE: ${{ github.event.client_payload.sequence || '' }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
 
     steps:
       - name: Checkout Dashboard Repository
@@ -82,8 +87,13 @@ jobs:
           MANIFEST_FILE = CACHE_ROOT / "tools-manifest.json"
           NETWORK_DIR = DASHBOARD / "NETWORK"
           FAILED_DIR = NETWORK_DIR / "FAILED"
-          PROCESSED_FILE = NETWORK_DIR / "processed-transactions.json"
           LOGS_FILE = NETWORK_DIR / "network-logs.json"
+          LEGACY_PROCESSED_FILE = NETWORK_DIR / "processed-transactions.json"
+          OBSOLETE_FILES = [
+              NETWORK_DIR / "user-response.json",
+              NETWORK_DIR / "request-logs.json",
+              NETWORK_DIR / "requests-history.json",
+          ]
 
           OWNER = os.environ["OWNER"]
           TOOLS_REPO = os.environ["TOOLS_REPO"]
@@ -91,29 +101,34 @@ jobs:
           BRANCH = os.environ["BRANCH"]
           ENV_SEQ = os.environ.get("SEQUENCE", "").strip()
           ENV_REQ_ID = os.environ.get("REQUEST_ID", "").strip()
+          RUN_ID = os.environ.get("GITHUB_RUN_ID", "").strip() or None
 
           def utc_now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-          def default_processed():
+          def default_network_logs():
               return {
                   "protocolVersion": 1,
                   "updatedAt": utc_now(),
-                  "processedRequestIds": [],
-                  "completedRequestIds": [],
+                  "auditLogs": [],
+                  "transactionRegistry": {
+                      "processedRequestIds": [],
+                      "completedRequestIds": [],
+                  },
                   "transactions": {},
               }
 
-          def default_logs():
+          def default_manifest():
               return {
-                  "protocolVersion": 1,
-                  "updatedAt": utc_now(),
-                  "logs": [],
+                  "repository": f"{OWNER}/{TOOLS_REPO}",
+                  "branch": BRANCH,
+                  "sourceCatalog": "CONFIG/tools.json",
+                  "tools": [],
               }
 
-          def write_json(path, data):
-              if not isinstance(data, dict) or not data:
-                  raise ValueError(f"Refusing to write empty or schemaless JSON to {path}")
+          def write_json(path, data, allow_empty_dict=False):
+              if not isinstance(data, dict) or (not data and not allow_empty_dict):
+                  raise ValueError(f"Invalid JSON payload for {path}")
               path.parent.mkdir(parents=True, exist_ok=True)
               tmp = path.with_suffix(path.suffix + ".tmp")
               tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -125,28 +140,188 @@ jobs:
               raw = path.read_text(encoding="utf-8-sig").strip()
               if not raw:
                   return copy.deepcopy(default)
-              parsed = json.loads(raw)
-              return parsed if isinstance(parsed, dict) and parsed else copy.deepcopy(default)
+              try:
+                  parsed = json.loads(raw)
+              except Exception as err:
+                  FAILED_DIR.mkdir(parents=True, exist_ok=True)
+                  backup = FAILED_DIR / f"malformed-{path.name}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.txt"
+                  backup.write_text(raw, encoding="utf-8")
+                  raise RuntimeError(f"Malformed JSON in {path}; backed up to {backup}") from err
+              return parsed if isinstance(parsed, dict) else copy.deepcopy(default)
 
-          def append_network_log(entry):
-              logs_doc = read_json(LOGS_FILE, default_logs())
-              logs_doc.setdefault("protocolVersion", 1)
-              logs_list = logs_doc.setdefault("logs", [])
-              if not isinstance(logs_list, list):
-                  logs_list = []
-                  logs_doc["logs"] = logs_list
-              tx_id = str(entry.get("transactionId") or "").strip()
-              act = str(entry.get("action") or "").strip()
-              st = str(entry.get("status") or "").strip()
-              for idx, existing in enumerate(logs_list):
-                  if isinstance(existing, dict) and existing.get("transactionId") == tx_id and existing.get("action") == act and existing.get("status") == st:
-                      logs_list[idx] = entry
-                      logs_doc["updatedAt"] = utc_now()
-                      write_json(LOGS_FILE, logs_doc)
-                      return
-              logs_list.append(entry)
-              logs_doc["updatedAt"] = utc_now()
-              write_json(LOGS_FILE, logs_doc)
+          def normalize_role(val):
+              r = re.sub(r"[\s_-]+", "_", str(val or "USER").strip().upper())
+              if r == "SUPERADMIN":
+                  r = "SUPER_ADMIN"
+              return r if r in {"SUPER_ADMIN", "ADMIN", "USER", "SYSTEM", "UNKNOWN"} else "UNKNOWN"
+
+          def normalize_action(action):
+              act = str(action or "").strip().upper()
+              mapping = {
+                  "EDIT_USER": "UPDATE_USER",
+                  "UPDATE_SETTINGS": "UPDATE_DASHBOARD_SETTINGS",
+                  "TOOLS_DASHBOARD_SYNC": "SYNC_TOOLS_MANIFEST",
+                  "PERSONAL_TOOLS_SYNC": "SYNC_PERSONAL_TOOLS",
+              }
+              return mapping.get(act, act or "SYNC_TOOLS_MANIFEST")
+
+          def action_category(action):
+              act = normalize_action(action)
+              if act in {"ADD_USER", "UPDATE_USER", "DELETE_USER", "CHANGE_USER_ROLE", "CHANGE_USER_STATUS", "CHANGE_USER_PERMISSIONS", "SYNC_USERS", "LOOKUP_ACTIVE_USERS", "SYNC_USER_METADATA"}:
+                  return "USER_MANAGEMENT"
+              if act in {"CREATE_TOOL", "UPDATE_TOOL", "DELETE_TOOL", "CHANGE_TOOL_PERMISSIONS", "UPDATE_TOOLS_CATALOG", "SYNC_TOOLS_MANIFEST", "SYNC_TOOLS_TO_DASHBOARD", "SYNC_TOOLS_PERMISSIONS_AND_VISIBILITY", "SYNC_TOOLS_TO_USERS"}:
+                  return "TOOL_MANAGEMENT"
+              return "PERSONAL_SETTINGS"
+
+          def reconcile_historical_actor(entry, tx_rec=None):
+              raw_actor = copy.deepcopy(entry.get("actor")) if isinstance(entry.get("actor"), dict) else {}
+              req_actor = ((entry.get("request") or {}).get("actor") if isinstance(entry.get("request"), dict) else None) or {}
+              resp_actor = ((entry.get("response") or {}).get("actor") if isinstance(entry.get("response"), dict) else None) or {}
+              tx_actor = (tx_rec.get("actor") if isinstance(tx_rec, dict) else None) or {}
+
+              uid = str(raw_actor.get("userId") or raw_actor.get("id") or tx_actor.get("userId") or "UNKNOWN").strip().upper()
+              uname = str(raw_actor.get("username") or tx_actor.get("username") or "Unknown / Unverified Actor").strip()
+              role = normalize_role(raw_actor.get("roleAtTimeOfAction") or raw_actor.get("role") or tx_actor.get("role") or "UNKNOWN")
+              verified = bool(raw_actor.get("verified", False))
+
+              roles_seen = {
+                  normalize_role(a.get("roleAtTimeOfAction") or a.get("role"))
+                  for a in (raw_actor, req_actor, resp_actor, tx_actor)
+                  if isinstance(a, dict) and (a.get("role") or a.get("roleAtTimeOfAction"))
+              }
+              verified_flags = {
+                  bool(a.get("verified"))
+                  for a in (raw_actor, req_actor, resp_actor, tx_actor)
+                  if isinstance(a, dict) and "verified" in a
+              }
+              conflict = len(roles_seen) > 1 or (True in verified_flags and False in verified_flags)
+              if uid in {"SYSTEM", "UNKNOWN"} and not verified:
+                  conflict = True
+
+              result = {
+                  "userId": uid,
+                  "username": uname,
+                  "role": role,
+                  "roleAtTimeOfAction": normalize_role(req_actor.get("role") or raw_actor.get("roleAtTimeOfAction") or role),
+                  "verified": False if conflict else verified,
+                  "verificationMethod": raw_actor.get("verificationMethod") if not conflict and verified else None,
+              }
+              if conflict or not result["verified"]:
+                  result["historicalOriginal"] = {
+                      "auditActor": raw_actor,
+                      "requestActor": req_actor if isinstance(req_actor, dict) else {},
+                      "responseActor": resp_actor if isinstance(resp_actor, dict) else {},
+                      "transactionActor": tx_actor if isinstance(tx_actor, dict) else {},
+                  }
+                  result["attributionWarning"] = "Historical actor identity unverified or conflicting across records."
+              return result
+
+          def ensure_unified_logs():
+              NETWORK_DIR.mkdir(parents=True, exist_ok=True)
+              FAILED_DIR.mkdir(parents=True, exist_ok=True)
+              raw_doc = read_json(LOGS_FILE, default_network_logs())
+              proc_doc = read_json(LEGACY_PROCESSED_FILE, {}) if LEGACY_PROCESSED_FILE.is_file() else {}
+
+              unified = default_network_logs()
+              unified["protocolVersion"] = 1
+
+              tx_map = {}
+              if isinstance(proc_doc.get("transactions"), dict):
+                  for k, v in proc_doc["transactions"].items():
+                      if isinstance(v, dict):
+                          req_id = str(v.get("requestId") or k).strip()
+                          tx_map[req_id] = copy.deepcopy(v)
+                          tx_map[req_id]["requestId"] = req_id
+                          tx_map[req_id].setdefault("transactionId", req_id)
+              if isinstance(raw_doc.get("transactions"), dict):
+                  for k, v in raw_doc["transactions"].items():
+                      if isinstance(v, dict):
+                          req_id = str(v.get("requestId") or k).strip()
+                          merged_tx = {**tx_map.get(req_id, {}), **copy.deepcopy(v)}
+                          merged_tx["requestId"] = req_id
+                          merged_tx.setdefault("transactionId", req_id)
+                          tx_map[req_id] = merged_tx
+
+              reg = raw_doc.get("transactionRegistry") if isinstance(raw_doc.get("transactionRegistry"), dict) else {}
+              p_ids = list(dict.fromkeys(
+                  [str(x).strip() for x in (proc_doc.get("processedRequestIds") or []) if str(x).strip()] +
+                  [str(x).strip() for x in (reg.get("processedRequestIds") or []) if str(x).strip()]
+              ))
+              c_ids = list(dict.fromkeys(
+                  [str(x).strip() for x in (proc_doc.get("completedRequestIds") or []) if str(x).strip()] +
+                  [str(x).strip() for x in (reg.get("completedRequestIds") or []) if str(x).strip()]
+              ))
+
+              raw_audit = []
+              if isinstance(raw_doc.get("auditLogs"), list):
+                  raw_audit.extend(raw_doc["auditLogs"])
+              if isinstance(raw_doc.get("logs"), list):
+                  raw_audit.extend(raw_doc["logs"])
+
+              for obs in OBSOLETE_FILES:
+                  if obs.is_file() and obs.name != "user-response.json":
+                      obs_doc = read_json(obs, {})
+                      for key in ("auditLogs", "logs", "history", "requests"):
+                          if isinstance(obs_doc.get(key), list):
+                              raw_audit.extend(obs_doc[key])
+
+              audit_list = []
+              seen_keys = set()
+              for item in raw_audit:
+                  if not isinstance(item, dict):
+                      continue
+                  entry = copy.deepcopy(item)
+                  req_id = str(entry.get("requestId") or entry.get("transactionId") or "").strip()
+                  tx_id = str(entry.get("transactionId") or req_id or "").strip()
+                  log_id = str(entry.get("logId") or f"AUDIT-{uuid.uuid4().hex[:10].upper()}").strip()
+                  raw_act = str(entry.get("rawAction") or entry.get("action") or "SYNC_TOOLS_MANIFEST").strip().upper()
+                  canon_act = normalize_action(raw_act)
+                  st = str(entry.get("status") or "SUCCESS").strip().upper()
+                  dedup_key = (req_id or log_id, canon_act, st)
+                  if dedup_key in seen_keys:
+                      continue
+                  seen_keys.add(dedup_key)
+
+                  tx_rec = tx_map.get(req_id)
+                  actor_obj = reconcile_historical_actor(entry, tx_rec)
+                  entry["logId"] = log_id
+                  entry["requestId"] = req_id or log_id
+                  entry["transactionId"] = tx_id or req_id or log_id
+                  entry["timestamp"] = str(entry.get("timestamp") or utc_now()).strip()
+                  entry["action"] = canon_act
+                  entry["rawAction"] = raw_act
+                  entry["category"] = str(entry.get("category") or action_category(canon_act))
+                  entry["status"] = st
+                  entry["actor"] = actor_obj
+                  entry.setdefault("processor", {
+                      "type": "GITHUB_ACTIONS",
+                      "name": "Dashboard Synchronizer",
+                      "repository": f"{OWNER}/{DASHBOARD_REPO}",
+                      "runId": None,
+                  })
+                  entry.setdefault("summary", str(entry.get("details") or f"Executed {canon_act} ({st})."))
+                  entry.setdefault("details", entry["summary"])
+                  audit_list.append(entry)
+                  if req_id and req_id in tx_map:
+                      tx_map[req_id].setdefault("actor", actor_obj)
+
+              unified["auditLogs"] = audit_list
+              unified["transactionRegistry"] = {
+                  "processedRequestIds": p_ids[-500:],
+                  "completedRequestIds": c_ids[-500:],
+              }
+              unified["transactions"] = tx_map
+              unified["updatedAt"] = utc_now()
+
+              write_json(LOGS_FILE, unified)
+              verified_back = read_json(LOGS_FILE, {})
+              if isinstance(verified_back.get("auditLogs"), list) and isinstance(verified_back.get("transactions"), dict):
+                  if LEGACY_PROCESSED_FILE.is_file():
+                      LEGACY_PROCESSED_FILE.unlink()
+                  for obs in OBSOLETE_FILES:
+                      if obs.is_file():
+                          obs.unlink()
+              return unified
 
           def sha256_file(path):
               digest = hashlib.sha256()
@@ -159,16 +334,13 @@ jobs:
               m = re.search(r"(?im)^\s*//\s*@" + re.escape(field) + r"\s+(.+?)\s*$", text)
               return m.group(1).strip() if m else ""
 
-          NETWORK_DIR.mkdir(parents=True, exist_ok=True)
-          FAILED_DIR.mkdir(parents=True, exist_ok=True)
-          proc = read_json(PROCESSED_FILE, default_processed())
-          proc.setdefault("protocolVersion", 1)
-          txs = proc.setdefault("transactions", {})
-          done_ids = set(proc.setdefault("processedRequestIds", []))
-          proc.setdefault("completedRequestIds", [])
+          logs_doc = ensure_unified_logs()
+          if not MANIFEST_FILE.is_file():
+              write_json(MANIFEST_FILE, default_manifest())
 
-          if not LOGS_FILE.is_file():
-              write_json(LOGS_FILE, default_logs())
+          txs = logs_doc["transactions"]
+          reg = logs_doc["transactionRegistry"]
+          done_ids = set(reg["processedRequestIds"]) | set(reg["completedRequestIds"])
 
           candidates = []
           if ENV_SEQ and re.fullmatch(r"\d{3,}", ENV_SEQ):
@@ -196,12 +368,13 @@ jobs:
               receipt_file = NETWORK_DIR / f"tools-dashboard-receipt-{seq}.json"
               resp_file = NETWORK_DIR / f"dashboard-tools-response-{seq}.json"
 
-              prev_manifest = read_json(MANIFEST_FILE, {"repository": f"{OWNER}/{TOOLS_REPO}", "branch": BRANCH, "sourceCatalog": "CONFIG/tools.json", "tools": []})
+              prev_manifest = read_json(MANIFEST_FILE, default_manifest())
               prev_tool_ids = [str(t.get("id", "")).strip() for t in prev_manifest.get("tools", []) if isinstance(t, dict) and t.get("id")]
 
-              receipt_payload = {
+              write_json(receipt_file, {
                   "protocolVersion": 1,
                   "requestId": req_id,
+                  "transactionId": req_id,
                   "sequence": seq,
                   "requestType": "TOOLS_DASHBOARD_SYNC",
                   "status": "RECEIVED",
@@ -209,8 +382,7 @@ jobs:
                   "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
                   "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
                   "requestPath": f"NETWORK/{req_file.name}",
-              }
-              write_json(receipt_file, receipt_payload)
+              })
 
               summary = {"activeTools": 0, "copiedFiles": 0, "manifestPath": "TOOLS_CACHE/tools-manifest.json"}
               status_val = "FAILED"
@@ -300,6 +472,7 @@ jobs:
                   write_json(FAILED_DIR / f"{req_id}.json", {
                       "protocolVersion": 1,
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "status": "FAILED",
                       "request": req_data,
@@ -309,9 +482,29 @@ jobs:
                   raise
               finally:
                   ts = utc_now()
+                  raw_actor = req_data.get("actor") if isinstance(req_data.get("actor"), dict) else {}
+                  actor_uid = str(raw_actor.get("userId") or "SYSTEM").strip().upper()
+                  actor_role = normalize_role(raw_actor.get("roleAtTimeOfAction") or raw_actor.get("role") or "SYSTEM")
+                  actor_verified = bool(raw_actor.get("verified", actor_uid == "SYSTEM"))
+                  actor_snapshot = {
+                      "userId": actor_uid,
+                      "username": str(raw_actor.get("username") or "Tools Catalog Synchronizer").strip(),
+                      "role": actor_role,
+                      "roleAtTimeOfAction": actor_role,
+                      "verified": actor_verified,
+                      "verificationMethod": str(raw_actor.get("verificationMethod") or ("GITHUB_WORKFLOW_EVENT" if actor_verified else "")) or None,
+                  }
+                  processor_snapshot = {
+                      "type": "GITHUB_ACTIONS",
+                      "name": "DASHBOARD WORKFLOW - sync-tools-cache",
+                      "repository": f"{OWNER}/{DASHBOARD_REPO}",
+                      "runId": RUN_ID,
+                  }
+
                   final_receipt = {
                       "protocolVersion": 1,
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "requestType": "TOOLS_DASHBOARD_SYNC",
                       "status": "PROCESSED" if status_val == "COMPLETED" else "FAILED",
@@ -325,6 +518,7 @@ jobs:
                   final_resp = {
                       "protocolVersion": 1,
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "requestType": "TOOLS_DASHBOARD_SYNC",
                       "status": status_val,
@@ -338,10 +532,15 @@ jobs:
                   }
                   write_json(receipt_file, final_receipt)
                   write_json(resp_file, final_resp)
+
                   txs[req_id] = {
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "requestType": "TOOLS_DASHBOARD_SYNC",
+                      "action": "SYNC_TOOLS_MANIFEST",
+                      "actor": actor_snapshot,
+                      "processor": processor_snapshot,
                       "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
                       "requestPath": f"NETWORK/{req_file.name}",
@@ -353,27 +552,27 @@ jobs:
                       "attempts": int(txs.get(req_id, {}).get("attempts", 0)) + 1,
                       "resultSummary": summary,
                       "lastError": None if status_val == "COMPLETED" else msg,
+                      "workflowRunId": RUN_ID,
                   }
                   if status_val == "COMPLETED":
                       done_ids.add(req_id)
-                      proc["processedRequestIds"] = sorted(done_ids)[-500:]
-                  proc["updatedAt"] = ts
-                  write_json(PROCESSED_FILE, proc)
+                      if req_id not in reg["processedRequestIds"]:
+                          reg["processedRequestIds"].append(req_id)
+                      reg["processedRequestIds"] = reg["processedRequestIds"][-500:]
 
-                  raw_actor = req_data.get("actor") if isinstance(req_data.get("actor"), dict) else {}
-                  append_network_log({
-                      "logId": f"LOG-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                  audit_entry = {
+                      "logId": f"AUDIT-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                      "requestId": req_id,
                       "transactionId": req_id,
                       "sequence": seq,
                       "timestamp": ts,
-                      "actor": {
-                          "userId": str(raw_actor.get("userId") or "SYSTEM").strip(),
-                          "username": str(raw_actor.get("username") or "Tools Catalog Synchronizer").strip(),
-                          "role": str(raw_actor.get("role") or "SUPER_ADMIN").strip(),
-                          "verified": True,
-                      },
                       "action": "SYNC_TOOLS_MANIFEST",
+                      "rawAction": "TOOLS_DASHBOARD_SYNC",
+                      "category": "TOOL_MANAGEMENT",
                       "requestType": "TOOLS_DASHBOARD_SYNC",
+                      "status": "SUCCESS" if status_val == "COMPLETED" else "FAILED",
+                      "actor": actor_snapshot,
+                      "processor": processor_snapshot,
                       "source": {"owner": OWNER, "repository": TOOLS_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
                       "target": {"type": "REPOSITORY", "userId": None, "username": DASHBOARD_REPO},
@@ -382,11 +581,19 @@ jobs:
                           "previous": {"activeToolIds": prev_tool_ids, "count": len(prev_tool_ids)},
                           "current": {"activeToolIds": new_tool_ids, "count": len(new_tool_ids)},
                       },
-                      "request": req_data,
-                      "response": final_resp,
-                      "status": "SUCCESS" if status_val == "COMPLETED" else "FAILED",
+                      "summary": msg,
                       "details": msg,
-                  })
+                  }
+                  replaced = False
+                  for idx, ex in enumerate(logs_doc["auditLogs"]):
+                      if isinstance(ex, dict) and ex.get("requestId") == req_id and ex.get("action") == "SYNC_TOOLS_MANIFEST" and ex.get("status") == audit_entry["status"]:
+                          logs_doc["auditLogs"][idx] = audit_entry
+                          replaced = True
+                          break
+                  if not replaced:
+                      logs_doc["auditLogs"].append(audit_entry)
+                  logs_doc["updatedAt"] = ts
+                  write_json(LOGS_FILE, logs_doc)
           PY
 
       - name: Commit Dashboard Tools Sync Result
@@ -401,7 +608,7 @@ jobs:
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m "Sync Dashboard tools cache and manifest [skip ci]"
+          git commit -m "Sync Dashboard tools cache and unified network-logs [skip ci]"
           for attempt in 1 2 3 4; do
             if git push origin HEAD:main; then
               exit 0
@@ -423,6 +630,7 @@ jobs:
       TOOLS_REPO: YODAWY_TOOLS_REPOSITORY
       BRANCH: main
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
 
     steps:
       - name: Process Responses and Reconcile Dashboard Configs Atomically
@@ -449,16 +657,20 @@ jobs:
           TOOLS_REPO = os.environ["TOOLS_REPO"]
           BRANCH = os.environ["BRANCH"]
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
+          RUN_ID = os.environ.get("GITHUB_RUN_ID", "").strip() or None
           API = "https://api.github.com"
 
           USERS_PATH = "CONFIG/auth-users.json"
           PERMISSIONS_PATH = "CONFIG/tools-permissions.json"
           VISIBILITY_PATH = "CONFIG/tools-visibility.json"
           MANIFEST_PATH = "TOOLS_CACHE/tools-manifest.json"
-          PROCESSED_PATH = "NETWORK/processed-transactions.json"
           LOGS_PATH = "NETWORK/network-logs.json"
-          OBSOLETE_SNAPSHOT_PATH = "NETWORK/user-response.json"
-          LEGACY_LOG_PATHS = ["NETWORK/request-logs.json", "NETWORK/requests-history.json"]
+          LEGACY_PROCESSED_PATH = "NETWORK/processed-transactions.json"
+          OBSOLETE_PATHS = [
+              "NETWORK/user-response.json",
+              "NETWORK/request-logs.json",
+              "NETWORK/requests-history.json",
+          ]
 
           if not TOKEN:
               raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
@@ -474,20 +686,24 @@ jobs:
           def utc_now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-          def default_processed():
+          def default_network_logs():
               return {
                   "protocolVersion": 1,
                   "updatedAt": utc_now(),
-                  "processedRequestIds": [],
-                  "completedRequestIds": [],
+                  "auditLogs": [],
+                  "transactionRegistry": {
+                      "processedRequestIds": [],
+                      "completedRequestIds": [],
+                  },
                   "transactions": {},
               }
 
-          def default_logs():
+          def default_manifest():
               return {
-                  "protocolVersion": 1,
-                  "updatedAt": utc_now(),
-                  "logs": [],
+                  "repository": f"{OWNER}/{TOOLS_REPO}",
+                  "branch": BRANCH,
+                  "sourceCatalog": "CONFIG/tools.json",
+                  "tools": [],
               }
 
           def api_req(method, endpoint, body=None, allow_404=False):
@@ -521,17 +737,28 @@ jobs:
               raw = base64.b64decode(res["content"]).decode("utf-8-sig").strip()
               if not raw:
                   return copy.deepcopy(default), res.get("sha")
-              parsed = json.loads(raw)
-              return (parsed if parsed is not None else copy.deepcopy(default)), res.get("sha")
+              try:
+                  parsed = json.loads(raw)
+              except Exception as err:
+                  ts_bad = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                  safe_name = path.replace("/", "_")
+                  write_json(repo, f"NETWORK/FAILED/malformed-{safe_name}-{ts_bad}.json", {
+                      "protocolVersion": 1,
+                      "path": path,
+                      "rawContent": raw,
+                      "failedAt": utc_now(),
+                  }, f"Backup malformed JSON {path}")
+                  raise RuntimeError(f"Malformed JSON in {repo}/{path}") from err
+              return (parsed if isinstance(parsed, dict) else copy.deepcopy(default)), res.get("sha")
 
-          def write_json(repo, path, data, msg):
-              if not isinstance(data, dict) or not data:
-                  raise ValueError(f"Refusing to write empty or schemaless JSON to {repo}/{path}")
+          def write_json(repo, path, data, msg, allow_empty_dict=False):
+              if not isinstance(data, dict) or (not data and not allow_empty_dict):
+                  raise ValueError(f"Refusing to write invalid JSON to {repo}/{path}")
               content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
               encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
               url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 7):
-                  cur, sha = read_json(repo, path)
+                  cur, sha = read_json(repo, path, default=None)
                   if cur == data and sha is not None:
                       return
                   payload = {"message": f"{msg} [skip ci]", "content": encoded, "branch": BRANCH}
@@ -547,7 +774,7 @@ jobs:
                       raise
 
           def delete_file(repo, path, msg):
-              if path in {PROCESSED_PATH, LOGS_PATH} or path.startswith("NETWORK/FAILED/"):
+              if path == LOGS_PATH or path.startswith("NETWORK/FAILED/"):
                   return
               url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 5):
@@ -565,14 +792,14 @@ jobs:
                           return
                       raise
 
-          def mutate_json(repo, path, default, mutator, msg):
+          def mutate_json(repo, path, default, mutator, msg, allow_empty_dict=False):
               url = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 7):
                   cur, sha = read_json(repo, path, default)
                   if not isinstance(cur, dict):
                       cur = copy.deepcopy(default)
                   updated = mutator(copy.deepcopy(cur))
-                  if not isinstance(updated, dict) or not updated:
+                  if not isinstance(updated, dict) or (not updated and not allow_empty_dict):
                       raise ValueError(f"Mutator produced invalid schema for {repo}/{path}")
                   if updated == cur and sha is not None:
                       return updated
@@ -606,86 +833,279 @@ jobs:
               r = re.sub(r"[\s_-]+", "_", str(val or "USER").strip().upper())
               if r == "SUPERADMIN":
                   r = "SUPER_ADMIN"
-              return r if r in {"SUPER_ADMIN", "ADMIN", "USER"} else "USER"
+              return r if r in {"SUPER_ADMIN", "ADMIN", "USER", "SYSTEM", "UNKNOWN"} else "UNKNOWN"
 
-          def verify_actor(raw_actor, users_list, fallback_role="SUPER_ADMIN"):
-              raw_actor = raw_actor if isinstance(raw_actor, dict) else {}
+          def normalize_action(action):
+              act = str(action or "").strip().upper()
+              mapping = {
+                  "EDIT_USER": "UPDATE_USER",
+                  "UPDATE_SETTINGS": "UPDATE_DASHBOARD_SETTINGS",
+                  "TOOLS_DASHBOARD_SYNC": "SYNC_TOOLS_MANIFEST",
+                  "PERSONAL_TOOLS_SYNC": "SYNC_PERSONAL_TOOLS",
+              }
+              return mapping.get(act, act or "SYNC_USERS")
+
+          def action_category(action):
+              act = normalize_action(action)
+              if act in {"ADD_USER", "UPDATE_USER", "DELETE_USER", "CHANGE_USER_ROLE", "CHANGE_USER_STATUS", "CHANGE_USER_PERMISSIONS", "SYNC_USERS", "LOOKUP_ACTIVE_USERS", "SYNC_USER_METADATA"}:
+                  return "USER_MANAGEMENT"
+              if act in {"CREATE_TOOL", "UPDATE_TOOL", "DELETE_TOOL", "CHANGE_TOOL_PERMISSIONS", "UPDATE_TOOLS_CATALOG", "SYNC_TOOLS_MANIFEST", "SYNC_TOOLS_TO_DASHBOARD", "SYNC_TOOLS_PERMISSIONS_AND_VISIBILITY", "SYNC_TOOLS_TO_USERS"}:
+                  return "TOOL_MANAGEMENT"
+              return "PERSONAL_SETTINGS"
+
+          def reconcile_historical_actor(entry, tx_rec=None):
+              raw_actor = copy.deepcopy(entry.get("actor")) if isinstance(entry.get("actor"), dict) else {}
+              req_actor = ((entry.get("request") or {}).get("actor") if isinstance(entry.get("request"), dict) else None) or {}
+              resp_actor = ((entry.get("response") or {}).get("actor") if isinstance(entry.get("response"), dict) else None) or {}
+              tx_actor = (tx_rec.get("actor") if isinstance(tx_rec, dict) else None) or {}
+
+              uid = norm_id(raw_actor.get("userId") or raw_actor.get("id") or tx_actor.get("userId") or "UNKNOWN")
+              uname = str(raw_actor.get("username") or tx_actor.get("username") or "Unknown / Unverified Actor").strip()
+              role = norm_role(raw_actor.get("roleAtTimeOfAction") or raw_actor.get("role") or tx_actor.get("role") or "UNKNOWN")
+              verified = bool(raw_actor.get("verified", False))
+
+              roles_seen = {
+                  norm_role(a.get("roleAtTimeOfAction") or a.get("role"))
+                  for a in (raw_actor, req_actor, resp_actor, tx_actor)
+                  if isinstance(a, dict) and (a.get("role") or a.get("roleAtTimeOfAction"))
+              }
+              verified_flags = {
+                  bool(a.get("verified"))
+                  for a in (raw_actor, req_actor, resp_actor, tx_actor)
+                  if isinstance(a, dict) and "verified" in a
+              }
+              conflict = len(roles_seen) > 1 or (True in verified_flags and False in verified_flags)
+              if uid in {"SYSTEM", "UNKNOWN"} and not verified:
+                  conflict = True
+
+              result = {
+                  "userId": uid,
+                  "username": uname,
+                  "role": role,
+                  "roleAtTimeOfAction": norm_role(req_actor.get("role") or raw_actor.get("roleAtTimeOfAction") or role),
+                  "verified": False if conflict else verified,
+                  "verificationMethod": raw_actor.get("verificationMethod") if not conflict and verified else None,
+              }
+              if conflict or not result["verified"]:
+                  result["historicalOriginal"] = {
+                      "auditActor": raw_actor,
+                      "requestActor": req_actor if isinstance(req_actor, dict) else {},
+                      "responseActor": resp_actor if isinstance(resp_actor, dict) else {},
+                      "transactionActor": tx_actor if isinstance(tx_actor, dict) else {},
+                  }
+                  result["attributionWarning"] = "Historical actor identity unverified or conflicting across records."
+              return result
+
+          def ensure_repo_unified_logs(repo):
+              proc_doc, proc_sha = read_json(repo, LEGACY_PROCESSED_PATH, None)
+              leg_docs = []
+              if repo == DASHBOARD_REPO:
+                  for lp in OBSOLETE_PATHS:
+                      if lp != "NETWORK/user-response.json":
+                          ld, lsha = read_json(repo, lp, None)
+                          if lsha and isinstance(ld, dict):
+                              leg_docs.append((lp, ld))
+
+              def _migrate(doc):
+                  tx_map = {}
+                  if isinstance(proc_doc, dict) and isinstance(proc_doc.get("transactions"), dict):
+                      for k, v in proc_doc["transactions"].items():
+                          if isinstance(v, dict):
+                              rid = str(v.get("requestId") or k).strip()
+                              tx_map[rid] = copy.deepcopy(v)
+                              tx_map[rid]["requestId"] = rid
+                              tx_map[rid].setdefault("transactionId", rid)
+                  if isinstance(doc.get("transactions"), dict):
+                      for k, v in doc["transactions"].items():
+                          if isinstance(v, dict):
+                              rid = str(v.get("requestId") or k).strip()
+                              merged = {**tx_map.get(rid, {}), **copy.deepcopy(v)}
+                              merged["requestId"] = rid
+                              merged.setdefault("transactionId", rid)
+                              tx_map[rid] = merged
+
+                  reg = doc.get("transactionRegistry") if isinstance(doc.get("transactionRegistry"), dict) else {}
+                  p_ids = list(dict.fromkeys(
+                      [str(x).strip() for x in ((proc_doc or {}).get("processedRequestIds") or []) if str(x).strip()] +
+                      [str(x).strip() for x in (doc.get("processedRequestIds") or []) if str(x).strip()] +
+                      [str(x).strip() for x in (reg.get("processedRequestIds") or []) if str(x).strip()]
+                  ))
+                  c_ids = list(dict.fromkeys(
+                      [str(x).strip() for x in ((proc_doc or {}).get("completedRequestIds") or []) if str(x).strip()] +
+                      [str(x).strip() for x in (doc.get("completedRequestIds") or []) if str(x).strip()] +
+                      [str(x).strip() for x in (reg.get("completedRequestIds") or []) if str(x).strip()]
+                  ))
+
+                  raw_audit = []
+                  if isinstance(doc.get("auditLogs"), list):
+                      raw_audit.extend(doc["auditLogs"])
+                  if isinstance(doc.get("logs"), list):
+                      raw_audit.extend(doc["logs"])
+                  for _, ld in leg_docs:
+                      for key in ("auditLogs", "logs", "history", "requests"):
+                          if isinstance(ld.get(key), list):
+                              raw_audit.extend(ld[key])
+
+                  audit_list = []
+                  seen = set()
+                  for item in raw_audit:
+                      if not isinstance(item, dict):
+                          continue
+                      entry = copy.deepcopy(item)
+                      rid = str(entry.get("requestId") or entry.get("transactionId") or "").strip()
+                      tid = str(entry.get("transactionId") or rid or "").strip()
+                      lid = str(entry.get("logId") or f"AUDIT-{uuid.uuid4().hex[:10].upper()}").strip()
+                      raw_act = str(entry.get("rawAction") or entry.get("action") or "SYNC_USERS").strip().upper()
+                      canon_act = normalize_action(raw_act)
+                      st = str(entry.get("status") or "SUCCESS").strip().upper()
+                      d_key = (rid or lid, canon_act, st)
+                      if d_key in seen:
+                          continue
+                      seen.add(d_key)
+
+                      tx_rec = tx_map.get(rid)
+                      actor_obj = reconcile_historical_actor(entry, tx_rec)
+                      entry["logId"] = lid
+                      entry["requestId"] = rid or lid
+                      entry["transactionId"] = tid or rid or lid
+                      entry["timestamp"] = str(entry.get("timestamp") or utc_now()).strip()
+                      entry["action"] = canon_act
+                      entry["rawAction"] = raw_act
+                      entry["category"] = str(entry.get("category") or action_category(canon_act))
+                      entry["status"] = st
+                      entry["actor"] = actor_obj
+                      entry.setdefault("processor", {
+                          "type": "GITHUB_ACTIONS",
+                          "name": "Dashboard Synchronizer",
+                          "repository": f"{OWNER}/{repo}",
+                          "runId": None,
+                      })
+                      entry.setdefault("summary", str(entry.get("details") or f"Executed {canon_act} ({st})."))
+                      entry.setdefault("details", entry["summary"])
+                      audit_list.append(entry)
+                      if rid and rid in tx_map:
+                          tx_map[rid].setdefault("actor", actor_obj)
+
+                  return {
+                      "protocolVersion": 1,
+                      "updatedAt": utc_now(),
+                      "auditLogs": audit_list,
+                      "transactionRegistry": {
+                          "processedRequestIds": p_ids[-500:],
+                          "completedRequestIds": c_ids[-500:],
+                      },
+                      "transactions": tx_map,
+                  }
+
+              unified = mutate_json(repo, LOGS_PATH, default_network_logs(), _migrate, "Ensure unified network-logs.json schema")
+              verify_doc, verify_sha = read_json(repo, LOGS_PATH, None)
+              if verify_sha and isinstance(verify_doc, dict) and isinstance(verify_doc.get("auditLogs"), list) and isinstance(verify_doc.get("transactions"), dict):
+                  if proc_sha:
+                      delete_file(repo, LEGACY_PROCESSED_PATH, "Remove migrated processed-transactions.json")
+                  if repo == DASHBOARD_REPO:
+                      for obs_path in OBSOLETE_PATHS:
+                          delete_file(repo, obs_path, f"Remove obsolete {obs_path}")
+              return unified
+
+          def ensure_permanent_dashboard_files():
+              u_doc, u_sha = read_json(DASHBOARD_REPO, USERS_PATH, None)
+              if u_sha is None or not isinstance(u_doc, dict) or not isinstance(u_doc.get("users"), list):
+                  write_json(DASHBOARD_REPO, USERS_PATH, {"users": (u_doc or {}).get("users", []) if isinstance(u_doc, dict) else []}, "Initialize canonical auth-users.json")
+              p_doc, p_sha = read_json(DASHBOARD_REPO, PERMISSIONS_PATH, None)
+              if p_sha is None or not isinstance(p_doc, dict):
+                  write_json(DASHBOARD_REPO, PERMISSIONS_PATH, p_doc if isinstance(p_doc, dict) else {}, "Initialize canonical tools-permissions.json", allow_empty_dict=True)
+              v_doc, v_sha = read_json(DASHBOARD_REPO, VISIBILITY_PATH, None)
+              if v_sha is None or not isinstance(v_doc, dict):
+                  write_json(DASHBOARD_REPO, VISIBILITY_PATH, v_doc if isinstance(v_doc, dict) else {}, "Initialize canonical tools-visibility.json", allow_empty_dict=True)
+              m_doc, m_sha = read_json(DASHBOARD_REPO, MANIFEST_PATH, None)
+              if m_sha is None or not isinstance(m_doc, dict) or not isinstance(m_doc.get("tools"), list):
+                  write_json(DASHBOARD_REPO, MANIFEST_PATH, default_manifest(), "Initialize canonical tools-manifest.json")
+
+          def verify_actor_snapshot(orig_req, resp, pre_action_users):
+              req_actor = orig_req.get("actor") if isinstance(orig_req, dict) and isinstance(orig_req.get("actor"), dict) else {}
+              resp_actor = resp.get("actor") if isinstance(resp, dict) and isinstance(resp.get("actor"), dict) else {}
+              raw_actor = req_actor or resp_actor
+
+              if req_actor.get("verified") is True and norm_id(req_actor.get("userId")) not in {"", "SYSTEM", "UNKNOWN"}:
+                  frozen_role = norm_role(req_actor.get("roleAtTimeOfAction") or req_actor.get("role") or "USER")
+                  return {
+                      "userId": norm_id(req_actor.get("userId")),
+                      "username": str(req_actor.get("username") or req_actor.get("userId")).strip(),
+                      "role": frozen_role,
+                      "roleAtTimeOfAction": frozen_role,
+                      "verified": True,
+                      "verificationMethod": str(req_actor.get("verificationMethod") or "AUTHORIZED_USER_REGISTRY"),
+                  }
+
               claimed_id = norm_id(raw_actor.get("userId") or raw_actor.get("id"))
-              by_id = {norm_id(u.get("id")): u for u in (users_list or []) if isinstance(u, dict) and norm_id(u.get("id"))}
+              by_id = {norm_id(u.get("id")): u for u in (pre_action_users or []) if isinstance(u, dict) and norm_id(u.get("id"))}
               if claimed_id and claimed_id in by_id:
                   u_rec = by_id[claimed_id]
+                  role_at_action = norm_role(req_actor.get("roleAtTimeOfAction") or u_rec.get("role") or u_rec.get("ROLE") or "USER")
                   return {
                       "userId": claimed_id,
                       "username": str(u_rec.get("name") or raw_actor.get("username") or claimed_id).strip(),
-                      "role": norm_role(u_rec.get("role") or u_rec.get("ROLE")),
+                      "role": role_at_action,
+                      "roleAtTimeOfAction": role_at_action,
                       "verified": True,
+                      "verificationMethod": "AUTHORIZED_USER_REGISTRY",
                   }
-              for u in (users_list or []):
-                  if isinstance(u, dict) and norm_role(u.get("role") or u.get("ROLE")) == "SUPER_ADMIN" and str(u.get("status", "Active")).strip().casefold() == "active":
-                      if not claimed_id:
-                          return {
-                              "userId": norm_id(u.get("id")),
-                              "username": str(u.get("name") or u.get("id")).strip(),
-                              "role": "SUPER_ADMIN",
-                              "verified": False,
-                          }
+
               return {
-                  "userId": claimed_id or "SYSTEM",
-                  "username": str(raw_actor.get("username") or "System Workflow").strip(),
-                  "role": norm_role(raw_actor.get("role") or fallback_role),
+                  "userId": claimed_id if claimed_id and claimed_id != "SYSTEM" else "UNKNOWN",
+                  "username": str(raw_actor.get("username") or "Unknown / Unverified Actor").strip(),
+                  "role": "UNKNOWN",
+                  "roleAtTimeOfAction": "UNKNOWN",
                   "verified": False,
+                  "verificationMethod": None,
               }
 
-          def append_network_log(repo, entry):
-              def _mut_logs(doc):
+          def record_tx_and_audit(repo, tx_id, tx_updates, audit_entry=None, mark_completed=False, mark_processed=False):
+              def _mut(doc):
                   doc.setdefault("protocolVersion", 1)
-                  logs = doc.setdefault("logs", [])
-                  if not isinstance(logs, list):
-                      logs = []
-                      doc["logs"] = logs
-                  tx_id = str(entry.get("transactionId") or "").strip()
-                  act = str(entry.get("action") or "").strip()
-                  st = str(entry.get("status") or "").strip()
-                  for idx, ex in enumerate(logs):
-                      if isinstance(ex, dict) and ex.get("transactionId") == tx_id and ex.get("action") == act and ex.get("status") == st:
-                          logs[idx] = entry
-                          doc["updatedAt"] = utc_now()
-                          return doc
-                  logs.append(entry)
+                  reg = doc.setdefault("transactionRegistry", {"processedRequestIds": [], "completedRequestIds": []})
+                  p_list = reg.setdefault("processedRequestIds", [])
+                  c_list = reg.setdefault("completedRequestIds", [])
+                  txs = doc.setdefault("transactions", {})
+                  tx = txs.setdefault(tx_id, {"requestId": tx_id, "transactionId": tx_id})
+                  tx.update(tx_updates)
+                  if mark_processed and tx_id not in p_list:
+                      p_list.append(tx_id)
+                  if mark_completed:
+                      if tx_id not in p_list:
+                          p_list.append(tx_id)
+                      if tx_id not in c_list:
+                          c_list.append(tx_id)
+                  reg["processedRequestIds"] = p_list[-500:]
+                  reg["completedRequestIds"] = c_list[-500:]
+
+                  if isinstance(audit_entry, dict) and audit_entry:
+                      logs = doc.setdefault("auditLogs", [])
+                      act = audit_entry.get("action")
+                      st = audit_entry.get("status")
+                      replaced = False
+                      for idx, ex in enumerate(logs):
+                          if isinstance(ex, dict) and ex.get("requestId") == tx_id and ex.get("action") == act and ex.get("status") == st:
+                              logs[idx] = audit_entry
+                              replaced = True
+                              break
+                      if not replaced:
+                          logs.append(audit_entry)
                   doc["updatedAt"] = utc_now()
                   return doc
-              mutate_json(repo, LOGS_PATH, default_logs(), _mut_logs, f"Append network log {entry.get('transactionId', '')}")
 
-          delete_file(DASHBOARD_REPO, OBSOLETE_SNAPSHOT_PATH, "Remove obsolete user-response snapshot")
+              return mutate_json(repo, LOGS_PATH, default_network_logs(), _mut, f"Update transaction and audit log {tx_id}")
 
-          cur_logs_doc, cur_logs_sha = read_json(DASHBOARD_REPO, LOGS_PATH, default_logs())
-          migrated_records = []
-          for leg_path in LEGACY_LOG_PATHS:
-              leg_doc, leg_sha = read_json(DASHBOARD_REPO, leg_path, None)
-              if leg_sha and isinstance(leg_doc, dict):
-                  leg_items = leg_doc.get("logs") or leg_doc.get("history") or leg_doc.get("requests") or []
-                  if isinstance(leg_items, list):
-                      migrated_records.extend(i for i in leg_items if isinstance(i, dict))
-                  delete_file(DASHBOARD_REPO, leg_path, f"Migrate legacy logs from {leg_path} to network-logs.json")
+          ensure_permanent_dashboard_files()
+          ensure_repo_unified_logs(DASHBOARD_REPO)
+          ensure_repo_unified_logs(USERS_REPO)
 
-          if cur_logs_sha is None or migrated_records:
-              def _init_or_migrate(doc):
-                  doc.setdefault("protocolVersion", 1)
-                  logs = doc.setdefault("logs", [])
-                  existing_ids = {str(x.get("logId") or x.get("transactionId") or "") for x in logs if isinstance(x, dict)}
-                  for item in migrated_records:
-                      key = str(item.get("logId") or item.get("transactionId") or "")
-                      if not key or key not in existing_ids:
-                          logs.append(item)
-                          if key:
-                              existing_ids.add(key)
-                  doc["updatedAt"] = utc_now()
-                  return doc
-              mutate_json(DASHBOARD_REPO, LOGS_PATH, default_logs(), _init_or_migrate, "Initialize canonical network-logs.json")
-
-          cur_proc_doc, cur_proc_sha = read_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed())
-          if cur_proc_sha is None:
-              write_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed(), "Initialize canonical processed-transactions.json")
+          processor_info = {
+              "type": "GITHUB_ACTIONS",
+              "name": "DASHBOARD WORKFLOW - process-dashboard-responses",
+              "repository": f"{OWNER}/{DASHBOARD_REPO}",
+              "runId": RUN_ID,
+          }
 
           net_names = list_network_files(DASHBOARD_REPO)
           users_resp_files = [f"NETWORK/{n}" for n in net_names if re.fullmatch(r"users-dashboard-response-\d{3,}\.json", n)]
@@ -705,8 +1125,9 @@ jobs:
                   delete_file(DASHBOARD_REPO, resp_path, f"Remove invalid or misrouted response {req_id or seq}")
                   continue
 
-              reg_now, _ = read_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed())
-              if req_id in set(reg_now.get("completedRequestIds", [])) or reg_now.get("transactions", {}).get(req_id, {}).get("status") == "COMPLETED":
+              logs_now, _ = read_json(DASHBOARD_REPO, LOGS_PATH, default_network_logs())
+              comp_ids = set((logs_now.get("transactionRegistry") or {}).get("completedRequestIds", []))
+              if req_id in comp_ids or (logs_now.get("transactions") or {}).get(req_id, {}).get("status") == "COMPLETED":
                   delete_file(DASHBOARD_REPO, resp_path, f"Cleanup already completed response {req_id}")
                   delete_file(DASHBOARD_REPO, f"NETWORK/dashboard-users-request-{seq}.json", f"Cleanup already completed request {req_id}")
                   continue
@@ -719,6 +1140,7 @@ jobs:
                       write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {
                           "protocolVersion": 1,
                           "requestId": req_id,
+                          "transactionId": req_id,
                           "sequence": seq,
                           "status": "FAILED",
                           "request": orig_req if isinstance(orig_req, dict) else {},
@@ -730,32 +1152,19 @@ jobs:
 
               prev_users_doc, _ = read_json(DASHBOARD_REPO, USERS_PATH, {"users": []})
               prev_users_list = prev_users_doc.get("users", []) if isinstance(prev_users_doc, dict) else []
-              raw_actor = resp.get("actor") or (orig_req.get("actor") if isinstance(orig_req, dict) else None)
-              verified_actor = verify_actor(raw_actor, prev_users_list)
-              action_name = str(resp.get("action") or (orig_req.get("action") if isinstance(orig_req, dict) else "") or "SYNC_USERS").strip().upper()
-              if action_name == "EDIT_USER":
-                  action_name = "UPDATE_USER"
+              verified_actor = verify_actor_snapshot(orig_req, resp, prev_users_list)
+
+              raw_action = str(resp.get("action") or (orig_req.get("action") if isinstance(orig_req, dict) else "") or "SYNC_USERS").strip().upper()
+              canon_action = normalize_action(raw_action)
+              cat_name = action_category(canon_action)
 
               ts_recv = utc_now()
               if status in {"FAILED", "REJECTED", "ERROR"}:
                   err_detail = str(resp.get("error") or resp.get("message") or "Users operation failed")
-                  def _mark_u_fail(reg):
-                      reg.setdefault("protocolVersion", 1)
-                      reg.setdefault("processedRequestIds", [])
-                      reg.setdefault("completedRequestIds", [])
-                      tx = reg.setdefault("transactions", {}).setdefault(req_id, {"requestId": req_id, "sequence": seq})
-                      tx.update({
-                          "status": "FAILED",
-                          "failedAt": ts_recv,
-                          "updatedAt": ts_recv,
-                          "lastError": err_detail,
-                      })
-                      reg["updatedAt"] = ts_recv
-                      return reg
-                  mutate_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed(), _mark_u_fail, f"Mark transaction {req_id} failed")
                   write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {
                       "protocolVersion": 1,
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "status": "FAILED",
                       "request": orig_req if isinstance(orig_req, dict) else {},
@@ -763,25 +1172,51 @@ jobs:
                       "error": err_detail,
                       "failedAt": ts_recv,
                   }, f"Preserve failed users transaction {req_id}")
-                  target_info = resp.get("target") if isinstance(resp.get("target"), dict) else {"type": "USER", "userId": norm_id((orig_req or {}).get("payload", {}).get("id")), "username": (orig_req or {}).get("payload", {}).get("name")}
-                  append_network_log(DASHBOARD_REPO, {
-                      "logId": f"LOG-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
-                      "transactionId": req_id,
-                      "sequence": seq,
-                      "timestamp": ts_recv,
-                      "actor": verified_actor,
-                      "action": action_name,
-                      "requestType": req_type,
-                      "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
-                      "destination": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
-                      "target": target_info,
-                      "resource": {"type": "USER_REGISTRY", "id": target_info.get("userId") or "USERS", "name": "CONFIG/auth-users.json"},
-                      "changes": resp.get("changes") if isinstance(resp.get("changes"), dict) else {"previous": None, "current": None},
-                      "request": orig_req if isinstance(orig_req, dict) else {},
-                      "response": resp,
-                      "status": "FAILED",
-                      "details": err_detail,
-                  })
+
+                  target_info = resp.get("target") if isinstance(resp.get("target"), dict) else {
+                      "type": "USER",
+                      "userId": norm_id((orig_req or {}).get("payload", {}).get("id")),
+                      "username": (orig_req or {}).get("payload", {}).get("name") or "Target User",
+                  }
+                  record_tx_and_audit(
+                      DASHBOARD_REPO,
+                      req_id,
+                      {
+                          "requestId": req_id,
+                          "transactionId": req_id,
+                          "sequence": seq,
+                          "requestType": req_type,
+                          "action": canon_action,
+                          "actor": verified_actor,
+                          "processor": processor_info,
+                          "status": "FAILED",
+                          "failedAt": ts_recv,
+                          "updatedAt": ts_recv,
+                          "lastError": err_detail,
+                          "workflowRunId": RUN_ID,
+                      },
+                      {
+                          "logId": f"AUDIT-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                          "requestId": req_id,
+                          "transactionId": req_id,
+                          "sequence": seq,
+                          "timestamp": ts_recv,
+                          "action": canon_action,
+                          "rawAction": raw_action,
+                          "category": cat_name,
+                          "requestType": req_type,
+                          "status": "FAILED",
+                          "actor": verified_actor,
+                          "processor": processor_info,
+                          "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                          "destination": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
+                          "target": target_info,
+                          "resource": {"type": "USER_REGISTRY", "id": target_info.get("userId") or "USERS", "name": "CONFIG/auth-users.json"},
+                          "changes": resp.get("changes") if isinstance(resp.get("changes"), dict) else {"previous": None, "current": None},
+                          "summary": err_detail,
+                          "details": err_detail,
+                      },
+                  )
                   continue
 
               if status in {"SUCCESS", "COMPLETED"}:
@@ -789,13 +1224,13 @@ jobs:
                   if isinstance(inc_users, list):
                       mutate_json(DASHBOARD_REPO, USERS_PATH, {"users": []}, lambda _: {"users": inc_users}, f"Synchronize auth-users from {req_id}")
                   if isinstance(resp.get("permissions"), dict):
-                      mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, lambda p: {**(p or {}), **resp["permissions"]}, f"Update permissions from {req_id}")
+                      mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, lambda p: {**(p or {}), **resp["permissions"]}, f"Update permissions from {req_id}", allow_empty_dict=True)
                   if isinstance(resp.get("visibility"), dict):
-                      mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, lambda v: {**(v or {}), **resp["visibility"]}, f"Update visibility from {req_id}")
+                      mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, lambda v: {**(v or {}), **resp["visibility"]}, f"Update visibility from {req_id}", allow_empty_dict=True)
 
                   ts_done = utc_now()
-                  all_known_users = inc_users if isinstance(inc_users, list) else prev_users_list
-                  verified_actor = verify_actor(raw_actor, all_known_users)
+                  if not verified_actor.get("verified") and isinstance(inc_users, list):
+                      verified_actor = verify_actor_snapshot(orig_req, resp, prev_users_list + inc_users)
 
                   target_user_obj = resp.get("user") if isinstance(resp.get("user"), dict) else {}
                   target_uid = norm_id(target_user_obj.get("id") or (orig_req or {}).get("payload", {}).get("id"))
@@ -816,44 +1251,38 @@ jobs:
                               "current": {"userCount": len(inc_users) if isinstance(inc_users, list) else len(prev_users_list)},
                           }
 
-                  def _mark_u_done(reg):
-                      reg.setdefault("protocolVersion", 1)
-                      c_list = reg.setdefault("completedRequestIds", [])
-                      p_list = reg.setdefault("processedRequestIds", [])
-                      if req_id not in c_list:
-                          c_list.append(req_id)
-                      if req_id not in p_list:
-                          p_list.append(req_id)
-                      reg["completedRequestIds"] = c_list[-500:]
-                      reg["processedRequestIds"] = p_list[-500:]
-                      tx = reg.setdefault("transactions", {}).setdefault(req_id, {})
-                      tx.update({
-                          "requestId": req_id,
-                          "sequence": seq,
-                          "requestType": req_type,
-                          "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
-                          "destination": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
-                          "requestPath": req_path,
-                          "status": "COMPLETED",
-                          "responseReceivedAt": ts_recv,
-                          "completedAt": ts_done,
-                          "updatedAt": ts_done,
-                          "resultSummary": {"action": action_name, "userCount": len(inc_users) if isinstance(inc_users, list) else 0},
-                      })
-                      reg["updatedAt"] = ts_done
-                      return reg
-
-                  mutate_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed(), _mark_u_done, f"Complete transaction {req_id}")
-                  mutate_json(USERS_REPO, PROCESSED_PATH, default_processed(), _mark_u_done, f"Confirm completion of {req_id}")
-
-                  append_network_log(DASHBOARD_REPO, {
-                      "logId": f"LOG-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                  summary_text = f"User operation {canon_action} completed for {target_uname}."
+                  tx_done_payload = {
+                      "requestId": req_id,
+                      "transactionId": req_id,
+                      "sequence": seq,
+                      "requestType": req_type,
+                      "action": canon_action,
+                      "actor": verified_actor,
+                      "processor": processor_info,
+                      "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                      "destination": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
+                      "requestPath": req_path,
+                      "status": "COMPLETED",
+                      "responseReceivedAt": ts_recv,
+                      "completedAt": ts_done,
+                      "updatedAt": ts_done,
+                      "resultSummary": {"action": canon_action, "userCount": len(inc_users) if isinstance(inc_users, list) else 0},
+                      "workflowRunId": RUN_ID,
+                  }
+                  audit_done_payload = {
+                      "logId": f"AUDIT-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                      "requestId": req_id,
                       "transactionId": req_id,
                       "sequence": seq,
                       "timestamp": ts_done,
-                      "actor": verified_actor,
-                      "action": action_name,
+                      "action": canon_action,
+                      "rawAction": raw_action,
+                      "category": cat_name,
                       "requestType": req_type,
+                      "status": "SUCCESS",
+                      "actor": verified_actor,
+                      "processor": processor_info,
                       "source": {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": USERS_REPO, "branch": BRANCH},
                       "target": {
@@ -867,11 +1296,12 @@ jobs:
                           "name": target_uname,
                       },
                       "changes": resp_changes,
-                      "request": orig_req if isinstance(orig_req, dict) else {},
-                      "response": resp,
-                      "status": "SUCCESS",
-                      "details": f"User operation {action_name} completed for {target_uname}.",
-                  })
+                      "summary": summary_text,
+                      "details": summary_text,
+                  }
+
+                  record_tx_and_audit(DASHBOARD_REPO, req_id, tx_done_payload, audit_done_payload, mark_completed=True)
+                  record_tx_and_audit(USERS_REPO, req_id, tx_done_payload, None, mark_completed=True)
 
                   delete_file(DASHBOARD_REPO, resp_path, f"Cleanup response {req_id}")
                   delete_file(DASHBOARD_REPO, req_path, f"Cleanup request {req_id}")
@@ -900,6 +1330,7 @@ jobs:
                   write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {
                       "protocolVersion": 1,
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "status": "FAILED",
                       "request": orig_req if isinstance(orig_req, dict) else {},
@@ -911,9 +1342,10 @@ jobs:
 
               payload = orig_req.get("payload") if isinstance(orig_req.get("payload"), dict) else {}
               target_uid = norm_id(orig_req.get("userId") or payload.get("userId"))
-              raw_actor = orig_req.get("actor") or {"userId": target_uid}
-              verified_actor = verify_actor(raw_actor, current_users_list, fallback_role="USER")
-              action_name = str(payload.get("action") or orig_req.get("requestType") or "UPDATE_DASHBOARD_SETTINGS").strip().upper()
+              verified_actor = verify_actor_snapshot(orig_req, resp, current_users_list)
+              raw_action = str(payload.get("action") or orig_req.get("requestType") or "UPDATE_DASHBOARD_SETTINGS").strip().upper()
+              canon_action = normalize_action(raw_action)
+              cat_name = action_category(canon_action)
               res_block = resp.get("result") if isinstance(resp.get("result"), dict) else {}
               changes_block = res_block.get("changes") if isinstance(res_block.get("changes"), dict) else {
                   "previous": res_block.get("previousSettings", {}),
@@ -923,23 +1355,10 @@ jobs:
               ts_now = utc_now()
               if status in {"REJECTED", "FAILED", "ERROR"}:
                   err_detail = str(resp.get("details") or "Personal operation rejected")
-                  def _mark_p_fail(reg):
-                      reg.setdefault("protocolVersion", 1)
-                      reg.setdefault("processedRequestIds", [])
-                      reg.setdefault("completedRequestIds", [])
-                      tx = reg.setdefault("transactions", {}).setdefault(req_id, {"requestId": req_id, "sequence": seq})
-                      tx.update({
-                          "status": "FAILED",
-                          "failedAt": ts_now,
-                          "updatedAt": ts_now,
-                          "lastError": err_detail,
-                      })
-                      reg["updatedAt"] = ts_now
-                      return reg
-                  mutate_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed(), _mark_p_fail, f"Record failed personal transaction {req_id}")
                   write_json(DASHBOARD_REPO, f"NETWORK/FAILED/{req_id}.json", {
                       "protocolVersion": 1,
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "status": "FAILED",
                       "request": orig_req,
@@ -947,69 +1366,90 @@ jobs:
                       "error": err_detail,
                       "failedAt": ts_now,
                   }, f"Preserve failed personal transaction {req_id}")
-                  append_network_log(DASHBOARD_REPO, {
-                      "logId": f"LOG-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
-                      "transactionId": req_id,
-                      "sequence": seq,
-                      "timestamp": ts_now,
-                      "actor": verified_actor,
-                      "action": action_name,
-                      "requestType": "DASHBOARD_PERSONAL_SYNC",
-                      "source": orig_req.get("source") or {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
-                      "destination": orig_req.get("destination") or {},
-                      "target": {"type": "USER", "userId": target_uid, "username": verified_actor.get("username")},
-                      "resource": {"type": "PERSONAL_SETTINGS", "id": str(payload.get("toolId") or "DASHBOARD_SETTINGS"), "name": "DASHBOARD/dashboard-settings.json"},
-                      "changes": changes_block,
-                      "request": orig_req,
-                      "response": resp,
-                      "status": "FAILED",
-                      "details": err_detail,
-                  })
+
+                  record_tx_and_audit(
+                      DASHBOARD_REPO,
+                      req_id,
+                      {
+                          "requestId": req_id,
+                          "transactionId": req_id,
+                          "sequence": seq,
+                          "requestType": "DASHBOARD_PERSONAL_SYNC",
+                          "action": canon_action,
+                          "actor": verified_actor,
+                          "processor": processor_info,
+                          "status": "FAILED",
+                          "failedAt": ts_now,
+                          "updatedAt": ts_now,
+                          "lastError": err_detail,
+                          "workflowRunId": RUN_ID,
+                      },
+                      {
+                          "logId": f"AUDIT-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                          "requestId": req_id,
+                          "transactionId": req_id,
+                          "sequence": seq,
+                          "timestamp": ts_now,
+                          "action": canon_action,
+                          "rawAction": raw_action,
+                          "category": cat_name,
+                          "requestType": "DASHBOARD_PERSONAL_SYNC",
+                          "status": "FAILED",
+                          "actor": verified_actor,
+                          "processor": processor_info,
+                          "source": orig_req.get("source") or {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                          "destination": orig_req.get("destination") or {},
+                          "target": {"type": "USER", "userId": target_uid, "username": verified_actor.get("username")},
+                          "resource": {"type": "PERSONAL_SETTINGS", "id": str(payload.get("toolId") or "DASHBOARD_SETTINGS"), "name": "DASHBOARD/dashboard-settings.json"},
+                          "changes": changes_block,
+                          "summary": err_detail,
+                          "details": err_detail,
+                      },
+                  )
                   continue
 
-              def _mark_p_done(reg):
-                  reg.setdefault("protocolVersion", 1)
-                  c_list = reg.setdefault("completedRequestIds", [])
-                  p_list = reg.setdefault("processedRequestIds", [])
-                  if req_id not in c_list:
-                      c_list.append(req_id)
-                  if req_id not in p_list:
-                      p_list.append(req_id)
-                  reg["completedRequestIds"] = c_list[-500:]
-                  reg["processedRequestIds"] = p_list[-500:]
-                  tx = reg.setdefault("transactions", {}).setdefault(req_id, {})
-                  tx.update({
+              summary_msg = str(resp.get("details") or "Personal dashboard settings synchronized successfully.")
+              record_tx_and_audit(
+                  DASHBOARD_REPO,
+                  req_id,
+                  {
                       "requestId": req_id,
+                      "transactionId": req_id,
                       "sequence": seq,
                       "requestType": "DASHBOARD_PERSONAL_SYNC",
+                      "action": canon_action,
+                      "actor": verified_actor,
+                      "processor": processor_info,
                       "status": "COMPLETED",
                       "responseReceivedAt": ts_now,
                       "completedAt": ts_now,
                       "updatedAt": ts_now,
                       "resultSummary": res_block,
-                  })
-                  reg["updatedAt"] = ts_now
-                  return reg
-
-              mutate_json(DASHBOARD_REPO, PROCESSED_PATH, default_processed(), _mark_p_done, f"Complete personal transaction {req_id}")
-              append_network_log(DASHBOARD_REPO, {
-                  "logId": f"LOG-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
-                  "transactionId": req_id,
-                  "sequence": seq,
-                  "timestamp": ts_now,
-                  "actor": verified_actor,
-                  "action": action_name,
-                  "requestType": "DASHBOARD_PERSONAL_SYNC",
-                  "source": orig_req.get("source") or {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
-                  "destination": orig_req.get("destination") or {},
-                  "target": {"type": "USER", "userId": target_uid, "username": verified_actor.get("username")},
-                  "resource": {"type": "PERSONAL_SETTINGS", "id": str(payload.get("toolId") or "DASHBOARD_SETTINGS"), "name": "DASHBOARD/dashboard-settings.json"},
-                  "changes": changes_block,
-                  "request": orig_req,
-                  "response": resp,
-                  "status": "SUCCESS",
-                  "details": str(resp.get("details") or "Personal dashboard settings synchronized successfully."),
-              })
+                      "workflowRunId": RUN_ID,
+                  },
+                  {
+                      "logId": f"AUDIT-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                      "requestId": req_id,
+                      "transactionId": req_id,
+                      "sequence": seq,
+                      "timestamp": ts_now,
+                      "action": canon_action,
+                      "rawAction": raw_action,
+                      "category": cat_name,
+                      "requestType": "DASHBOARD_PERSONAL_SYNC",
+                      "status": "SUCCESS",
+                      "actor": verified_actor,
+                      "processor": processor_info,
+                      "source": orig_req.get("source") or {"owner": OWNER, "repository": DASHBOARD_REPO, "branch": BRANCH},
+                      "destination": orig_req.get("destination") or {},
+                      "target": {"type": "USER", "userId": target_uid, "username": verified_actor.get("username")},
+                      "resource": {"type": "PERSONAL_SETTINGS", "id": str(payload.get("toolId") or "DASHBOARD_SETTINGS"), "name": "DASHBOARD/dashboard-settings.json"},
+                      "changes": changes_block,
+                      "summary": summary_msg,
+                      "details": summary_msg,
+                  },
+                  mark_completed=True,
+              )
               delete_file(DASHBOARD_REPO, resp_path, f"Cleanup personal response {req_id}")
               delete_file(DASHBOARD_REPO, req_path, f"Cleanup personal request {req_id}")
 
@@ -1021,7 +1461,7 @@ jobs:
               if isinstance(u, dict) and norm_id(u.get("id")) and str(u.get("status", "Active")).strip().casefold() == "active"
           }
 
-          manifest, _ = read_json(DASHBOARD_REPO, MANIFEST_PATH, {})
+          manifest, _ = read_json(DASHBOARD_REPO, MANIFEST_PATH, default_manifest())
           tools_list = manifest.get("tools", []) if isinstance(manifest, dict) else []
           tool_ids = []
           for t in tools_list:
@@ -1056,7 +1496,7 @@ jobs:
               return visibility
 
           if tool_ids:
-              mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, _reconcile_vis, "Reconcile dashboard tools visibility")
+              mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, _reconcile_vis, "Reconcile dashboard tools visibility", allow_empty_dict=True)
 
           def _reconcile_perms(permissions):
               permissions = permissions if isinstance(permissions, dict) else {}
@@ -1079,5 +1519,5 @@ jobs:
               return permissions
 
           if users and tool_ids:
-              mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, _reconcile_perms, "Reconcile dashboard tools permissions")
+              mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, _reconcile_perms, "Reconcile dashboard tools permissions", allow_empty_dict=True)
           PY
