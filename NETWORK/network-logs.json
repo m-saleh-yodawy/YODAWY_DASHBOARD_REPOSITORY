@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-10-31T19:38:33Z",
+  "updatedAt": "2026-10-31T19:38:37Z",
   "auditLogs": [
     {
       "logId": "AUDIT-20261031T192242Z-7CAEE26E",
@@ -120,6 +120,42 @@
       },
       "summary": "Unverified or missing actor identity.",
       "details": "Unverified or missing actor identity."
+    },
+    {
+      "logId": "AUDIT-20261031T193838Z-45DEB086",
+      "requestId": "MANUAL-ADD-MOHAMED-SALEH-001",
+      "transactionId": "MANUAL-ADD-MOHAMED-SALEH-001",
+      "timestamp": "2026-10-31T19:38:37Z",
+      "action": "ADD_USER",
+      "rawAction": "ADD_USER",
+      "category": "USER_MANAGEMENT",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "status": "REJECTED",
+      "actor": {
+        "userId": "Q-001",
+        "username": "Unknown / Unverified Actor",
+        "role": "UNKNOWN",
+        "roleAtTimeOfAction": "UNKNOWN",
+        "verified": false,
+        "verificationMethod": null
+      },
+      "processor": {
+        "type": "GITHUB_ACTIONS",
+        "name": "DASHBOARD - USERS WORKFLOW",
+        "repository": "m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY",
+        "runId": "41235172007"
+      },
+      "target": {
+        "type": "USER",
+        "userId": null,
+        "username": "MOHAMED SALEH"
+      },
+      "changes": {
+        "previous": null,
+        "current": null
+      },
+      "summary": "Unverified or missing actor identity.",
+      "details": "Unverified or missing actor identity."
     }
   ],
   "transactionRegistry": {
@@ -184,7 +220,7 @@
       "action": "ADD_USER",
       "status": "REJECTED",
       "actor": {
-        "userId": "UNKNOWN",
+        "userId": "Q-001",
         "username": "Unknown / Unverified Actor",
         "role": "UNKNOWN",
         "roleAtTimeOfAction": "UNKNOWN",
@@ -195,12 +231,12 @@
         "type": "GITHUB_ACTIONS",
         "name": "DASHBOARD - USERS WORKFLOW",
         "repository": "m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY",
-        "runId": "41234391692"
+        "runId": "41235172007"
       },
-      "failedAt": "2026-10-31T19:28:43Z",
-      "updatedAt": "2026-10-31T19:28:43Z",
+      "failedAt": "2026-10-31T19:38:37Z",
+      "updatedAt": "2026-10-31T19:38:37Z",
       "lastError": "Unverified or missing actor identity.",
-      "workflowRunId": "41234391692"
+      "workflowRunId": "41235172007"
     }
   }
 }
