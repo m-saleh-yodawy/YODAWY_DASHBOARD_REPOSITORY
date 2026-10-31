@@ -1,0 +1,26 @@
+{
+  "protocolVersion": 1,
+  "requestId": "USERS-DASH-20261031T011246Z-3B420592",
+  "sequence": "001",
+  "requestType": "USERS_DASHBOARD_SYNC",
+  "responseType": "USERS_DASHBOARD_RESPONSE",
+  "status": "COMPLETED",
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "action": "SYNC_USERS",
+  "user": null,
+  "users": [],
+  "permissions": {},
+  "visibility": {},
+  "processedAt": "2026-10-31T01:13:38Z",
+  "responseSentAt": "2026-10-31T01:13:38Z",
+  "completedAt": "2026-10-31T01:13:53Z"
+}
