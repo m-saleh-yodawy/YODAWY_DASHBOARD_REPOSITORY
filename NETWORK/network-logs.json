@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-10-31T19:28:39Z",
+  "updatedAt": "2026-10-31T19:28:43Z",
   "auditLogs": [
     {
       "logId": "AUDIT-20261031T192242Z-7CAEE26E",
@@ -84,6 +84,42 @@
       },
       "summary": "Tools synchronization completed successfully.",
       "details": "Tools synchronization completed successfully."
+    },
+    {
+      "logId": "AUDIT-20261031T192845Z-4C08A0F1",
+      "requestId": "MANUAL-ADD-MOHAMED-SALEH-001",
+      "transactionId": "MANUAL-ADD-MOHAMED-SALEH-001",
+      "timestamp": "2026-10-31T19:28:43Z",
+      "action": "ADD_USER",
+      "rawAction": "ADD_USER",
+      "category": "USER_MANAGEMENT",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "status": "REJECTED",
+      "actor": {
+        "userId": "UNKNOWN",
+        "username": "Unknown / Unverified Actor",
+        "role": "UNKNOWN",
+        "roleAtTimeOfAction": "UNKNOWN",
+        "verified": false,
+        "verificationMethod": null
+      },
+      "processor": {
+        "type": "GITHUB_ACTIONS",
+        "name": "DASHBOARD - USERS WORKFLOW",
+        "repository": "m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY",
+        "runId": "41234391692"
+      },
+      "target": {
+        "type": "USER",
+        "userId": null,
+        "username": "MOHAMED SALEH"
+      },
+      "changes": {
+        "previous": null,
+        "current": null
+      },
+      "summary": "Unverified or missing actor identity.",
+      "details": "Unverified or missing actor identity."
     }
   ],
   "transactionRegistry": {
@@ -140,6 +176,31 @@
       "lastError": null,
       "workflowRunId": "41233903828",
       "completedAt": "2026-10-31T19:22:48Z"
+    },
+    "MANUAL-ADD-MOHAMED-SALEH-001": {
+      "requestId": "MANUAL-ADD-MOHAMED-SALEH-001",
+      "transactionId": "MANUAL-ADD-MOHAMED-SALEH-001",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "ADD_USER",
+      "status": "REJECTED",
+      "actor": {
+        "userId": "UNKNOWN",
+        "username": "Unknown / Unverified Actor",
+        "role": "UNKNOWN",
+        "roleAtTimeOfAction": "UNKNOWN",
+        "verified": false,
+        "verificationMethod": null
+      },
+      "processor": {
+        "type": "GITHUB_ACTIONS",
+        "name": "DASHBOARD - USERS WORKFLOW",
+        "repository": "m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY",
+        "runId": "41234391692"
+      },
+      "failedAt": "2026-10-31T19:28:43Z",
+      "updatedAt": "2026-10-31T19:28:43Z",
+      "lastError": "Unverified or missing actor identity.",
+      "workflowRunId": "41234391692"
     }
   }
 }
