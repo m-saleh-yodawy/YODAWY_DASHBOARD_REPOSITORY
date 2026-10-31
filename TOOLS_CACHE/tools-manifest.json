@@ -4,7 +4,7 @@
   "sourceCatalog": "CONFIG/tools.json",
   "tools": [
     {
-      "id": "TOOL-004",
+      "id": "TOOL-001",
       "name": "CONFIRMATION TYPE BUTTONS",
       "description": "",
       "version": "1",
@@ -14,7 +14,7 @@
       "sha256": "f5b8a74a12c2d2600ee82cd48a2652a02e1ce33498c8d36990e5f4cd940ada43"
     },
     {
-      "id": "TOOL-005",
+      "id": "TOOL-002",
       "name": "PORTAL AUTO LOGIN",
       "description": "Unified Odoo to Portal login using YODAWY LOADER",
       "version": "1",
@@ -24,7 +24,7 @@
       "sha256": "6a163b61352e768fa34988ea133ebd69869d5d0d64ac0e6e24a41b431c4e277c"
     },
     {
-      "id": "TOOL-006",
+      "id": "TOOL-003",
       "name": "test",
       "description": "",
       "version": "",
