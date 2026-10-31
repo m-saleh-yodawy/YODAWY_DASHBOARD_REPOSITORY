@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-10-31T19:53:48Z",
+  "updatedAt": "2026-10-31T19:53:52Z",
   "auditLogs": [
     {
       "logId": "AUDIT-20261031T195341Z-F9011317",
@@ -19,7 +19,28 @@
         "role": "UNKNOWN",
         "roleAtTimeOfAction": "UNKNOWN",
         "verified": false,
-        "verificationMethod": "DELEGATED_WORKFLOW_EVENT"
+        "verificationMethod": null,
+        "historicalOriginal": {
+          "auditActor": {
+            "userId": "UNKNOWN",
+            "username": "m-saleh-yodawy",
+            "role": "UNKNOWN",
+            "roleAtTimeOfAction": "UNKNOWN",
+            "verified": false,
+            "verificationMethod": "DELEGATED_WORKFLOW_EVENT"
+          },
+          "requestActor": {},
+          "responseActor": {},
+          "transactionActor": {
+            "userId": "UNKNOWN",
+            "username": "m-saleh-yodawy",
+            "role": "UNKNOWN",
+            "roleAtTimeOfAction": "UNKNOWN",
+            "verified": false,
+            "verificationMethod": "DELEGATED_WORKFLOW_EVENT"
+          }
+        },
+        "attributionWarning": "Historical actor identity unverified or conflicting across records."
       },
       "processor": {
         "type": "GITHUB_ACTIONS",
