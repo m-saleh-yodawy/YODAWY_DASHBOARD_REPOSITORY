@@ -1,0 +1,17 @@
+{
+  "protocolVersion": 1,
+  "requestId": "MANUAL-UPDATE-MOHAMED-SALEH-ADMIN-001",
+  "sequence": "001",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "status": "CREATED",
+  "createdAt": "2026-10-31T16:35:00Z",
+  "action": "UPDATE_USER",
+  "payload": {
+    "action": "UPDATE_USER",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "role": "ADMIN",
+    "status": "Active",
+    "developer": true
+  }
+}
