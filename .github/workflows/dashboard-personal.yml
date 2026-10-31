@@ -5,8 +5,6 @@ on:
     branches:
       - main
     paths:
-      - "NETWORK/personal-request.json"
-      - "NETWORK/personal-request-*.json"
       - "NETWORK/dashboard-personal-request-*.json"
   workflow_dispatch:
     inputs:
@@ -61,6 +59,7 @@ jobs:
           INPUT_SEQ = os.environ.get("INPUT_SEQ", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
+          PROCESSED_PATH = "NETWORK/processed-transactions.json"
 
           PROTECTED_REPOS = {
               "yodawy_dashboard_repository",
@@ -152,6 +151,8 @@ jobs:
                       raise
 
           def delete_file(repo, path, msg):
+              if path == PROCESSED_PATH or path.startswith("NETWORK/FAILED/"):
+                  return
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 5):
                   _, sha = read_json(repo, path)
@@ -213,22 +214,17 @@ jobs:
           user_repo_map = load_authoritative_mapping()
           repo_user_map = {v.casefold(): k for k, v in user_repo_map.items()}
 
-          reg_state, _ = read_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"transactions": {}, "completedRequestIds": []})
-          completed_ids = set(reg_state.get("completedRequestIds", []))
-          known_txs = reg_state.get("transactions", {})
-
           source_files = list_network_files(SOURCE_REPO)
           candidates = []
           if INPUT_SEQ and re.fullmatch(r"\d{3,}", INPUT_SEQ):
-              candidates.append(f"NETWORK/dashboard-personal-request-{INPUT_SEQ}.json")
-              candidates.append(f"NETWORK/personal-request-{INPUT_SEQ}.json")
+              p = f"NETWORK/dashboard-personal-request-{INPUT_SEQ}.json"
+              if p.split("/")[1] in source_files:
+                  candidates.append(p)
           for n in source_files:
-              if re.fullmatch(r"(?:dashboard-personal|personal)-request-\d{3,}\.json", n):
+              if re.fullmatch(r"dashboard-personal-request-\d{3,}\.json", n):
                   p = f"NETWORK/{n}"
                   if p not in candidates:
                       candidates.append(p)
-          if "personal-request.json" in source_files and "NETWORK/personal-request.json" not in candidates:
-              candidates.append("NETWORK/personal-request.json")
 
           relayed_any = False
 
@@ -237,11 +233,13 @@ jobs:
               if not isinstance(raw_data, dict) or not raw_data:
                   continue
 
-              request_id = str(raw_data.get("requestId") or raw_data.get("request_id") or "").strip()
+              request_id = str(raw_data.get("requestId") or "").strip()
               if not request_id:
                   request_id = f"DASH-PERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
 
-              if request_id in completed_ids or known_txs.get(request_id, {}).get("status") == "COMPLETED":
+              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, {"transactions": {}, "completedRequestIds": []})
+              if request_id in set(reg_state.get("completedRequestIds", [])) or reg_state.get("transactions", {}).get(request_id, {}).get("status") == "COMPLETED":
+                  delete_file(SOURCE_REPO, source_path, f"Cleanup completed personal request {request_id}")
                   continue
 
               req_type = str(raw_data.get("requestType") or raw_data.get("action") or "DASHBOARD_PERSONAL_SYNC").strip().upper()
@@ -261,8 +259,7 @@ jobs:
               if "/" in target_repo:
                   target_repo = target_repo.rsplit("/", 1)[-1]
 
-              user_id = str(raw_data.get("userId") or raw_data.get("user_id") or payload.get("userId") or payload.get("user_id") or "").strip().upper()
-
+              user_id = str(raw_data.get("userId") or payload.get("userId") or "").strip().upper()
               if not target_repo and user_id:
                   target_repo = user_repo_map.get(user_id, "")
               if not user_id and target_repo:
@@ -292,7 +289,7 @@ jobs:
                       elif k in raw_data:
                           settings_updates[k] = raw_data[k]
 
-              if req_type == "TOGGLE_PERSONAL_TOOL":
+              if req_type == "TOGGLE_PERSONAL_TOOL" or payload.get("action") == "TOGGLE_PERSONAL_TOOL":
                   tool_id = str(payload.get("toolId") or raw_data.get("toolId") or "").strip()
                   enabled = payload.get("enabled") if "enabled" in payload else raw_data.get("enabled")
                   if not re.fullmatch(r"TOOL-\d{3,}", tool_id) or not isinstance(enabled, bool):
@@ -308,7 +305,7 @@ jobs:
               names_union = set(list_network_files(SOURCE_REPO)) | set(list_network_files(target_repo))
               max_s = 0
               for n in names_union:
-                  m = re.match(r"^(?:dashboard-personal|personal)-request-(\d{3,})\.json$", n)
+                  m = re.match(r"^dashboard-personal-request-(\d{3,})\.json$", n)
                   if m:
                       max_s = max(max_s, int(m.group(1)))
               pref_seq = int(seq_m.group(1)) if seq_m else (max_s + 1)
@@ -355,13 +352,12 @@ jobs:
               if not seq:
                   raise RuntimeError(f"Failed to allocate sequence for personal request {request_id}")
 
-              compat_req_path = f"NETWORK/personal-request-{seq}.json"
               write_json(SOURCE_REPO, ch_req_path, request_obj, f"Record personal request {request_id}")
-              write_json(SOURCE_REPO, compat_req_path, request_obj, f"Record compat personal request {request_id}")
-              if source_path == "NETWORK/personal-request.json":
-                  write_json(SOURCE_REPO, source_path, {}, f"Clear unsequenced personal request {request_id}")
+              if source_path != ch_req_path:
+                  delete_file(SOURCE_REPO, source_path, f"Remove unallocated personal request {request_id}")
 
               def _rec_sent(reg):
+                  reg.setdefault("protocolVersion", 1)
                   tx = reg.setdefault("transactions", {}).setdefault(request_id, {})
                   tx.update({
                       "requestId": request_id,
@@ -369,19 +365,23 @@ jobs:
                       "requestType": "DASHBOARD_PERSONAL_SYNC",
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": target_repo, "branch": BRANCH},
+                      "requestPath": ch_req_path,
                       "status": "SENT",
                       "createdAt": request_obj["createdAt"],
                       "sentAt": request_obj["sentAt"],
+                      "updatedAt": now(),
+                      "attempts": int(tx.get("attempts", 0)) + 1,
                       "responseRequired": True,
                   })
                   reg["updatedAt"] = now()
                   return reg
-              mutate_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _rec_sent, f"Record sent personal request {request_id}")
+
+              mutate_json(SOURCE_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _rec_sent, f"Record sent personal request {request_id}")
 
               api_req("POST", f"/repos/{OWNER}/{target_repo}/actions/workflows/personal.yml/dispatches", {"ref": BRANCH})
 
-              target_resp_path = f"NETWORK/dashboard-response-{seq}.json"
-              target_rec_path = f"NETWORK/dashboard-request-receiptor-{seq}.json"
+              target_resp_path = f"NETWORK/personal-dashboard-response-{seq}.json"
+              target_rec_path = f"NETWORK/dashboard-personal-receipt-{seq}.json"
               deadline = time.monotonic() + 300
               response_data = None
               while time.monotonic() < deadline:
@@ -395,9 +395,7 @@ jobs:
                   write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {"request": request_obj, "error": "Personal response timeout", "failedAt": now(), "retryEligible": True}, f"Preserve timed out personal request {request_id}")
                   raise RuntimeError(f"Timed out waiting for response from {target_repo} for {request_id}")
 
-              relayed_resp_path = f"NETWORK/personal-dashboard-response-{seq}.json"
-              write_json(SOURCE_REPO, relayed_resp_path, response_data, f"Relay personal response {request_id}")
-              write_json(SOURCE_REPO, target_resp_path, response_data, f"Relay compat personal response {request_id}")
+              write_json(SOURCE_REPO, target_resp_path, response_data, f"Relay personal response {request_id}")
 
               delete_file(target_repo, ch_req_path, f"Cleanup processed personal request {request_id}")
               delete_file(target_repo, target_rec_path, f"Cleanup processed personal receipt {request_id}")
