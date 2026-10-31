@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "NETWORK/dashboard-users-request-*.json"
+      - "NETWORK/users-request-*.json"
   workflow_dispatch:
     inputs:
       sequence:
@@ -38,6 +39,7 @@ jobs:
       INPUT_SEQ: ${{ inputs.sequence || '' }}
       INPUT_REQ_ID: ${{ inputs.requestId || '' }}
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
 
     steps:
       - name: Allocate Canonical Sequence and Transmit Requests to Users Repository
@@ -65,9 +67,13 @@ jobs:
           INPUT_SEQ = os.environ.get("INPUT_SEQ", "").strip()
           INPUT_REQ_ID = os.environ.get("INPUT_REQ_ID", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
+          RUN_ID = os.environ.get("GITHUB_RUN_ID", "").strip() or None
           API = "https://api.github.com"
-          PROCESSED_PATH = "NETWORK/processed-transactions.json"
+
           LOGS_PATH = "NETWORK/network-logs.json"
+          LEGACY_PROCESSED_PATH = "NETWORK/processed-transactions.json"
+          USERS_AUTH_PATH = "CONFIG/auth-users.json"
+          TARGET_USERS_PATH = "CONFIG/users.json"
 
           if not TOKEN:
               raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
@@ -80,15 +86,18 @@ jobs:
               "User-Agent": "Yodawy-Dashboard-Users",
           }
 
-          def now():
+          def utc_now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-          def default_processed():
+          def default_network_logs():
               return {
                   "protocolVersion": 1,
-                  "updatedAt": now(),
-                  "processedRequestIds": [],
-                  "completedRequestIds": [],
+                  "updatedAt": utc_now(),
+                  "auditLogs": [],
+                  "transactionRegistry": {
+                      "processedRequestIds": [],
+                      "completedRequestIds": [],
+                  },
                   "transactions": {},
               }
 
@@ -125,11 +134,12 @@ jobs:
               raw = base64.b64decode(res["content"].encode("ascii")).decode("utf-8-sig").strip()
               if not raw:
                   return copy.deepcopy(default), res.get("sha")
-              return json.loads(raw), res.get("sha")
+              parsed = json.loads(raw)
+              return (parsed if isinstance(parsed, dict) else copy.deepcopy(default)), res.get("sha")
 
-          def write_json(repo, path, data, msg, create_only=False):
-              if not isinstance(data, dict) or not data:
-                  raise ValueError(f"Refusing to write empty or schemaless JSON to {repo}/{path}")
+          def write_json(repo, path, data, msg, create_only=False, allow_empty_dict=False):
+              if not isinstance(data, dict) or (not data and not allow_empty_dict):
+                  raise ValueError(f"Refusing to write invalid JSON to {repo}/{path}")
               content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
               encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
@@ -156,7 +166,7 @@ jobs:
                       raise
 
           def delete_file(repo, path, msg):
-              if path in {PROCESSED_PATH, LOGS_PATH} or path.startswith("NETWORK/FAILED/"):
+              if path == LOGS_PATH or path.startswith("NETWORK/FAILED/"):
                   return
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 5):
@@ -174,14 +184,14 @@ jobs:
                           return
                       raise
 
-          def mutate_json(repo, path, default, mutator, msg):
+          def mutate_json(repo, path, default, mutator, msg, allow_empty_dict=False):
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 7):
                   cur, sha = read_json(repo, path, default)
                   if not isinstance(cur, dict):
                       cur = copy.deepcopy(default)
                   updated = mutator(copy.deepcopy(cur))
-                  if not isinstance(updated, dict) or not updated:
+                  if not isinstance(updated, dict) or (not updated and not allow_empty_dict):
                       raise ValueError(f"Invalid mutated JSON for {repo}/{path}")
                   if updated == cur and sha is not None:
                       return updated
@@ -208,77 +218,179 @@ jobs:
                   return []
               return sorted(str(i.get("name", "")) for i in res if isinstance(i, dict))
 
-          def resolve_verified_actor(raw_data):
-              auth_doc, _ = read_json(SOURCE_REPO, "CONFIG/auth-users.json", {"users": []})
-              users = auth_doc.get("users", []) if isinstance(auth_doc, dict) else []
+          def norm_id(val):
+              return str(val or "").strip().upper()
+
+          def norm_role(val):
+              r = re.sub(r"[\s_-]+", "_", str(val or "USER").strip().upper())
+              if r == "SUPERADMIN":
+                  r = "SUPER_ADMIN"
+              return r if r in {"SUPER_ADMIN", "ADMIN", "USER", "SYSTEM", "UNKNOWN"} else "UNKNOWN"
+
+          def normalize_action(action):
+              act = str(action or "").strip().upper()
+              if act == "EDIT_USER":
+                  return "UPDATE_USER"
+              return act
+
+          def ensure_unified_logs(repo):
+              proc_doc, proc_sha = read_json(repo, LEGACY_PROCESSED_PATH, None)
+              def _init(doc):
+                  doc.setdefault("protocolVersion", 1)
+                  audit = doc.setdefault("auditLogs", [])
+                  if isinstance(doc.get("logs"), list):
+                      existing_ids = {str(x.get("logId") or x.get("requestId") or x.get("transactionId") or "") for x in audit if isinstance(x, dict)}
+                      for item in doc.pop("logs", []):
+                          if isinstance(item, dict):
+                              rid = str(item.get("requestId") or item.get("transactionId") or "")
+                              item.setdefault("requestId", rid)
+                              item.setdefault("transactionId", rid)
+                              if rid not in existing_ids:
+                                  audit.append(item)
+                  reg = doc.setdefault("transactionRegistry", {"processedRequestIds": [], "completedRequestIds": []})
+                  p_ids = list(dict.fromkeys(
+                      [str(x).strip() for x in ((proc_doc or {}).get("processedRequestIds") or []) if str(x).strip()] +
+                      [str(x).strip() for x in (doc.pop("processedRequestIds", []) or []) if str(x).strip()] +
+                      [str(x).strip() for x in (reg.get("processedRequestIds") or []) if str(x).strip()]
+                  ))
+                  c_ids = list(dict.fromkeys(
+                      [str(x).strip() for x in ((proc_doc or {}).get("completedRequestIds") or []) if str(x).strip()] +
+                      [str(x).strip() for x in (doc.pop("completedRequestIds", []) or []) if str(x).strip()] +
+                      [str(x).strip() for x in (reg.get("completedRequestIds") or []) if str(x).strip()]
+                  ))
+                  reg["processedRequestIds"] = p_ids[-500:]
+                  reg["completedRequestIds"] = c_ids[-500:]
+                  txs = doc.setdefault("transactions", {})
+                  if isinstance(proc_doc, dict) and isinstance(proc_doc.get("transactions"), dict):
+                      for k, v in proc_doc["transactions"].items():
+                          if isinstance(v, dict):
+                              rid = str(v.get("requestId") or k).strip()
+                              txs[rid] = {**v, **txs.get(rid, {}), "requestId": rid, "transactionId": rid}
+                  doc["updatedAt"] = utc_now()
+                  return doc
+
+              unified = mutate_json(repo, LOGS_PATH, default_network_logs(), _init, "Ensure unified network-logs.json")
+              if proc_sha:
+                  v_doc, v_sha = read_json(repo, LOGS_PATH, None)
+                  if v_sha and isinstance(v_doc, dict) and isinstance(v_doc.get("transactions"), dict):
+                      delete_file(repo, LEGACY_PROCESSED_PATH, "Remove migrated processed-transactions.json")
+              return unified
+
+          def load_authoritative_users():
+              by_id = {}
+              dash_users, dash_sha = read_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []})
+              if dash_sha is None:
+                  write_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []}, "Initialize canonical auth-users.json")
+              target_users, _ = read_json(TARGET_REPO, TARGET_USERS_PATH, {"users": []})
+              for source_list in ((target_users or {}).get("users", []), (dash_users or {}).get("users", [])):
+                  if isinstance(source_list, list):
+                      for u in source_list:
+                          if isinstance(u, dict) and norm_id(u.get("id")):
+                              uid = norm_id(u.get("id"))
+                              by_id.setdefault(uid, u)
+              return by_id
+
+          def resolve_verified_actor(raw_data, auth_users_by_id):
               raw_actor = raw_data.get("actor") if isinstance(raw_data.get("actor"), dict) else {}
-              claimed_id = str(raw_actor.get("userId") or raw_actor.get("id") or raw_data.get("actorId") or "").strip().upper()
-              for u in users:
-                  if isinstance(u, dict) and str(u.get("id") or "").strip().upper() == claimed_id and claimed_id:
-                      role = re.sub(r"[\s_-]+", "_", str(u.get("role") or u.get("ROLE") or "USER").strip().upper())
-                      if role == "SUPERADMIN":
-                          role = "SUPER_ADMIN"
+              claimed_id = norm_id(raw_actor.get("userId") or raw_actor.get("id") or raw_data.get("actorId"))
+              if claimed_id and claimed_id in auth_users_by_id:
+                  u = auth_users_by_id[claimed_id]
+                  if str(u.get("status", "Active")).strip().casefold() == "active":
+                      role = norm_role(u.get("role") or u.get("ROLE") or "USER")
                       return {
                           "userId": claimed_id,
                           "username": str(u.get("name") or raw_actor.get("username") or claimed_id).strip(),
                           "role": role,
+                          "roleAtTimeOfAction": role,
                           "verified": True,
+                          "verificationMethod": "AUTHORIZED_USER_REGISTRY",
                       }
-              for u in users:
-                  if isinstance(u, dict):
-                      role = re.sub(r"[\s_-]+", "_", str(u.get("role") or u.get("ROLE") or "USER").strip().upper())
-                      if role in {"SUPER_ADMIN", "SUPERADMIN"} and str(u.get("status", "Active")).strip().casefold() == "active":
-                          return {
-                              "userId": str(u.get("id")).strip().upper(),
-                              "username": str(u.get("name") or u.get("id")).strip(),
-                              "role": "SUPER_ADMIN",
-                              "verified": False,
-                          }
               return {
-                  "userId": claimed_id or "SYSTEM",
-                  "username": str(raw_actor.get("username") or "System Administrator").strip(),
-                  "role": "SUPER_ADMIN",
+                  "userId": claimed_id if claimed_id and claimed_id != "SYSTEM" else "UNKNOWN",
+                  "username": str(raw_actor.get("username") or "Unknown / Unverified Actor").strip(),
+                  "role": "UNKNOWN",
+                  "roleAtTimeOfAction": "UNKNOWN",
                   "verified": False,
+                  "verificationMethod": None,
               }
 
-          def next_base_seq():
+          def is_actor_authorized(actor_obj, canon_action, payload, auth_users_by_id):
+              if not actor_obj.get("verified"):
+                  return False, "Unverified or missing actor identity."
+              actor_role = actor_obj.get("roleAtTimeOfAction")
+              if actor_role == "SUPER_ADMIN":
+                  return True, ""
+              if actor_role == "ADMIN":
+                  if canon_action == "SYNC_USERS":
+                      return True, ""
+                  target_role = norm_role(payload.get("role") or payload.get("ROLE") or "USER")
+                  target_id = norm_id(payload.get("id") or payload.get("userId"))
+                  existing_target = auth_users_by_id.get(target_id, {})
+                  existing_target_role = norm_role(existing_target.get("role") or existing_target.get("ROLE") or "USER")
+                  if target_role == "SUPER_ADMIN" or existing_target_role == "SUPER_ADMIN":
+                      return False, "ADMIN cannot create, modify, or delete a SUPER_ADMIN user."
+                  if canon_action in {"ADD_USER", "UPDATE_USER"}:
+                      return True, ""
+                  return False, f"ADMIN is not authorized to perform {canon_action}."
+              return False, f"Role {actor_role} is not authorized to perform user management operations."
+
+          def next_base_seq(logs_doc):
               names = set(list_network_files(SOURCE_REPO)) | set(list_network_files(TARGET_REPO))
-              reg, _ = read_json(SOURCE_REPO, PROCESSED_PATH, default_processed())
               max_s = 0
               pat = re.compile(r"^dashboard-users-request-(\d{3,})\.json$")
               for n in names:
                   m = pat.match(n)
                   if m:
                       max_s = max(max_s, int(m.group(1)))
-              for tx in (reg.get("transactions") or {}).values():
+              for tx in (logs_doc.get("transactions") or {}).values():
                   if isinstance(tx, dict) and tx.get("requestType") == "DASHBOARD_USERS_SYNC":
                       s = str(tx.get("sequence", "0"))
                       if s.isdigit():
                           max_s = max(max_s, int(s))
               return max_s + 1
 
-          source_files = list_network_files(SOURCE_REPO)
-          for n in source_files:
-              if re.fullmatch(r"users-request-\d{3,}\.json", n):
-                  delete_file(SOURCE_REPO, f"NETWORK/{n}", f"Remove obsolete compatibility duplicate {n}")
+          ensure_unified_logs(SOURCE_REPO)
+          ensure_unified_logs(TARGET_REPO)
+
+          processor_info = {
+              "type": "GITHUB_ACTIONS",
+              "name": "DASHBOARD - USERS WORKFLOW",
+              "repository": f"{OWNER}/{SOURCE_REPO}",
+              "runId": RUN_ID,
+          }
 
           target_files = list_network_files(TARGET_REPO)
           for n in target_files:
               if re.fullmatch(r"users-request-\d{3,}\.json", n):
-                  delete_file(TARGET_REPO, f"NETWORK/{n}", f"Remove obsolete compatibility duplicate {n}")
+                  delete_file(TARGET_REPO, f"NETWORK/{n}", f"Remove legacy duplicate {n}")
+
+          source_files = list_network_files(SOURCE_REPO)
+          for n in list(source_files):
+              m_leg = re.fullmatch(r"users-request-(\d{3,})\.json", n)
+              if m_leg:
+                  leg_seq = m_leg.group(1)
+                  leg_path = f"NETWORK/{n}"
+                  canon_equiv = f"NETWORK/dashboard-users-request-{leg_seq}.json"
+                  leg_data, _ = read_json(SOURCE_REPO, leg_path, {})
+                  if f"dashboard-users-request-{leg_seq}.json" not in source_files and isinstance(leg_data, dict) and leg_data:
+                      write_json(SOURCE_REPO, canon_equiv, leg_data, f"Migrate legacy {n} to canonical request")
+                      source_files.append(f"dashboard-users-request-{leg_seq}.json")
+                  delete_file(SOURCE_REPO, leg_path, f"Remove legacy request file {n}")
 
           candidate_paths = []
           if INPUT_SEQ and re.fullmatch(r"\d{3,}", INPUT_SEQ):
               p = f"NETWORK/dashboard-users-request-{INPUT_SEQ}.json"
               if p.split("/")[1] in source_files:
                   candidate_paths.append(p)
-          for n in source_files:
+          for n in sorted(set(source_files)):
               if re.fullmatch(r"dashboard-users-request-\d{3,}\.json", n):
                   p = f"NETWORK/{n}"
                   if p not in candidate_paths:
                       candidate_paths.append(p)
 
           seen_request_ids_in_run = set()
+          seen_add_names_in_run = set()
+          auth_users_by_id = load_authoritative_users()
 
           for source_path in candidate_paths:
               raw_data, _ = read_json(SOURCE_REPO, source_path)
@@ -295,10 +407,11 @@ jobs:
                   continue
               seen_request_ids_in_run.add(request_id)
 
-              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, default_processed())
-              completed_ids = set(reg_state.get("completedRequestIds", []))
-              processed_ids = set(reg_state.get("processedRequestIds", []))
-              existing_tx = reg_state.get("transactions", {}).get(request_id, {})
+              logs_state, _ = read_json(SOURCE_REPO, LOGS_PATH, default_network_logs())
+              reg_block = logs_state.get("transactionRegistry") or {}
+              completed_ids = set(reg_block.get("completedRequestIds", []))
+              processed_ids = set(reg_block.get("processedRequestIds", []))
+              existing_tx = (logs_state.get("transactions") or {}).get(request_id, {})
 
               if request_id in completed_ids or request_id in processed_ids or existing_tx.get("status") == "COMPLETED":
                   delete_file(SOURCE_REPO, source_path, f"Remove completed request {request_id}")
@@ -307,68 +420,116 @@ jobs:
               if existing_tx.get("status") in {"SENT", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}:
                   t_seq = str(existing_tx.get("sequence") or raw_data.get("sequence") or "001")
                   t_check, _ = read_json(TARGET_REPO, f"NETWORK/dashboard-users-request-{t_seq}.json")
-                  u_reg, _ = read_json(TARGET_REPO, PROCESSED_PATH, default_processed())
-                  u_tx = (u_reg.get("transactions") or {}).get(request_id, {})
+                  u_logs, _ = read_json(TARGET_REPO, LOGS_PATH, default_network_logs())
+                  u_tx = (u_logs.get("transactions") or {}).get(request_id, {})
                   if (isinstance(t_check, dict) and t_check.get("requestId") == request_id) or u_tx.get("status") in {"PROCESSING", "PROCESSED", "RESPONSE_SENT", "COMPLETED"}:
                       continue
 
-              action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
-              if action == "UPDATE_USER":
-                  action = "EDIT_USER"
-              if not action:
-                  if str(payload.get("name") or "").strip():
-                      action = "ADD_USER"
+              raw_action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
+              if not raw_action:
+                  if str(payload.get("name") or "").strip() and not str(payload.get("id") or payload.get("userId") or "").strip():
+                      raw_action = "ADD_USER"
                   elif isinstance(payload.get("users"), list):
-                      action = "SYNC_USERS"
+                      raw_action = "SYNC_USERS"
                   else:
                       continue
 
-              if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
+              wire_action = "EDIT_USER" if raw_action in {"UPDATE_USER", "EDIT_USER", "CHANGE_USER_ROLE", "CHANGE_USER_STATUS"} else raw_action
+              canon_action = normalize_action(raw_action)
+
+              if wire_action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
+                  ts_err = utc_now()
                   write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
                       "protocolVersion": 1,
                       "requestId": request_id,
+                      "transactionId": request_id,
                       "status": "FAILED",
                       "request": raw_data,
-                      "error": f"Unsupported action: {action}",
-                      "failedAt": now(),
+                      "error": f"Unsupported action: {raw_action}",
+                      "failedAt": ts_err,
                   }, f"Reject unsupported action {request_id}")
-                  raise RuntimeError(f"Unsupported action: {action}")
+                  raise RuntimeError(f"Unsupported action: {raw_action}")
 
-              actor_obj = resolve_verified_actor(raw_data)
-              if actor_obj.get("role") != "SUPER_ADMIN":
+              actor_obj = resolve_verified_actor(raw_data, auth_users_by_id)
+              authorized, auth_err = is_actor_authorized(actor_obj, canon_action, payload, auth_users_by_id)
+              if not authorized:
+                  ts_rej = utc_now()
                   write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
                       "protocolVersion": 1,
                       "requestId": request_id,
+                      "transactionId": request_id,
                       "status": "REJECTED",
                       "actor": actor_obj,
+                      "processor": processor_info,
                       "request": raw_data,
-                      "error": "Only SUPER_ADMIN can perform user management operations.",
-                      "failedAt": now(),
+                      "error": auth_err,
+                      "failedAt": ts_rej,
                   }, f"Reject unauthorized actor for {request_id}")
-                  raise RuntimeError("Unauthorized actor role for user management operation")
 
-              if action == "ADD_USER":
+                  def _rec_reject(doc):
+                      doc.setdefault("protocolVersion", 1)
+                      doc.setdefault("transactionRegistry", {"processedRequestIds": [], "completedRequestIds": []})
+                      doc.setdefault("transactions", {})[request_id] = {
+                          "requestId": request_id,
+                          "transactionId": request_id,
+                          "requestType": "DASHBOARD_USERS_SYNC",
+                          "action": canon_action,
+                          "status": "REJECTED",
+                          "actor": actor_obj,
+                          "processor": processor_info,
+                          "failedAt": ts_rej,
+                          "updatedAt": ts_rej,
+                          "lastError": auth_err,
+                          "workflowRunId": RUN_ID,
+                      }
+                      doc.setdefault("auditLogs", []).append({
+                          "logId": f"AUDIT-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}",
+                          "requestId": request_id,
+                          "transactionId": request_id,
+                          "timestamp": ts_rej,
+                          "action": canon_action,
+                          "rawAction": raw_action,
+                          "category": "USER_MANAGEMENT",
+                          "requestType": "DASHBOARD_USERS_SYNC",
+                          "status": "REJECTED",
+                          "actor": actor_obj,
+                          "processor": processor_info,
+                          "target": {"type": "USER", "userId": norm_id(payload.get("id") or payload.get("userId")) or None, "username": str(payload.get("name") or "Target User")},
+                          "changes": {"previous": None, "current": None},
+                          "summary": auth_err,
+                          "details": auth_err,
+                      })
+                      doc["updatedAt"] = ts_rej
+                      return doc
+
+                  mutate_json(SOURCE_REPO, LOGS_PATH, default_network_logs(), _rec_reject, f"Log rejected request {request_id}")
+                  delete_file(SOURCE_REPO, source_path, f"Remove rejected request {request_id}")
+                  raise RuntimeError(auth_err)
+
+              if wire_action == "ADD_USER":
                   name = " ".join(str(payload.get("name") or "").strip().split())
                   if not name:
                       raise RuntimeError("ADD_USER requires name")
-                  raw_role = payload.get("role") or payload.get("ROLE") or "USER"
-                  role = re.sub(r"[\s_-]+", "_", str(raw_role).strip().upper())
-                  if role == "SUPERADMIN":
-                      role = "SUPER_ADMIN"
+                  name_cf = name.casefold()
+                  if name_cf in seen_add_names_in_run:
+                      delete_file(SOURCE_REPO, source_path, f"Remove duplicate ADD_USER request for {name}")
+                      continue
+                  seen_add_names_in_run.add(name_cf)
+                  role = norm_role(payload.get("role") or payload.get("ROLE") or "USER")
                   if role not in {"SUPER_ADMIN", "ADMIN", "USER"}:
                       raise RuntimeError(f"Invalid role: {role}")
                   status_val = "Inactive" if str(payload.get("status", "Active")).strip().casefold() == "inactive" else "Active"
                   dev = payload.get("developer", False)
                   dev = dev.strip().casefold() in {"true", "1", "yes"} if isinstance(dev, str) else bool(dev)
-                  normalized_payload = {"action": action, "name": name, "role": role, "status": status_val, "developer": dev}
+                  normalized_payload = {"action": "ADD_USER", "name": name, "role": role, "status": status_val, "developer": dev}
                   if str(payload.get("id") or "").strip():
-                      normalized_payload["id"] = str(payload.get("id")).strip().upper()
-              elif action in {"EDIT_USER", "DELETE_USER"}:
-                  uid = str(payload.get("id") or payload.get("userId") or "").strip().upper()
+                      normalized_payload["id"] = norm_id(payload.get("id"))
+              elif wire_action in {"EDIT_USER", "DELETE_USER"}:
+                  uid = norm_id(payload.get("id") or payload.get("userId"))
                   if not uid:
-                      raise RuntimeError(f"{action} requires user ID")
+                      raise RuntimeError(f"{wire_action} requires user ID")
                   normalized_payload = dict(payload)
-                  normalized_payload["action"] = action
+                  normalized_payload["action"] = wire_action
                   normalized_payload["id"] = uid
                   if "name" in normalized_payload and str(normalized_payload["name"]).strip():
                       normalized_payload["name"] = " ".join(str(normalized_payload["name"]).strip().split())
@@ -377,7 +538,7 @@ jobs:
                   normalized_payload["action"] = "SYNC_USERS"
 
               seq_match = re.search(r"-(\d{3,})\.json$", source_path)
-              preferred_seq = int(seq_match.group(1)) if seq_match else next_base_seq()
+              preferred_seq = int(seq_match.group(1)) if seq_match else next_base_seq(logs_state)
 
               allocated_seq = None
               request_obj = None
@@ -393,20 +554,24 @@ jobs:
                   if isinstance(existing_source, dict) and existing_source and cand_channel_path != source_path and existing_source.get("requestId") != request_id:
                       continue
 
-                  ts = now()
+                  ts = utc_now()
                   cand_obj = {
                       "protocolVersion": 1,
                       "requestId": request_id,
+                      "transactionId": request_id,
                       "sequence": cand_seq,
                       "requestType": "DASHBOARD_USERS_SYNC",
                       "status": "SENT",
                       "createdAt": raw_data.get("createdAt") or ts,
                       "sentAt": ts,
                       "actor": actor_obj,
+                      "processor": processor_info,
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
                       "requestPath": cand_channel_path,
-                      "action": action,
+                      "action": wire_action,
+                      "canonicalAction": canon_action,
+                      "rawAction": raw_action,
                       "payload": normalized_payload,
                   }
                   try:
@@ -426,30 +591,35 @@ jobs:
               if not allocated_seq:
                   raise RuntimeError(f"Failed to allocate sequence for request {request_id}")
 
-              def _record_sent(reg):
-                  reg.setdefault("protocolVersion", 1)
-                  reg.setdefault("processedRequestIds", [])
-                  reg.setdefault("completedRequestIds", [])
-                  tx = reg.setdefault("transactions", {}).setdefault(request_id, {})
+              def _record_sent(doc):
+                  doc.setdefault("protocolVersion", 1)
+                  doc.setdefault("transactionRegistry", {"processedRequestIds": [], "completedRequestIds": []})
+                  doc.setdefault("auditLogs", [])
+                  tx = doc.setdefault("transactions", {}).setdefault(request_id, {})
                   tx.update({
                       "requestId": request_id,
+                      "transactionId": request_id,
                       "sequence": allocated_seq,
                       "requestType": "DASHBOARD_USERS_SYNC",
+                      "action": canon_action,
+                      "rawAction": raw_action,
                       "actor": actor_obj,
+                      "processor": processor_info,
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
                       "status": "SENT",
                       "createdAt": request_obj["createdAt"],
                       "sentAt": request_obj["sentAt"],
-                      "updatedAt": now(),
+                      "updatedAt": utc_now(),
                       "attempts": int(tx.get("attempts", 0)) + 1,
                       "requestPath": channel_path,
                       "responseRequired": True,
+                      "workflowRunId": RUN_ID,
                   })
-                  reg["updatedAt"] = now()
-                  return reg
+                  doc["updatedAt"] = utc_now()
+                  return doc
 
-              mutate_json(SOURCE_REPO, PROCESSED_PATH, default_processed(), _record_sent, f"Track sent transaction {request_id}")
+              mutate_json(SOURCE_REPO, LOGS_PATH, default_network_logs(), _record_sent, f"Track sent transaction {request_id}")
 
               write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
               if source_path != channel_path:
