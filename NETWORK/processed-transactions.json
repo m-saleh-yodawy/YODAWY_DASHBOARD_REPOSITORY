@@ -57,6 +57,28 @@
       },
       "lastError": null,
       "completedAt": "2026-10-31T01:45:07Z"
+    },
+    "MANUAL-ADD-OMAR-SALEH-001": {
+      "requestId": "MANUAL-ADD-OMAR-SALEH-001",
+      "sequence": "001",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "source": {
+        "owner": "m-saleh-yodawy",
+        "repository": "YODAWY_DASHBOARD_REPOSITORY",
+        "branch": "main"
+      },
+      "destination": {
+        "owner": "m-saleh-yodawy",
+        "repository": "YODAWY_USERS_REPOSITORY",
+        "branch": "main"
+      },
+      "status": "SENT",
+      "createdAt": "2026-10-31T00:00:00Z",
+      "sentAt": "2026-10-31T01:49:03Z",
+      "updatedAt": "2026-10-31T01:49:07Z",
+      "attempts": 1,
+      "requestPath": "NETWORK/dashboard-users-request-001.json",
+      "responseRequired": true
     }
   },
   "processedRequestIds": [
@@ -67,5 +89,5 @@
     "MANUAL-ADD-MOHAMED-SALEH-001",
     "TOOLS-DASHBOARD-20261031T014450Z-E848DE9027"
   ],
-  "updatedAt": "2026-10-31T01:45:08Z"
+  "updatedAt": "2026-10-31T01:49:07Z"
 }
