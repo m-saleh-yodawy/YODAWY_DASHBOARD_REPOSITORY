@@ -1,0 +1,16 @@
+{
+  "protocolVersion": 1,
+  "requestId": "MANUAL-ADD-OMAR-SALEH-001",
+  "sequence": "001",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "status": "CREATED",
+  "createdAt": "2026-10-31T00:00:00Z",
+  "action": "ADD_USER",
+  "payload": {
+    "action": "ADD_USER",
+    "name": "OMAR SALEH",
+    "role": "USER",
+    "status": "Active",
+    "developer": false
+  }
+}
