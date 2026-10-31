@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "requestId": "MANUAL-ADD-MOHAMED-SALEH-001",
+  "requestId": "MANUAL-ADD-OMAR-SALEH-001",
   "sequence": "001",
   "requestType": "DASHBOARD_USERS_SYNC",
   "responseType": "USERS_DASHBOARD_RESPONSE",
@@ -17,12 +17,12 @@
   },
   "action": "ADD_USER",
   "user": {
-    "id": "Q-001",
-    "name": "MOHAMED SALEH",
-    "role": "SUPER_ADMIN",
+    "id": "Q-002",
+    "name": "OMAR SALEH",
+    "role": "USER",
     "status": "Active",
-    "developer": true,
-    "repository": "Q-001_MOHAMED_SALEH"
+    "developer": false,
+    "repository": "Q-002_OMAR_SALEH"
   },
   "users": [
     {
@@ -32,13 +32,60 @@
       "status": "Active",
       "developer": true,
       "repository": "Q-001_MOHAMED_SALEH"
+    },
+    {
+      "id": "Q-002",
+      "name": "OMAR SALEH",
+      "role": "USER",
+      "status": "Active",
+      "developer": false,
+      "repository": "Q-002_OMAR_SALEH"
     }
   ],
   "permissions": {
-    "Q-001": {}
+    "Q-001": {
+      "TOOL-001": {
+        "granted": true,
+        "forcedState": false,
+        "type": "SUPER_ADMIN"
+      },
+      "TOOL-002": {
+        "granted": true,
+        "forcedState": false,
+        "type": "SUPER_ADMIN"
+      },
+      "TOOL-003": {
+        "granted": true,
+        "forcedState": false,
+        "type": "SUPER_ADMIN"
+      }
+    },
+    "Q-002": {}
   },
-  "visibility": {},
-  "processedAt": "2026-10-31T01:24:51Z",
-  "responseSentAt": "2026-10-31T01:24:51Z",
-  "completedAt": "2026-10-31T01:25:04Z"
+  "visibility": {
+    "TOOL-001": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "developmentStatus": "UNDER DEVELOPMENT",
+      "publicationStatus": "NOT PUBLISHED",
+      "enabled": false
+    },
+    "TOOL-002": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "developmentStatus": "UNDER DEVELOPMENT",
+      "publicationStatus": "NOT PUBLISHED",
+      "enabled": false
+    },
+    "TOOL-003": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "developmentStatus": "UNDER DEVELOPMENT",
+      "publicationStatus": "NOT PUBLISHED",
+      "enabled": false
+    }
+  },
+  "processedAt": "2026-10-31T01:50:12Z",
+  "responseSentAt": "2026-10-31T01:50:12Z",
+  "completedAt": "2026-10-31T01:50:29Z"
 }
