@@ -1,11 +1,13 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-10-31T16:41:38Z",
+  "updatedAt": "2026-10-31T16:43:04Z",
   "processedRequestIds": [
-    "TOOLS-DASHBOARD-20261031T163125Z-8ED5F76BE9"
+    "TOOLS-DASHBOARD-20261031T163125Z-8ED5F76BE9",
+    "MANUAL-ADD-MOHAMED-SALEH-001"
   ],
   "completedRequestIds": [
-    "TOOLS-DASHBOARD-20261031T163125Z-8ED5F76BE9"
+    "TOOLS-DASHBOARD-20261031T163125Z-8ED5F76BE9",
+    "MANUAL-ADD-MOHAMED-SALEH-001"
   ],
   "transactions": {
     "TOOLS-DASHBOARD-20261031T163125Z-8ED5F76BE9": {
@@ -57,13 +59,19 @@
         "repository": "YODAWY_USERS_REPOSITORY",
         "branch": "main"
       },
-      "status": "SENT",
+      "status": "COMPLETED",
       "createdAt": "2026-10-31T00:00:00Z",
       "sentAt": "2026-10-31T16:41:36Z",
-      "updatedAt": "2026-10-31T16:41:38Z",
+      "updatedAt": "2026-10-31T16:43:04Z",
       "attempts": 1,
       "requestPath": "NETWORK/dashboard-users-request-001.json",
-      "responseRequired": true
+      "responseRequired": true,
+      "responseReceivedAt": "2026-10-31T16:43:00Z",
+      "completedAt": "2026-10-31T16:43:04Z",
+      "resultSummary": {
+        "action": "ADD_USER",
+        "userCount": 1
+      }
     }
   }
 }
