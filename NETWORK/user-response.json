@@ -1,0 +1,44 @@
+{
+  "protocolVersion": 1,
+  "requestId": "MANUAL-ADD-MOHAMED-SALEH-001",
+  "sequence": "001",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "responseType": "USERS_DASHBOARD_RESPONSE",
+  "status": "COMPLETED",
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "action": "ADD_USER",
+  "user": {
+    "id": "Q-001",
+    "name": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN",
+    "status": "Active",
+    "developer": true,
+    "repository": "Q-001_MOHAMED_SALEH"
+  },
+  "users": [
+    {
+      "id": "Q-001",
+      "name": "MOHAMED SALEH",
+      "role": "SUPER_ADMIN",
+      "status": "Active",
+      "developer": true,
+      "repository": "Q-001_MOHAMED_SALEH"
+    }
+  ],
+  "permissions": {
+    "Q-001": {}
+  },
+  "visibility": {},
+  "processedAt": "2026-10-31T01:24:51Z",
+  "responseSentAt": "2026-10-31T01:24:51Z",
+  "completedAt": "2026-10-31T01:25:04Z"
+}
