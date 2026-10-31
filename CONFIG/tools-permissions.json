@@ -16,5 +16,21 @@
       "type": "SUPER_ADMIN"
     }
   },
-  "Q-002": {}
+  "Q-002": {
+    "TOOL-001": {
+      "granted": false,
+      "forcedState": false,
+      "type": "ADMIN"
+    },
+    "TOOL-002": {
+      "granted": false,
+      "forcedState": false,
+      "type": "ADMIN"
+    },
+    "TOOL-003": {
+      "granted": false,
+      "forcedState": false,
+      "type": "ADMIN"
+    }
+  }
 }
