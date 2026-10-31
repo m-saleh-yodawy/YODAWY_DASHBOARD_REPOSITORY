@@ -5,14 +5,16 @@ on:
     branches:
       - main
     paths:
-      - "NETWORK/user-request.json"
-      - "NETWORK/users-request.json"
-      - "NETWORK/users-request-*.json"
       - "NETWORK/dashboard-users-request-*.json"
   workflow_dispatch:
     inputs:
       sequence:
         description: "Sequence number"
+        required: false
+        default: ""
+        type: string
+      requestId:
+        description: "Transaction requestId"
         required: false
         default: ""
         type: string
@@ -34,10 +36,11 @@ jobs:
       TARGET_REPO: YODAWY_USERS_REPOSITORY
       BRANCH: main
       INPUT_SEQ: ${{ inputs.sequence || '' }}
+      INPUT_REQ_ID: ${{ inputs.requestId || '' }}
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
-      - name: Allocate Sequence and Transmit Requests to Users Repository
+      - name: Allocate Canonical Sequence and Transmit Requests to Users Repository
         shell: bash
         run: |
           set -euo pipefail
@@ -60,8 +63,10 @@ jobs:
           TARGET_REPO = os.environ["TARGET_REPO"]
           BRANCH = os.environ["BRANCH"]
           INPUT_SEQ = os.environ.get("INPUT_SEQ", "").strip()
+          INPUT_REQ_ID = os.environ.get("INPUT_REQ_ID", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
+          PROCESSED_PATH = "NETWORK/processed-transactions.json"
 
           if not TOKEN:
               raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
@@ -138,6 +143,25 @@ jobs:
                           continue
                       raise
 
+          def delete_file(repo, path, msg):
+              if path == PROCESSED_PATH or path.startswith("NETWORK/FAILED/"):
+                  return
+              endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
+              for attempt in range(1, 5):
+                  _, sha = read_json(repo, path)
+                  if not sha:
+                      return
+                  try:
+                      api_req("DELETE", endpoint, {"message": f"{msg} [skip ci]", "sha": sha, "branch": BRANCH})
+                      return
+                  except RuntimeError as err:
+                      if ("HTTP 409" in str(err) or "HTTP 422" in str(err)) and attempt < 4:
+                          time.sleep(attempt * 1.5)
+                          continue
+                      if "HTTP 404" in str(err):
+                          return
+                      raise
+
           def mutate_json(repo, path, default, mutator, msg):
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 7):
@@ -170,9 +194,9 @@ jobs:
 
           def next_base_seq():
               names = set(list_network_files(SOURCE_REPO)) | set(list_network_files(TARGET_REPO))
-              reg, _ = read_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"transactions": {}})
+              reg, _ = read_json(SOURCE_REPO, PROCESSED_PATH, {"transactions": {}})
               max_s = 0
-              pat = re.compile(r"^(?:dashboard-users|users)-request-(\d{3,})\.json$")
+              pat = re.compile(r"^dashboard-users-request-(\d{3,})\.json$")
               for n in names:
                   m = pat.match(n)
                   if m:
@@ -184,42 +208,43 @@ jobs:
                           max_s = max(max_s, int(s))
               return max_s + 1
 
-          reg_state, _ = read_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"transactions": {}, "completedRequestIds": []})
-          known_txs = reg_state.get("transactions", {})
-          completed_ids = set(reg_state.get("completedRequestIds", []))
-
           source_files = list_network_files(SOURCE_REPO)
           candidate_paths = []
           if INPUT_SEQ and re.fullmatch(r"\d{3,}", INPUT_SEQ):
-              candidate_paths.append(f"NETWORK/dashboard-users-request-{INPUT_SEQ}.json")
-              candidate_paths.append(f"NETWORK/users-request-{INPUT_SEQ}.json")
+              p = f"NETWORK/dashboard-users-request-{INPUT_SEQ}.json"
+              if p.split("/")[1] in source_files:
+                  candidate_paths.append(p)
           for n in source_files:
-              if re.fullmatch(r"(?:dashboard-users|users)-request-\d{3,}\.json", n):
+              if re.fullmatch(r"dashboard-users-request-\d{3,}\.json", n):
                   p = f"NETWORK/{n}"
                   if p not in candidate_paths:
                       candidate_paths.append(p)
-          for legacy_p in ["NETWORK/users-request.json", "NETWORK/user-request.json"]:
-              if legacy_p.split("/")[1] in source_files and legacy_p not in candidate_paths:
-                  candidate_paths.append(legacy_p)
-
-          dispatched_count = 0
 
           for source_path in candidate_paths:
               raw_data, _ = read_json(SOURCE_REPO, source_path)
               if not isinstance(raw_data, dict) or not raw_data:
                   continue
 
-              req_id_existing = str(raw_data.get("requestId") or raw_data.get("request_id") or "").strip()
-              if req_id_existing and (req_id_existing in completed_ids or known_txs.get(req_id_existing, {}).get("status") in {"SENT", "PROCESSING", "PROCESSED", "COMPLETED"}):
-                  target_check_seq = str(raw_data.get("sequence") or "001")
-                  t_check, _ = read_json(TARGET_REPO, f"NETWORK/dashboard-users-request-{target_check_seq}.json")
-                  if t_check and t_check.get("requestId") == req_id_existing:
+              payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else dict(raw_data)
+              request_id = str(raw_data.get("requestId") or payload.get("requestId") or INPUT_REQ_ID or "").strip()
+              if not request_id:
+                  request_id = f"DASH-USERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
+
+              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, {"transactions": {}, "completedRequestIds": []})
+              completed_ids = set(reg_state.get("completedRequestIds", []))
+              existing_tx = reg_state.get("transactions", {}).get(request_id, {})
+
+              if request_id in completed_ids or existing_tx.get("status") == "COMPLETED":
+                  delete_file(SOURCE_REPO, source_path, f"Remove completed request {request_id}")
+                  continue
+
+              if existing_tx.get("status") in {"SENT", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}:
+                  t_seq = str(existing_tx.get("sequence") or raw_data.get("sequence") or "001")
+                  t_check, _ = read_json(TARGET_REPO, f"NETWORK/dashboard-users-request-{t_seq}.json")
+                  if isinstance(t_check, dict) and t_check.get("requestId") == request_id:
                       continue
 
-              payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else dict(raw_data)
               action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
-              if action in {"NONE", "NO_ACTION"}:
-                  continue
               if not action:
                   if str(payload.get("name") or "").strip():
                       action = "ADD_USER"
@@ -229,14 +254,11 @@ jobs:
                       continue
 
               if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
+                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {"request": raw_data, "error": f"Unsupported action: {action}", "failedAt": now()}, f"Reject unsupported action {request_id}")
                   raise RuntimeError(f"Unsupported action: {action}")
 
-              request_id = req_id_existing or str(payload.get("requestId") or payload.get("request_id") or "").strip()
-              if not request_id:
-                  request_id = f"DASH-USERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
-
               if action == "ADD_USER":
-                  name = str(payload.get("name") or "").strip()
+                  name = " ".join(str(payload.get("name") or "").strip().split())
                   if not name:
                       raise RuntimeError("ADD_USER requires name")
                   raw_role = payload.get("role") or payload.get("ROLE") or "USER"
@@ -248,14 +270,18 @@ jobs:
                   status_val = "Inactive" if str(payload.get("status", "Active")).strip().casefold() == "inactive" else "Active"
                   dev = payload.get("developer", False)
                   dev = dev.strip().casefold() in {"true", "1", "yes"} if isinstance(dev, str) else bool(dev)
-                  normalized_payload = {"action": action, "name": name, "role": role, "ROLE": role, "status": status_val, "developer": dev}
+                  normalized_payload = {"action": action, "name": name, "role": role, "status": status_val, "developer": dev}
+                  if str(payload.get("id") or "").strip():
+                      normalized_payload["id"] = str(payload.get("id")).strip().upper()
               elif action in {"EDIT_USER", "DELETE_USER"}:
-                  uid = str(payload.get("id") or payload.get("user_id") or payload.get("userId") or "").strip().upper()
+                  uid = str(payload.get("id") or payload.get("userId") or "").strip().upper()
                   if not uid:
                       raise RuntimeError(f"{action} requires user ID")
                   normalized_payload = dict(payload)
                   normalized_payload["action"] = action
                   normalized_payload["id"] = uid
+                  if "name" in normalized_payload and str(normalized_payload["name"]).strip():
+                      normalized_payload["name"] = " ".join(str(normalized_payload["name"]).strip().split())
               else:
                   normalized_payload = dict(payload)
                   normalized_payload["action"] = "SYNC_USERS"
@@ -273,11 +299,14 @@ jobs:
                   existing_target, _ = read_json(TARGET_REPO, cand_channel_path)
                   if isinstance(existing_target, dict) and existing_target and existing_target.get("requestId") != request_id:
                       continue
+                  existing_source, _ = read_json(SOURCE_REPO, cand_channel_path)
+                  if isinstance(existing_source, dict) and existing_source and cand_channel_path != source_path and existing_source.get("requestId") != request_id:
+                      continue
+
                   ts = now()
                   cand_obj = {
                       "protocolVersion": 1,
                       "requestId": request_id,
-                      "request_id": request_id,
                       "sequence": cand_seq,
                       "requestType": "DASHBOARD_USERS_SYNC",
                       "status": "SENT",
@@ -288,7 +317,6 @@ jobs:
                       "requestPath": cand_channel_path,
                       "action": action,
                       "payload": normalized_payload,
-                      **normalized_payload,
                   }
                   try:
                       if not existing_target:
@@ -307,16 +335,14 @@ jobs:
               if not allocated_seq:
                   raise RuntimeError(f"Failed to allocate sequence for request {request_id}")
 
-              compat_path = f"NETWORK/users-request-{allocated_seq}.json"
               write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
-              write_json(SOURCE_REPO, compat_path, request_obj, f"Record compat users request {request_id}")
-              write_json(TARGET_REPO, compat_path, request_obj, f"Deliver compat users request {request_id}")
-
-              if source_path in {"NETWORK/user-request.json", "NETWORK/users-request.json"}:
-                  write_json(SOURCE_REPO, source_path, {}, f"Clear legacy unsequenced request {request_id}")
+              if source_path != channel_path:
+                  delete_file(SOURCE_REPO, source_path, f"Remove unallocated source request {request_id}")
 
               def _record_sent(reg):
                   reg.setdefault("protocolVersion", 1)
+                  reg.setdefault("processedRequestIds", [])
+                  reg.setdefault("completedRequestIds", [])
                   tx = reg.setdefault("transactions", {}).setdefault(request_id, {})
                   tx.update({
                       "requestId": request_id,
@@ -327,15 +353,23 @@ jobs:
                       "status": "SENT",
                       "createdAt": request_obj["createdAt"],
                       "sentAt": request_obj["sentAt"],
+                      "updatedAt": now(),
+                      "attempts": int(tx.get("attempts", 0)) + 1,
                       "requestPath": channel_path,
                       "responseRequired": True,
                   })
                   reg["updatedAt"] = now()
                   return reg
 
-              mutate_json(SOURCE_REPO, "NETWORK/processed-transactions.json", {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _record_sent, f"Track sent transaction {request_id}")
-              dispatched_count += 1
+              mutate_json(SOURCE_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _record_sent, f"Track sent transaction {request_id}")
 
-          if dispatched_count > 0:
-              api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/actions/workflows/users.yml/dispatches", {"ref": BRANCH})
+              api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/dispatches", {
+                  "event_type": "dashboard_users_sync_requested",
+                  "client_payload": {
+                      "requestId": request_id,
+                      "sequence": allocated_seq,
+                      "requestType": "DASHBOARD_USERS_SYNC",
+                      "requestPath": channel_path,
+                  },
+              })
           PY
