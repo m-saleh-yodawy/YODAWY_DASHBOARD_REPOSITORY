@@ -3,15 +3,34 @@
   "requestId": "MANUAL-UPDATE-MOHAMED-SALEH-ROLE-USER-002",
   "sequence": "002",
   "requestType": "DASHBOARD_USERS_SYNC",
-  "status": "CREATED",
+  "status": "SENT",
   "createdAt": "2026-10-31T16:35:00Z",
-  "action": "UPDATE_USER",
+  "sentAt": "2026-10-31T16:46:52Z",
+  "actor": {
+    "userId": "Q-001",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN",
+    "verified": false
+  },
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_USERS_REPOSITORY",
+    "branch": "main"
+  },
+  "requestPath": "NETWORK/dashboard-users-request-002.json",
+  "action": "EDIT_USER",
   "payload": {
-    "action": "UPDATE_USER",
+    "action": "EDIT_USER",
     "userId": "Q-001",
     "name": "MOHAMED SALEH",
     "role": "USER",
     "status": "Active",
-    "developer": true
+    "developer": true,
+    "id": "Q-001"
   }
 }
