@@ -67,6 +67,7 @@ jobs:
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
           PROCESSED_PATH = "NETWORK/processed-transactions.json"
+          LOGS_PATH = "NETWORK/network-logs.json"
 
           if not TOKEN:
               raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
@@ -81,6 +82,15 @@ jobs:
 
           def now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def default_processed():
+              return {
+                  "protocolVersion": 1,
+                  "updatedAt": now(),
+                  "processedRequestIds": [],
+                  "completedRequestIds": [],
+                  "transactions": {},
+              }
 
           def api_req(method, endpoint, body=None, allow_404=False):
               data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
@@ -118,6 +128,8 @@ jobs:
               return json.loads(raw), res.get("sha")
 
           def write_json(repo, path, data, msg, create_only=False):
+              if not isinstance(data, dict) or not data:
+                  raise ValueError(f"Refusing to write empty or schemaless JSON to {repo}/{path}")
               content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
               encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
@@ -144,7 +156,7 @@ jobs:
                       raise
 
           def delete_file(repo, path, msg):
-              if path == PROCESSED_PATH or path.startswith("NETWORK/FAILED/"):
+              if path in {PROCESSED_PATH, LOGS_PATH} or path.startswith("NETWORK/FAILED/"):
                   return
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 5):
@@ -166,7 +178,11 @@ jobs:
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 7):
                   cur, sha = read_json(repo, path, default)
+                  if not isinstance(cur, dict):
+                      cur = copy.deepcopy(default)
                   updated = mutator(copy.deepcopy(cur))
+                  if not isinstance(updated, dict) or not updated:
+                      raise ValueError(f"Invalid mutated JSON for {repo}/{path}")
                   if updated == cur and sha is not None:
                       return updated
                   content = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
@@ -192,9 +208,42 @@ jobs:
                   return []
               return sorted(str(i.get("name", "")) for i in res if isinstance(i, dict))
 
+          def resolve_verified_actor(raw_data):
+              auth_doc, _ = read_json(SOURCE_REPO, "CONFIG/auth-users.json", {"users": []})
+              users = auth_doc.get("users", []) if isinstance(auth_doc, dict) else []
+              raw_actor = raw_data.get("actor") if isinstance(raw_data.get("actor"), dict) else {}
+              claimed_id = str(raw_actor.get("userId") or raw_actor.get("id") or raw_data.get("actorId") or "").strip().upper()
+              for u in users:
+                  if isinstance(u, dict) and str(u.get("id") or "").strip().upper() == claimed_id and claimed_id:
+                      role = re.sub(r"[\s_-]+", "_", str(u.get("role") or u.get("ROLE") or "USER").strip().upper())
+                      if role == "SUPERADMIN":
+                          role = "SUPER_ADMIN"
+                      return {
+                          "userId": claimed_id,
+                          "username": str(u.get("name") or raw_actor.get("username") or claimed_id).strip(),
+                          "role": role,
+                          "verified": True,
+                      }
+              for u in users:
+                  if isinstance(u, dict):
+                      role = re.sub(r"[\s_-]+", "_", str(u.get("role") or u.get("ROLE") or "USER").strip().upper())
+                      if role in {"SUPER_ADMIN", "SUPERADMIN"} and str(u.get("status", "Active")).strip().casefold() == "active":
+                          return {
+                              "userId": str(u.get("id")).strip().upper(),
+                              "username": str(u.get("name") or u.get("id")).strip(),
+                              "role": "SUPER_ADMIN",
+                              "verified": False,
+                          }
+              return {
+                  "userId": claimed_id or "SYSTEM",
+                  "username": str(raw_actor.get("username") or "System Administrator").strip(),
+                  "role": "SUPER_ADMIN",
+                  "verified": False,
+              }
+
           def next_base_seq():
               names = set(list_network_files(SOURCE_REPO)) | set(list_network_files(TARGET_REPO))
-              reg, _ = read_json(SOURCE_REPO, PROCESSED_PATH, {"transactions": {}})
+              reg, _ = read_json(SOURCE_REPO, PROCESSED_PATH, default_processed())
               max_s = 0
               pat = re.compile(r"^dashboard-users-request-(\d{3,})\.json$")
               for n in names:
@@ -209,6 +258,15 @@ jobs:
               return max_s + 1
 
           source_files = list_network_files(SOURCE_REPO)
+          for n in source_files:
+              if re.fullmatch(r"users-request-\d{3,}\.json", n):
+                  delete_file(SOURCE_REPO, f"NETWORK/{n}", f"Remove obsolete compatibility duplicate {n}")
+
+          target_files = list_network_files(TARGET_REPO)
+          for n in target_files:
+              if re.fullmatch(r"users-request-\d{3,}\.json", n):
+                  delete_file(TARGET_REPO, f"NETWORK/{n}", f"Remove obsolete compatibility duplicate {n}")
+
           candidate_paths = []
           if INPUT_SEQ and re.fullmatch(r"\d{3,}", INPUT_SEQ):
               p = f"NETWORK/dashboard-users-request-{INPUT_SEQ}.json"
@@ -220,6 +278,8 @@ jobs:
                   if p not in candidate_paths:
                       candidate_paths.append(p)
 
+          seen_request_ids_in_run = set()
+
           for source_path in candidate_paths:
               raw_data, _ = read_json(SOURCE_REPO, source_path)
               if not isinstance(raw_data, dict) or not raw_data:
@@ -230,21 +290,31 @@ jobs:
               if not request_id:
                   request_id = f"DASH-USERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
 
-              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, {"transactions": {}, "completedRequestIds": []})
+              if request_id in seen_request_ids_in_run:
+                  delete_file(SOURCE_REPO, source_path, f"Remove duplicate request file for {request_id}")
+                  continue
+              seen_request_ids_in_run.add(request_id)
+
+              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, default_processed())
               completed_ids = set(reg_state.get("completedRequestIds", []))
+              processed_ids = set(reg_state.get("processedRequestIds", []))
               existing_tx = reg_state.get("transactions", {}).get(request_id, {})
 
-              if request_id in completed_ids or existing_tx.get("status") == "COMPLETED":
+              if request_id in completed_ids or request_id in processed_ids or existing_tx.get("status") == "COMPLETED":
                   delete_file(SOURCE_REPO, source_path, f"Remove completed request {request_id}")
                   continue
 
               if existing_tx.get("status") in {"SENT", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}:
                   t_seq = str(existing_tx.get("sequence") or raw_data.get("sequence") or "001")
                   t_check, _ = read_json(TARGET_REPO, f"NETWORK/dashboard-users-request-{t_seq}.json")
-                  if isinstance(t_check, dict) and t_check.get("requestId") == request_id:
+                  u_reg, _ = read_json(TARGET_REPO, PROCESSED_PATH, default_processed())
+                  u_tx = (u_reg.get("transactions") or {}).get(request_id, {})
+                  if (isinstance(t_check, dict) and t_check.get("requestId") == request_id) or u_tx.get("status") in {"PROCESSING", "PROCESSED", "RESPONSE_SENT", "COMPLETED"}:
                       continue
 
               action = str(payload.get("action") or raw_data.get("action") or "").strip().upper()
+              if action == "UPDATE_USER":
+                  action = "EDIT_USER"
               if not action:
                   if str(payload.get("name") or "").strip():
                       action = "ADD_USER"
@@ -254,8 +324,28 @@ jobs:
                       continue
 
               if action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
-                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {"request": raw_data, "error": f"Unsupported action: {action}", "failedAt": now()}, f"Reject unsupported action {request_id}")
+                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "status": "FAILED",
+                      "request": raw_data,
+                      "error": f"Unsupported action: {action}",
+                      "failedAt": now(),
+                  }, f"Reject unsupported action {request_id}")
                   raise RuntimeError(f"Unsupported action: {action}")
+
+              actor_obj = resolve_verified_actor(raw_data)
+              if actor_obj.get("role") != "SUPER_ADMIN":
+                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "status": "REJECTED",
+                      "actor": actor_obj,
+                      "request": raw_data,
+                      "error": "Only SUPER_ADMIN can perform user management operations.",
+                      "failedAt": now(),
+                  }, f"Reject unauthorized actor for {request_id}")
+                  raise RuntimeError("Unauthorized actor role for user management operation")
 
               if action == "ADD_USER":
                   name = " ".join(str(payload.get("name") or "").strip().split())
@@ -312,6 +402,7 @@ jobs:
                       "status": "SENT",
                       "createdAt": raw_data.get("createdAt") or ts,
                       "sentAt": ts,
+                      "actor": actor_obj,
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
                       "requestPath": cand_channel_path,
@@ -335,10 +426,6 @@ jobs:
               if not allocated_seq:
                   raise RuntimeError(f"Failed to allocate sequence for request {request_id}")
 
-              write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
-              if source_path != channel_path:
-                  delete_file(SOURCE_REPO, source_path, f"Remove unallocated source request {request_id}")
-
               def _record_sent(reg):
                   reg.setdefault("protocolVersion", 1)
                   reg.setdefault("processedRequestIds", [])
@@ -348,6 +435,7 @@ jobs:
                       "requestId": request_id,
                       "sequence": allocated_seq,
                       "requestType": "DASHBOARD_USERS_SYNC",
+                      "actor": actor_obj,
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": TARGET_REPO, "branch": BRANCH},
                       "status": "SENT",
@@ -361,7 +449,11 @@ jobs:
                   reg["updatedAt"] = now()
                   return reg
 
-              mutate_json(SOURCE_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _record_sent, f"Track sent transaction {request_id}")
+              mutate_json(SOURCE_REPO, PROCESSED_PATH, default_processed(), _record_sent, f"Track sent transaction {request_id}")
+
+              write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
+              if source_path != channel_path:
+                  delete_file(SOURCE_REPO, source_path, f"Remove unallocated source request {request_id}")
 
               api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/dispatches", {
                   "event_type": "dashboard_users_sync_requested",
