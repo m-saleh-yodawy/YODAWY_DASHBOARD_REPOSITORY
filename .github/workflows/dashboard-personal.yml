@@ -60,6 +60,7 @@ jobs:
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
           PROCESSED_PATH = "NETWORK/processed-transactions.json"
+          LOGS_PATH = "NETWORK/network-logs.json"
 
           PROTECTED_REPOS = {
               "yodawy_dashboard_repository",
@@ -88,6 +89,22 @@ jobs:
 
           def now():
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def default_processed():
+              return {
+                  "protocolVersion": 1,
+                  "updatedAt": now(),
+                  "processedRequestIds": [],
+                  "completedRequestIds": [],
+                  "transactions": {},
+              }
+
+          def default_logs():
+              return {
+                  "protocolVersion": 1,
+                  "updatedAt": now(),
+                  "logs": [],
+              }
 
           def api_req(method, endpoint, body=None, allow_404=False):
               data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
@@ -125,6 +142,8 @@ jobs:
               return json.loads(raw), res.get("sha")
 
           def write_json(repo, path, data, msg, create_only=False):
+              if not isinstance(data, dict) or not data:
+                  raise ValueError(f"Refusing to write empty or schemaless JSON to {repo}/{path}")
               content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
               encoded = base64.b64encode(content.encode("utf-8")).decode("ascii")
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
@@ -151,7 +170,7 @@ jobs:
                       raise
 
           def delete_file(repo, path, msg):
-              if path == PROCESSED_PATH or path.startswith("NETWORK/FAILED/"):
+              if path in {PROCESSED_PATH, LOGS_PATH} or path.startswith("NETWORK/FAILED/"):
                   return
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 5):
@@ -173,7 +192,11 @@ jobs:
               endpoint = f"/repos/{OWNER}/{repo}/contents/{urllib.parse.quote(path, safe='/')}"
               for attempt in range(1, 7):
                   cur, sha = read_json(repo, path, default)
+                  if not isinstance(cur, dict):
+                      cur = copy.deepcopy(default)
                   updated = mutator(copy.deepcopy(cur))
+                  if not isinstance(updated, dict) or not updated:
+                      raise ValueError(f"Invalid mutated JSON for {repo}/{path}")
                   if updated == cur and sha is not None:
                       return updated
                   content = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
@@ -199,19 +222,26 @@ jobs:
                   return []
               return sorted(str(i.get("name", "")) for i in res if isinstance(i, dict))
 
-          def load_authoritative_mapping():
+          def load_authoritative_users():
               mapping = {}
+              users_by_id = {}
               auth_users, _ = read_json(SOURCE_REPO, "CONFIG/auth-users.json", {"users": []})
               for u in (auth_users or {}).get("users", []):
-                  if isinstance(u, dict) and u.get("id") and u.get("repository"):
-                      mapping[str(u["id"]).strip().upper()] = str(u["repository"]).strip()
+                  if isinstance(u, dict) and u.get("id"):
+                      uid = str(u["id"]).strip().upper()
+                      users_by_id[uid] = u
+                      if u.get("repository"):
+                          mapping[uid] = str(u["repository"]).strip()
               users_reg, _ = read_json(USERS_REPO, "CONFIG/users-registry.json", {"users": []})
               for u in (users_reg or {}).get("users", []):
-                  if isinstance(u, dict) and u.get("id") and u.get("repository") and not u.get("archived", False):
-                      mapping[str(u["id"]).strip().upper()] = str(u["repository"]).strip()
-              return mapping
+                  if isinstance(u, dict) and u.get("id") and not u.get("archived", False):
+                      uid = str(u["id"]).strip().upper()
+                      users_by_id.setdefault(uid, u)
+                      if u.get("repository"):
+                          mapping[uid] = str(u["repository"]).strip()
+              return mapping, users_by_id
 
-          user_repo_map = load_authoritative_mapping()
+          user_repo_map, users_by_id = load_authoritative_users()
           repo_user_map = {v.casefold(): k for k, v in user_repo_map.items()}
 
           source_files = list_network_files(SOURCE_REPO)
@@ -237,14 +267,21 @@ jobs:
               if not request_id:
                   request_id = f"DASH-PERS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8].upper()}"
 
-              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, {"transactions": {}, "completedRequestIds": []})
+              reg_state, _ = read_json(SOURCE_REPO, PROCESSED_PATH, default_processed())
               if request_id in set(reg_state.get("completedRequestIds", [])) or reg_state.get("transactions", {}).get(request_id, {}).get("status") == "COMPLETED":
                   delete_file(SOURCE_REPO, source_path, f"Cleanup completed personal request {request_id}")
                   continue
 
               req_type = str(raw_data.get("requestType") or raw_data.get("action") or "DASHBOARD_PERSONAL_SYNC").strip().upper()
               if req_type not in ALLOWED_REQUEST_TYPES:
-                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {"request": raw_data, "error": f"Unsupported requestType: {req_type}", "failedAt": now()}, f"Reject personal request {request_id}")
+                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "status": "FAILED",
+                      "request": raw_data,
+                      "error": f"Unsupported requestType: {req_type}",
+                      "failedAt": now(),
+                  }, f"Reject personal request {request_id}")
                   raise RuntimeError(f"Unsupported requestType: {req_type}")
 
               payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else {}
@@ -252,7 +289,14 @@ jobs:
 
               dest_owner = str(dest.get("owner") or OWNER).strip()
               if dest_owner.casefold() != OWNER.casefold():
-                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {"request": raw_data, "error": f"Unauthorized owner: {dest_owner}", "failedAt": now()}, f"Reject unauthorized owner {request_id}")
+                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "status": "FAILED",
+                      "request": raw_data,
+                      "error": f"Unauthorized owner: {dest_owner}",
+                      "failedAt": now(),
+                  }, f"Reject unauthorized owner {request_id}")
                   raise RuntimeError(f"Unauthorized destination owner: {dest_owner}")
 
               target_repo = str(dest.get("repository") or raw_data.get("repository") or payload.get("repository") or "").strip()
@@ -275,11 +319,25 @@ jobs:
                   or expected_repo.casefold() != target_repo.casefold()
               ):
                   write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "status": "FAILED",
                       "request": raw_data,
                       "error": f"Destination validation failed for userId={user_id!r}, repository={target_repo!r}",
                       "failedAt": now(),
                   }, f"Reject invalid target repository {request_id}")
                   raise RuntimeError(f"Invalid or unauthorized target personal repository: {target_repo!r} for user {user_id!r}")
+
+              u_meta = users_by_id.get(user_id, {})
+              u_role = re.sub(r"[\s_-]+", "_", str(u_meta.get("role") or u_meta.get("ROLE") or "USER").strip().upper())
+              if u_role == "SUPERADMIN":
+                  u_role = "SUPER_ADMIN"
+              actor_obj = {
+                  "userId": user_id,
+                  "username": str(u_meta.get("name") or user_id).strip(),
+                  "role": u_role if u_role in {"SUPER_ADMIN", "ADMIN", "USER"} else "USER",
+                  "verified": True,
+              }
 
               settings_updates = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
               if not settings_updates:
@@ -329,6 +387,7 @@ jobs:
                       "status": "SENT",
                       "createdAt": raw_data.get("createdAt") or ts,
                       "sentAt": ts,
+                      "actor": actor_obj,
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": target_repo, "branch": BRANCH},
                       "userId": user_id,
@@ -358,11 +417,14 @@ jobs:
 
               def _rec_sent(reg):
                   reg.setdefault("protocolVersion", 1)
+                  reg.setdefault("processedRequestIds", [])
+                  reg.setdefault("completedRequestIds", [])
                   tx = reg.setdefault("transactions", {}).setdefault(request_id, {})
                   tx.update({
                       "requestId": request_id,
                       "sequence": seq,
                       "requestType": "DASHBOARD_PERSONAL_SYNC",
+                      "actor": actor_obj,
                       "source": {"owner": OWNER, "repository": SOURCE_REPO, "branch": BRANCH},
                       "destination": {"owner": OWNER, "repository": target_repo, "branch": BRANCH},
                       "requestPath": ch_req_path,
@@ -376,7 +438,7 @@ jobs:
                   reg["updatedAt"] = now()
                   return reg
 
-              mutate_json(SOURCE_REPO, PROCESSED_PATH, {"protocolVersion": 1, "transactions": {}, "processedRequestIds": [], "completedRequestIds": []}, _rec_sent, f"Record sent personal request {request_id}")
+              mutate_json(SOURCE_REPO, PROCESSED_PATH, default_processed(), _rec_sent, f"Record sent personal request {request_id}")
 
               api_req("POST", f"/repos/{OWNER}/{target_repo}/actions/workflows/personal.yml/dispatches", {"ref": BRANCH})
 
@@ -392,7 +454,17 @@ jobs:
                   time.sleep(5)
 
               if not response_data:
-                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {"request": request_obj, "error": "Personal response timeout", "failedAt": now(), "retryEligible": True}, f"Preserve timed out personal request {request_id}")
+                  ts_fail = now()
+                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": request_id,
+                      "sequence": seq,
+                      "status": "FAILED",
+                      "request": request_obj,
+                      "error": "Personal response timeout",
+                      "failedAt": ts_fail,
+                      "retryEligible": True,
+                  }, f"Preserve timed out personal request {request_id}")
                   raise RuntimeError(f"Timed out waiting for response from {target_repo} for {request_id}")
 
               write_json(SOURCE_REPO, target_resp_path, response_data, f"Relay personal response {request_id}")
