@@ -72,22 +72,30 @@
         "repository": "YODAWY_USERS_REPOSITORY",
         "branch": "main"
       },
-      "status": "SENT",
+      "status": "COMPLETED",
       "createdAt": "2026-10-31T00:00:00Z",
       "sentAt": "2026-10-31T01:49:03Z",
-      "updatedAt": "2026-10-31T01:49:07Z",
+      "updatedAt": "2026-10-31T01:50:29Z",
       "attempts": 1,
       "requestPath": "NETWORK/dashboard-users-request-001.json",
-      "responseRequired": true
+      "responseRequired": true,
+      "responseReceivedAt": "2026-10-31T01:50:26Z",
+      "completedAt": "2026-10-31T01:50:29Z",
+      "resultSummary": {
+        "action": "ADD_USER",
+        "userCount": 2
+      }
     }
   },
   "processedRequestIds": [
     "MANUAL-ADD-MOHAMED-SALEH-001",
-    "TOOLS-DASHBOARD-20261031T014450Z-E848DE9027"
+    "TOOLS-DASHBOARD-20261031T014450Z-E848DE9027",
+    "MANUAL-ADD-OMAR-SALEH-001"
   ],
   "completedRequestIds": [
     "MANUAL-ADD-MOHAMED-SALEH-001",
-    "TOOLS-DASHBOARD-20261031T014450Z-E848DE9027"
+    "TOOLS-DASHBOARD-20261031T014450Z-E848DE9027",
+    "MANUAL-ADD-OMAR-SALEH-001"
   ],
-  "updatedAt": "2026-10-31T01:49:07Z"
+  "updatedAt": "2026-10-31T01:50:29Z"
 }
