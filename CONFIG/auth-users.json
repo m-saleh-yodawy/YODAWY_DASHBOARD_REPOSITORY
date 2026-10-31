@@ -1,3 +1,12 @@
 {
-  "users": []
+  "users": [
+    {
+      "id": "Q-001",
+      "name": "MOHAMED SALEH",
+      "role": "SUPER_ADMIN",
+      "status": "Active",
+      "developer": true,
+      "repository": "Q-001_MOHAMED_SALEH"
+    }
+  ]
 }
