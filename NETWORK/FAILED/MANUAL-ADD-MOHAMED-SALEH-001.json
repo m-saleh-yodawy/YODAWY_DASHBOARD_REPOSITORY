@@ -4,7 +4,7 @@
   "transactionId": "MANUAL-ADD-MOHAMED-SALEH-001",
   "status": "REJECTED",
   "actor": {
-    "userId": "UNKNOWN",
+    "userId": "Q-001",
     "username": "Unknown / Unverified Actor",
     "role": "UNKNOWN",
     "roleAtTimeOfAction": "UNKNOWN",
@@ -15,7 +15,7 @@
     "type": "GITHUB_ACTIONS",
     "name": "DASHBOARD - USERS WORKFLOW",
     "repository": "m-saleh-yodawy/YODAWY_DASHBOARD_REPOSITORY",
-    "runId": "41234391692"
+    "runId": "41235172007"
   },
   "request": {
     "protocolVersion": 1,
@@ -25,6 +25,9 @@
     "status": "CREATED",
     "createdAt": "2026-10-31T19:10:00Z",
     "action": "ADD_USER",
+    "actor": {
+      "userId": "Q-001"
+    },
     "payload": {
       "action": "ADD_USER",
       "name": "MOHAMED SALEH",
@@ -34,5 +37,5 @@
     }
   },
   "error": "Unverified or missing actor identity.",
-  "failedAt": "2026-10-31T19:28:43Z"
+  "failedAt": "2026-10-31T19:38:37Z"
 }
