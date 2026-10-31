@@ -1,0 +1,42 @@
+{
+  "protocolVersion": 1,
+  "requestId": "USERS-DASH-20261031T224753Z-4CE9D4F7",
+  "transactionId": "USERS-DASH-20261031T224753Z-4CE9D4F7",
+  "sequence": "001",
+  "requestType": "USERS_DASHBOARD_SYNC",
+  "responseType": "USERS_DASHBOARD_RESPONSE",
+  "status": "COMPLETED",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN",
+    "roleAtTimeOfAction": "SUPER_ADMIN",
+    "verified": true
+  },
+  "action": "SYNC_USERS",
+  "user": null,
+  "users": [
+    {
+      "id": "Q-001",
+      "name": "MOHAMED SALEH",
+      "role": "SUPER_ADMIN",
+      "status": "Active",
+      "developer": false,
+      "repository": "Q-001_MOHAMED_SALEH"
+    }
+  ],
+  "permissions": {
+    "Q-001": {}
+  },
+  "visibility": {},
+  "changes": {
+    "userCount": {
+      "from": 0,
+      "to": 1
+    }
+  },
+  "processedAt": "2026-10-31T22:48:38Z",
+  "completedAt": "2026-10-31T22:48:38Z"
+}
