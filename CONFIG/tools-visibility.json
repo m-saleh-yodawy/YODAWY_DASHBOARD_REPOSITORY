@@ -19,5 +19,26 @@
     "developmentStatus": "UNDER DEVELOPMENT",
     "publicationStatus": "NOT PUBLISHED",
     "enabled": false
+  },
+  "TOOL-004": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
+  },
+  "TOOL-005": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
+  },
+  "TOOL-006": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "developmentStatus": "UNDER DEVELOPMENT",
+    "publicationStatus": "NOT PUBLISHED",
+    "enabled": false
   }
 }
