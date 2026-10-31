@@ -15,16 +15,26 @@
         "repository": "YODAWY_USERS_REPOSITORY",
         "branch": "main"
       },
-      "status": "SENT",
+      "status": "COMPLETED",
       "createdAt": "2026-10-31T00:00:00Z",
       "sentAt": "2026-10-31T01:23:49Z",
-      "updatedAt": "2026-10-31T01:23:52Z",
+      "updatedAt": "2026-10-31T01:25:04Z",
       "attempts": 1,
       "requestPath": "NETWORK/dashboard-users-request-001.json",
-      "responseRequired": true
+      "responseRequired": true,
+      "responseReceivedAt": "2026-10-31T01:25:02Z",
+      "completedAt": "2026-10-31T01:25:04Z",
+      "resultSummary": {
+        "action": "ADD_USER",
+        "userCount": 1
+      }
     }
   },
-  "processedRequestIds": [],
-  "completedRequestIds": [],
-  "updatedAt": "2026-10-31T01:23:52Z"
+  "processedRequestIds": [
+    "MANUAL-ADD-MOHAMED-SALEH-001"
+  ],
+  "completedRequestIds": [
+    "MANUAL-ADD-MOHAMED-SALEH-001"
+  ],
+  "updatedAt": "2026-10-31T01:25:04Z"
 }
