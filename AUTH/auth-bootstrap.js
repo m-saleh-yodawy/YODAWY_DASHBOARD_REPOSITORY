@@ -1,51 +1,97 @@
-(async function () {
+ (async function () {
     'use strict';
 
-    const API = C.API;
+    const API = C.API || 'https://api.github.com';
     const OWNER = C.OWNER;
     const REPO = C.REPO;
     const BRANCH = C.BRANCH;
     const SYSTEM = C.SYSTEM_TOKEN;
     const PERSONAL = C.PERSONAL_TOKEN;
+    const USER_ID = C.USER_ID;
+    const W = typeof window !== 'undefined' ? window : null;
+    const P = typeof unsafeWindow !== 'undefined' ? unsafeWindow : W;
+
+    const PATHS = {
+        config: 'AUTH/auth-config.json',
+        messages: 'AUTH/auth-messages.json',
+        systemAuth: 'AUTH/system-auth.js',
+        personalAuth: 'AUTH/personal-auth.js',
+        errorEngine: 'UI/error-message-engine.js'
+    };
+
+    const FALLBACK_MESSAGES = {
+        WRONG_SYSTEM: {
+            title: 'SYSTEM ERROR',
+            message: 'INVALID OR DISABLED SYSTEM CONFIGURATION.'
+        },
+        NETWORK_ERROR: {
+            title: 'CONNECTION ERROR',
+            message: 'UNABLE TO CONNECT. CHECK YOUR NETWORK AND TRY AGAIN.'
+        },
+        ERROR_ENGINE_LOAD_FAILED: {
+            title: 'SYSTEM ERROR',
+            message: 'THE CENTRAL ERROR MESSAGE ENGINE COULD NOT BE LOADED.'
+        },
+        ENGINE_LOAD_FAILED: {
+            title: 'SYSTEM ERROR',
+            message: 'THE DASHBOARD ENGINE COULD NOT BE LOADED.'
+        },
+        ENGINE_INIT_FAILED: {
+            title: 'SYSTEM ERROR',
+            message: 'THE DASHBOARD ENGINE FAILED TO INITIALIZE.'
+        },
+        UNKNOWN_ERROR: {
+            title: 'SYSTEM ERROR',
+            message: 'AN UNEXPECTED ERROR OCCURRED.'
+        }
+    };
 
     let messages = {};
     let centralError;
 
     const request = async (url, token) => {
-        const r = await fetch(url, {
+        const response = await fetch(url, {
+            method: 'GET',
             headers: {
                 Accept: 'application/vnd.github+json',
                 Authorization: `Bearer ${token}`,
                 'X-GitHub-Api-Version': '2022-11-28'
             },
+            credentials: 'omit',
             cache: 'no-store'
         });
 
-        if (!r.ok) {
-            const e = Error(`GitHub ${r.status}`);
-            e.status = r.status;
-            throw e;
+        if (!response.ok) {
+            throw Object.assign(new Error(`GitHub ${response.status}`), {
+                status: response.status,
+                code: response.status === 401 || response.status === 403 ||
+                    response.status === 404
+                    ? 'WRONG_SYSTEM'
+                    : 'NETWORK_ERROR'
+            });
         }
 
-        return r.json();
+        return response.json();
     };
 
     const decode = content => new TextDecoder().decode(
         Uint8Array.from(
             atob(content.replace(/\s/g, '')),
-            c => c.charCodeAt(0)
+            char => char.charCodeAt(0)
         )
     );
 
     const readText = async (repo, path, token, branch = BRANCH) => {
         const encoded = path.split('/').map(encodeURIComponent).join('/');
         const data = await request(
-            `${API}/repos/${OWNER}/${repo}/contents/${encoded}?ref=${encodeURIComponent(branch)}`,
+            `${API}/repos/${encodeURIComponent(OWNER)}/${encodeURIComponent(repo)}/contents/${encoded}?ref=${encodeURIComponent(branch)}`,
             token
         );
 
         if (typeof data.content !== 'string') {
-            throw Error(`Missing file: ${path}`);
+            throw Object.assign(new Error(`Missing file: ${path}`), {
+                code: 'UNKNOWN_ERROR'
+            });
         }
 
         return decode(data.content);
@@ -54,24 +100,25 @@
     const readJSON = async (repo, path, token, branch = BRANCH) =>
         JSON.parse(await readText(repo, path, token, branch));
 
-    const error = (code, title, message) => {
+    const getMessage = (code, fallback) => {
         const entry = messages[code];
 
         return {
             code,
-            title: entry?.title || title,
+            title: entry?.title || fallback?.title || 'SYSTEM ERROR',
             message: entry?.message ||
-                (typeof entry === 'string' ? entry : message)
+                (typeof entry === 'string' ? entry : fallback?.message) ||
+                FALLBACK_MESSAGES.UNKNOWN_ERROR.message
         };
     };
 
     const showError = (code, title, message) => {
-        const e = error(code, title, message);
+        const error = getMessage(code, { title, message });
 
         if (centralError && typeof centralError.show === 'function') {
-            centralError.show(e);
+            centralError.show(error);
         } else {
-            alert(`${e.title}\n\n${e.message}`);
+            alert(`${error.title}\n\n${error.message}`);
         }
     };
 
@@ -79,14 +126,66 @@
         showError(code, title, message);
     };
 
+    const loadScript = async (path) => {
+        const source = await readText(REPO, path, SYSTEM);
+        new Function('window', source)(W);
+    };
+
+    const resolveRole = role => {
+        const normalized = String(role || 'USER')
+            .trim()
+            .toUpperCase()
+            .replace(/[\s-]+/g, '_');
+
+        if (['SUPERADMIN', 'SUPER_ADMIN'].includes(normalized)) {
+            return 'SUPER_ADMIN';
+        }
+
+        if (['ADMIN', 'ADMINISTRATOR'].includes(normalized)) {
+            return 'ADMIN';
+        }
+
+        return 'USER';
+    };
+
     try {
-        if (A?.provider !== 'github' || A?.enabled === false) {
-            throw Error('WRONG_SYSTEM');
+        if (
+            !W ||
+            !OWNER ||
+            !REPO ||
+            !BRANCH ||
+            !USER_ID ||
+            !SYSTEM ||
+            SYSTEM.includes('PASTE_')
+        ) {
+            throw Object.assign(new Error('WRONG_SYSTEM'), {
+                code: 'WRONG_SYSTEM'
+            });
+        }
+
+        const authConfig = await readJSON(
+            REPO,
+            PATHS.config,
+            SYSTEM
+        );
+
+        if (
+            authConfig.provider !== 'github' ||
+            authConfig.owner !== OWNER ||
+            authConfig.branch !== BRANCH ||
+            authConfig.userRegistry?.repository !== REPO ||
+            authConfig.userRegistry?.path !== 'CONFIG/users.json'
+        ) {
+            throw Object.assign(new Error('WRONG_SYSTEM'), {
+                code: 'WRONG_SYSTEM'
+            });
         }
 
         try {
             const data = await readJSON(
-                REPO, 'CONFIG/auth-messages.json', SYSTEM
+                REPO,
+                PATHS.messages,
+                SYSTEM
             );
 
             messages = data?.messages || data || {};
@@ -95,200 +194,193 @@
         }
 
         const errorPath =
-            A?.errorMessageEngine?.path ||
-            A?.errorMessages?.enginePath ||
-            A?.dashboard?.errorMessageEnginePath ||
-            'error-message-engine.js';
+            authConfig.dashboard?.errorMessageEngine?.path ||
+            authConfig.dashboard?.errorMessageEnginePath ||
+            PATHS.errorEngine;
 
         try {
             const source = await readText(REPO, errorPath, SYSTEM);
-
             new Function('window', source)(W);
 
             centralError = W.YODAWY_ERROR_ENGINE;
 
             if (!centralError || typeof centralError.show !== 'function') {
-                throw Error('Error engine unavailable');
+                throw new Error('Error engine unavailable');
             }
 
             centralError.configure?.({ messages });
         } catch {
-            throw Error('ERROR_ENGINE_LOAD_FAILED');
+            throw Object.assign(new Error('ERROR_ENGINE_LOAD_FAILED'), {
+                code: 'ERROR_ENGINE_LOAD_FAILED'
+            });
         }
 
-        const registryRepo =
-            A?.userRegistry?.repository || REPO;
+        await loadScript(PATHS.systemAuth);
 
-        const registryPath =
-            A?.userRegistry?.path || 'CONFIG/auth-users.json';
-
-        const registry = await readJSON(
-            registryRepo, registryPath, SYSTEM
-        );
-
-        const users = Array.isArray(registry)
-            ? registry
-            : registry?.users || [];
-
-        const user = users.find(u =>
-            String(u?.id || u?.userId || u?.username || '')
-                .trim().toUpperCase() ===
-            String(C.USER_ID).trim().toUpperCase()
-        );
-
-        if (!user) {
-            stop('INVALID_CREDENTIALS', 'LOGIN FAILED',
-                'INVALID USER ID OR ACCOUNT REGISTRATION.');
-            return;
+        if (
+            !W.YODAWYSystemAuth ||
+            typeof W.YODAWYSystemAuth.authenticate !== 'function'
+        ) {
+            throw Object.assign(new Error('SYSTEM_AUTH_LOAD_FAILED'), {
+                code: 'UNKNOWN_ERROR'
+            });
         }
 
-        if (String(user.status || '').toLowerCase() !== 'active') {
-            stop('USER_INACTIVE', 'ACCOUNT INACTIVE',
-                'YOUR ACCOUNT IS INACTIVE. CONTACT YOUR ADMINISTRATOR.');
-            return;
-        }
+        const systemAuth = await W.YODAWYSystemAuth.authenticate({
+            userId: USER_ID,
+            systemToken: SYSTEM
+        });
 
-        const personalRepository = String(
-            user.repository ||
-            user.personalRepository ||
-            user.personal_repository ||
-            ''
-        ).trim();
-
-        if (!personalRepository || !PERSONAL ||
-            PERSONAL.includes('PASTE_')) {
-            stop('TOKEN_INVALID', 'AUTHENTICATION FAILED',
-                'THE PERSONAL TOKEN IS INVALID OR CANNOT ACCESS THE REQUIRED REPOSITORY.');
-            return;
-        }
-
-        try {
-            const repo = await request(
-                `${API}/repos/${OWNER}/${encodeURIComponent(personalRepository)}`,
-                PERSONAL
+        if (!systemAuth?.ok) {
+            const message = systemAuth?.message || {};
+            stop(
+                systemAuth?.code || 'UNKNOWN_ERROR',
+                message.title || 'SYSTEM AUTHENTICATION FAILED',
+                message.message || 'SYSTEM AUTHENTICATION FAILED.'
             );
-
-            if (
-                String(repo?.owner?.login).toLowerCase() !== OWNER.toLowerCase() ||
-                String(repo?.name).toLowerCase() !== personalRepository.toLowerCase()
-            ) {
-                throw Error('Wrong repository');
-            }
-        } catch {
-            stop('TOKEN_INVALID', 'AUTHENTICATION FAILED',
-                'THE PERSONAL TOKEN IS INVALID OR CANNOT ACCESS THE REQUIRED REPOSITORY.');
             return;
         }
 
-        const role = String(user.role || 'USER')
-            .trim().toUpperCase().replace(/[\s-]+/g, '_');
+        await loadScript(PATHS.personalAuth);
 
-        const resolvedRole =
-            role === 'SUPERADMIN' ? 'SUPER_ADMIN' :
-            role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' :
-            role === 'ADMIN' || role === 'ADMINISTRATOR' ? 'ADMIN' :
-            'USER';
+        if (
+            !W.YODAWYPersonalAuth ||
+            typeof W.YODAWYPersonalAuth.authenticate !== 'function'
+        ) {
+            throw Object.assign(new Error('PERSONAL_AUTH_LOAD_FAILED'), {
+                code: 'UNKNOWN_ERROR'
+            });
+        }
+
+        const personalAuth = await W.YODAWYPersonalAuth.authenticate({
+            systemAuth,
+            personalToken: PERSONAL
+        });
+
+        if (!personalAuth?.ok) {
+            const message = personalAuth?.message || {};
+            stop(
+                personalAuth?.code || 'UNKNOWN_ERROR',
+                message.title || 'PERSONAL AUTHENTICATION FAILED',
+                message.message || 'PERSONAL AUTHENTICATION FAILED.'
+            );
+            return;
+        }
+
+        const user = systemAuth.user;
+        const personalRepository = personalAuth.repository.name;
+        const resolvedRole = resolveRole(user.role);
+
+        const engines =
+            authConfig.dashboard?.engines ||
+            authConfig.dashboard?.roleEngines ||
+            {};
+
+        const roleEnginePaths = {
+            USER: 'ENGINES/user-engine.js',
+            ADMIN: 'ENGINES/admin-engine.js',
+            SUPER_ADMIN: 'ENGINES/super-admin-engine.js'
+        };
+
+        const enginePath =
+            engines[resolvedRole] ||
+            engines[resolvedRole.toLowerCase()] ||
+            roleEnginePaths[resolvedRole] ||
+            authConfig.dashboard?.enginePath;
+
+        if (!enginePath) {
+            throw Object.assign(new Error('ENGINE_LOAD_FAILED'), {
+                code: 'ENGINE_LOAD_FAILED'
+            });
+        }
 
         const YODAWY = {
-    userId: C.USER_ID,
-    personalToken: PERSONAL,
-
-    // Central user registry access
-    registryToken: SYSTEM,
-
-    personalRepository,
+            userId: user.id,
+            personalToken: PERSONAL,
+            registryToken: SYSTEM,
+            personalRepository,
             owner: OWNER,
             dashboardRepository: REPO,
             usersRepository: 'YODAWY_USERS_REPOSITORY',
             branch: BRANCH,
             apiBase: API,
-            authConfig: A,
+            authConfig,
             authMessages: messages,
             userRole: resolvedRole,
             dashboardVariant: resolvedRole,
             authenticated: true,
-
-            request: (url, token) => request(url, token),
-
-readJSON: (repo, path, token, branch) =>
-    readJSON(repo, path, token ?? SYSTEM, branch),
-
-readText: (repo, path, token, branch) =>
-    readText(repo, path, token ?? SYSTEM, branch),
-
-            showError: showError,
-
+            request: (url, token) => request(url, token || SYSTEM),
+            readJSON: (repo, path, token, branch) =>
+                readJSON(repo, path, token || SYSTEM, branch),
+            readText: (repo, path, token, branch) =>
+                readText(repo, path, token || SYSTEM, branch),
+            showError,
             verifyPersonalRepository: (repo, token) =>
-                request(`${API}/repos/${OWNER}/${encodeURIComponent(repo)}`, token)
+                request(
+                    `${API}/repos/${encodeURIComponent(OWNER)}/${encodeURIComponent(repo)}`,
+                    token
+                )
         };
 
         W.YODAWY = YODAWY;
-        P.YODAWY = YODAWY;
 
-        const engines =
-            A?.dashboard?.engines ||
-            A?.dashboard?.roleEngines ||
-            A?.engines ||
-            A?.roleEngines ||
-            {};
-
-        const enginePath =
-            engines[resolvedRole] ||
-            engines[resolvedRole.toLowerCase()] ||
-            engines.default ||
-            A?.dashboard?.enginePath ||
-            A?.enginePath ||
-            'dashboard-engine.js';
-
-        const engineSource = await readText(REPO, enginePath, SYSTEM);
-
-        new Function('YODAWY', 'window', engineSource)(YODAWY, W);
-
-        if (typeof YODAWY.init !== 'function') {
-            throw Error('ENGINE_INIT_FAILED');
+        if (P) {
+            P.YODAWY = YODAWY;
         }
 
-        let initialized;
+        let engineSource;
 
-try {
-    initialized = await YODAWY.init();
-} catch (err) {
-    console.error('[YODAWY] ENGINE INIT EXCEPTION:', err);
-    throw err;
-}
+        try {
+            engineSource = await readText(
+                REPO,
+                enginePath,
+                SYSTEM
+            );
+        } catch {
+            throw Object.assign(new Error('ENGINE_LOAD_FAILED'), {
+                code: 'ENGINE_LOAD_FAILED'
+            });
+        }
 
-console.log('[YODAWY] ENGINE INIT RESULT:', initialized);
-console.log('[YODAWY] AUTHENTICATED:', YODAWY.authenticated);
-console.log('[YODAWY] ROLE:', YODAWY.userRole);
+        new Function('YODAWY', 'window', engineSource)(
+            YODAWY,
+            W
+        );
 
-if (initialized !== true || YODAWY.authenticated !== true) {
-    throw Error(
-        `ENGINE_INIT_FAILED: initialized=${String(initialized)}, ` +
-        `authenticated=${String(YODAWY.authenticated)}`
-    );
-}
-    } catch (e) {
-        console.error('[YODAWY] Bootstrap stopped:', e);
+        if (typeof YODAWY.init !== 'function') {
+            throw Object.assign(new Error('ENGINE_INIT_FAILED'), {
+                code: 'ENGINE_INIT_FAILED'
+            });
+        }
 
-        const code = e.message === 'WRONG_SYSTEM'
-            ? 'WRONG_SYSTEM'
-            : e.message === 'ERROR_ENGINE_LOAD_FAILED'
-                ? 'ERROR_ENGINE_LOAD_FAILED'
-               : e.message?.startsWith('ENGINE_INIT_FAILED')
-    ? 'ENGINE_INIT_FAILED'
-                    : e.status === 0
-                        ? 'NETWORK_ERROR'
-                        : 'UNKNOWN_ERROR';
+        const initialized = await YODAWY.init();
 
-        const defaults = {
-            WRONG_SYSTEM: ['SYSTEM ERROR', 'INVALID OR DISABLED SYSTEM CONFIGURATION.'],
-            ERROR_ENGINE_LOAD_FAILED: ['SYSTEM ERROR', 'THE CENTRAL ERROR MESSAGE ENGINE COULD NOT BE LOADED.'],
-            ENGINE_INIT_FAILED: ['SYSTEM ERROR', 'THE DASHBOARD ENGINE FAILED TO INITIALIZE.'],
-            NETWORK_ERROR: ['CONNECTION ERROR', 'UNABLE TO CONNECT. CHECK YOUR NETWORK AND TRY AGAIN.'],
-            UNKNOWN_ERROR: ['SYSTEM ERROR', 'AN UNEXPECTED ERROR OCCURRED.']
-        };
+        if (
+            initialized !== true ||
+            YODAWY.authenticated !== true
+        ) {
+            throw Object.assign(new Error('ENGINE_INIT_FAILED'), {
+                code: 'ENGINE_INIT_FAILED'
+            });
+        }
 
-        const pair = defaults[code];
-        stop(code, pair[0], pair[1]);
+    } catch (error) {
+        const code = error?.code ||
+            (error?.message === 'WRONG_SYSTEM'
+                ? 'WRONG_SYSTEM'
+                : error?.message === 'ERROR_ENGINE_LOAD_FAILED'
+                    ? 'ERROR_ENGINE_LOAD_FAILED'
+                    : error?.message === 'ENGINE_LOAD_FAILED'
+                        ? 'ENGINE_LOAD_FAILED'
+                        : error?.message === 'ENGINE_INIT_FAILED'
+                            ? 'ENGINE_INIT_FAILED'
+                            : error?.status
+                                ? 'NETWORK_ERROR'
+                                : 'UNKNOWN_ERROR');
+
+        const fallback = FALLBACK_MESSAGES[code] ||
+            FALLBACK_MESSAGES.UNKNOWN_ERROR;
+
+        stop(code, fallback.title, fallback.message);
     }
 })();
