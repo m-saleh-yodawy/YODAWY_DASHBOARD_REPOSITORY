@@ -17,6 +17,9 @@
   "dashboard": {
     "repository": "YODAWY_DASHBOARD_REPOSITORY",
     "branch": "main",
-    "messagesPath": "CONFIG/auth-messages.json"
+    "messagesPath": "AUTH/auth-messages.json",
+    "errorMessageEngine": {
+      "path": "UI/error-message-engine.js"
+    }
   }
 }
