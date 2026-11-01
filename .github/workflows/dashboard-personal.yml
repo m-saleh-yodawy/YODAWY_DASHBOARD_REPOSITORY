@@ -59,7 +59,8 @@ jobs:
           INPUT_SEQ = os.environ.get("INPUT_SEQ", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
-          FIFO_LIMIT = 100
+          MAX_REQUESTS = 50
+          ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
 
           LOGS_PATH = "NETWORK/network-logs.json"
           USERS_AUTH_PATH = "CONFIG/auth-users.json"
@@ -93,7 +94,7 @@ jobs:
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
           def default_logs():
-              return {"protocolVersion": 1, "updatedAt": utc_now(), "auditLogs": [], "transactions": {}}
+              return {"protocolVersion": 1, "updatedAt": utc_now(), "transactions": {}}
 
           def api_req(method, endpoint, body=None, allow_404=False):
               data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
@@ -216,70 +217,60 @@ jobs:
               r = "SUPER_ADMIN" if r == "SUPERADMIN" else r
               return r if r in {"SUPER_ADMIN", "ADMIN", "USER", "SYSTEM", "UNKNOWN"} else "USER"
 
-          def finalize_logs(doc):
-              raw_logs = doc.get("auditLogs") if isinstance(doc.get("auditLogs"), list) else []
-              dedup = {}
-              for item in raw_logs:
-                  if not isinstance(item, dict):
-                      continue
-                  rid = str(item.get("requestId") or item.get("id") or item.get("logId") or "").strip()
-                  act = str(item.get("action") or "UPDATE_DASHBOARD_SETTINGS").strip().upper()
-                  dedup[(rid, act)] = item
-              sorted_logs = sorted(dedup.values(), key=lambda x: (str(x.get("timestamp") or ""), str(x.get("requestId") or "")))
-
-              txs = doc.get("transactions") if isinstance(doc.get("transactions"), dict) else {}
-              active_tx, term_tx = {}, []
+          def compact_logs(doc):
+              txs = copy.deepcopy(doc.get("transactions")) if isinstance(doc.get("transactions"), dict) else {}
+              active, terminal = {}, []
               for k, v in txs.items():
                   if not isinstance(v, dict):
                       continue
                   rid = str(v.get("requestId") or k).strip()
+                  if not rid:
+                      continue
                   st = str(v.get("status") or "COMPLETED").strip().upper()
-                  ts_u = str(v.get("updatedAt") or v.get("completedAt") or v.get("sentAt") or v.get("createdAt") or utc_now()).strip()
+                  c_at = str(v.get("createdAt") or v.get("updatedAt") or utc_now()).strip()
+                  u_at = str(v.get("updatedAt") or v.get("completedAt") or v.get("sentAt") or c_at).strip()
+                  actor_raw = v.get("actor")
+                  actor_id = str(v.get("actorId") or (actor_raw.get("id") if isinstance(actor_raw, dict) else "UNKNOWN") or "UNKNOWN").strip().upper()
                   rec = {
                       "requestId": rid,
                       "sequence": str(v.get("sequence") or "001").strip(),
                       "requestType": str(v.get("requestType") or "DASHBOARD_PERSONAL_SYNC").strip(),
                       "action": str(v.get("action") or "UPDATE_DASHBOARD_SETTINGS").strip().upper(),
                       "status": st,
-                      "updatedAt": ts_u,
+                      "actorId": actor_id,
+                      "createdAt": c_at,
+                      "updatedAt": u_at,
                   }
-                  if v.get("lastError"):
-                      rec["lastError"] = str(v["lastError"]).strip()
-                  if st in {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}:
-                      for ek in ("actor", "targetUserId", "changes", "requestPath", "cleanup"):
-                          if ek in v and v[ek] is not None:
-                              rec[ek] = v[ek]
-                      active_tx[rid] = rec
+                  for opt in ("parentRequestId", "targetId", "error", "cleanup"):
+                      val = v.get(opt) or (v.get("lastError") if opt == "error" else (v.get("targetUserId") if opt == "targetId" else None))
+                      if val:
+                          rec[opt] = str(val).strip()
+                  if st in ACTIVE_STATES:
+                      active[rid] = rec
                   else:
-                      term_tx.append((ts_u, rid, rec))
-              term_tx.sort(key=lambda x: (x[0], x[1]))
-              return {
-                  "protocolVersion": 1,
-                  "updatedAt": utc_now(),
-                  "auditLogs": sorted_logs[-FIFO_LIMIT:],
-                  "transactions": {**active_tx, **{rid: rec for _, rid, rec in term_tx[-FIFO_LIMIT:]}},
-              }
+                      terminal.append((u_at, rid, rec))
+              terminal.sort(key=lambda x: (x[0], x[1]))
+              kept = {**active, **{rid: rec for _, rid, rec in terminal[-MAX_REQUESTS:]}}
+              prev_txs = doc.get("transactions") if isinstance(doc.get("transactions"), dict) else {}
+              u_ts = doc.get("updatedAt") if (prev_txs == kept and doc.get("updatedAt") and "auditLogs" not in doc) else utc_now()
+              return {"protocolVersion": 1, "updatedAt": u_ts, "transactions": kept}
 
           def load_authoritative_users():
               mapping = {}
               users_by_id = {}
+              users_canon, _ = read_json(USERS_REPO, "CONFIG/users.json", {"users": []})
               auth_users, _ = read_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []})
-              for u in (auth_users or {}).get("users", []):
-                  if isinstance(u, dict) and norm_id(u.get("id")):
-                      uid = norm_id(u["id"])
-                      users_by_id[uid] = u
-                      if u.get("repository"):
-                          mapping[uid] = str(u["repository"]).strip()
               users_reg, _ = read_json(USERS_REPO, "CONFIG/users-registry.json", {"users": []})
-              for u in (users_reg or {}).get("users", []):
-                  if isinstance(u, dict) and norm_id(u.get("id")) and not u.get("archived", False):
-                      uid = norm_id(u["id"])
-                      users_by_id.setdefault(uid, u)
-                      if u.get("repository"):
-                          mapping[uid] = str(u["repository"]).strip()
+              for source_list in ((users_canon or {}).get("users", []), (auth_users or {}).get("users", []), (users_reg or {}).get("users", [])):
+                  if isinstance(source_list, list):
+                      for u in source_list:
+                          if isinstance(u, dict) and norm_id(u.get("id")) and not u.get("archived", False):
+                              uid = norm_id(u["id"])
+                              users_by_id.setdefault(uid, u)
+                              if u.get("repository"):
+                                  mapping.setdefault(uid, str(u["repository"]).strip())
               return mapping, users_by_id
 
-          mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), finalize_logs, "Compact dashboard network-logs")
           user_repo_map, users_by_id = load_authoritative_users()
           repo_user_map = {v.casefold(): k for k, v in user_repo_map.items()}
 
@@ -454,18 +445,19 @@ jobs:
                   cleanup_file(SOURCE_REPO, source_path, request_id, f"Remove unallocated request {request_id}")
 
               def _rec_sent(doc):
-                  tx = doc.setdefault("transactions", {}).setdefault(request_id, {})
+                  ts_s = utc_now()
+                  tx = doc.setdefault("transactions", {}).setdefault(request_id, {"createdAt": ts_s})
                   tx.update({
                       "requestId": request_id,
                       "sequence": seq,
                       "requestType": "DASHBOARD_PERSONAL_SYNC",
                       "action": canon_action,
-                      "actor": actor_obj,
+                      "actorId": claimed_actor_id,
+                      "targetId": user_id,
                       "status": "SENT",
-                      "updatedAt": utc_now(),
-                      "requestPath": ch_req_path,
+                      "updatedAt": ts_s,
                   })
-                  return finalize_logs(doc)
+                  return compact_logs(doc)
 
               mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), _rec_sent, f"Record sent personal request {request_id}")
               api_req("POST", f"/repos/{OWNER}/{target_repo}/actions/workflows/personal.yml/dispatches", {"ref": BRANCH})
@@ -476,7 +468,12 @@ jobs:
               response_data = None
               while time.monotonic() < deadline:
                   resp, _ = read_json(target_repo, target_resp_path)
-                  if isinstance(resp, dict) and resp.get("requestId") == request_id:
+                  if (
+                      isinstance(resp, dict)
+                      and int(resp.get("protocolVersion", 1)) == 1
+                      and resp.get("requestId") == request_id
+                      and str(resp.get("sequence") or seq).strip() == seq
+                  ):
                       response_data = resp
                       break
                   time.sleep(5)
