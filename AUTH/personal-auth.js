@@ -5,48 +5,57 @@
 
     const API = 'https://api.github.com';
 
-    async function authenticate({ systemAuth, personalToken }) {
-        const token = String(personalToken || '').trim();
-
-        if (!systemAuth?.ok || !systemAuth.user) {
-            return {
-                ok: false,
-                code: 'SYSTEM_AUTH_REQUIRED',
-                message: systemAuth?.messages?.UNKNOWN_ERROR || {
-                    title: 'SYSTEM ERROR',
-                    message: 'SYSTEM AUTHENTICATION REQUIRED'
-                }
-            };
+    const FALLBACK_MESSAGES = {
+        SYSTEM_AUTH_REQUIRED: {
+            title: 'SYSTEM ERROR',
+            message: 'SYSTEM AUTHENTICATION REQUIRED'
+        },
+        INVALID_CREDENTIALS: {
+            title: 'LOGIN FAILED',
+            message: 'INVALID ID OR PASSWORD'
+        },
+        PERSONAL_ACCESS_DENIED: {
+            title: 'AUTHENTICATION FAILED',
+            message: 'INVALID OR EXPIRED TOKEN'
+        },
+        NETWORK_ERROR: {
+            title: 'CONNECTION ERROR',
+            message: 'UNABLE TO CONNECT. PLEASE TRY AGAIN.'
+        },
+        UNKNOWN_ERROR: {
+            title: 'ERROR',
+            message: 'AN UNEXPECTED ERROR OCCURRED.'
         }
+    };
+
+    function result(systemAuth, code) {
+        return {
+            ok: false,
+            code,
+            message: systemAuth?.messages?.[code] ||
+                FALLBACK_MESSAGES[code] ||
+                FALLBACK_MESSAGES.UNKNOWN_ERROR
+        };
+    }
+
+    async function authenticate({ systemAuth, personalToken } = {}) {
+        if (!systemAuth?.ok || !systemAuth.user) {
+            return result(systemAuth, 'SYSTEM_AUTH_REQUIRED');
+        }
+
+        const token = String(personalToken || '').trim();
+        const owner = String(systemAuth.config?.owner || '').trim();
+        const repository = String(systemAuth.user.repository || '').trim();
 
         if (!token) {
-            return {
-                ok: false,
-                code: 'INVALID_CREDENTIALS',
-                message: systemAuth.messages?.INVALID_CREDENTIALS || {
-                    title: 'LOGIN FAILED',
-                    message: 'INVALID ID OR PASSWORD'
-                }
-            };
+            return result(systemAuth, 'INVALID_CREDENTIALS');
         }
 
-        const user = systemAuth.user;
-        const owner = systemAuth.config?.owner;
-        const repository = user.repository;
-
         if (
-            !owner ||
-            !repository ||
+            !/^[A-Za-z0-9_.-]+$/.test(owner) ||
             !/^[A-Za-z0-9_.-]+$/.test(repository)
         ) {
-            return {
-                ok: false,
-                code: 'UNKNOWN_ERROR',
-                message: systemAuth.messages?.UNKNOWN_ERROR || {
-                    title: 'ERROR',
-                    message: 'AN UNEXPECTED ERROR OCCURRED.'
-                }
-            };
+            return result(systemAuth, 'UNKNOWN_ERROR');
         }
 
         try {
@@ -65,54 +74,24 @@
             );
 
             if (response.status === 401 || response.status === 404) {
-                return {
-                    ok: false,
-                    code: 'INVALID_CREDENTIALS',
-                    message: systemAuth.messages?.INVALID_CREDENTIALS || {
-                        title: 'LOGIN FAILED',
-                        message: 'INVALID ID OR PASSWORD'
-                    }
-                };
+                return result(systemAuth, 'INVALID_CREDENTIALS');
             }
 
             if (response.status === 403) {
-                return {
-                    ok: false,
-                    code: 'PERSONAL_ACCESS_DENIED',
-                    message: systemAuth.messages?.TOKEN_INVALID || {
-                        title: 'AUTHENTICATION FAILED',
-                        message: 'INVALID OR EXPIRED TOKEN'
-                    }
-                };
+                return result(systemAuth, 'PERSONAL_ACCESS_DENIED');
             }
 
             if (!response.ok) {
-                return {
-                    ok: false,
-                    code: 'NETWORK_ERROR',
-                    message: systemAuth.messages?.NETWORK_ERROR || {
-                        title: 'CONNECTION ERROR',
-                        message: 'UNABLE TO CONNECT. PLEASE TRY AGAIN.'
-                    }
-                };
+                return result(systemAuth, 'NETWORK_ERROR');
             }
 
             const repoData = await response.json();
 
             if (
-                repoData.name?.toLowerCase() !==
-                repository.toLowerCase() ||
-                repoData.owner?.login?.toLowerCase() !==
-                owner.toLowerCase()
+                String(repoData?.name || '').toLowerCase() !== repository.toLowerCase() ||
+                String(repoData?.owner?.login || '').toLowerCase() !== owner.toLowerCase()
             ) {
-                return {
-                    ok: false,
-                    code: 'INVALID_CREDENTIALS',
-                    message: systemAuth.messages?.INVALID_CREDENTIALS || {
-                        title: 'LOGIN FAILED',
-                        message: 'INVALID ID OR PASSWORD'
-                    }
-                };
+                return result(systemAuth, 'INVALID_CREDENTIALS');
             }
 
             return {
@@ -127,14 +106,7 @@
             };
 
         } catch {
-            return {
-                ok: false,
-                code: 'NETWORK_ERROR',
-                message: systemAuth.messages?.NETWORK_ERROR || {
-                    title: 'CONNECTION ERROR',
-                    message: 'UNABLE TO CONNECT. PLEASE TRY AGAIN.'
-                }
-            };
+            return result(systemAuth, 'NETWORK_ERROR');
         }
     }
 
