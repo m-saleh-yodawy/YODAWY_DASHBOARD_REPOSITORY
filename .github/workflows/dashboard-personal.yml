@@ -34,7 +34,7 @@ jobs:
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
 
     steps:
-      - name: Validate Target Repository, Send Personal Request, and Relay Response
+      - name: Validate Target Repository, Verify Tool Permission, Send Personal Request, and Relay Response
         shell: bash
         run: |
           set -euo pipefail
@@ -63,7 +63,9 @@ jobs:
           ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
 
           LOGS_PATH = "NETWORK/network-logs.json"
-          USERS_AUTH_PATH = "CONFIG/auth-users.json"
+          USERS_PATH = "CONFIG/users.json"
+          LEGACY_USERS_PATH = "CONFIG/auth-users.json"
+          PERMISSIONS_PATH = "CONFIG/tools-permissions.json"
 
           PROTECTED_REPOS = {
               "yodawy_dashboard_repository",
@@ -255,13 +257,14 @@ jobs:
               u_ts = doc.get("updatedAt") if (prev_txs == kept and doc.get("updatedAt") and "auditLogs" not in doc) else utc_now()
               return {"protocolVersion": 1, "updatedAt": u_ts, "transactions": kept}
 
-          def load_authoritative_users():
+          def load_authoritative_users_and_perms():
               mapping = {}
               users_by_id = {}
-              users_canon, _ = read_json(USERS_REPO, "CONFIG/users.json", {"users": []})
-              auth_users, _ = read_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []})
+              users_canon, _ = read_json(USERS_REPO, USERS_PATH, {"users": []})
+              dash_users, _ = read_json(SOURCE_REPO, USERS_PATH, {"users": []})
+              legacy_users, _ = read_json(SOURCE_REPO, LEGACY_USERS_PATH, {"users": []})
               users_reg, _ = read_json(USERS_REPO, "CONFIG/users-registry.json", {"users": []})
-              for source_list in ((users_canon or {}).get("users", []), (auth_users or {}).get("users", []), (users_reg or {}).get("users", [])):
+              for source_list in ((users_canon or {}).get("users", []), (dash_users or {}).get("users", []), (legacy_users or {}).get("users", []), (users_reg or {}).get("users", [])):
                   if isinstance(source_list, list):
                       for u in source_list:
                           if isinstance(u, dict) and norm_id(u.get("id")) and not u.get("archived", False):
@@ -269,9 +272,64 @@ jobs:
                               users_by_id.setdefault(uid, u)
                               if u.get("repository"):
                                   mapping.setdefault(uid, str(u["repository"]).strip())
-              return mapping, users_by_id
+              u_perms, _ = read_json(USERS_REPO, PERMISSIONS_PATH, {})
+              d_perms, _ = read_json(SOURCE_REPO, PERMISSIONS_PATH, {})
+              merged_perms = copy.deepcopy(d_perms) if isinstance(d_perms, dict) else {}
+              if isinstance(u_perms, dict):
+                  for uid, u_map in u_perms.items():
+                      if isinstance(u_map, dict):
+                          merged_perms[norm_id(uid)] = copy.deepcopy(u_map)
+              return mapping, users_by_id, merged_perms
 
-          user_repo_map, users_by_id = load_authoritative_users()
+          def is_tool_permitted_for_user(uid, tid, users_by_id, perms_by_user):
+              u_meta = users_by_id.get(uid, {})
+              u_role = norm_role(u_meta.get("role") or u_meta.get("ROLE") or "USER")
+              u_map = perms_by_user.get(uid) if isinstance(perms_by_user.get(uid), dict) else {}
+              t_entry = u_map.get(tid)
+              if isinstance(t_entry, dict):
+                  return bool(t_entry.get("granted", u_role == "SUPER_ADMIN"))
+              if isinstance(t_entry, bool):
+                  return t_entry
+              return u_role == "SUPER_ADMIN"
+
+          def get_permitted_tool_ids_for_user(uid, users_by_id, perms_by_user):
+              u_meta = users_by_id.get(uid, {})
+              u_role = norm_role(u_meta.get("role") or u_meta.get("ROLE") or "USER")
+              u_map = perms_by_user.get(uid) if isinstance(perms_by_user.get(uid), dict) else {}
+              return sorted(
+                  [tid for tid, tv in u_map.items() if (isinstance(tv, dict) and bool(tv.get("granted", u_role == "SUPER_ADMIN"))) or (isinstance(tv, bool) and tv)],
+                  key=lambda x: int(x.split("-")[1]) if re.fullmatch(r"TOOL-\d{3,}", str(x)) else 0,
+              )
+
+          def reject_personal_request(request_id, source_path, actor_id, canon_action, err_msg):
+              ts_rej = utc_now()
+              write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
+                  "protocolVersion": 1,
+                  "requestId": request_id,
+                  "status": "REJECTED",
+                  "actorId": actor_id,
+                  "error": err_msg,
+                  "failedAt": ts_rej,
+              }, f"Reject personal request {request_id}")
+
+              def _rec_rej(doc):
+                  doc.setdefault("transactions", {})[request_id] = {
+                      "requestId": request_id,
+                      "sequence": "001",
+                      "requestType": "DASHBOARD_PERSONAL_SYNC",
+                      "action": canon_action,
+                      "status": "REJECTED",
+                      "actorId": actor_id,
+                      "createdAt": ts_rej,
+                      "updatedAt": ts_rej,
+                      "error": err_msg,
+                  }
+                  return compact_logs(doc)
+
+              mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), _rec_rej, f"Log rejected personal request {request_id}")
+              cleanup_file(SOURCE_REPO, source_path, request_id, f"Remove rejected personal request {request_id}")
+
+          user_repo_map, users_by_id, perms_by_user = load_authoritative_users_and_perms()
           repo_user_map = {v.casefold(): k for k, v in user_repo_map.items()}
 
           source_files = list_network_files(SOURCE_REPO)
@@ -304,13 +362,7 @@ jobs:
 
               req_type = str(raw_data.get("requestType") or raw_data.get("action") or "DASHBOARD_PERSONAL_SYNC").strip().upper()
               if req_type not in ALLOWED_REQUEST_TYPES:
-                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
-                      "protocolVersion": 1,
-                      "requestId": request_id,
-                      "status": "FAILED",
-                      "error": f"Unsupported requestType: {req_type}",
-                      "failedAt": utc_now(),
-                  }, f"Reject personal request {request_id}")
+                  reject_personal_request(request_id, source_path, "UNKNOWN", "UPDATE_DASHBOARD_SETTINGS", f"Unsupported requestType: {req_type}")
                   raise RuntimeError(f"Unsupported requestType: {req_type}")
 
               payload = raw_data.get("payload") if isinstance(raw_data.get("payload"), dict) else {}
@@ -338,24 +390,27 @@ jobs:
                   or not expected_repo
                   or expected_repo.casefold() != target_repo.casefold()
               ):
-                  write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
-                      "protocolVersion": 1,
-                      "requestId": request_id,
-                      "status": "FAILED",
-                      "error": f"Destination validation failed for {user_id}/{target_repo}",
-                      "failedAt": utc_now(),
-                  }, f"Reject invalid target repository {request_id}")
+                  reject_personal_request(request_id, source_path, user_id or "UNKNOWN", "UPDATE_DASHBOARD_SETTINGS", f"Destination validation failed for {user_id}/{target_repo}")
                   raise RuntimeError(f"Invalid target personal repository: {target_repo}")
 
               raw_actor = raw_data.get("actor") if isinstance(raw_data.get("actor"), dict) else {}
               claimed_actor_id = norm_id(raw_actor.get("id") or raw_actor.get("userId") or user_id)
               actor_meta = users_by_id.get(claimed_actor_id)
               if not actor_meta or str(actor_meta.get("status", "Active")).strip().casefold() != "active":
+                  reject_personal_request(request_id, source_path, claimed_actor_id or "UNKNOWN", "UPDATE_DASHBOARD_SETTINGS", f"Unverified or inactive initiating user: {claimed_actor_id}")
                   raise RuntimeError(f"Unverified or inactive initiating user: {claimed_actor_id}")
 
               actor_role = norm_role(actor_meta.get("role") or actor_meta.get("ROLE") or "USER")
-              if claimed_actor_id != user_id and actor_role != "SUPER_ADMIN":
-                  raise RuntimeError(f"Actor {claimed_actor_id} is not authorized to modify settings of {user_id}")
+              is_toggle_op = req_type == "TOGGLE_PERSONAL_TOOL" or payload.get("action") == "TOGGLE_PERSONAL_TOOL"
+
+              if is_toggle_op:
+                  if claimed_actor_id != user_id and actor_role not in {"SUPER_ADMIN", "ADMIN"}:
+                      reject_personal_request(request_id, source_path, claimed_actor_id, "TOGGLE_PERSONAL_TOOL", f"Actor {claimed_actor_id} cannot toggle tools for {user_id}")
+                      raise RuntimeError(f"Actor {claimed_actor_id} is not authorized to toggle tools for {user_id}")
+              else:
+                  if claimed_actor_id != user_id and actor_role != "SUPER_ADMIN":
+                      reject_personal_request(request_id, source_path, claimed_actor_id, "UPDATE_DASHBOARD_SETTINGS", f"Actor {claimed_actor_id} is not authorized to modify settings of {user_id}")
+                      raise RuntimeError(f"Actor {claimed_actor_id} is not authorized to modify settings of {user_id}")
 
               actor_obj = {
                   "id": claimed_actor_id,
@@ -367,26 +422,51 @@ jobs:
                   "verified": True,
               }
 
-              settings_updates = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
-              if not settings_updates:
-                  for k in ALLOWED_SETTINGS_KEYS:
-                      if k in payload:
-                          settings_updates[k] = payload[k]
-                      elif k in raw_data:
-                          settings_updates[k] = raw_data[k]
+              permitted_ids = get_permitted_tool_ids_for_user(user_id, users_by_id, perms_by_user)
 
-              if req_type == "TOGGLE_PERSONAL_TOOL" or payload.get("action") == "TOGGLE_PERSONAL_TOOL":
-                  tool_id = str(payload.get("toolId") or raw_data.get("toolId") or "").strip()
+              if is_toggle_op:
+                  tool_id = str(payload.get("toolId") or raw_data.get("toolId") or "").strip().upper()
                   enabled = payload.get("enabled") if "enabled" in payload else raw_data.get("enabled")
                   if not re.fullmatch(r"TOOL-\d{3,}", tool_id) or not isinstance(enabled, bool):
+                      reject_personal_request(request_id, source_path, claimed_actor_id, "TOGGLE_PERSONAL_TOOL", "TOGGLE_PERSONAL_TOOL requires valid toolId and boolean enabled")
                       raise RuntimeError("TOGGLE_PERSONAL_TOOL requires valid toolId and boolean enabled")
-                  normalized_payload = {"action": "TOGGLE_PERSONAL_TOOL", "userId": user_id, "toolId": tool_id, "enabled": enabled}
+                  if not is_tool_permitted_for_user(user_id, tool_id, users_by_id, perms_by_user):
+                      err_perm = f"Rejected tool toggle: user {user_id} does not have permission for {tool_id}."
+                      reject_personal_request(request_id, source_path, claimed_actor_id, "TOGGLE_PERSONAL_TOOL", err_perm)
+                      raise RuntimeError(err_perm)
+                  normalized_payload = {
+                      "action": "TOGGLE_PERSONAL_TOOL",
+                      "userId": user_id,
+                      "toolId": tool_id,
+                      "enabled": enabled,
+                      "permittedToolIds": permitted_ids,
+                  }
                   canon_action = "TOGGLE_PERSONAL_TOOL"
               else:
+                  settings_updates = copy.deepcopy(payload.get("settings")) if isinstance(payload.get("settings"), dict) else {}
+                  if not settings_updates:
+                      for k in ALLOWED_SETTINGS_KEYS:
+                          if k in payload:
+                              settings_updates[k] = payload[k]
+                          elif k in raw_data:
+                              settings_updates[k] = raw_data[k]
                   invalid = [k for k in settings_updates if k not in ALLOWED_SETTINGS_KEYS]
                   if invalid or not settings_updates:
+                      reject_personal_request(request_id, source_path, claimed_actor_id, "UPDATE_DASHBOARD_SETTINGS", f"Invalid or empty settings updates: {invalid}")
                       raise RuntimeError(f"Invalid or empty settings updates: {invalid}")
-                  normalized_payload = {"action": "UPDATE_DASHBOARD_SETTINGS", "userId": user_id, "settings": settings_updates}
+                  if isinstance(settings_updates.get("tools"), dict):
+                      for tid_k in settings_updates["tools"].keys():
+                          tid_norm = str(tid_k).strip().upper()
+                          if not is_tool_permitted_for_user(user_id, tid_norm, users_by_id, perms_by_user):
+                              err_perm = f"Rejected tool toggle in settings: user {user_id} does not have permission for {tid_norm}."
+                              reject_personal_request(request_id, source_path, claimed_actor_id, "UPDATE_DASHBOARD_SETTINGS", err_perm)
+                              raise RuntimeError(err_perm)
+                  normalized_payload = {
+                      "action": "UPDATE_DASHBOARD_SETTINGS",
+                      "userId": user_id,
+                      "settings": settings_updates,
+                      "permittedToolIds": permitted_ids,
+                  }
                   canon_action = "UPDATE_DASHBOARD_SETTINGS"
 
               seq_m = re.search(r"-(\d{3,})\.json$", source_path)
