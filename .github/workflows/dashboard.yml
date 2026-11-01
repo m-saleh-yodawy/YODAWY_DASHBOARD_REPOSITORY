@@ -8,6 +8,7 @@ on:
       - "NETWORK/users-dashboard-response-*.json"
       - "NETWORK/personal-dashboard-response-*.json"
       - "NETWORK/tools-dashboard-request-*.json"
+      - "CONFIG/users.json"
       - "CONFIG/auth-users.json"
       - "CONFIG/tools-permissions.json"
       - "CONFIG/tools-visibility.json"
@@ -440,8 +441,10 @@ jobs:
           API = "https://api.github.com"
           MAX_REQUESTS = 50
           ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
+          VALID_VISIBILITY_MODES = {"PRIVATE", "PUBLIC", "ADMIN", "USER", "SELECTED_USERS", "SUPER_ADMIN"}
 
-          USERS_PATH = "CONFIG/auth-users.json"
+          USERS_PATH = "CONFIG/users.json"
+          LEGACY_USERS_PATH = "CONFIG/auth-users.json"
           PERMISSIONS_PATH = "CONFIG/tools-permissions.json"
           VISIBILITY_PATH = "CONFIG/tools-visibility.json"
           MANIFEST_PATH = "TOOLS_CACHE/tools-manifest.json"
@@ -642,10 +645,19 @@ jobs:
                   return compact_logs(doc)
               return mutate_json(repo, LOGS_PATH, default_logs(), _mut, f"Update log {tx_id}")
 
+          legacy_u_doc, legacy_u_sha, _ = read_json(DASHBOARD_REPO, LEGACY_USERS_PATH, {"users": []})
+          cur_u_doc, cur_u_sha, cur_u_empty = read_json(DASHBOARD_REPO, USERS_PATH, {"users": []})
+          if legacy_u_sha is not None:
+              if (cur_u_sha is None or cur_u_empty or not cur_u_doc.get("users")) and isinstance(legacy_u_doc, dict) and legacy_u_doc.get("users"):
+                  write_json(DASHBOARD_REPO, USERS_PATH, {"users": legacy_u_doc["users"]}, "Migrate CONFIG/auth-users.json to CONFIG/users.json")
+              cleanup_file(DASHBOARD_REPO, LEGACY_USERS_PATH, "", "Remove legacy CONFIG/auth-users.json")
+
           for cfg_path, cfg_def, allow_emp in (
               (USERS_PATH, {"users": []}, False),
               (PERMISSIONS_PATH, {}, True),
               (VISIBILITY_PATH, {}, True),
+              (MANIFEST_PATH, default_manifest(), False),
+              (LOGS_PATH, default_logs(), False),
           ):
               _, sha_c, is_empty_c = read_json(DASHBOARD_REPO, cfg_path, cfg_def)
               if sha_c is None or is_empty_c:
@@ -707,7 +719,7 @@ jobs:
                       "protocolVersion": 1,
                       "requestId": req_id,
                       "sequence": seq,
-                      "status": "FAILED",
+                      "status": status if status == "REJECTED" else "FAILED",
                       "error": err_detail,
                       "failedAt": ts_recv,
                   }, f"Preserve failed users transaction {req_id}")
@@ -715,7 +727,7 @@ jobs:
                       "sequence": seq,
                       "requestType": req_type,
                       "action": canon_action,
-                      "status": "FAILED",
+                      "status": status if status == "REJECTED" else "FAILED",
                       "actorId": actor_id,
                       "updatedAt": ts_recv,
                       "error": err_detail,
@@ -727,18 +739,35 @@ jobs:
               if status in {"SUCCESS", "COMPLETED"}:
                   inc_users = resp.get("users")
                   if isinstance(inc_users, list):
-                      mutate_json(DASHBOARD_REPO, USERS_PATH, {"users": []}, lambda _: {"users": inc_users}, f"Sync auth-users from {req_id}")
-                  if isinstance(resp.get("permissions"), dict) and tool_ids:
-                      clean_inc_perms = {
-                          uid: {tid: tv for tid, tv in u_map.items() if tid in tool_ids and isinstance(tv, dict)}
-                          for uid, u_map in resp["permissions"].items()
-                          if isinstance(u_map, dict)
-                      }
-                      clean_inc_perms = {uid: u_map for uid, u_map in clean_inc_perms.items() if u_map}
+                      mutate_json(DASHBOARD_REPO, USERS_PATH, {"users": []}, lambda _: {"users": inc_users}, f"Sync users.json from {req_id}")
+                  if isinstance(resp.get("permissions"), dict):
+                      clean_inc_perms = {}
+                      for uid, u_map in resp["permissions"].items():
+                          if isinstance(u_map, dict):
+                              f_map = {}
+                              for tid, tv in u_map.items():
+                                  if (not tool_ids or tid in tool_ids) and isinstance(tv, dict):
+                                      forced = bool(tv.get("forcedState", False))
+                                      granted = bool(tv.get("granted", False))
+                                      p_type = "SUPER_ADMIN" if (forced or str(tv.get("type", "")).upper() == "SUPER_ADMIN") else "ADMIN"
+                                      f_map[tid] = {"granted": granted, "forcedState": forced, "type": p_type}
+                              if f_map:
+                                  clean_inc_perms[uid] = f_map
                       if clean_inc_perms:
                           mutate_json(DASHBOARD_REPO, PERMISSIONS_PATH, {}, lambda p: {**(p or {}), **clean_inc_perms}, f"Update permissions from {req_id}", allow_empty=True)
-                  if isinstance(resp.get("visibility"), dict) and tool_ids:
-                      clean_inc_vis = {tid: v_map for tid, v_map in resp["visibility"].items() if tid in tool_ids and isinstance(v_map, dict)}
+                  if isinstance(resp.get("visibility"), dict):
+                      clean_inc_vis = {}
+                      for tid, v_map in resp["visibility"].items():
+                          if (not tool_ids or tid in tool_ids) and isinstance(v_map, dict):
+                              v_mode = str(v_map.get("visibility") or "PRIVATE").strip().upper()
+                              if v_mode not in VALID_VISIBILITY_MODES:
+                                  v_mode = "PRIVATE"
+                              raw_al = v_map.get("allowedUsers", [])
+                              clean_inc_vis[tid] = {
+                                  "visibility": v_mode,
+                                  "allowedUsers": list(dict.fromkeys(norm_id(u) for u in (raw_al if isinstance(raw_al, list) else []) if norm_id(u))) if v_mode == "SELECTED_USERS" else [],
+                                  "enabled": bool(v_map.get("enabled", v_mode != "PRIVATE")),
+                              }
                       if clean_inc_vis:
                           mutate_json(DASHBOARD_REPO, VISIBILITY_PATH, {}, lambda v: {**(v or {}), **clean_inc_vis}, f"Update visibility from {req_id}", allow_empty=True)
 
@@ -803,7 +832,7 @@ jobs:
                       "protocolVersion": 1,
                       "requestId": req_id,
                       "sequence": seq,
-                      "status": "FAILED",
+                      "status": status if status == "REJECTED" else "FAILED",
                       "error": err_detail,
                       "failedAt": ts_now,
                   }, f"Preserve failed personal transaction {req_id}")
@@ -811,7 +840,7 @@ jobs:
                       "sequence": seq,
                       "requestType": "DASHBOARD_PERSONAL_SYNC",
                       "action": canon_action,
-                      "status": "FAILED",
+                      "status": status if status == "REJECTED" else "FAILED",
                       "actorId": actor_id,
                       "updatedAt": ts_now,
                       "error": err_detail,
@@ -853,18 +882,16 @@ jobs:
                       out[tid] = {
                           "visibility": "PRIVATE",
                           "allowedUsers": [],
-                          "developmentStatus": "UNDER DEVELOPMENT",
-                          "publicationStatus": "NOT PUBLISHED",
                           "enabled": False,
                       }
                   else:
                       vis_mode = str(ex.get("visibility") or "PRIVATE").strip().upper()
+                      if vis_mode not in VALID_VISIBILITY_MODES:
+                          vis_mode = "PRIVATE"
                       allowed = ex.get("allowedUsers", [])
                       out[tid] = {
                           "visibility": vis_mode,
-                          "allowedUsers": list(dict.fromkeys(norm_id(uid) for uid in (allowed if isinstance(allowed, list) else []) if norm_id(uid) in active_ids)),
-                          "developmentStatus": str(ex.get("developmentStatus") or "UNDER DEVELOPMENT"),
-                          "publicationStatus": str(ex.get("publicationStatus") or "NOT PUBLISHED"),
+                          "allowedUsers": list(dict.fromkeys(norm_id(uid) for uid in (allowed if isinstance(allowed, list) else []) if norm_id(uid) in active_ids)) if vis_mode == "SELECTED_USERS" else [],
                           "enabled": bool(ex.get("enabled", vis_mode != "PRIVATE")),
                       }
               return out
@@ -888,12 +915,19 @@ jobs:
                   for tid in tool_ids:
                       cur = u_perms.get(tid)
                       if not isinstance(cur, dict):
-                          new_u_perms[tid] = {"granted": role == "SUPER_ADMIN", "forcedState": False, "type": "SUPER_ADMIN" if role == "SUPER_ADMIN" else "ADMIN"}
-                      else:
                           new_u_perms[tid] = {
-                              "granted": bool(cur.get("granted", role == "SUPER_ADMIN")),
-                              "forcedState": bool(cur.get("forcedState", False)),
-                              "type": "SUPER_ADMIN" if cur.get("type") == "SUPER_ADMIN" or role == "SUPER_ADMIN" else "ADMIN",
+                              "granted": role == "SUPER_ADMIN",
+                              "forcedState": False,
+                              "type": "SUPER_ADMIN" if role == "SUPER_ADMIN" else "ADMIN",
+                          }
+                      else:
+                          forced = bool(cur.get("forcedState", False))
+                          granted = bool(cur.get("granted", role == "SUPER_ADMIN"))
+                          p_type = "SUPER_ADMIN" if (forced or role == "SUPER_ADMIN" or str(cur.get("type", "")).upper() == "SUPER_ADMIN") else "ADMIN"
+                          new_u_perms[tid] = {
+                              "granted": granted,
+                              "forcedState": forced,
+                              "type": p_type,
                           }
                   out[uid] = new_u_perms
               return out
