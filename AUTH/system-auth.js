@@ -10,7 +10,7 @@
 
     const PATHS = {
         config: 'CONFIG/auth-config.json',
-        users: 'CONFIG/auth-users.json',
+        users: 'CONFIG/users.json',
         messages: 'CONFIG/auth-messages.json'
     };
 
@@ -19,7 +19,7 @@
             title: 'SYSTEM ERROR',
             message: 'WRONG SYSTEM'
         },
-        NETWORK_ERROR: {
+        NETWORK_ERROR: {ATHS.use
             title: 'CONNECTION ERROR',
             message: 'UNABLE TO CONNECT. PLEASE TRY AGAIN.'
         },
