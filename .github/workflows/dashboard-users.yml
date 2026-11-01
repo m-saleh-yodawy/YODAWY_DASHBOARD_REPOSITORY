@@ -67,7 +67,8 @@ jobs:
           INPUT_REQ_ID = os.environ.get("INPUT_REQ_ID", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
           API = "https://api.github.com"
-          FIFO_LIMIT = 100
+          MAX_REQUESTS = 50
+          ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
 
           LOGS_PATH = "NETWORK/network-logs.json"
           USERS_AUTH_PATH = "CONFIG/auth-users.json"
@@ -88,7 +89,7 @@ jobs:
               return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
           def default_logs():
-              return {"protocolVersion": 1, "updatedAt": utc_now(), "auditLogs": [], "transactions": {}}
+              return {"protocolVersion": 1, "updatedAt": utc_now(), "transactions": {}}
 
           def api_req(method, endpoint, body=None, allow_404=False):
               data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
@@ -215,73 +216,48 @@ jobs:
               act = str(action or "").strip().upper()
               return "UPDATE_USER" if act == "EDIT_USER" else (act or "SYNC_USERS")
 
-          def finalize_logs(doc):
-              raw_logs = doc.get("auditLogs") if isinstance(doc.get("auditLogs"), list) else []
-              dedup = {}
-              for item in raw_logs:
-                  if not isinstance(item, dict):
-                      continue
-                  rid = str(item.get("requestId") or item.get("id") or item.get("logId") or "").strip()
-                  act = norm_action(item.get("action") or item.get("rawAction"))
-                  actor = item.get("actor") if isinstance(item.get("actor"), dict) else {}
-                  target = item.get("target") if isinstance(item.get("target"), dict) else {}
-                  dedup[(rid, act)] = {
-                      "requestId": rid,
-                      "timestamp": str(item.get("timestamp") or utc_now()).strip(),
-                      "action": act,
-                      "status": str(item.get("status") or "SUCCESS").strip().upper(),
-                      "actor": {
-                          "id": norm_id(actor.get("id") or actor.get("userId") or "UNKNOWN"),
-                          "name": str(actor.get("name") or actor.get("username") or "Unknown").strip(),
-                          "role": norm_role(actor.get("roleAtTimeOfAction") or actor.get("role")),
-                          "verified": bool(actor.get("verified", False)),
-                      },
-                      "target": {
-                          "id": str(target.get("id") or target.get("userId") or "ALL").strip(),
-                          "name": str(target.get("name") or target.get("username") or "Users").strip(),
-                      },
-                      "changes": item.get("changes") if isinstance(item.get("changes"), dict) else {},
-                      "summary": str(item.get("summary") or item.get("details") or "").strip(),
-                  }
-              sorted_logs = sorted(dedup.values(), key=lambda x: (x["timestamp"], x["requestId"]))
-
-              txs = doc.get("transactions") if isinstance(doc.get("transactions"), dict) else {}
-              active_tx, term_tx = {}, []
+          def compact_logs(doc):
+              txs = copy.deepcopy(doc.get("transactions")) if isinstance(doc.get("transactions"), dict) else {}
+              active, terminal = {}, []
               for k, v in txs.items():
                   if not isinstance(v, dict):
                       continue
                   rid = str(v.get("requestId") or k).strip()
+                  if not rid:
+                      continue
                   st = str(v.get("status") or "COMPLETED").strip().upper()
-                  ts_u = str(v.get("updatedAt") or v.get("completedAt") or v.get("sentAt") or v.get("createdAt") or utc_now()).strip()
+                  c_at = str(v.get("createdAt") or v.get("updatedAt") or utc_now()).strip()
+                  u_at = str(v.get("updatedAt") or v.get("completedAt") or v.get("sentAt") or c_at).strip()
+                  actor_raw = v.get("actor")
+                  actor_id = str(v.get("actorId") or (actor_raw.get("id") if isinstance(actor_raw, dict) else "UNKNOWN") or "UNKNOWN").strip().upper()
                   rec = {
                       "requestId": rid,
                       "sequence": str(v.get("sequence") or "001").strip(),
                       "requestType": str(v.get("requestType") or "DASHBOARD_USERS_SYNC").strip(),
                       "action": norm_action(v.get("action") or v.get("requestType")),
                       "status": st,
-                      "updatedAt": ts_u,
+                      "actorId": actor_id,
+                      "createdAt": c_at,
+                      "updatedAt": u_at,
                   }
-                  if v.get("lastError"):
-                      rec["lastError"] = str(v["lastError"]).strip()
-                  if st in {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}:
-                      for ek in ("actor", "targetUserId", "changes", "requestPath", "cleanup"):
-                          if ek in v and v[ek] is not None:
-                              rec[ek] = v[ek]
-                      active_tx[rid] = rec
+                  for opt in ("parentRequestId", "targetId", "error", "cleanup"):
+                      val = v.get(opt) or (v.get("lastError") if opt == "error" else (v.get("targetUserId") if opt == "targetId" else None))
+                      if val:
+                          rec[opt] = str(val).strip()
+                  if st in ACTIVE_STATES:
+                      active[rid] = rec
                   else:
-                      term_tx.append((ts_u, rid, rec))
-              term_tx.sort(key=lambda x: (x[0], x[1]))
-              return {
-                  "protocolVersion": 1,
-                  "updatedAt": utc_now(),
-                  "auditLogs": sorted_logs[-FIFO_LIMIT:],
-                  "transactions": {**active_tx, **{rid: rec for _, rid, rec in term_tx[-FIFO_LIMIT:]}},
-              }
+                      terminal.append((u_at, rid, rec))
+              terminal.sort(key=lambda x: (x[0], x[1]))
+              kept = {**active, **{rid: rec for _, rid, rec in terminal[-MAX_REQUESTS:]}}
+              prev_txs = doc.get("transactions") if isinstance(doc.get("transactions"), dict) else {}
+              u_ts = doc.get("updatedAt") if (prev_txs == kept and doc.get("updatedAt") and "auditLogs" not in doc) else utc_now()
+              return {"protocolVersion": 1, "updatedAt": u_ts, "transactions": kept}
 
           def load_authoritative_users():
               by_id = {}
-              dash_users, _ = read_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []})
               target_users, _ = read_json(TARGET_REPO, TARGET_USERS_PATH, {"users": []})
+              dash_users, _ = read_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []})
               for source_list in ((target_users or {}).get("users", []), (dash_users or {}).get("users", [])):
                   if isinstance(source_list, list):
                       for u in source_list:
@@ -296,20 +272,23 @@ jobs:
                   u = auth_users_by_id[claimed_id]
                   if str(u.get("status", "Active")).strip().casefold() == "active":
                       role = norm_role(u.get("role") or u.get("ROLE") or "USER")
+                      name = str(u.get("name") or raw_actor.get("name") or claimed_id).strip()
                       return {
                           "id": claimed_id,
                           "userId": claimed_id,
-                          "name": str(u.get("name") or raw_actor.get("name") or raw_actor.get("username") or claimed_id).strip(),
-                          "username": str(u.get("name") or raw_actor.get("name") or raw_actor.get("username") or claimed_id).strip(),
+                          "name": name,
+                          "username": name,
                           "role": role,
                           "roleAtTimeOfAction": role,
                           "verified": True,
                       }
+              name = str(raw_actor.get("name") or raw_actor.get("username") or "Unknown").strip()
+              uid = claimed_id if claimed_id and claimed_id != "SYSTEM" else "UNKNOWN"
               return {
-                  "id": claimed_id if claimed_id and claimed_id != "SYSTEM" else "UNKNOWN",
-                  "userId": claimed_id if claimed_id and claimed_id != "SYSTEM" else "UNKNOWN",
-                  "name": str(raw_actor.get("name") or raw_actor.get("username") or "Unknown").strip(),
-                  "username": str(raw_actor.get("name") or raw_actor.get("username") or "Unknown").strip(),
+                  "id": uid,
+                  "userId": uid,
+                  "name": name,
+                  "username": name,
                   "role": "UNKNOWN",
                   "roleAtTimeOfAction": "UNKNOWN",
                   "verified": False,
@@ -349,9 +328,6 @@ jobs:
                           max_s = max(max_s, int(s))
               return max_s + 1
 
-          mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), finalize_logs, "Compact source network-logs")
-          mutate_json(TARGET_REPO, LOGS_PATH, default_logs(), finalize_logs, "Compact target network-logs")
-
           source_files = list_network_files(SOURCE_REPO)
           for n in list(source_files):
               m_leg = re.fullmatch(r"users-request-(\d{3,})\.json", n)
@@ -360,10 +336,11 @@ jobs:
                   leg_path = f"NETWORK/{n}"
                   canon_equiv = f"NETWORK/dashboard-users-request-{leg_seq}.json"
                   leg_data, _ = read_json(SOURCE_REPO, leg_path, {})
+                  leg_req_id = str((leg_data or {}).get("requestId") or "").strip()
                   if f"dashboard-users-request-{leg_seq}.json" not in source_files and isinstance(leg_data, dict) and leg_data:
                       write_json(SOURCE_REPO, canon_equiv, leg_data, f"Migrate {n} to canonical request")
                       source_files.append(f"dashboard-users-request-{leg_seq}.json")
-                  cleanup_file(SOURCE_REPO, leg_path, "", f"Remove legacy request {n}")
+                  cleanup_file(SOURCE_REPO, leg_path, leg_req_id, f"Remove legacy request {n}")
 
           candidate_paths = []
           if INPUT_SEQ and re.fullmatch(r"\d{3,}", INPUT_SEQ):
@@ -448,23 +425,16 @@ jobs:
                   def _rec_reject(doc):
                       doc.setdefault("transactions", {})[request_id] = {
                           "requestId": request_id,
+                          "sequence": "001",
                           "requestType": "DASHBOARD_USERS_SYNC",
                           "action": canon_action,
                           "status": "REJECTED",
+                          "actorId": actor_obj["id"],
+                          "createdAt": ts_rej,
                           "updatedAt": ts_rej,
-                          "lastError": auth_err,
+                          "error": auth_err,
                       }
-                      doc.setdefault("auditLogs", []).append({
-                          "requestId": request_id,
-                          "timestamp": ts_rej,
-                          "action": canon_action,
-                          "status": "REJECTED",
-                          "actor": actor_obj,
-                          "target": {"id": norm_id(payload.get("id") or payload.get("userId")) or "USER", "name": str(payload.get("name") or "Target User")},
-                          "changes": {},
-                          "summary": auth_err,
-                      })
-                      return finalize_logs(doc)
+                      return compact_logs(doc)
 
                   mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), _rec_reject, f"Log rejected request {request_id}")
                   cleanup_file(SOURCE_REPO, source_path, request_id, f"Remove rejected request {request_id}")
@@ -552,18 +522,18 @@ jobs:
                   raise RuntimeError(f"Failed to allocate sequence for request {request_id}")
 
               def _record_sent(doc):
-                  tx = doc.setdefault("transactions", {}).setdefault(request_id, {})
+                  ts_s = utc_now()
+                  tx = doc.setdefault("transactions", {}).setdefault(request_id, {"createdAt": ts_s})
                   tx.update({
                       "requestId": request_id,
                       "sequence": allocated_seq,
                       "requestType": "DASHBOARD_USERS_SYNC",
                       "action": canon_action,
-                      "actor": actor_obj,
+                      "actorId": actor_obj["id"],
                       "status": "SENT",
-                      "updatedAt": utc_now(),
-                      "requestPath": channel_path,
+                      "updatedAt": ts_s,
                   })
-                  return finalize_logs(doc)
+                  return compact_logs(doc)
 
               mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), _record_sent, f"Track sent transaction {request_id}")
               write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
