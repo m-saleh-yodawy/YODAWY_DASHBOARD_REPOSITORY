@@ -8,7 +8,7 @@
   },
   "userRegistry": {
     "repository": "YODAWY_DASHBOARD_REPOSITORY",
-    "path": "CONFIG/auth-users.json"
+    "path": "CONFIG/users.json"
   },
   "personalAuth": {
     "enabled": true,
