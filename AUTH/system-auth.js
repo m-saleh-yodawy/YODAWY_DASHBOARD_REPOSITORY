@@ -9,9 +9,9 @@
     const BRANCH = 'main';
 
     const PATHS = {
-        config: 'CONFIG/auth-config.json',
+        config: 'AUTH/auth-config.json',
         users: 'CONFIG/users.json',
-        messages: 'CONFIG/auth-messages.json'
+        messages: 'AUTH/auth-messages.json'
     };
 
     const FALLBACK_MESSAGES = {
@@ -19,7 +19,7 @@
             title: 'SYSTEM ERROR',
             message: 'WRONG SYSTEM'
         },
-        NETWORK_ERROR: {ATHS.use
+        NETWORK_ERROR: {
             title: 'CONNECTION ERROR',
             message: 'UNABLE TO CONNECT. PLEASE TRY AGAIN.'
         },
@@ -49,36 +49,44 @@
                 cache: 'no-store'
             });
         } catch {
-            throw { code: 'NETWORK_ERROR' };
+            throw Object.assign(new Error('Network error'), {
+                code: 'NETWORK_ERROR'
+            });
         }
 
         if (!response.ok) {
-            throw {
+            throw Object.assign(new Error(`GitHub ${response.status}`), {
                 code: [401, 403, 404].includes(response.status)
                     ? 'WRONG_SYSTEM'
                     : 'NETWORK_ERROR',
                 status: response.status
-            };
+            });
         }
 
-        const file = await response.json();
+        try {
+            const file = await response.json();
 
-        if (file.encoding !== 'base64' || !file.content) {
-            throw { code: 'UNKNOWN_ERROR' };
+            if (file.encoding !== 'base64' || !file.content) {
+                throw new Error('Invalid file content');
+            }
+
+            const binary = atob(file.content.replace(/\s/g, ''));
+            const bytes = Uint8Array.from(
+                binary,
+                char => char.charCodeAt(0)
+            );
+
+            return JSON.parse(
+                new TextDecoder().decode(bytes)
+            );
+        } catch {
+            throw Object.assign(new Error('Invalid JSON file'), {
+                code: 'UNKNOWN_ERROR'
+            });
         }
-
-        const binary = atob(file.content.replace(/\s/g, ''));
-        const bytes = Uint8Array.from(
-            binary,
-            char => char.charCodeAt(0)
-        );
-
-        return JSON.parse(
-            new TextDecoder().decode(bytes)
-        );
     }
 
-    async function authenticate({ userId, systemToken }) {
+    async function authenticate({ userId, systemToken } = {}) {
         const id = String(userId || '').trim().toUpperCase();
         const token = String(systemToken || '').trim();
 
@@ -93,14 +101,13 @@
         let messages = FALLBACK_MESSAGES;
 
         try {
-            // Load central error messages.
             try {
-                messages = await readFile(PATHS.messages, token);
+                const data = await readFile(PATHS.messages, token);
+                messages = data?.messages || data;
             } catch {
-                // Keep local fallback if the message file is inaccessible.
+                messages = FALLBACK_MESSAGES;
             }
 
-            // Verify access to the Dashboard repository.
             const config = await readFile(PATHS.config, token);
 
             if (
@@ -118,7 +125,6 @@
                 };
             }
 
-            // Read the authoritative user registry.
             const registry = await readFile(
                 config.userRegistry.path,
                 token
@@ -135,7 +141,7 @@
 
             const user = registry.users.find(
                 item =>
-                    String(item.id || '').trim().toUpperCase() === id
+                    String(item?.id || '').trim().toUpperCase() === id
             );
 
             if (!user) {
@@ -148,8 +154,7 @@
             }
 
             if (
-                String(user.status || '').trim().toLowerCase() !==
-                'active'
+                String(user.status || '').trim().toLowerCase() !== 'active'
             ) {
                 return {
                     ok: false,
@@ -184,7 +189,9 @@
         } catch (error) {
             const code = error?.code === 'NETWORK_ERROR'
                 ? 'NETWORK_ERROR'
-                : 'WRONG_SYSTEM';
+                : error?.code === 'UNKNOWN_ERROR'
+                    ? 'UNKNOWN_ERROR'
+                    : 'WRONG_SYSTEM';
 
             return {
                 ok: false,
