@@ -1,0 +1,16 @@
+{
+  "protocolVersion": 1,
+  "updatedAt": "2026-11-01T16:30:51Z",
+  "transactions": {
+    "USERS-DASH-20261101T162943Z-1C66593D": {
+      "requestId": "USERS-DASH-20261101T162943Z-1C66593D",
+      "sequence": "001",
+      "requestType": "USERS_DASHBOARD_SYNC",
+      "action": "SYNC_USERS",
+      "status": "COMPLETED",
+      "actorId": "SYSTEM",
+      "createdAt": "2026-11-01T16:30:51Z",
+      "updatedAt": "2026-11-01T16:30:51Z"
+    }
+  }
+}
