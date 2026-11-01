@@ -71,8 +71,31 @@ jobs:
           ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
 
           LOGS_PATH = "NETWORK/network-logs.json"
-          USERS_AUTH_PATH = "CONFIG/auth-users.json"
-          TARGET_USERS_PATH = "CONFIG/users.json"
+          USERS_PATH = "CONFIG/users.json"
+          LEGACY_USERS_PATH = "CONFIG/auth-users.json"
+          PERMISSIONS_PATH = "CONFIG/tools-permissions.json"
+          VISIBILITY_PATH = "CONFIG/tools-visibility.json"
+
+          PERMISSION_ACTIONS = {
+              "GRANT_TOOL_PERMISSION",
+              "REVOKE_TOOL_PERMISSION",
+              "MODIFY_TOOL_PERMISSION",
+              "UPDATE_TOOL_PERMISSION",
+              "UPDATE_PERMISSIONS",
+              "ENABLE_FORCED_STATE",
+              "DISABLE_FORCED_STATE",
+              "REMOVE_FORCED_STATE",
+              "SET_FORCED_STATE",
+          }
+          VISIBILITY_ACTIONS = {
+              "UPDATE_VISIBILITY",
+              "UPDATE_TOOLS_VISIBILITY",
+          }
+          SUPPORTED_WIRE_ACTIONS = (
+              {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}
+              | PERMISSION_ACTIONS
+              | VISIBILITY_ACTIONS
+          )
 
           if not TOKEN:
               raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
@@ -214,7 +237,9 @@ jobs:
 
           def norm_action(action):
               act = str(action or "").strip().upper()
-              return "UPDATE_USER" if act == "EDIT_USER" else (act or "SYNC_USERS")
+              if act in {"EDIT_USER", "CHANGE_USER_ROLE", "CHANGE_USER_STATUS"}:
+                  return "UPDATE_USER"
+              return act or "SYNC_USERS"
 
           def compact_logs(doc):
               txs = copy.deepcopy(doc.get("transactions")) if isinstance(doc.get("transactions"), dict) else {}
@@ -254,16 +279,24 @@ jobs:
               u_ts = doc.get("updatedAt") if (prev_txs == kept and doc.get("updatedAt") and "auditLogs" not in doc) else utc_now()
               return {"protocolVersion": 1, "updatedAt": u_ts, "transactions": kept}
 
-          def load_authoritative_users():
+          def load_authoritative_state():
               by_id = {}
-              target_users, _ = read_json(TARGET_REPO, TARGET_USERS_PATH, {"users": []})
-              dash_users, _ = read_json(SOURCE_REPO, USERS_AUTH_PATH, {"users": []})
-              for source_list in ((target_users or {}).get("users", []), (dash_users or {}).get("users", [])):
+              target_users, _ = read_json(TARGET_REPO, USERS_PATH, {"users": []})
+              dash_users, _ = read_json(SOURCE_REPO, USERS_PATH, {"users": []})
+              legacy_dash_users, _ = read_json(SOURCE_REPO, LEGACY_USERS_PATH, {"users": []})
+              for source_list in ((target_users or {}).get("users", []), (dash_users or {}).get("users", []), (legacy_dash_users or {}).get("users", [])):
                   if isinstance(source_list, list):
                       for u in source_list:
                           if isinstance(u, dict) and norm_id(u.get("id")):
                               by_id.setdefault(norm_id(u.get("id")), u)
-              return by_id
+              target_perms, _ = read_json(TARGET_REPO, PERMISSIONS_PATH, {})
+              dash_perms, _ = read_json(SOURCE_REPO, PERMISSIONS_PATH, {})
+              merged_perms = copy.deepcopy(dash_perms if isinstance(dash_perms, dict) else {})
+              if isinstance(target_perms, dict):
+                  for uid, u_map in target_perms.items():
+                      if isinstance(u_map, dict):
+                          merged_perms[norm_id(uid)] = copy.deepcopy(u_map)
+              return by_id, merged_perms
 
           def resolve_verified_actor(raw_data, auth_users_by_id):
               raw_actor = raw_data.get("actor") if isinstance(raw_data.get("actor"), dict) else {}
@@ -294,14 +327,80 @@ jobs:
                   "verified": False,
               }
 
-          def is_actor_authorized(actor_obj, canon_action, payload, auth_users_by_id):
+          def is_actor_authorized(actor_obj, raw_action, canon_action, payload, auth_users_by_id, auth_perms):
               if not actor_obj.get("verified"):
                   return False, "Unverified or missing actor identity."
               actor_role = actor_obj.get("role")
+              if actor_role == "USER":
+                  return False, "USER role is not authorized to perform administrative or permission assignment operations."
+              if actor_role not in {"SUPER_ADMIN", "ADMIN"}:
+                  return False, f"Role {actor_role} is not authorized."
+
+              if raw_action in PERMISSION_ACTIONS or isinstance(payload.get("permissions"), dict) or ("toolId" in payload and ("granted" in payload or "forcedState" in payload)):
+                  changes = []
+                  single_uid = norm_id(payload.get("targetUserId") or payload.get("userId") or payload.get("id"))
+                  single_tid = norm_id(payload.get("targetToolId") or payload.get("toolId"))
+                  if single_uid and single_tid:
+                      changes.append((
+                          single_uid,
+                          single_tid,
+                          payload.get("granted") if "granted" in payload else None,
+                          payload.get("forcedState") if "forcedState" in payload else None,
+                          raw_action,
+                      ))
+                  inc_perms = payload.get("permissions")
+                  if isinstance(inc_perms, dict):
+                      for u_k, u_map in inc_perms.items():
+                          u_norm = norm_id(u_k)
+                          if not isinstance(u_map, dict):
+                              continue
+                          for t_k, tv in u_map.items():
+                              t_norm = norm_id(t_k)
+                              if isinstance(tv, dict):
+                                  req_g = tv.get("granted") if "granted" in tv else None
+                                  req_f = tv.get("forcedState") if "forcedState" in tv else None
+                              elif isinstance(tv, bool):
+                                  req_g = tv
+                                  req_f = None
+                              else:
+                                  continue
+                              ex_u = auth_perms.get(u_norm) if isinstance(auth_perms.get(u_norm), dict) else {}
+                              ex_t = ex_u.get(t_norm) if isinstance(ex_u.get(t_norm), dict) else {}
+                              u_rec = auth_users_by_id.get(u_norm, {})
+                              def_g = norm_role(u_rec.get("role") or "USER") == "SUPER_ADMIN" if u_rec else False
+                              cur_g = bool(ex_t.get("granted", def_g))
+                              cur_f = bool(ex_t.get("forcedState", False))
+                              if (req_g is not None and bool(req_g) != cur_g) or (req_f is not None and bool(req_f) != cur_f):
+                                  changes.append((u_norm, t_norm, req_g, req_f, "MODIFY_TOOL_PERMISSION"))
+
+                  for t_uid, t_tid, req_g, req_f, op_act in changes:
+                      if t_uid not in auth_users_by_id:
+                          return False, f"Target user {t_uid} does not exist."
+                      t_user_role = norm_role(auth_users_by_id[t_uid].get("role") or "USER")
+                      ex_u = auth_perms.get(t_uid) if isinstance(auth_perms.get(t_uid), dict) else {}
+                      ex_t = ex_u.get(t_tid) if isinstance(ex_u.get(t_tid), dict) else {}
+                      cur_forced = bool(ex_t.get("forcedState", False))
+                      new_forced = cur_forced if req_f is None else bool(req_f)
+                      if op_act == "ENABLE_FORCED_STATE":
+                          new_forced = True
+                      elif op_act in {"DISABLE_FORCED_STATE", "REMOVE_FORCED_STATE"}:
+                          new_forced = False
+
+                      if actor_role == "SUPER_ADMIN":
+                          continue
+                      if actor_role == "ADMIN":
+                          if t_user_role == "SUPER_ADMIN":
+                              return False, f"ADMIN cannot modify permissions for SUPER_ADMIN user {t_uid}."
+                          if op_act in {"ENABLE_FORCED_STATE", "DISABLE_FORCED_STATE", "REMOVE_FORCED_STATE", "SET_FORCED_STATE"} or new_forced != cur_forced:
+                              return False, f"ADMIN is not authorized to enable, disable, or remove FORCED STATE for {t_uid}/{t_tid}."
+                          if cur_forced:
+                              return False, f"FORCED STATE is active for {t_uid} on {t_tid}. ADMIN cannot modify this permission assignment."
+
               if actor_role == "SUPER_ADMIN":
                   return True, ""
+
               if actor_role == "ADMIN":
-                  if canon_action == "SYNC_USERS":
+                  if canon_action in {"SYNC_USERS"} | PERMISSION_ACTIONS | VISIBILITY_ACTIONS:
                       return True, ""
                   target_role = norm_role(payload.get("role") or payload.get("ROLE") or "USER")
                   target_id = norm_id(payload.get("id") or payload.get("userId"))
@@ -311,7 +410,8 @@ jobs:
                   if canon_action in {"ADD_USER", "UPDATE_USER"}:
                       return True, ""
                   return False, f"ADMIN is not authorized to perform {canon_action}."
-              return False, f"Role {actor_role} is not authorized to perform user management operations."
+
+              return False, f"Role {actor_role} is not authorized."
 
           def next_base_seq(logs_doc):
               names = set(list_network_files(SOURCE_REPO)) | set(list_network_files(TARGET_REPO))
@@ -355,7 +455,7 @@ jobs:
 
           seen_request_ids_in_run = set()
           seen_add_names_in_run = set()
-          auth_users_by_id = load_authoritative_users()
+          auth_users_by_id, auth_perms = load_authoritative_state()
 
           for source_path in candidate_paths:
               raw_data, _ = read_json(SOURCE_REPO, source_path)
@@ -391,6 +491,10 @@ jobs:
               if not raw_action:
                   if str(payload.get("name") or "").strip() and not str(payload.get("id") or payload.get("userId") or "").strip():
                       raw_action = "ADD_USER"
+                  elif isinstance(payload.get("permissions"), dict) or ("toolId" in payload and ("granted" in payload or "forcedState" in payload)):
+                      raw_action = "MODIFY_TOOL_PERMISSION"
+                  elif isinstance(payload.get("visibility"), dict):
+                      raw_action = "UPDATE_VISIBILITY"
                   elif isinstance(payload.get("users"), list):
                       raw_action = "SYNC_USERS"
                   else:
@@ -399,7 +503,7 @@ jobs:
               wire_action = "EDIT_USER" if raw_action in {"UPDATE_USER", "EDIT_USER", "CHANGE_USER_ROLE", "CHANGE_USER_STATUS"} else raw_action
               canon_action = norm_action(raw_action)
 
-              if wire_action not in {"ADD_USER", "EDIT_USER", "DELETE_USER", "SYNC_USERS"}:
+              if wire_action not in SUPPORTED_WIRE_ACTIONS:
                   write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
                       "protocolVersion": 1,
                       "requestId": request_id,
@@ -410,7 +514,7 @@ jobs:
                   raise RuntimeError(f"Unsupported action: {raw_action}")
 
               actor_obj = resolve_verified_actor(raw_data, auth_users_by_id)
-              authorized, auth_err = is_actor_authorized(actor_obj, canon_action, payload, auth_users_by_id)
+              authorized, auth_err = is_actor_authorized(actor_obj, raw_action, canon_action, payload, auth_users_by_id, auth_perms)
               if not authorized:
                   ts_rej = utc_now()
                   write_json(SOURCE_REPO, f"NETWORK/FAILED/{request_id}.json", {
@@ -469,7 +573,7 @@ jobs:
                       normalized_payload["name"] = " ".join(str(normalized_payload["name"]).strip().split())
               else:
                   normalized_payload = dict(payload)
-                  normalized_payload["action"] = "SYNC_USERS"
+                  normalized_payload["action"] = raw_action
 
               seq_match = re.search(r"-(\d{3,})\.json$", source_path)
               preferred_seq = int(seq_match.group(1)) if seq_match else next_base_seq(logs_state)
@@ -517,36 +621,3 @@ jobs:
                       if "HTTP 422" in str(err) or "HTTP 409" in str(err):
                           continue
                       raise
-
-              if not allocated_seq:
-                  raise RuntimeError(f"Failed to allocate sequence for request {request_id}")
-
-              def _record_sent(doc):
-                  ts_s = utc_now()
-                  tx = doc.setdefault("transactions", {}).setdefault(request_id, {"createdAt": ts_s})
-                  tx.update({
-                      "requestId": request_id,
-                      "sequence": allocated_seq,
-                      "requestType": "DASHBOARD_USERS_SYNC",
-                      "action": canon_action,
-                      "actorId": actor_obj["id"],
-                      "status": "SENT",
-                      "updatedAt": ts_s,
-                  })
-                  return compact_logs(doc)
-
-              mutate_json(SOURCE_REPO, LOGS_PATH, default_logs(), _record_sent, f"Track sent transaction {request_id}")
-              write_json(SOURCE_REPO, channel_path, request_obj, f"Record outbound users request {request_id}")
-              if source_path != channel_path:
-                  cleanup_file(SOURCE_REPO, source_path, request_id, f"Remove unallocated request {request_id}")
-
-              api_req("POST", f"/repos/{OWNER}/{TARGET_REPO}/dispatches", {
-                  "event_type": "dashboard_users_sync_requested",
-                  "client_payload": {
-                      "requestId": request_id,
-                      "sequence": allocated_seq,
-                      "requestType": "DASHBOARD_USERS_SYNC",
-                      "requestPath": channel_path,
-                  },
-              })
-          PY
