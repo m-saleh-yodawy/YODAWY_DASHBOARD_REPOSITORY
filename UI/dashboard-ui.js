@@ -111,9 +111,8 @@
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>' + toast;
     };
-    const statCard = (label, value, icon) => `
-        <div class="yd-card"><div class="yd-stat"><div><div class="yd-stat-label">${escapeHTML(label)}</div><div class="yd-stat-value">${escapeHTML(value)}</div></div><div class="yd-stat-icon">${icon}</div></div></div>
-    `;
+    const statCard = (label, value, icon, colorClass = 'purple') =>
+        '<div class="yd-kpi-card"><div class="yd-kpi-icon ' + colorClass + '">' + icon + '</div><div class="yd-kpi-info"><div class="yd-kpi-label">' + escapeHTML(label) + '</div><div class="yd-kpi-value">' + escapeHTML(value) + '</div></div></div>';
 
     const renderToolCards = tools => {
         if (!tools.length) return '<div class="yd-card yd-empty">No tools are currently available.</div>';
@@ -133,33 +132,52 @@
     };
 
     const renderOverview = () => {
-        const tools = getTools();
-        const users = getUsers();
-        const loaded = getLoadedTools();
-        const transactions = getTransactions();
-        const activeUsers = users.filter(user => String(user.status).toLowerCase() === 'active').length;
-        const enabledTools = tools.filter(tool => context.visibility?.getVisibility?.(tool.id)?.enabled === true).length;
-        return `
-            <section class="yd-welcome"><div><h1>Welcome back, ${escapeHTML(context.user?.name || 'User')}</h1><p>Your centralized workspace for Yodawy tools and dashboard operations.</p></div><button class="yd-primary" data-action="refresh">↻ &nbsp; Refresh Workspace</button></section>
-            <section class="yd-stats">
-                ${statCard('Registered Users', users.length, '♙')}
-                ${statCard('Active Users', activeUsers, '✓')}
-                ${statCard('Available Tools', tools.length, '▦')}
-                ${statCard('Loaded Tools', loaded.length, '⚡')}
-            </section>
-            <div class="yd-section-head"><h2>Tools Overview</h2><span>${tools.length} tools in manifest · ${enabledTools} visible enabled</span></div>
-            ${renderToolCards(tools.slice(0, 6))}
-            <div class="yd-section-head"><h2>Recent NETWORK Activity</h2><span>${transactions.length} transactions</span></div>
-            ${renderTransactionsTable(transactions.slice(0, 5))}
-        `;
+        const toolList = getTools();
+        const visibleTools = toolList.filter(tool => context.userRole === 'SUPER_ADMIN' || context.visibility?.isVisible?.(tool.id, tool));
+        const permittedTools = visibleTools.filter(tool => context.permissions?.canUse?.(context.userId || context.user?.id, tool.id) === true);
+        const enabledTools = permittedTools.filter(tool => context.settings?.isEnabled?.(tool.id) === true);
+        const settings = context.settings?.getSettings?.() || {};
+        const user = context.user || {};
+        const role = String(context.userRole || 'USER').replace(/_/g, ' ');
+        return '<section class="yd-welcome"><div><h1>Overview</h1><p>Your centralized Yodawy tools workspace and account status.</p></div><button class="yd-primary" data-action="refresh">↻ &nbsp; Sync</button></section>' +
+            '<section class="yd-stats">' +
+                statCard('Tools', visibleTools.length, '⚒', 'blue') +
+                statCard('Permitted', permittedTools.length, '♙', 'green') +
+                statCard('Active (ON)', enabledTools.length, 'ϟ', 'purple') +
+                statCard('Status', 'Connected', '☁', 'green') +
+            '</section>' +
+            '<section class="yd-info-grid">' +
+                '<div class="yd-card"><div class="yd-card-title">♙ <span>Account</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Name</span><span class="yd-clean-val">' + escapeHTML(settings.displayName || user.name || '—') + '</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">User ID</span><span class="yd-id-badge">' + escapeHTML(user.id || user.userId || context.userId || '—') + '</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Role</span><span class="yd-pill blue">' + escapeHTML(role) + '</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Account Status</span><span class="yd-pill green">' + escapeHTML(user.status || 'Active') + '</span></div>' +
+                '</div>' +
+                '<div class="yd-card"><div class="yd-card-title">☁ <span>Connection</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">System</span><span class="yd-pill green">Connected to system</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Personal Settings</span><span class="yd-pill ' + (context.settings?.isLoaded?.() ? 'green' : 'red') + '">' + (context.settings?.isLoaded?.() ? 'Connected' : 'Unavailable') + '</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Tools Sync</span><span class="yd-pill ' + (context.tools?.isInitialized?.() ? 'blue' : 'yellow') + '">' + (context.tools?.isInitialized?.() ? 'Ready' : 'Pending') + '</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Current Site</span><span class="yd-pill">' + escapeHTML(location.hostname) + '</span></div>' +
+                '</div>' +
+            '</section>';
     };
-
-    const renderTools = () => `
-        <section class="yd-welcome"><div><h1>Tools Library</h1><p>Tools available to your authenticated account.</p></div><button class="yd-secondary" data-action="sync-tools">Sync Tools</button></section>
-        <div class="yd-toolbar"><input class="yd-search" id="yd-tool-search" placeholder="Search tools by name or ID"><span class="yd-pill">${getLoadedTools().length} loaded / ${getTools().length} total</span></div>
-        <div id="yd-tool-list">${renderToolCards(getTools())}</div>
-    `;
-
+    const renderTools = () => {
+        const allTools = getTools();
+        const visibleTools = allTools.filter(tool => context.userRole === 'SUPER_ADMIN' || context.visibility?.isVisible?.(tool.id, tool));
+        const userId = context.userId || context.user?.id;
+        const permittedCount = visibleTools.filter(tool => context.permissions?.canUse?.(userId, tool.id) === true).length;
+        const onCount = visibleTools.filter(tool => context.permissions?.canUse?.(userId, tool.id) === true && context.settings?.isEnabled?.(tool.id) === true).length;
+        const rows = visibleTools.map((tool, index) => {
+            const id = String(tool.id || '').trim();
+            const allowed = context.permissions?.canUse?.(userId, id) === true;
+            const enabled = allowed && context.settings?.isEnabled?.(id) === true;
+            return '<tr><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + escapeHTML(id) + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td><td style="text-align:center"><span class="yd-access-badge ' + (allowed ? 'unlocked' : 'locked') + '">' + (allowed ? '✓' : '×') + '</span></td><td style="text-align:right"><button class="yd-switch ' + (enabled ? 'on' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '"><span class="yd-switch-knob"></span></button><span class="yd-switch-state">' + (enabled ? 'ON' : 'OFF') + '</span></td></tr>';
+        }).join('');
+        return '<section class="yd-welcome"><div><h1>Tools</h1><p>Manage access and personal ON/OFF status for available tools.</p></div><button class="yd-secondary" data-action="sync-tools">↻ &nbsp; Reload</button></section>' +
+            '<div class="yd-toolbar"><input class="yd-search" id="yd-tool-search" placeholder="Search tools by name or ID"><span class="yd-pill">' + getLoadedTools().length + ' loaded / ' + allTools.length + ' total</span></div>' +
+            '<div class="yd-table-card"><div class="yd-table-card-head"><div class="yd-table-card-title">⚒ <span>Tools (' + visibleTools.length + ')</span></div><div class="yd-table-pills"><span class="yd-pill blue">' + permittedCount + ' Permitted</span><span class="yd-pill green">' + onCount + ' ON</span></div></div>' +
+            '<div class="yd-table-responsive"><table><thead><tr><th style="width:50px">#</th><th style="width:120px">ID</th><th>Tool</th><th style="width:100px;text-align:center">Access</th><th style="width:120px;text-align:right">Status</th></tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
+    };
     const renderUsers = () => {
         const users = getUsers();
         return `
@@ -187,40 +205,39 @@
     };
 
     const renderVisibility = () => {
-        const tools = getTools();
+        const toolList = getTools();
         const visibilityMap = getRoleEngine()?.getVisibility?.() || {};
-        return `
-            <section class="yd-welcome"><div><h1>Tool Visibility</h1><p>Control discovery and availability by audience.</p></div></section>
-            <div class="yd-grid">${tools.map(tool => {
-                const record = visibilityMap[tool.id] || { visibility: 'PRIVATE', allowedUsers: [], enabled: false };
-                return `<article class="yd-card yd-tool-card"><div class="yd-tool-head"><div class="yd-tool-icon">◉</div><div><div class="yd-tool-name">${escapeHTML(tool.name)}</div><div class="yd-tool-meta">${escapeHTML(tool.id)}</div></div></div><div class="yd-form-grid" style="margin-top:16px"><div class="yd-field"><label>Visibility</label><select data-visibility="${escapeHTML(tool.id)}"><option value="PRIVATE" ${record.visibility === 'PRIVATE' ? 'selected' : ''}>PRIVATE</option><option value="PUBLIC" ${record.visibility === 'PUBLIC' ? 'selected' : ''}>PUBLIC</option><option value="SELECTED_USERS" ${record.visibility === 'SELECTED_USERS' ? 'selected' : ''}>SELECTED_USERS</option></select></div><div class="yd-field"><label>Enabled</label><select data-enabled="${escapeHTML(tool.id)}"><option value="true" ${record.enabled ? 'selected' : ''}>Enabled</option><option value="false" ${!record.enabled ? 'selected' : ''}>Disabled</option></select></div></div><div class="yd-field" style="margin-top:12px"><label>Allowed User IDs (comma separated)</label><input data-allowed="${escapeHTML(tool.id)}" value="${escapeHTML((record.allowedUsers || []).join(', '))}" placeholder="Q-001, Q-002"></div><div style="display:flex;justify-content:flex-end;margin-top:13px"><button class="yd-primary" data-action="save-visibility" data-tool="${escapeHTML(tool.id)}">Save Visibility</button></div></article>`;
-            }).join('')}</div>
-        `;
+        const rows = toolList.map((tool,index) => {
+            const record = visibilityMap[tool.id] || { visibility: 'PRIVATE', allowedUsers: [], enabled: false };
+            const allowed = Array.isArray(record.allowedUsers) ? record.allowedUsers : [];
+            const id = escapeHTML(tool.id);
+            return '<tr><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + id + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td><td><select class="yd-select" data-visibility="' + id + '"><option value="PRIVATE" ' + (record.visibility === 'PRIVATE' ? 'selected' : '') + '>PRIVATE</option><option value="PUBLIC" ' + (record.visibility === 'PUBLIC' ? 'selected' : '') + '>PUBLIC</option><option value="SELECTED_USERS" ' + (record.visibility === 'SELECTED_USERS' ? 'selected' : '') + '>SELECTED_USERS</option></select></td><td><input class="yd-input" data-allowed="' + id + '" value="' + escapeHTML(allowed.join(', ')) + '" placeholder="Q-001, Q-002"></td><td><select class="yd-select" data-enabled="' + id + '"><option value="true" ' + (record.enabled ? 'selected' : '') + '>ON</option><option value="false" ' + (!record.enabled ? 'selected' : '') + '>OFF</option></select></td><td style="text-align:right"><button class="yd-primary" data-action="save-visibility" data-tool="' + id + '">Save</button></td></tr>';
+        }).join('');
+        return '<section class="yd-welcome"><div><h1>Visibility</h1><p>Set who can discover each tool and whether it is published.</p></div></section>' +
+            '<div class="yd-table-card"><div class="yd-table-card-head"><div class="yd-table-card-title">◈ <span>Global Tool Visibility (' + toolList.length + ')</span></div><span class="yd-pill blue">SUPER ADMIN CONTROL</span></div>' +
+            '<div class="yd-table-responsive"><table><thead><tr><th style="width:50px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Policy Mode</th><th>Allowed Users</th><th>Enabled</th><th style="text-align:right">Action</th></tr></thead><tbody>' + (rows || '<tr><td colspan="7" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
     };
-
     const renderTransactions = () => `
         <section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Centralized administrative request and transaction history.</p></div><button class="yd-secondary" data-action="refresh">Refresh History</button></section>
         ${renderTransactionsTable(getTransactions())}
     `;
 
-    const renderAccount = () => `
-        <section class="yd-welcome"><div><h1>Account Profile</h1><p>Your authenticated dashboard identity.</p></div></section>
-        <div class="yd-panel-grid">
-            <div class="yd-card"><div class="yd-section-head"><h2>Identity</h2></div>
-                <div class="yd-info-row"><span>Full Name</span><strong>${escapeHTML(context.user?.name)}</strong></div>
-                <div class="yd-info-row"><span>User ID</span><strong>${escapeHTML(context.user?.id || context.user?.userId)}</strong></div>
-                <div class="yd-info-row"><span>Role</span><strong>${escapeHTML(context.userRole)}</strong></div>
-                <div class="yd-info-row"><span>Status</span><strong>${escapeHTML(context.user?.status || 'Active')}</strong></div>
-            </div>
-            <div class="yd-card"><div class="yd-section-head"><h2>Workspace</h2></div>
-                <div class="yd-info-row"><span>Personal Repository</span><strong>${escapeHTML(context.personalRepository || '—')}</strong></div>
-                <div class="yd-info-row"><span>Dashboard Repository</span><strong>${escapeHTML(context.dashboardRepository || '—')}</strong></div>
-                <div class="yd-info-row"><span>Branch</span><strong>${escapeHTML(context.branch || 'main')}</strong></div>
-                <div class="yd-info-row"><span>Authenticated</span><strong>Verified</strong></div>
-            </div>
-        </div>
-    `;
-
+    const renderAccount = () => {
+        const user = context.user || {};
+        const settings = context.settings?.getSettings?.() || { tools: {} };
+        return '<section class="yd-welcome"><div><h1>Settings</h1><p>Personal dashboard preferences and workspace details.</p></div><button class="yd-primary" data-action="save-settings">☁ &nbsp; Save Settings</button></section>' +
+            '<div class="yd-panel-grid"><div class="yd-card"><div class="yd-card-title">♙ <span>Personal Dashboard Preferences</span></div>' +
+                '<div class="yd-field"><label for="yd-display-name">Display Name</label><input id="yd-display-name" class="yd-input" value="' + escapeHTML(settings.displayName || user.name || '') + '"></div>' +
+                '<div class="yd-field" style="margin-top:12px"><label for="yd-start-page">Default Start Section</label><select id="yd-start-page" class="yd-select"><option value="overview" ' + (settings.startPage !== 'tools' ? 'selected' : '') + '>Overview</option><option value="tools" ' + (settings.startPage === 'tools' ? 'selected' : '') + '>Tools</option></select></div>' +
+            '</div><div class="yd-card"><div class="yd-card-title">☁ <span>Repository & Account</span></div>' +
+                '<div class="yd-info-row"><span>Full Name</span><strong>' + escapeHTML(user.name || '—') + '</strong></div>' +
+                '<div class="yd-info-row"><span>User ID</span><strong>' + escapeHTML(user.id || user.userId || context.userId || '—') + '</strong></div>' +
+                '<div class="yd-info-row"><span>Role</span><strong>' + escapeHTML(context.userRole) + '</strong></div>' +
+                '<div class="yd-info-row"><span>Personal Repository</span><strong>' + escapeHTML(context.personalRepository || '—') + '</strong></div>' +
+                '<div class="yd-info-row"><span>Dashboard Repository</span><strong>' + escapeHTML(context.dashboardRepository || '—') + '</strong></div>' +
+                '<div class="yd-info-row"><span>Branch</span><strong>' + escapeHTML(context.branch || 'main') + '</strong></div>' +
+            '</div></div>';
+    };
     const renderPage = () => ({
         overview: renderOverview,
         tools: renderTools,
@@ -306,6 +323,23 @@
                 await context.tools.sync();
                 render();
                 showNotice('Tool synchronization completed.');
+            } else if (action === 'save-settings') {
+                const updated = context.settings.getSettings();
+                updated.displayName = document.getElementById(CONFIG.ID).querySelector('#yd-display-name')?.value.trim() || context.user?.name || '';
+                updated.startPage = document.getElementById(CONFIG.ID).querySelector('#yd-start-page')?.value || 'overview';
+                setBusy(true);
+                await context.settings.save(updated);
+                showNotice('Personal settings saved.');
+                render();
+            } else if (action === 'toggle-my-tool') {
+                const toolId = button.dataset.tool;
+                const nextEnabled = button.dataset.enabled !== 'true';
+                setBusy(true);
+                if (nextEnabled) await context.settings.enableTool(toolId);
+                else await context.settings.disableTool(toolId);
+                await context.tools.syncTool(toolId);
+                showNotice('Tool setting saved.');
+                render();
             } else if (action === 'add-user') {
                 openUserModal();
             } else if (action === 'edit-user') {
