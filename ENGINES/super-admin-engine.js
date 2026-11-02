@@ -159,7 +159,7 @@
             updatedAt: logs.updatedAt || null
         };
 
-        return getSnapshot();
+        return clone(snapshot);
     };
 
     const ensureLoaded = () => {
