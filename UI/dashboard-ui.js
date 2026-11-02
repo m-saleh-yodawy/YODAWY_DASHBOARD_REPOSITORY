@@ -590,8 +590,10 @@
             request = await operation();
             if (!request?.requestId) throw new Error('GitHub did not confirm the request.');
         } catch (error) {
-            (metadata.targetToolIds || []).forEach(toolId => optimisticVisibility.delete(toolId));
-            render();
+            if (Array.isArray(metadata.targetToolIds) && metadata.targetToolIds.length) {
+                metadata.targetToolIds.forEach(toolId => optimisticVisibility.delete(toolId));
+                render();
+            }
             throw error;
         }
         const actor = context.user || {};
