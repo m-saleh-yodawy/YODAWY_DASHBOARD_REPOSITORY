@@ -1,3 +1,14 @@
+// ==UserScript==
+// @name         ODOO >>> LIMITED DRUG ACCORDION
+// @namespace    https://odoo.yodawy.com/
+// @version      1
+// @author       Mohamed Saleh
+// @description  Limited Drug Accordion with alternative pricing and Log Note actions
+// @match        https://odoo.yodawy.com/web*
+// @run-at       document-idle
+// @grant        none
+// ==/UserScript==
+
 (function () {
     'use strict';
 

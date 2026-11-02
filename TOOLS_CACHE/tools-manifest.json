@@ -35,13 +35,13 @@
     },
     {
       "id": "TOOL-004",
-      "name": "limited-drug-accordion",
-      "description": "",
-      "version": "",
-      "author": "",
+      "name": "ODOO >>> LIMITED DRUG ACCORDION",
+      "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
+      "version": "1",
+      "author": "Mohamed Saleh",
       "path": "TOOLS_CACHE/TOOLS/limited-drug-accordion.js",
       "file": "limited-drug-accordion.js",
-      "sha256": "c5804efe908da1b2cec1271336fe778dedadf48afeaa7e5e42b5b19ccff17193"
+      "sha256": "8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23"
     }
   ]
 }
