@@ -1,1 +1,37 @@
-{"repository":"m-saleh-yodawy/YODAWY_TOOLS_REPOSITORY","branch":"main","sourceCatalog":"CONFIG/tools.json","tools":[]}
+{
+  "repository": "m-saleh-yodawy/YODAWY_TOOLS_REPOSITORY",
+  "branch": "main",
+  "sourceCatalog": "CONFIG/tools.json",
+  "tools": [
+    {
+      "id": "TOOL-001",
+      "name": "CONFIRMATION TYPE BUTTONS",
+      "description": "Adds confirmation type shortcuts to Odoo support tickets.",
+      "version": "1",
+      "author": "Mohamed Saleh",
+      "path": "TOOLS_CACHE/TOOLS/confirmation-type-buttons.js",
+      "file": "confirmation-type-buttons.js",
+      "sha256": "05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a"
+    },
+    {
+      "id": "TOOL-002",
+      "name": "PORTAL AUTO LOGIN",
+      "description": "Automates the Odoo-to-Portal prescription lookup and login flow.",
+      "version": "1",
+      "author": "Mohamed Saleh",
+      "path": "TOOLS_CACHE/TOOLS/portal-auto-login.js",
+      "file": "portal-auto-login.js",
+      "sha256": "11569a0f0e36491d8f6c974d60a4d7c9e6bf21e7ab19d8e25b7d581516330595"
+    },
+    {
+      "id": "TOOL-004",
+      "name": "ODOO >>> LIMITED DRUG ACCORDION",
+      "description": "Displays limited-drug alternatives, pricing actions, and log-note shortcuts in Odoo.",
+      "version": "1",
+      "author": "Mohamed Saleh",
+      "path": "TOOLS_CACHE/TOOLS/limited-drug-accordion.js",
+      "file": "limited-drug-accordion.js",
+      "sha256": "8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23"
+    }
+  ]
+}
