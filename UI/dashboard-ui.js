@@ -17,6 +17,8 @@
     let refreshTimer = null;
     let busy = false;
     let notice = null;
+    let isOpen = false;
+    let profileOpen = false;
 
     const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -75,130 +77,40 @@
         if (document.getElementById(CONFIG.STYLE_ID)) return;
         const style = document.createElement('style');
         style.id = CONFIG.STYLE_ID;
-        style.textContent = `
-            #${CONFIG.ID}{position:fixed;inset:0;z-index:99998;display:flex;background:#f6f4f6;color:#322d34;font:14px/1.5 Inter,Segoe UI,Arial,sans-serif}
-            #${CONFIG.ID} *{box-sizing:border-box}
-            #${CONFIG.ID} button,#${CONFIG.ID} input,#${CONFIG.ID} select{font:inherit}
-            #${CONFIG.ID} button{cursor:pointer}
-            #${CONFIG.ID} .yd-sidebar{width:248px;flex:0 0 248px;background:#2f2931;color:#fff;display:flex;flex-direction:column;padding:24px 16px}
-            #${CONFIG.ID} .yd-brand{display:flex;align-items:center;gap:12px;padding:4px 8px 28px}
-            #${CONFIG.ID} .yd-brand-mark{width:38px;height:38px;border-radius:11px;background:${CONFIG.BRAND};display:grid;place-items:center;font-weight:900;font-size:18px}
-            #${CONFIG.ID} .yd-brand-name{font-weight:800;letter-spacing:.7px;font-size:14px}
-            #${CONFIG.ID} .yd-brand-sub{color:#bdb4be;font-size:10px;letter-spacing:1.4px}
-            #${CONFIG.ID} .yd-nav-label{padding:12px 10px 8px;color:#9f96a1;font-size:10px;font-weight:800;letter-spacing:1.2px}
-            #${CONFIG.ID} .yd-nav{display:grid;gap:5px}
-            #${CONFIG.ID} .yd-nav button{border:0;background:transparent;color:#cfc8d1;text-align:left;padding:11px 12px;border-radius:8px;display:flex;align-items:center;gap:11px;font-weight:600;font-size:12px}
-            #${CONFIG.ID} .yd-nav button:hover,#${CONFIG.ID} .yd-nav button.active{background:#493d4a;color:#fff}
-            #${CONFIG.ID} .yd-nav-icon{width:20px;text-align:center;font-size:15px}
-            #${CONFIG.ID} .yd-sidebar-bottom{margin-top:auto;border-top:1px solid #514853;padding:17px 8px 0;color:#bdb4be;font-size:10px}
-            #${CONFIG.ID} .yd-main{min-width:0;flex:1;display:flex;flex-direction:column;overflow:hidden}
-            #${CONFIG.ID} .yd-topbar{height:72px;flex:0 0 72px;background:#fff;border-bottom:1px solid #e9e4e9;display:flex;align-items:center;justify-content:space-between;padding:0 30px}
-            #${CONFIG.ID} .yd-breadcrumb{font-size:11px;color:#928994}
-            #${CONFIG.ID} .yd-page-title{font-size:18px;font-weight:800;color:#382f39;margin-top:2px}
-            #${CONFIG.ID} .yd-top-actions{display:flex;align-items:center;gap:12px}
-            #${CONFIG.ID} .yd-icon-btn{width:36px;height:36px;border:1px solid #e9e4e9;border-radius:9px;background:#fff;color:#655b67}
-            #${CONFIG.ID} .yd-user-chip{display:flex;align-items:center;gap:9px;border-left:1px solid #eee;padding-left:15px}
-            #${CONFIG.ID} .yd-avatar{width:36px;height:36px;border-radius:50%;background:#eee5ed;color:${CONFIG.DARK};display:grid;place-items:center;font-size:11px;font-weight:800}
-            #${CONFIG.ID} .yd-user-name{font-size:11px;font-weight:800}
-            #${CONFIG.ID} .yd-user-role{font-size:10px;color:#978d99}
-            #${CONFIG.ID} .yd-content{overflow:auto;padding:26px 30px 36px;flex:1}
-            #${CONFIG.ID} .yd-content-inner{max-width:1440px;margin:0 auto}
-            #${CONFIG.ID} .yd-welcome{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;gap:16px}
-            #${CONFIG.ID} .yd-welcome h1{margin:0;color:#332d35;font-size:23px;line-height:1.3}
-            #${CONFIG.ID} .yd-welcome p{margin:6px 0 0;color:#887f8b;font-size:12px}
-            #${CONFIG.ID} .yd-primary{border:0;border-radius:8px;padding:10px 15px;background:${CONFIG.BRAND};color:white;font-weight:800;font-size:11px}
-            #${CONFIG.ID} .yd-primary:hover{background:${CONFIG.DARK}}
-            #${CONFIG.ID} .yd-secondary{border:1px solid #e4dce5;border-radius:8px;padding:9px 13px;background:#fff;color:#5a505d;font-size:11px;font-weight:700}
-            #${CONFIG.ID} .yd-danger{border:1px solid #f1d5d5;border-radius:7px;background:#fff8f8;color:#b34747;padding:7px 10px;font-size:10px;font-weight:800}
-            #${CONFIG.ID} .yd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
-            #${CONFIG.ID} .yd-card{background:#fff;border:1px solid #ebe6eb;border-radius:11px;padding:18px;box-shadow:0 2px 8px #322d3408}
-            #${CONFIG.ID} .yd-stat{display:flex;justify-content:space-between;align-items:flex-start}
-            #${CONFIG.ID} .yd-stat-label{color:#928995;font-size:10px;font-weight:800;letter-spacing:.6px;text-transform:uppercase}
-            #${CONFIG.ID} .yd-stat-value{font-size:27px;font-weight:850;color:#332d35;margin-top:7px;line-height:1.1}
-            #${CONFIG.ID} .yd-stat-icon{width:36px;height:36px;border-radius:9px;background:${CONFIG.LIGHT};color:${CONFIG.BRAND};display:grid;place-items:center;font-size:16px}
-            #${CONFIG.ID} .yd-section-head{display:flex;align-items:center;justify-content:space-between;margin:22px 0 12px}
-            #${CONFIG.ID} .yd-section-head h2{margin:0;font-size:14px;color:#39323c}
-            #${CONFIG.ID} .yd-section-head span{font-size:10px;color:#958b98}
-            #${CONFIG.ID} .yd-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
-            #${CONFIG.ID} .yd-tool-card{padding:16px}
-            #${CONFIG.ID} .yd-tool-head{display:flex;align-items:center;gap:10px}
-            #${CONFIG.ID} .yd-tool-icon{width:38px;height:38px;border-radius:10px;background:${CONFIG.LIGHT};color:${CONFIG.BRAND};display:grid;place-items:center;font-size:16px;font-weight:800}
-            #${CONFIG.ID} .yd-tool-name{font-weight:800;font-size:11px;color:#3b333d}
-            #${CONFIG.ID} .yd-tool-meta{font-size:10px;color:#9a909d;margin-top:2px}
-            #${CONFIG.ID} .yd-tool-description{color:#817783;font-size:11px;margin:13px 0;min-height:32px}
-            #${CONFIG.ID} .yd-tool-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f0edf0;padding-top:12px}
-            #${CONFIG.ID} .yd-status{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:800;text-transform:uppercase;color:#8a818d}
-            #${CONFIG.ID} .yd-dot{width:6px;height:6px;border-radius:50%;background:#bcb4bd}
-            #${CONFIG.ID} .yd-status.on{color:#25835f}
-            #${CONFIG.ID} .yd-status.on .yd-dot{background:#2ba879}
-            #${CONFIG.ID} .yd-table-wrap{overflow:auto;background:#fff;border:1px solid #eae5eb;border-radius:10px}
-            #${CONFIG.ID} table{width:100%;border-collapse:collapse;min-width:640px}
-            #${CONFIG.ID} th{background:#faf8fa;color:#8b818e;text-align:left;font-size:9px;letter-spacing:.7px;text-transform:uppercase;padding:12px 14px}
-            #${CONFIG.ID} td{padding:13px 14px;border-top:1px solid #f0edf0;font-size:11px;color:#554b58;vertical-align:middle}
-            #${CONFIG.ID} td strong{color:#3b333d}
-            #${CONFIG.ID} .yd-pill{display:inline-flex;padding:4px 8px;border-radius:20px;background:#f4eff4;color:${CONFIG.DARK};font-size:9px;font-weight:800;text-transform:uppercase}
-            #${CONFIG.ID} .yd-pill.green{background:#eaf7f1;color:#26815f}
-            #${CONFIG.ID} .yd-pill.red{background:#fff0f0;color:#b44b4b}
-            #${CONFIG.ID} .yd-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0}
-            #${CONFIG.ID} .yd-search{width:min(300px,100%);border:1px solid #e7e1e8;border-radius:8px;padding:10px 12px;background:#fff;outline:none;font-size:11px}
-            #${CONFIG.ID} .yd-search:focus,#${CONFIG.ID} input:focus,#${CONFIG.ID} select:focus{border-color:${CONFIG.BRAND};box-shadow:0 0 0 3px #875a7b18;outline:none}
-            #${CONFIG.ID} .yd-empty{padding:35px 20px;text-align:center;color:#928995;font-size:11px}
-            #${CONFIG.ID} .yd-panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-            #${CONFIG.ID} .yd-info-row{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid #f0edf0;font-size:11px}
-            #${CONFIG.ID} .yd-info-row:last-child{border:0}
-            #${CONFIG.ID} .yd-info-row span{color:#918793}
-            #${CONFIG.ID} .yd-info-row strong{text-align:right;overflow-wrap:anywhere}
-            #${CONFIG.ID} .yd-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-            #${CONFIG.ID} .yd-field{display:grid;gap:5px}
-            #${CONFIG.ID} .yd-field label{font-size:10px;font-weight:800;color:#746a77}
-            #${CONFIG.ID} .yd-field input,#${CONFIG.ID} .yd-field select{width:100%;border:1px solid #e6e0e7;border-radius:7px;padding:9px 10px;background:#fff;color:#423946;font-size:11px}
-            #${CONFIG.ID} .yd-modal-backdrop{position:fixed;inset:0;z-index:100000;background:#211a2399;display:grid;place-items:center;padding:20px}
-            #${CONFIG.ID} .yd-modal{width:min(520px,100%);background:#fff;border-radius:13px;padding:22px;box-shadow:0 20px 70px #0003}
-            #${CONFIG.ID} .yd-modal h3{margin:0 0 16px;font-size:16px}
-            #${CONFIG.ID} .yd-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-            #${CONFIG.ID} .yd-toast{position:fixed;right:25px;bottom:24px;z-index:100001;max-width:420px;padding:12px 16px;border-radius:8px;background:#2f2931;color:#fff;box-shadow:0 10px 30px #0002;font-size:11px}
-            #${CONFIG.ID} .yd-toast.error{background:#9f3d48}
-            @media(max-width:1000px){#${CONFIG.ID} .yd-sidebar{width:205px;flex-basis:205px}#${CONFIG.ID} .yd-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#${CONFIG.ID} .yd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-            @media(max-width:700px){#${CONFIG.ID} .yd-sidebar{width:64px;flex-basis:64px;padding:18px 7px}#${CONFIG.ID} .yd-brand{justify-content:center;padding:4px 0 25px}#${CONFIG.ID} .yd-brand-text,#${CONFIG.ID} .yd-nav-label,#${CONFIG.ID} .yd-nav-text,#${CONFIG.ID} .yd-sidebar-bottom{display:none}#${CONFIG.ID} .yd-nav button{justify-content:center;padding:12px 5px}#${CONFIG.ID} .yd-content{padding:18px 13px}#${CONFIG.ID} .yd-topbar{padding:0 14px}#${CONFIG.ID} .yd-grid,#${CONFIG.ID} .yd-panel-grid{grid-template-columns:1fr}#${CONFIG.ID} .yd-welcome{display:block}#${CONFIG.ID} .yd-welcome .yd-primary{margin-top:13px}}
-            @media(max-width:420px){#${CONFIG.ID} .yd-stats{grid-template-columns:1fr 1fr;gap:8px}#${CONFIG.ID} .yd-card{padding:13px}#${CONFIG.ID} .yd-stat-value{font-size:22px}#${CONFIG.ID} .yd-form-grid{grid-template-columns:1fr}}
-        `;
-        document.head.appendChild(style);
+        style.textContent = "\n#yd-dashboard-root{color:#29242e;font:13px/1.45 system-ui,-apple-system,\"Segoe UI\",sans-serif}\n#yd-dashboard-root *{box-sizing:border-box}\n#yd-dashboard-root button,#yd-dashboard-root input,#yd-dashboard-root select{font:inherit}\n#yd-dashboard-root #yd-launcher{position:fixed;right:20px;bottom:20px;z-index:2147483000;display:inline-flex;align-items:center;gap:8px;background:#875A7B;color:#fff;border:0;border-radius:999px;padding:10px 16px;font:700 12.5px system-ui,-apple-system,sans-serif;cursor:pointer;box-shadow:0 6px 20px #00000029;transition:background .15s}\n#yd-dashboard-root #yd-launcher:hover{background:#68465f}\n#yd-dashboard-root #yd-overlay{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:3vh 3vw;background:#17131c80;backdrop-filter:blur(2px)}\n#yd-dashboard-root #yd-overlay.open{display:flex}\n#yd-dashboard-root #yd-modal{position:relative;width:100%;height:100%;max-width:1180px;max-height:780px;background:#f8f5f7;color:#29242e;border:1px solid #e7e0ea;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 50px #00000038}\n#yd-dashboard-root #yd-header{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:54px;height:54px;padding:0 18px;background:#fff;border-bottom:1px solid #e7e0ea;flex-shrink:0}\n#yd-dashboard-root .yd-brand{display:flex;align-items:center;gap:10px;min-width:0}\n#yd-dashboard-root .yd-brand-logo{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:#875A7B;color:#fff;font-size:15px;font-weight:900;flex-shrink:0}\n#yd-dashboard-root .yd-brand-title{font-size:14.5px;font-weight:800;color:#29242e;letter-spacing:.2px}\n#yd-dashboard-root .yd-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px}\n#yd-dashboard-root .yd-header-status{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;background:#f8f5f7;border:1px solid #e7e0ea;border-radius:999px;font-size:12px;font-weight:700;color:#68465f}\n#yd-dashboard-root .yd-header-dot{width:7px;height:7px;border-radius:50%;background:#39865b}\n#yd-dashboard-root .yd-profile-wrap{position:relative;display:inline-flex;align-items:center}\n#yd-dashboard-root .yd-gb-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;width:31px;height:31px;padding:1.5px;border:0;border-radius:50%;background:conic-gradient(#875A7B,#68465f,#b48aa8,#875A7B);cursor:pointer}\n#yd-dashboard-root .yd-gb-avatar{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:#875A7B;color:#fff;border:1px solid #fff;font-size:12px;font-weight:800}\n#yd-dashboard-root .yd-gb-badge{position:absolute;right:-2px;bottom:-2px;width:12px;height:12px;border-radius:50%;background:#fff;color:#39865b;border:2px solid #fff;font-size:8px;text-align:center}\n#yd-dashboard-root .yd-profile-menu{position:absolute;top:calc(100% + 10px);right:0;z-index:2147483005;width:290px;padding:14px;background:#f8f5f7;border:1px solid #e2d9e5;border-radius:16px;box-shadow:0 14px 36px #24152e26}\n#yd-dashboard-root .yd-profile-menu[hidden]{display:none!important}\n#yd-dashboard-root .yd-gb-card{display:flex;flex-direction:column;align-items:center;text-align:center;padding:14px 12px;background:#fff;border:1px solid #eee8f0;border-radius:12px;margin-bottom:8px}\n#yd-dashboard-root .yd-gb-ring-lg{display:flex;align-items:center;justify-content:center;width:48px;height:48px;padding:1.5px;border-radius:50%;background:conic-gradient(#875A7B,#68465f,#b48aa8,#875A7B);margin-bottom:8px}\n#yd-dashboard-root .yd-gb-avatar-lg{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:#875A7B;color:#fff;border:1.5px solid #fff;font-size:18px;font-weight:800}\n#yd-dashboard-root .yd-gb-name{font-size:13.5px;font-weight:800;color:#29242e}\n#yd-dashboard-root .yd-gb-meta{font-size:11px;color:#8c8492;margin-top:2px}\n#yd-dashboard-root .yd-gb-pills{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;flex-wrap:wrap}\n#yd-dashboard-root .yd-dropdown-action{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:10px;background:#fff;color:#29242e;cursor:pointer;text-align:left;font:inherit;margin-top:6px;border:1px solid #eee8f0}\n#yd-dashboard-root .yd-dropdown-action:hover{background:#eee7ed}\n#yd-dashboard-root .yd-action-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex-shrink:0;border-radius:7px;background:#eee7ed;color:#875A7B}\n#yd-dashboard-root .yd-dropdown-action b{display:block;font-size:12px}\n#yd-dashboard-root .yd-close-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid #e7e0ea;background:#fff;color:#655c6a;cursor:pointer;padding:0;font-size:19px;line-height:1}\n#yd-dashboard-root .yd-close-btn:hover{background:#fdf0f0;color:#c0392b;border-color:#f5c2c9}\n#yd-dashboard-root #yd-body{display:flex;flex:1;min-height:0}\n#yd-dashboard-root #yd-sidebar{width:195px;flex:0 0 195px;background:#fff;padding:14px 10px;border-right:1px solid #e7e0ea;overflow:auto;display:flex;flex-direction:column;gap:4px}\n#yd-dashboard-root .yd-nav-label{padding:5px 12px 8px;color:#9b92a0;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}\n#yd-dashboard-root .yd-nav{display:flex;align-items:center;gap:10px;width:100%;height:36px;text-align:left;border:0;border-radius:8px;padding:0 12px;background:transparent;color:#655c6a;font-size:13px;font-weight:600;cursor:pointer;transition:background .12s,color .12s}\n#yd-dashboard-root .yd-nav:hover{background:#f8f5f7;color:#68465f}\n#yd-dashboard-root .yd-nav.active{background:#eee7ed;color:#68465f;font-weight:800}\n#yd-dashboard-root .yd-nav-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:#875A7B;flex-shrink:0}\n#yd-dashboard-root .yd-sidebar-bottom{margin-top:auto;padding:14px 12px 4px;border-top:1px solid #f0eaf1;color:#9a909d;font-size:10px;line-height:1.7}\n#yd-dashboard-root #yd-main{flex:1;min-width:0;overflow:auto;padding:20px 24px;background:#f8f5f7}\n#yd-dashboard-root .yd-welcome{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}\n#yd-dashboard-root .yd-welcome h1{margin:0;color:#29242e;font-size:16px;font-weight:800;line-height:1.25}\n#yd-dashboard-root .yd-welcome p{margin:4px 0 0;color:#8c8492;font-size:11.5px}\n#yd-dashboard-root .yd-primary,#yd-dashboard-root .yd-secondary,#yd-dashboard-root .yd-danger{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,opacity .15s}\n#yd-dashboard-root .yd-primary{background:#875A7B;color:#fff;border:1px solid #875A7B}\n#yd-dashboard-root .yd-primary:hover{background:#68465f;border-color:#68465f}\n#yd-dashboard-root .yd-secondary{background:#fff;color:#68465f;border:1px solid #e2d8e6}\n#yd-dashboard-root .yd-secondary:hover{background:#f8f5f7}\n#yd-dashboard-root .yd-danger{background:#fdf0f0;color:#c0392b;border:1px solid #f5c2c9}\n#yd-dashboard-root .yd-danger:hover{background:#fbe2e2}\n#yd-dashboard-root button:disabled{opacity:.45;cursor:not-allowed}\n#yd-dashboard-root .yd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}\n#yd-dashboard-root .yd-card{background:#fff;border:1px solid #e7e0ea;border-radius:12px;padding:14px 16px;margin-bottom:14px;min-width:0;box-shadow:0 2px 6px #24152e06}\n#yd-dashboard-root .yd-stat{display:flex;justify-content:space-between;align-items:flex-start}\n#yd-dashboard-root .yd-stat-label{color:#7c7482;font-size:11px;font-weight:600}\n#yd-dashboard-root .yd-stat-value{font-size:17px;font-weight:800;color:#29242e;margin-top:2px}\n#yd-dashboard-root .yd-stat-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#eee7ed;color:#875A7B;font-size:16px}\n#yd-dashboard-root .yd-section-head{display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px}\n#yd-dashboard-root .yd-section-head h2{margin:0;font-size:13px;color:#29242e}\n#yd-dashboard-root .yd-section-head span{font-size:10px;color:#958b98}\n#yd-dashboard-root .yd-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}\n#yd-dashboard-root .yd-tool-card{padding:14px}\n#yd-dashboard-root .yd-tool-head{display:flex;align-items:center;gap:10px}\n#yd-dashboard-root .yd-tool-icon{width:36px;height:36px;border-radius:9px;background:#eee7ed;color:#875A7B;display:grid;place-items:center}\n#yd-dashboard-root .yd-tool-name{font-size:12px;font-weight:700;color:#29242e}\n#yd-dashboard-root .yd-tool-meta{font-size:10px;color:#8c8492;margin-top:2px}\n#yd-dashboard-root .yd-tool-description{font-size:11px;color:#817783;margin:10px 0;min-height:28px}\n#yd-dashboard-root .yd-tool-foot{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #f0edf0;padding-top:10px}\n#yd-dashboard-root .yd-status{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:800;text-transform:uppercase;color:#8a818d}\n#yd-dashboard-root .yd-dot{width:6px;height:6px;border-radius:50%;background:#bcb4bd}\n#yd-dashboard-root .yd-status.on{color:#25835f}\n#yd-dashboard-root .yd-status.on .yd-dot{background:#2ba879}\n#yd-dashboard-root .yd-table-wrap{overflow:auto;background:#fff;border:1px solid #e7e0ea;border-radius:12px;margin-bottom:14px}\n#yd-dashboard-root table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}\n#yd-dashboard-root th{height:38px;padding:0 12px;background:#faf8fa;color:#655c6a;font-size:11px;font-weight:700;white-space:nowrap;text-align:left}\n#yd-dashboard-root td{height:42px;padding:6px 12px;border-top:1px solid #f1ecf3;color:#554b58;vertical-align:middle;white-space:nowrap}\n#yd-dashboard-root tbody tr:hover{background:#f9f6f9}\n#yd-dashboard-root .yd-pill{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 9px;background:#eee7ed;color:#68465f;border:1px solid #e2d4df;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap}\n#yd-dashboard-root .yd-pill.green{background:#eafaf1;color:#1e8449;border-color:#c8f0d8}\n#yd-dashboard-root .yd-pill.red{background:#fdf0f0;color:#c0392b;border-color:#f7d4d4}\n#yd-dashboard-root .yd-pill.blue{background:#ebf5fb;color:#1f618d;border-color:#cbe5f6}\n#yd-dashboard-root .yd-pill.yellow{background:#fef9e7;color:#9a7d0a;border-color:#faeab1}\n#yd-dashboard-root .yd-id-badge{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:0 8px;background:#f3ecf1;color:#68465f;border:1px solid #e2d4df;border-radius:6px;font-size:10px;font-weight:700}\n#yd-dashboard-root .yd-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}\n#yd-dashboard-root .yd-search,#yd-dashboard-root .yd-field input,#yd-dashboard-root .yd-field select,#yd-dashboard-root .yd-input,#yd-dashboard-root .yd-select{height:32px;padding:0 10px;border-radius:8px;border:1px solid #dfd5e3;background:#fff;color:#29242e;font:600 12px system-ui,-apple-system,sans-serif;outline:none}\n#yd-dashboard-root .yd-search{width:min(320px,100%)}\n#yd-dashboard-root .yd-search:focus,#yd-dashboard-root input:focus,#yd-dashboard-root select:focus{border-color:#875A7B;box-shadow:0 0 0 2px #875a7b18}\n#yd-dashboard-root .yd-empty{padding:24px;text-align:center;color:#8c8492;font-size:12px}\n#yd-dashboard-root .yd-panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}\n#yd-dashboard-root .yd-info-row{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid #f0edf0;font-size:11px}\n#yd-dashboard-root .yd-info-row:last-child{border:0}\n#yd-dashboard-root .yd-info-row span{color:#918793}\n#yd-dashboard-root .yd-info-row strong{text-align:right;overflow-wrap:anywhere}\n#yd-dashboard-root .yd-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}\n#yd-dashboard-root .yd-field{display:flex;flex-direction:column;gap:5px;min-width:0}\n#yd-dashboard-root .yd-field label{font-size:11px;font-weight:700;color:#7c7482}\n#yd-dashboard-root .yd-field input,#yd-dashboard-root .yd-field select{width:100%}\n#yd-dashboard-root .yd-modal-backdrop{position:fixed;inset:0;z-index:2147483005;background:#17131c80;display:grid;place-items:center;padding:20px}\n#yd-dashboard-root .yd-modal{width:min(520px,100%);background:#fff;border:1px solid #e7e0ea;border-radius:13px;padding:22px;box-shadow:0 20px 70px #0003}\n#yd-dashboard-root .yd-modal h3{margin:0 0 16px;font-size:16px;color:#29242e}\n#yd-dashboard-root .yd-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}\n#yd-dashboard-root .yd-toast{position:fixed;right:25px;bottom:24px;z-index:2147483006;max-width:420px;padding:10px 14px;border-radius:8px;background:#29242e;color:#fff;box-shadow:0 10px 30px #0002;font-size:11px;font-weight:600}\n#yd-dashboard-root .yd-toast.error{background:#9f3d48}\n#yd-dashboard-root .yd-switch{position:relative;width:38px;height:20px;border:0;border-radius:999px;background:#d5cbd8;cursor:pointer;padding:2px;vertical-align:middle}\n#yd-dashboard-root .yd-switch.on{background:#287a4b}\n#yd-dashboard-root .yd-switch-knob{display:block;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0003;transition:transform .18s}\n#yd-dashboard-root .yd-switch.on .yd-switch-knob{transform:translateX(18px)}\n@media(max-width:850px){#yd-dashboard-root .yd-stats,#yd-dashboard-root .yd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#yd-dashboard-root .yd-panel-grid{grid-template-columns:1fr}#yd-dashboard-root #yd-sidebar{width:155px;flex-basis:155px}#yd-dashboard-root #yd-main{padding:14px}}\n@media(max-width:600px){#yd-dashboard-root #yd-overlay{padding:0}#yd-dashboard-root #yd-modal{max-height:none;height:100%;border-radius:0}#yd-dashboard-root #yd-header{padding:0 10px}#yd-dashboard-root .yd-brand-title{font-size:11px}#yd-dashboard-root .yd-header-status{padding:0 7px;font-size:10px}#yd-dashboard-root #yd-sidebar{width:56px;flex-basis:56px;padding:10px 5px}#yd-dashboard-root .yd-nav{justify-content:center;padding:0 5px;font-size:0}#yd-dashboard-root .yd-nav span:not(.yd-nav-icon),#yd-dashboard-root .yd-nav-label,#yd-dashboard-root .yd-sidebar-bottom{display:none}#yd-dashboard-root .yd-nav-icon{font-size:15px}#yd-dashboard-root #yd-main{padding:12px 10px}#yd-dashboard-root .yd-form-grid{grid-template-columns:1fr}#yd-dashboard-root .yd-profile-menu{right:-40px;width:min(290px,calc(100vw - 80px))}}\n";
+        (document.head || document.documentElement).appendChild(style);
     };
-
     const navItems = () => {
-        const items = [['overview', '⌂', 'Overview'], ['tools', '▦', 'Tools']];
+        const items = [['overview', '▦', 'Overview'], ['tools', '⚒', 'Tools']];
         if (['ADMIN', 'SUPER_ADMIN'].includes(context.userRole)) items.push(['users', '♙', 'Users']);
-        if (context.userRole === 'SUPER_ADMIN') items.push(['permissions', '◈', 'Permissions'], ['visibility', '◉', 'Visibility'], ['transactions', '⇄', 'NETWORK']);
-        items.push(['account', '⚙', 'Account']);
+        if (context.userRole === 'SUPER_ADMIN') items.push(['permissions', '◈', 'Shared Tools'], ['visibility', '◉', 'Visibility'], ['transactions', '⇄', 'NETWORK']);
+        items.push(['account', '⚙', 'Settings']);
         return items;
     };
 
-    const pageTitle = () => ({
-        overview: 'Overview', tools: 'Tools Management', users: 'User Management',
-        permissions: 'Tool Permissions', visibility: 'Tool Visibility',
-        transactions: 'NETWORK Transactions', account: 'Account Settings'
-    })[activePage] || 'Dashboard';
+    const pageTitle = () => ({ overview: 'Overview', tools: 'Tools', users: 'Users & Permissions', permissions: 'Shared Tools', visibility: 'Visibility', transactions: 'NETWORK Activity', account: 'Settings' })[activePage] || 'Dashboard';
 
     const renderShell = body => {
         const user = context.user || {};
-        return `
-            <aside class="yd-sidebar">
-                <div class="yd-brand"><div class="yd-brand-mark">Y</div><div class="yd-brand-text"><div class="yd-brand-name">YODAWY</div><div class="yd-brand-sub">TOOLS CLOUD</div></div></div>
-                <div class="yd-nav-label">WORKSPACE</div>
-                <nav class="yd-nav">${navItems().map(([id, icon, label]) => `<button type="button" data-page="${id}" class="${activePage === id ? 'active' : ''}"><span class="yd-nav-icon">${icon}</span><span class="yd-nav-text">${label}</span></button>`).join('')}</nav>
-                <div class="yd-sidebar-bottom">Authenticated Workspace<br>Version 1.0</div>
-            </aside>
-            <main class="yd-main">
-                <header class="yd-topbar">
-                    <div><div class="yd-breadcrumb">YODAWY / WORKSPACE / ${escapeHTML(activePage.toUpperCase())}</div><div class="yd-page-title">${escapeHTML(pageTitle())}</div></div>
-                    <div class="yd-top-actions"><button type="button" class="yd-icon-btn" data-action="refresh" title="Refresh">↻</button><div class="yd-user-chip"><div class="yd-avatar">${escapeHTML(initials(user.name))}</div><div><div class="yd-user-name">${escapeHTML(user.name || user.id || 'User')}</div><div class="yd-user-role">${escapeHTML(context.userRole.replace('_', ' '))}</div></div></div></div>
-                </header>
-                <div class="yd-content"><div class="yd-content-inner">${body}</div></div>
-            </main>
-            ${notice ? `<div class="yd-toast ${notice.type}">${escapeHTML(notice.message)}</div>` : ''}
-        `;
+        const role = String(context.userRole || 'USER').replace(/_/g, ' ');
+        const name = escapeHTML(user.name || user.id || 'User');
+        const avatar = escapeHTML(initials(user.name || user.id));
+        const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon">' + icon + '</span><span>' + escapeHTML(label) + '</span></button>').join('');
+        const toast = notice ? '<div class="yd-toast ' + escapeHTML(notice.type) + '">' + escapeHTML(notice.message) + '</div>' : '';
+        return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
+            '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
+                '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
+                    '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD (' + escapeHTML(role.toUpperCase()) + ')</div></div>' +
+                        '<div class="yd-header-actions"><div class="yd-header-status"><span class="yd-header-dot"></span><span>Connected</span></div>' +
+                            '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span><span class="yd-gb-badge">✓</span></button>' +
+                                '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
+                                    '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills"><span class="yd-pill blue">' + escapeHTML(role) + '</span><span class="yd-pill green">Connected</span></div></div>' +
+                                    '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon">↻</span><span><b>Refresh Connection</b></span></button>' +
+                                    '<button class="yd-dropdown-action" data-action="refresh-tools" type="button"><span class="yd-action-icon">⚒</span><span><b>Refresh Tools</b></span></button>' +
+                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close">×</button></div>' +
+                    '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
+                '</div></div>' + toast;
     };
-
     const statCard = (label, value, icon) => `
         <div class="yd-card"><div class="yd-stat"><div><div class="yd-stat-label">${escapeHTML(label)}</div><div class="yd-stat-value">${escapeHTML(value)}</div></div><div class="yd-stat-icon">${icon}</div></div></div>
     `;
@@ -429,30 +341,24 @@
 
     const bindEvents = root => {
         root.addEventListener('click', event => {
+            if (event.target.id === 'yd-overlay') { isOpen = false; profileOpen = false; render(); return; }
+            const actionButton = event.target.closest('[data-action]');
+            if (actionButton?.dataset.action === 'toggle-dashboard') { isOpen = !isOpen; render(); return; }
+            if (actionButton?.dataset.action === 'close-dashboard') { isOpen = false; profileOpen = false; render(); return; }
+            if (actionButton?.dataset.action === 'profile-toggle') { profileOpen = !profileOpen; render(); return; }
             const nav = event.target.closest('[data-page]');
-            if (nav) {
-                activePage = nav.dataset.page;
-                notice = null;
-                render();
-                return;
-            }
-            const button = event.target.closest('[data-action]');
-            if (button) runAction(button.dataset.action, button);
+            if (nav) { activePage = nav.dataset.page; notice = null; profileOpen = false; render(); return; }
+            if (actionButton?.dataset.action === 'refresh-connection') { runAction('refresh'); return; }
+            if (actionButton?.dataset.action === 'refresh-tools') { runAction('sync-tools'); return; }
+            if (actionButton) runAction(actionButton.dataset.action, actionButton);
         });
         root.addEventListener('input', event => {
-            if (event.target.id === 'yd-user-search') {
+            if (event.target.id === 'yd-user-search' || event.target.id === 'yd-tool-search') {
                 const query = event.target.value.toLowerCase();
-                root.querySelectorAll('tbody tr').forEach(row => {
-                    row.hidden = !row.textContent.toLowerCase().includes(query);
-                });
-            }
-            if (event.target.id === 'yd-tool-search') {
-                const query = event.target.value.toLowerCase();
-                const filtered = getTools().filter(tool => (tool.name + ' ' + tool.id + ' ' + (tool.description || '')).toLowerCase().includes(query));
-                const list = root.querySelector('#yd-tool-list');
-                if (list) list.innerHTML = renderToolCards(filtered);
+                root.querySelectorAll('tbody tr').forEach(row => { row.hidden = !row.textContent.toLowerCase().includes(query); });
             }
         });
+        document.addEventListener('keydown', event => { if (event.key === 'Escape' && isOpen) { isOpen = false; profileOpen = false; render(); } });
     };
 
     const init = async options => {
@@ -461,6 +367,8 @@
             throw new Error('Authenticated dashboard context is required.');
         }
         context = options;
+        isOpen = false;
+        profileOpen = false;
         injectStyles();
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
@@ -468,7 +376,7 @@
         document.body.appendChild(root);
         render();
         bindEvents(root);
-        refreshTimer = setInterval(() => refresh().catch(() => {}), CONFIG.REFRESH_INTERVAL);
+        refreshTimer = null;
         return true;
     };
 
@@ -479,6 +387,8 @@
         document.getElementById(CONFIG.STYLE_ID)?.remove();
         context = null;
         notice = null;
+        isOpen = false;
+        profileOpen = false;
         return true;
     };
 
