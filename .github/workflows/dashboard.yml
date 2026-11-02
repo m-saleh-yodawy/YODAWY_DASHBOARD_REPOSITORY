@@ -161,10 +161,14 @@ jobs:
                       "createdAt": c_at,
                       "updatedAt": u_at,
                   }
-                  for opt in ("parentRequestId", "targetId", "error", "cleanup"):
+                  for opt in ("parentRequestId", "actorName", "summary", "targetId", "targetName", "targetRole", "targetToolId", "error", "cleanup"):
                       val = v.get(opt) or (v.get("lastError") if opt == "error" else (v.get("targetUserId") if opt == "targetId" else None))
                       if val:
-                          rec[opt] = str(val).strip()
+                          rec[opt] = str(val).strip()[:240]
+                  for opt in ("targetToolIds", "targetUserIds"):
+                      values = v.get(opt)
+                      if isinstance(values, list):
+                          rec[opt] = list(dict.fromkeys(norm_id(value) for value in values if norm_id(value)))
                   if st in ACTIVE_STATES:
                       active[rid] = rec
                   else:
@@ -718,6 +722,7 @@ jobs:
 
               raw_actor = (orig_req.get("actor") if isinstance(orig_req, dict) else None) or resp.get("actor") or {}
               actor_id = norm_id(raw_actor.get("id") or raw_actor.get("userId") if isinstance(raw_actor, dict) else "SYSTEM") or "SYSTEM"
+              actor_name = " ".join(str(raw_actor.get("name") or raw_actor.get("username") or actor_id).split()) if isinstance(raw_actor, dict) else actor_id
               canon_action = norm_action(resp.get("action") or (orig_req.get("action") if isinstance(orig_req, dict) else "") or "SYNC_USERS")
               ts_recv = utc_now()
 
@@ -737,6 +742,7 @@ jobs:
                       "action": canon_action,
                       "status": status if status in {"FAILED", "REJECTED"} else "FAILED",
                       "actorId": actor_id,
+                      "actorName": actor_name,
                       "updatedAt": ts_recv,
                       "error": err_detail,
                   })
@@ -786,6 +792,7 @@ jobs:
                       "action": canon_action,
                       "status": "COMPLETED",
                       "actorId": actor_id,
+                      "actorName": actor_name,
                       "updatedAt": ts_done,
                   }
                   if cleanup_state == "PENDING":
