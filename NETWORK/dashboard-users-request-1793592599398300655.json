@@ -4,14 +4,17 @@
   "transactionId": "DASH-USERS-1793592599398-VMDQX86R9U",
   "sequence": "1793592599398300655",
   "requestType": "DASHBOARD_USERS_SYNC",
-  "status": "PENDING",
+  "status": "SENT",
   "createdAt": "2026-11-02T04:09:59.398Z",
+  "sentAt": "2026-11-02T04:10:21Z",
   "actor": {
     "id": "Q-001",
     "userId": "Q-001",
     "name": "MOHAMED SALEH",
     "username": "MOHAMED SALEH",
-    "role": "SUPER_ADMIN"
+    "role": "SUPER_ADMIN",
+    "roleAtTimeOfAction": "SUPER_ADMIN",
+    "verified": true
   },
   "source": {
     "owner": "m-saleh-yodawy",
@@ -20,15 +23,18 @@
   },
   "destination": {
     "owner": "m-saleh-yodawy",
-    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "repository": "YODAWY_USERS_REPOSITORY",
     "branch": "main"
   },
+  "requestPath": "NETWORK/dashboard-users-request-1793592599398300655.json",
   "action": "ADD_USER",
+  "canonicalAction": "ADD_USER",
+  "rawAction": "ADD_USER",
   "payload": {
+    "action": "ADD_USER",
     "name": "OMAR SALEH",
     "role": "ADMIN",
     "status": "Active",
-    "id": "Q-002",
-    "action": "ADD_USER"
+    "id": "Q-002"
   }
 }
