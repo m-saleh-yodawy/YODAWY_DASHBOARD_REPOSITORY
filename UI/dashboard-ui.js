@@ -399,7 +399,9 @@
             (users.flatMap(user => tools.map(tool => {
                 const record = permissions[user.id]?.[tool.id] || {};
                 const pending = getPendingPermission(user.id, tool.id);
-                return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (pending ? ' disabled' : '') + '>' + (record.granted ? 'Revoke' : 'Permit') + '</button></td></tr>';
+                const pendingUser = getPendingUser(user);
+                const blocked = pending || pendingUser;
+                return '<tr' + (blocked ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (blocked ? ' disabled' : '') + '>' + (record.granted ? 'Revoke' : 'Permit') + '</button></td></tr>';
             })).join('') || '<tr><td colspan="5" class="yd-empty">No eligible users or visible tools.</td></tr>') + '</tbody></table></div>';
     };
 
