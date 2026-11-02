@@ -673,6 +673,8 @@
                     branch: config.branch
                 });
                 if (!response.data?.content?.sha) throw new Error('NETWORK activity log update was not confirmed.');
+                networkPage = 1;
+                try { await getRoleEngine()?.refresh?.(); } catch {}
                 return record;
             } catch (error) {
                 lastError = error;
@@ -807,11 +809,15 @@
                 trackBackground((async () => {
                     try {
                         await context.settings.save(updated);
-                        showNotice('Personal settings saved.');
+                        await appendNetworkActivity({
+                            action: 'UPDATE_DASHBOARD_SETTINGS',
+                            summary: 'UPDATE DASHBOARD SETTINGS'
+                        });
+                        showNotice('Personal settings saved and NETWORK activity recorded.');
                         render();
                     } catch (error) {
                         render();
-                        showMessageDialog('Settings Not Saved', error?.message || 'Unable to save personal settings.');
+                        showMessageDialog('Settings Update Needs Attention', error?.message || 'Unable to complete the settings update or record its activity.');
                     }
                 })());
             } else if (action === 'toggle-my-tool') {
