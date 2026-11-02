@@ -1,0 +1,8 @@
+{
+  "protocolVersion": 1,
+  "requestId": "USERS-BOOTSTRAP-Q001-20261102",
+  "sequence": "001",
+  "status": "FAILED",
+  "error": "Missing or mismatched original dashboard-users-request",
+  "failedAt": "2026-11-02T02:51:17Z"
+}
