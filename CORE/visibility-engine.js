@@ -50,12 +50,8 @@
             throw createError(`Invalid allowedUsers: ${toolId}`);
         }
 
-        if (typeof record.enabled !== 'boolean') {
-            throw createError(`Invalid enabled state: ${toolId}`);
-        }
-
         return Object.freeze({
-            ...record,
+            visibility: record.visibility,
             allowedUsers: Object.freeze(
                 [...new Set(
                     record.allowedUsers
@@ -126,7 +122,7 @@
 
         const record = getRecord(toolId);
 
-        if (!record || !record.enabled) return false;
+        if (!record) return false;
 
         if (record.visibility === 'PUBLIC') return true;
 
@@ -147,8 +143,7 @@
         if (!record) {
             return Object.freeze({
                 visibility: 'PRIVATE',
-                allowedUsers: [],
-                enabled: false
+                allowedUsers: []
             });
         }
 
