@@ -409,7 +409,10 @@ jobs:
               if actor_role == "SUPER_ADMIN":
                   return True, ""
 
-              if raw_action in PERMISSION_ACTIONS or raw_action in VISIBILITY_ACTIONS or canon_action == "SYNC_USERS":
+              if raw_action in VISIBILITY_ACTIONS or canon_action == "SYNC_USERS":
+                  return False, "ADMIN is not authorized to update global visibility or synchronize users."
+
+              if raw_action in PERMISSION_ACTIONS:
                   return True, ""
 
               target_role = norm_role(payload.get("role") or payload.get("ROLE") or "USER")
