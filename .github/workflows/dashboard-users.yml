@@ -294,7 +294,7 @@ jobs:
                       else:
                           state = "PERMISSION UPDATED"
                       labels.append(f"{state} · {tid} · {name}")
-                  metadata["summary"] = "; ".join(labels) if labels else "MODIFY TOOL PERMISSION"
+                  metadata["summary"] = "MODIFY TOOL PERMISSION · " + ("; ".join(labels) if labels else "UPDATED")
               elif action in VISIBILITY_ACTIONS:
                   visibility = payload.get("visibility") if isinstance(payload.get("visibility"), dict) else {}
                   tool_ids = payload.get("targetToolIds") if isinstance(payload.get("targetToolIds"), list) else list(visibility.keys())
