@@ -370,7 +370,7 @@
                     normalizeText(transaction.status).toUpperCase()
                 )
             ) {
-                if (transaction.status === 'COMPLETED') {
+                if (transaction.status === 'COMPLETED' && options.refresh !== false) {
                     await refresh();
                 }
 
