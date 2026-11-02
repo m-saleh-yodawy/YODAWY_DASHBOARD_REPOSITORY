@@ -6,6 +6,13 @@
       "role": "SUPER_ADMIN",
       "status": "Active",
       "repository": "Q-001_MOHAMED_SALEH"
+    },
+    {
+      "id": "Q-002",
+      "name": "OMAR SALEH",
+      "role": "ADMIN",
+      "status": "Active",
+      "repository": "Q-002_OMAR_SALEH"
     }
   ]
 }
