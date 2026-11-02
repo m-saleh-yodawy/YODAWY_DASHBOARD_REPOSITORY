@@ -305,8 +305,9 @@
         const items = visibleTools.map((tool, index) => {
             const id = String(tool.id || '').trim();
             const allowed = isSuperAdmin || context.permissions?.canUse?.(userId, id) === true;
-            const enabled = allowed && context.settings?.isEnabled?.(id) === true;
+            const storedEnabled = allowed && context.settings?.isEnabled?.(id) === true;
             const pending = pendingLocalTools.get(id);
+            const enabled = pending ? pending.enabled === true : storedEnabled;
             const expanded = expandedTools.has(id) ? ' open' : '';
             const status = pending ? renderPendingBadge(pending.label || 'Updating') : '<span class="yd-pill ' + (enabled ? 'green' : 'red') + '">' + (enabled ? 'ON' : 'OFF') + '</span>';
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
@@ -377,8 +378,9 @@
                 let grantedCount = 0, forcedCount = 0;
                 const rows = tools.map(tool => {
                     const record = userPermissions[tool.id] || {};
-                    const granted = record.granted === true, forced = record.forcedState === true;
                     const pending = getPendingPermission(userId, tool.id);
+                    const granted = pending?.permissionField === 'granted' && typeof pending.permissionValue === 'boolean' ? pending.permissionValue : record.granted === true;
+                    const forced = pending?.permissionField === 'forcedState' && typeof pending.permissionValue === 'boolean' ? pending.permissionValue : record.forcedState === true;
                     if (granted) grantedCount++;
                     if (forced) forcedCount++;
                     const disabled = active && !pending && !pendingUser ? '' : ' disabled';
@@ -816,7 +818,10 @@
                 const toolId = button.dataset.tool;
                 const nextEnabled = button.dataset.enabled !== 'true';
                 if (pendingLocalTools.has(toolId)) return;
-                pendingLocalTools.set(toolId, { label: nextEnabled ? 'Enabling' : 'Disabling' });
+                pendingLocalTools.set(toolId, { label: nextEnabled ? 'Enabling' : 'Disabling', enabled: nextEnabled });
+                button.classList.toggle('on', nextEnabled);
+                button.setAttribute('aria-checked', String(nextEnabled));
+                await new Promise(resolve => requestAnimationFrame(resolve));
                 render();
                 showNotice((nextEnabled ? 'Enabling ' : 'Disabling ') + toolId + '...');
                 trackBackground((async () => {
@@ -873,6 +878,8 @@
                     targetName: formatName(user?.name || userId),
                     targetToolId: toolId,
                     targetToolIds: [toolId],
+                    permissionField: field,
+                    permissionValue: nextValue,
                     summary: 'MODIFY TOOL PERMISSION · ' + (field === 'forcedState' ? (nextValue ? 'FORCED STATE ON' : 'FORCED STATE OFF') : (nextValue ? 'PERMITTED' : 'ACCESS REVOKED')) + ' · ' + toolId + ' · ' + formatName(user?.name || userId)
                 };
                 button.dataset.value = String(nextValue);
