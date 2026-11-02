@@ -220,14 +220,14 @@
         const toolList = getTools();
         const visibilityMap = getRoleEngine()?.getVisibility?.() || {};
         const rows = toolList.map((tool,index) => {
-            const record = visibilityMap[tool.id] || { visibility: 'PRIVATE', allowedUsers: [], enabled: false };
+            const record = visibilityMap[tool.id] || { visibility: 'PRIVATE', allowedUsers: [] };
             const allowed = Array.isArray(record.allowedUsers) ? record.allowedUsers : [];
             const id = escapeHTML(tool.id);
-            return '<tr><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + id + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td><td><select class="yd-select" data-visibility="' + id + '"><option value="PRIVATE" ' + (record.visibility === 'PRIVATE' ? 'selected' : '') + '>PRIVATE</option><option value="PUBLIC" ' + (record.visibility === 'PUBLIC' ? 'selected' : '') + '>PUBLIC</option><option value="SELECTED_USERS" ' + (record.visibility === 'SELECTED_USERS' ? 'selected' : '') + '>SELECTED_USERS</option></select></td><td><input class="yd-input" data-allowed="' + id + '" value="' + escapeHTML(allowed.join(', ')) + '" placeholder="Q-001, Q-002"></td><td><select class="yd-select" data-enabled="' + id + '"><option value="true" ' + (record.enabled ? 'selected' : '') + '>ON</option><option value="false" ' + (!record.enabled ? 'selected' : '') + '>OFF</option></select></td><td style="text-align:right"><button class="yd-primary" data-action="save-visibility" data-tool="' + id + '">Save</button></td></tr>';
+            return '<tr><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + id + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td><td><select class="yd-select" data-visibility="' + id + '"><option value="PRIVATE" ' + (record.visibility === 'PRIVATE' ? 'selected' : '') + '>PRIVATE</option><option value="PUBLIC" ' + (record.visibility === 'PUBLIC' ? 'selected' : '') + '>PUBLIC</option><option value="SELECTED_USERS" ' + (record.visibility === 'SELECTED_USERS' ? 'selected' : '') + '>SELECTED_USERS</option></select></td><td><input class="yd-input" data-allowed="' + id + '" value="' + escapeHTML(allowed.join(', ')) + '" placeholder="Q-001, Q-002"></td><td style="text-align:right"><button class="yd-primary" data-action="save-visibility" data-tool="' + id + '">Save</button></td></tr>';
         }).join('');
-        return '<section class="yd-welcome"><div><h1>Visibility</h1><p>Set who can discover each tool and whether it is enabled.</p></div></section>' +
+        return '<section class="yd-welcome"><div><h1>Visibility</h1><p>Set who can discover each tool.</p></div></section>' +
             '<div class="yd-table-card"><div class="yd-table-card-head"><div class="yd-table-card-title">◈ <span>Global Tool Visibility (' + toolList.length + ')</span></div><span class="yd-pill blue">SUPER ADMIN CONTROL</span></div>' +
-            '<div class="yd-table-responsive"><table><thead><tr><th style="width:50px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Policy Mode</th><th>Allowed Users</th><th>Enabled</th><th style="text-align:right">Action</th></tr></thead><tbody>' + (rows || '<tr><td colspan="7" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
+            '<div class="yd-table-responsive"><table><thead><tr><th style="width:50px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Visibility</th><th>Allowed Users</th><th style="text-align:right">Action</th></tr></thead><tbody>' + (rows || '<tr><td colspan="6" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
     };
     const renderTransactions = () => `
         <section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Centralized administrative request and transaction history.</p></div><button class="yd-secondary" data-action="refresh">Refresh History</button></section>
@@ -377,10 +377,9 @@
                 const id = button.dataset.tool;
                 const root = document.getElementById(CONFIG.ID);
                 const visibility = root.querySelector('[data-visibility="' + id + '"]').value;
-                const enabled = root.querySelector('[data-enabled="' + id + '"]').value === 'true';
                 const allowedUsers = root.querySelector('[data-allowed="' + id + '"]').value.split(',').map(value => value.trim().toUpperCase()).filter(Boolean);
                 setBusy(true);
-                await context.superAdmin.setToolVisibility(id, { visibility, enabled, allowedUsers });
+                await context.superAdmin.setToolVisibility(id, { visibility, allowedUsers });
                 showNotice('Visibility update submitted through NETWORK.');
                 await refresh();
             }
