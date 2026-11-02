@@ -299,6 +299,12 @@ jobs:
                   for uid, u_map in target_perms.items():
                       if isinstance(u_map, dict):
                           merged_perms[norm_id(uid)] = copy.deepcopy(u_map)
+              merged_perms = {
+                  uid: value
+                  for uid, value in merged_perms.items()
+                  if norm_role(by_id.get(norm_id(uid), {}).get("role") or "USER") in {"ADMIN", "USER"}
+                  and isinstance(value, dict)
+              }
               return by_id, merged_perms
 
           def resolve_verified_actor(raw_data, auth_users_by_id):
@@ -375,8 +381,7 @@ jobs:
                               ex_u = auth_perms.get(u_norm) if isinstance(auth_perms.get(u_norm), dict) else {}
                               ex_t = ex_u.get(t_norm) if isinstance(ex_u.get(t_norm), dict) else {}
                               t_usr = auth_users_by_id.get(u_norm, {})
-                              def_g = norm_role(t_usr.get("role", "USER")) == "SUPER_ADMIN" if t_usr else False
-                              c_g = bool(ex_t.get("granted", def_g))
+                              c_g = bool(ex_t.get("granted", False))
                               c_f = bool(ex_t.get("forcedState", False))
                               if (r_g is not None and bool(r_g) != c_g) or (r_f is not None and bool(r_f) != c_f) or (u_norm == s_uid and t_norm == s_tid):
                                   changes.append((u_norm, t_norm, r_g, r_f, "MODIFY_TOOL_PERMISSION"))
@@ -390,10 +395,12 @@ jobs:
                       ex_t = ex_u.get(t_tid) if isinstance(ex_u.get(t_tid), dict) else {}
                       cur_forced = bool(ex_t.get("forcedState", False))
 
+                      if t_role == "SUPER_ADMIN":
+                          return False, f"SUPER_ADMIN accounts cannot receive tool permission records: {t_uid}."
+                      if actor_role == "ADMIN" and t_role != "USER":
+                          return False, f"ADMIN can modify permissions for USER accounts only: {t_uid}."
                       if actor_role == "SUPER_ADMIN":
                           continue
-                      if t_role == "SUPER_ADMIN":
-                          return False, f"ADMIN cannot modify permissions for SUPER_ADMIN user {t_uid}."
                       if op_a in {"ENABLE_FORCED_STATE", "DISABLE_FORCED_STATE", "REMOVE_FORCED_STATE", "SET_FORCED_STATE"} or (req_f is not None and bool(req_f) != cur_forced):
                           return False, f"ADMIN cannot enable, disable, or remove FORCED STATE for {t_uid}/{t_tid}."
                       if cur_forced:
@@ -410,6 +417,8 @@ jobs:
               existing_target_role = norm_role(auth_users_by_id.get(target_id, {}).get("role") or "USER")
               if target_role == "SUPER_ADMIN" or existing_target_role == "SUPER_ADMIN":
                   return False, "ADMIN cannot create, modify, or delete a SUPER_ADMIN user."
+              if actor_role == "ADMIN" and (target_role != "USER" or (target_id and existing_target_role != "USER")):
+                  return False, "ADMIN can manage USER accounts only."
               if canon_action in {"ADD_USER", "UPDATE_USER"}:
                   return True, ""
               return False, f"ADMIN is not authorized to perform {canon_action}."
