@@ -304,6 +304,10 @@
             throw createError('Invalid user status');
         }
 
+        if (data?.developer === true) {
+            throw createError('ADMIN cannot grant developer access');
+        }
+
         if (snapshot.users.some(user => normalizeText(user.name).toLowerCase() === name.toLowerCase())) {
             throw createError('A USER with this name already exists');
         }
@@ -316,7 +320,7 @@
             name,
             role: 'USER',
             status,
-            developer: data?.developer === true,
+            developer: false,
             ...(id ? { id } : {})
         });
     };
@@ -331,6 +335,10 @@
 
         if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
             throw createError('Invalid user update');
+        }
+
+        if (changes.developer !== undefined) {
+            throw createError('ADMIN cannot change developer access');
         }
 
         if (changes.role !== undefined) {
@@ -349,13 +357,6 @@
             if (!['ACTIVE', 'INACTIVE'].includes(update.status.toUpperCase())) {
                 throw createError('Invalid user status');
             }
-        }
-
-        if (changes.developer !== undefined) {
-            if (typeof changes.developer !== 'boolean') {
-                throw createError('Developer must be a boolean value');
-            }
-            update.developer = changes.developer;
         }
 
         if (!Object.keys(update).length) {
