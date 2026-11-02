@@ -2,16 +2,6 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-01T22:50:30Z",
   "transactions": {
-    "TOOLS-DASHBOARD-20261102T022757Z-3AA7024D9E": {
-      "requestId": "TOOLS-DASHBOARD-20261102T022757Z-3AA7024D9E",
-      "sequence": "007",
-      "requestType": "TOOLS_DASHBOARD_SYNC",
-      "action": "SYNC_TOOLS_MANIFEST",
-      "status": "RESPONSE_SENT",
-      "actorId": "SYSTEM",
-      "createdAt": "2026-11-02T02:27:57Z",
-      "updatedAt": "2026-11-02T02:28:09Z"
-    },
     "DASH-USERS-1793583075379-YSYP3AH5I1": {
       "requestId": "DASH-USERS-1793583075379-YSYP3AH5I1",
       "sequence": "1793583075379693599",
@@ -71,6 +61,16 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-02T01:52:43Z",
       "updatedAt": "2026-11-02T01:54:16Z"
+    },
+    "TOOLS-DASHBOARD-20261102T022757Z-3AA7024D9E": {
+      "requestId": "TOOLS-DASHBOARD-20261102T022757Z-3AA7024D9E",
+      "sequence": "007",
+      "requestType": "TOOLS_DASHBOARD_SYNC",
+      "action": "SYNC_TOOLS_MANIFEST",
+      "status": "COMPLETED",
+      "actorId": "SYSTEM",
+      "createdAt": "2026-11-02T02:27:57Z",
+      "updatedAt": "2026-11-02T02:28:22Z"
     }
   }
 }
