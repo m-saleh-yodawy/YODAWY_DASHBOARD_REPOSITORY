@@ -1,0 +1,46 @@
+{
+  "protocolVersion": 1,
+  "requestId": "DASH-USERS-1793653387056-F7IW0WFHSU",
+  "transactionId": "DASH-USERS-1793653387056-F7IW0WFHSU",
+  "sequence": "1793653387056745214",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "status": "PENDING",
+  "createdAt": "2026-11-02T21:03:07.056Z",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN"
+  },
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "action": "UPDATE_VISIBILITY",
+  "payload": {
+    "visibility": {
+      "TOOL-001": {
+        "visibility": "SELECTED_USERS",
+        "allowedUsers": [
+          "Q-001"
+        ]
+      },
+      "TOOL-002": {
+        "visibility": "PRIVATE",
+        "allowedUsers": []
+      },
+      "TOOL-004": {
+        "visibility": "PRIVATE",
+        "allowedUsers": []
+      }
+    },
+    "action": "UPDATE_VISIBILITY"
+  }
+}
