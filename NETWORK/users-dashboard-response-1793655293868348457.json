@@ -1,0 +1,107 @@
+{
+  "protocolVersion": 1,
+  "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
+  "transactionId": "DASH-USERS-1793655293868-I5F3GHEVD5",
+  "sequence": "1793655293868348457",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "responseType": "USERS_DASHBOARD_RESPONSE",
+  "status": "COMPLETED",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN",
+    "roleAtTimeOfAction": "SUPER_ADMIN",
+    "verified": true
+  },
+  "action": "UPDATE_VISIBILITY",
+  "user": {
+    "id": "Q-003",
+    "name": "MOAAZ SALEH",
+    "role": "ADMIN",
+    "status": "Active",
+    "repository": "Q-003_MOAAZ_SALEH"
+  },
+  "users": [
+    {
+      "id": "Q-001",
+      "name": "MOHAMED SALEH",
+      "role": "SUPER_ADMIN",
+      "status": "Active",
+      "repository": "Q-001_MOHAMED_SALEH"
+    },
+    {
+      "id": "Q-002",
+      "name": "OMAR SALEH",
+      "role": "ADMIN",
+      "status": "Active",
+      "repository": "Q-002_OMAR_SALEH"
+    },
+    {
+      "id": "Q-003",
+      "name": "MOAAZ SALEH",
+      "role": "ADMIN",
+      "status": "Active",
+      "repository": "Q-003_MOAAZ_SALEH"
+    }
+  ],
+  "permissions": {
+    "Q-002": {
+      "TOOL-001": {
+        "granted": true,
+        "forcedState": true,
+        "type": "SUPER_ADMIN"
+      },
+      "TOOL-002": {
+        "granted": false,
+        "forcedState": false,
+        "type": "ADMIN"
+      },
+      "TOOL-004": {
+        "granted": false,
+        "forcedState": false,
+        "type": "ADMIN"
+      }
+    },
+    "Q-003": {
+      "TOOL-001": {
+        "granted": false,
+        "forcedState": false,
+        "type": "ADMIN"
+      },
+      "TOOL-002": {
+        "granted": false,
+        "forcedState": false,
+        "type": "ADMIN"
+      },
+      "TOOL-004": {
+        "granted": false,
+        "forcedState": false,
+        "type": "ADMIN"
+      }
+    }
+  },
+  "visibility": {
+    "TOOL-001": {
+      "visibility": "SELECTED_USERS",
+      "allowedUsers": [
+        "Q-001",
+        "Q-002"
+      ],
+      "enabled": true
+    },
+    "TOOL-002": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "enabled": false
+    },
+    "TOOL-004": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "enabled": false
+    }
+  },
+  "processedAt": "2026-11-02T21:36:39Z",
+  "completedAt": "2026-11-02T21:36:39Z"
+}
