@@ -151,9 +151,18 @@
             throw createError('Invalid permissions registry');
         }
 
+        const eligibleIds = new Set(
+            users.users
+                .filter(user => ['ADMIN', 'USER'].includes(normalizeText(user.role).toUpperCase()))
+                .map(user => normalizeId(user.id))
+        );
+        const eligiblePermissions = Object.fromEntries(
+            Object.entries(permissions).filter(([userId]) => eligibleIds.has(normalizeId(userId)))
+        );
+
         snapshot = {
             users: clone(users.users),
-            permissions: clone(permissions),
+            permissions: clone(eligiblePermissions),
             visibility: validateVisibility(visibility),
             transactions: clone(logs.transactions || {}),
             updatedAt: logs.updatedAt || null
@@ -518,8 +527,14 @@
         const targetUserId = normalizeId(userId);
         const targetToolId = normalizeText(toolId);
 
-        if (!getUser(targetUserId)) {
+        const targetUser = getUser(targetUserId);
+
+        if (!targetUser) {
             throw createError('Target user was not found');
+        }
+
+        if (!['ADMIN', 'USER'].includes(normalizeText(targetUser.role).toUpperCase())) {
+            throw createError('SUPER_ADMIN accounts do not receive tool permission records');
         }
 
         if (!getTools().some(tool => tool.id === targetToolId)) {
@@ -566,8 +581,49 @@
             throw createError('Invalid permissions configuration');
         }
 
+        const eligible = {};
+
+        for (const [userId, tools] of Object.entries(permissions)) {
+            const user = getUser(userId);
+
+            if (!user || !['ADMIN', 'USER'].includes(normalizeText(user.role).toUpperCase())) {
+                throw createError(`Permission records are not allowed for user ${userId}`);
+            }
+
+            if (!tools || typeof tools !== 'object' || Array.isArray(tools)) {
+                throw createError(`Invalid tool permissions for user ${userId}`);
+            }
+
+            eligible[normalizeId(userId)] = {};
+
+            for (const [toolId, value] of Object.entries(tools)) {
+                if (!getTools().some(tool => tool.id === toolId)) {
+                    throw createError(`Unknown tool: ${toolId}`);
+                }
+
+                const record = typeof value === 'boolean'
+                    ? { granted: value }
+                    : value;
+
+                if (
+                    !record ||
+                    typeof record !== 'object' ||
+                    Array.isArray(record) ||
+                    typeof record.granted !== 'boolean' ||
+                    (record.forcedState !== undefined && typeof record.forcedState !== 'boolean')
+                ) {
+                    throw createError(`Invalid permission record for ${userId}/${toolId}`);
+                }
+
+                eligible[normalizeId(userId)][toolId] = {
+                    granted: record.granted,
+                    forcedState: record.forcedState === true
+                };
+            }
+        }
+
         return submit('MODIFY_TOOL_PERMISSION', {
-            permissions: clone(permissions)
+            permissions: eligible
         });
     };
 
