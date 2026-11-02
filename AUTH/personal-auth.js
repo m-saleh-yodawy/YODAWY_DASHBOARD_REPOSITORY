@@ -10,13 +10,9 @@
             title: 'SYSTEM ERROR',
             message: 'SYSTEM AUTHENTICATION REQUIRED'
         },
-        INVALID_CREDENTIALS: {
-            title: 'LOGIN FAILED',
-            message: 'INVALID ID OR PASSWORD'
-        },
-        PERSONAL_ACCESS_DENIED: {
+        TOKEN_INVALID: {
             title: 'AUTHENTICATION FAILED',
-            message: 'INVALID OR EXPIRED TOKEN'
+            message: 'THE PERSONAL TOKEN IS INVALID OR CANNOT ACCESS THE REQUIRED REPOSITORY.'
         },
         NETWORK_ERROR: {
             title: 'CONNECTION ERROR',
@@ -28,15 +24,13 @@
         }
     };
 
-    function result(systemAuth, code) {
-        return {
-            ok: false,
-            code,
-            message: systemAuth?.messages?.[code] ||
-                FALLBACK_MESSAGES[code] ||
-                FALLBACK_MESSAGES.UNKNOWN_ERROR
-        };
-    }
+    const result = (systemAuth, code) => ({
+        ok: false,
+        code,
+        message: systemAuth?.messages?.[code] ||
+            FALLBACK_MESSAGES[code] ||
+            FALLBACK_MESSAGES.UNKNOWN_ERROR
+    });
 
     async function authenticate({ systemAuth, personalToken } = {}) {
         if (!systemAuth?.ok || !systemAuth.user) {
@@ -47,8 +41,8 @@
         const owner = String(systemAuth.config?.owner || '').trim();
         const repository = String(systemAuth.user.repository || '').trim();
 
-        if (!token) {
-            return result(systemAuth, 'INVALID_CREDENTIALS');
+        if (!token || token.includes('PASTE_')) {
+            return result(systemAuth, 'TOKEN_INVALID');
         }
 
         if (
@@ -73,12 +67,15 @@
                 }
             );
 
-            if (response.status === 401 || response.status === 404) {
-                return result(systemAuth, 'INVALID_CREDENTIALS');
+            if (
+                response.headers.get('x-ratelimit-remaining') === '0' ||
+                response.status >= 500
+            ) {
+                return result(systemAuth, 'NETWORK_ERROR');
             }
 
-            if (response.status === 403) {
-                return result(systemAuth, 'PERSONAL_ACCESS_DENIED');
+            if ([401, 403, 404].includes(response.status)) {
+                return result(systemAuth, 'TOKEN_INVALID');
             }
 
             if (!response.ok) {
@@ -91,7 +88,7 @@
                 String(repoData?.name || '').toLowerCase() !== repository.toLowerCase() ||
                 String(repoData?.owner?.login || '').toLowerCase() !== owner.toLowerCase()
             ) {
-                return result(systemAuth, 'INVALID_CREDENTIALS');
+                return result(systemAuth, 'TOKEN_INVALID');
             }
 
             return {
@@ -104,7 +101,6 @@
                     url: repoData.html_url
                 }
             };
-
         } catch {
             return result(systemAuth, 'NETWORK_ERROR');
         }
