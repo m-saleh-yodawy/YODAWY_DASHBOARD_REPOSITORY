@@ -29,6 +29,7 @@ jobs:
       OWNER: m-saleh-yodawy
       SOURCE_REPO: YODAWY_DASHBOARD_REPOSITORY
       USERS_REPO: YODAWY_USERS_REPOSITORY
+      TOOLS_REPO: YODAWY_TOOLS_REPOSITORY
       BRANCH: main
       INPUT_SEQ: ${{ inputs.sequence || '' }}
       SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
@@ -55,6 +56,7 @@ jobs:
           OWNER = os.environ["OWNER"]
           SOURCE_REPO = os.environ["SOURCE_REPO"]
           USERS_REPO = os.environ["USERS_REPO"]
+          TOOLS_REPO = os.environ["TOOLS_REPO"]
           BRANCH = os.environ["BRANCH"]
           INPUT_SEQ = os.environ.get("INPUT_SEQ", "").strip()
           TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
@@ -281,23 +283,40 @@ jobs:
                           merged_perms[norm_id(uid)] = copy.deepcopy(u_map)
               return mapping, users_by_id, merged_perms
 
+          def get_active_tool_ids():
+              catalog, _ = read_json(TOOLS_REPO, "CONFIG/tools.json", {"tools": []})
+              return sorted(
+                  [
+                      str(tool.get("id", "")).strip().upper()
+                      for tool in (catalog or {}).get("tools", [])
+                      if isinstance(tool, dict)
+                      and re.fullmatch(r"TOOL-\d{3,}", str(tool.get("id", "")).strip().upper())
+                      and str(tool.get("status", "Active")).strip().casefold() not in {"inactive", "disabled", "removed", "archived", "false"}
+                  ],
+                  key=lambda value: int(value.split("-")[1]),
+              )
+
           def is_tool_permitted_for_user(uid, tid, users_by_id, perms_by_user):
               u_meta = users_by_id.get(uid, {})
               u_role = norm_role(u_meta.get("role") or u_meta.get("ROLE") or "USER")
+              if u_role == "SUPER_ADMIN":
+                  return True
               u_map = perms_by_user.get(uid) if isinstance(perms_by_user.get(uid), dict) else {}
               t_entry = u_map.get(tid)
               if isinstance(t_entry, dict):
-                  return bool(t_entry.get("granted", u_role == "SUPER_ADMIN"))
+                  return t_entry.get("granted") is True
               if isinstance(t_entry, bool):
                   return t_entry
-              return u_role == "SUPER_ADMIN"
+              return False
 
           def get_permitted_tool_ids_for_user(uid, users_by_id, perms_by_user):
               u_meta = users_by_id.get(uid, {})
               u_role = norm_role(u_meta.get("role") or u_meta.get("ROLE") or "USER")
+              if u_role == "SUPER_ADMIN":
+                  return get_active_tool_ids()
               u_map = perms_by_user.get(uid) if isinstance(perms_by_user.get(uid), dict) else {}
               return sorted(
-                  [tid for tid, tv in u_map.items() if (isinstance(tv, dict) and bool(tv.get("granted", u_role == "SUPER_ADMIN"))) or (isinstance(tv, bool) and tv)],
+                  [tid for tid, tv in u_map.items() if (isinstance(tv, dict) and tv.get("granted") is True) or (isinstance(tv, bool) and tv)],
                   key=lambda x: int(x.split("-")[1]) if re.fullmatch(r"TOOL-\d{3,}", str(x)) else 0,
               )
 
