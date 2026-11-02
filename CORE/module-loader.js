@@ -53,12 +53,12 @@
     };
 
     const calculateHash = async source => {
-        if (!global.crypto?.subtle) {
-            throw createError('SHA-256 verification is unavailable in this browser context');
+        if (!page.crypto?.subtle) {
+            throw createError('SHA-256 verification is unavailable');
         }
 
         const bytes = new TextEncoder().encode(source);
-        const digest = await global.crypto.subtle.digest('SHA-256', bytes);
+        const digest = await page.crypto.subtle.digest('SHA-256', bytes);
 
         return Array.from(new Uint8Array(digest))
             .map(byte => byte.toString(16).padStart(2, '0'))
@@ -124,7 +124,7 @@
 
             const script = document.createElement('script');
             script.type = 'text/javascript';
-            script.textContent = `${source}\n//# sourceURL=${modulePath}`;
+            script.textContent = source;
 
             try {
                 (document.head || document.documentElement).appendChild(script);
@@ -220,7 +220,7 @@
         return loadedModules.delete(modulePath);
     };
 
-    const API = Object.freeze({
+    global.YODAWY_MODULE_LOADER = Object.freeze({
         version: 2,
         load,
         loadMany,
@@ -229,7 +229,5 @@
         getInstance,
         clear
     });
-
-    global.YODAWY_MODULE_LOADER = API;
 
 })(window);
