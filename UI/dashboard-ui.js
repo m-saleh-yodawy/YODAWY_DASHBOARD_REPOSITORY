@@ -84,6 +84,7 @@
     const navItems = () => {
         const items = [['overview', '▦', 'Overview'], ['tools', '⚒', 'Tools']];
         if (['ADMIN', 'SUPER_ADMIN'].includes(context.userRole)) items.push(['users', '♙', 'Users']);
+        if (context.userRole === 'ADMIN') items.push(['permissions', '◈', 'User Permissions']);
         if (context.userRole === 'SUPER_ADMIN') items.push(['permissions', '◈', 'Shared Tools'], ['visibility', '◉', 'Visibility'], ['transactions', '⇄', 'NETWORK']);
         items.push(['account', '⚙', 'Settings']);
         return items;
@@ -181,26 +182,44 @@
     };
     const renderUsers = () => {
         const users = getUsers();
+        const isAdmin = context.userRole === 'ADMIN';
+        const roleDescription = isAdmin
+            ? 'Manage USER accounts and their basic account details.'
+            : 'Manage registered accounts and their dashboard roles.';
+
         return `
-            <section class="yd-welcome"><div><h1>Users Directory</h1><p>Manage registered accounts and their dashboard roles.</p></div><button class="yd-primary" data-action="add-user">＋ Add User</button></section>
+            <section class="yd-welcome"><div><h1>Users Directory</h1><p>${roleDescription}</p></div><button class="yd-primary" data-action="add-user">＋ Add User</button></section>
             <div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">${users.length} users</span></div>
             <div class="yd-table-wrap"><table><thead><tr><th>User</th><th>User ID</th><th>Role</th><th>Status</th><th>Personal Repository</th><th>Actions</th></tr></thead><tbody>
-                ${users.map(user => `<tr><td><strong>${escapeHTML(user.name)}</strong></td><td>${escapeHTML(user.id)}</td><td><span class="yd-pill">${escapeHTML(user.role)}</span></td><td><span class="yd-pill ${String(user.status).toLowerCase() === 'active' ? 'green' : 'red'}">${escapeHTML(user.status)}</span></td><td>${escapeHTML(user.repository || 'Provisioning')}</td><td><button class="yd-secondary" data-action="edit-user" data-id="${escapeHTML(user.id)}">Edit</button> <button class="yd-danger" data-action="delete-user" data-id="${escapeHTML(user.id)}">Delete</button></td></tr>`).join('')}
+                ${users.map(user => `<tr><td><strong>${escapeHTML(user.name)}</strong></td><td>${escapeHTML(user.id)}</td><td><span class="yd-pill">${escapeHTML(user.role)}</span></td><td><span class="yd-pill ${String(user.status).toLowerCase() === 'active' ? 'green' : 'red'}">${escapeHTML(user.status)}</span></td><td>${escapeHTML(user.repository || 'Provisioning')}</td><td><button class="yd-secondary" data-action="edit-user" data-id="${escapeHTML(user.id)}">Edit</button>${isAdmin ? '' : ` <button class="yd-danger" data-action="delete-user" data-id="${escapeHTML(user.id)}">Delete</button>`}</td></tr>`).join('')}
             </tbody></table></div>
         `;
     };
 
     const renderPermissions = () => {
-        const users = getUsers();
-        const tools = getTools();
+        const allUsers = getUsers();
+        const users = allUsers.filter(user =>
+            context.userRole === 'SUPER_ADMIN'
+                ? ['ADMIN', 'USER'].includes(String(user.role).toUpperCase())
+                : String(user.role).toUpperCase() === 'USER'
+        );
+        const tools = getRoleEngine()?.getTools?.() || getTools().filter(tool =>
+            context.userRole === 'SUPER_ADMIN' || context.visibility?.isVisible?.(tool.id, tool)
+        );
         const permissions = getRoleEngine()?.getPermissions?.() || {};
+        const isAdmin = context.userRole === 'ADMIN';
+        const title = isAdmin ? 'User Permissions' : 'Tool Permissions';
+        const description = isAdmin
+            ? 'Grant or revoke tool access for USER accounts.'
+            : 'Grant or revoke tool access for ADMIN and USER accounts.';
+
         return `
-            <section class="yd-welcome"><div><h1>Tool Permissions</h1><p>Control which users are allowed to use each tool.</p></div><span class="yd-pill">SUPER ADMIN CONTROL</span></section>
+            <section class="yd-welcome"><div><h1>${title}</h1><p>${description}</p></div><span class="yd-pill">${isAdmin ? 'ADMIN CONTROL' : 'SUPER ADMIN CONTROL'}</span></section>
             <div class="yd-table-wrap"><table><thead><tr><th>User</th><th>Tool</th><th>Granted</th><th>Forced State</th><th>Action</th></tr></thead><tbody>
                 ${users.flatMap(user => tools.map(tool => {
                     const record = permissions[user.id]?.[tool.id] || {};
                     return `<tr><td><strong>${escapeHTML(user.name)}</strong><br>${escapeHTML(user.id)}</td><td>${escapeHTML(tool.name)}</td><td><span class="yd-pill ${record.granted ? 'green' : 'red'}">${record.granted ? 'Granted' : 'Denied'}</span></td><td>${record.forcedState ? 'Protected' : 'Normal'}</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="${escapeHTML(user.id)}" data-tool="${escapeHTML(tool.id)}" data-granted="${record.granted === true}">${record.granted ? 'Revoke' : 'Grant'}</button></td></tr>`;
-                })).join('')}
+                })).join('') || '<tr><td colspan="5" class="yd-empty">No eligible users or visible tools.</td></tr>'}
             </tbody></table></div>
         `;
     };
@@ -283,7 +302,7 @@
                 <div class="yd-form-grid">
                     <div class="yd-field"><label>Full Name</label><input name="name" required value="${escapeHTML(user?.name || '')}" placeholder="Employee full name"></div>
                     <div class="yd-field"><label>User ID</label><input name="id" ${editing ? 'disabled' : 'required'} value="${escapeHTML(user?.id || '')}" placeholder="Q-000"></div>
-                    <div class="yd-field"><label>Role</label><select name="role"><option value="USER" ${user?.role === 'USER' ? 'selected' : ''}>USER</option><option value="ADMIN" ${user?.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option><option value="SUPER_ADMIN" ${user?.role === 'SUPER_ADMIN' ? 'selected' : ''}>SUPER_ADMIN</option></select></div>
+                    ${context.userRole === 'SUPER_ADMIN' ? `<div class="yd-field"><label>Role</label><select name="role"><option value="USER" ${user?.role === 'USER' ? 'selected' : ''}>USER</option><option value="ADMIN" ${user?.role === 'ADMIN' ? 'selected' : ''}>ADMIN</option><option value="SUPER_ADMIN" ${user?.role === 'SUPER_ADMIN' ? 'selected' : ''}>SUPER_ADMIN</option></select></div>` : ''}
                     <div class="yd-field"><label>Status</label><select name="status"><option value="Active" ${String(user?.status || 'Active').toLowerCase() === 'active' ? 'selected' : ''}>Active</option><option value="Inactive" ${String(user?.status).toLowerCase() === 'inactive' ? 'selected' : ''}>Inactive</option></select></div>
                 </div>
                 <div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">${editing ? 'Save Changes' : 'Create User'}</button></div>
@@ -296,11 +315,17 @@
         overlay.querySelector('form').addEventListener('submit', async event => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
-            const payload = { name: form.get('name'), role: form.get('role'), status: form.get('status') };
+            const payload = {
+                name: form.get('name'),
+                status: form.get('status'),
+                ...(context.userRole === 'SUPER_ADMIN' ? { role: form.get('role') } : {})
+            };
+            const engine = getRoleEngine();
+
             try {
                 setBusy(true);
-                if (editing) await context.superAdmin.editUser(user.id, payload);
-                else await context.superAdmin.addUser({ ...payload, id: form.get('id') });
+                if (editing) await engine.editUser(user.id, payload);
+                else await engine.addUser({ ...payload, id: form.get('id') });
                 overlay.remove();
                 showNotice(editing ? 'User update request submitted.' : 'User creation request submitted.');
                 await refresh();
@@ -348,12 +373,12 @@
             } else if (action === 'delete-user') {
                 if (!confirm('Delete this user? The request will be processed through NETWORK.')) return;
                 setBusy(true);
-                await context.superAdmin.deleteUser(button.dataset.id);
+                await getRoleEngine().deleteUser(button.dataset.id);
                 showNotice('User deletion request submitted.');
             } else if (action === 'toggle-permission') {
                 const granted = button.dataset.granted === 'true';
                 setBusy(true);
-                await context.superAdmin.setToolPermission(button.dataset.user, button.dataset.tool, { granted: !granted });
+                await getRoleEngine().setToolPermission(button.dataset.user, button.dataset.tool, { granted: !granted });
                 showNotice('Permission update submitted through NETWORK.');
                 await refresh();
             } else if (action === 'save-visibility') {
