@@ -4,14 +4,17 @@
   "transactionId": "DASH-USERS-1793593643959-UAJWXV0NJY",
   "sequence": "1793593643960306651",
   "requestType": "DASHBOARD_USERS_SYNC",
-  "status": "PENDING",
+  "status": "SENT",
   "createdAt": "2026-11-02T04:27:23.960Z",
+  "sentAt": "2026-11-02T04:27:44Z",
   "actor": {
     "id": "Q-001",
     "userId": "Q-001",
     "name": "MOHAMED SALEH",
     "username": "MOHAMED SALEH",
-    "role": "SUPER_ADMIN"
+    "role": "SUPER_ADMIN",
+    "roleAtTimeOfAction": "SUPER_ADMIN",
+    "verified": true
   },
   "source": {
     "owner": "m-saleh-yodawy",
@@ -20,10 +23,13 @@
   },
   "destination": {
     "owner": "m-saleh-yodawy",
-    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "repository": "YODAWY_USERS_REPOSITORY",
     "branch": "main"
   },
+  "requestPath": "NETWORK/dashboard-users-request-1793593643960306651.json",
   "action": "EDIT_USER",
+  "canonicalAction": "UPDATE_USER",
+  "rawAction": "EDIT_USER",
   "payload": {
     "id": "Q-003",
     "name": "MOAAZ SALEH",
