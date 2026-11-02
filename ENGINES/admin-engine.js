@@ -262,7 +262,7 @@
                     normalizeText(transaction.status).toUpperCase()
                 )
             ) {
-                if (transaction.status === 'COMPLETED') await refresh();
+                if (transaction.status === 'COMPLETED' && options.refresh !== false) await refresh();
                 return transaction;
             }
 
