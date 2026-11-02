@@ -441,7 +441,7 @@ jobs:
           API = "https://api.github.com"
           MAX_REQUESTS = 50
           ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
-          VALID_VISIBILITY_MODES = {"PRIVATE", "PUBLIC", "ADMIN", "USER", "SELECTED_USERS", "SUPER_ADMIN"}
+          VALID_VISIBILITY_MODES = {"PRIVATE", "PUBLIC", "SELECTED_USERS"}
 
           USERS_PATH = "CONFIG/users.json"
           LEGACY_USERS_PATH = "CONFIG/auth-users.json"
