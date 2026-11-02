@@ -550,6 +550,11 @@
                     if (status !== 'TIMEOUT') break;
                 }
                 const status = String(result?.status || '').toUpperCase();
+                if (!result || status === 'TIMEOUT') {
+                    showMessageDialog('Still Processing', 'This request is taking longer than expected. It remains queued and locked. The dashboard will keep checking its status.');
+                    if (context && localTransactions.has(requestId)) setTimeout(() => monitorTransaction(transaction), 15000);
+                    return;
+                }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
                 removePendingTransaction(transaction);
                 try { await refresh(); } catch {}
@@ -611,7 +616,7 @@
 
     const createVisibilityDraft = toolId => {
         const engine = getRoleEngine();
-        const record = (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
+        const record = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
         const users = engine?.getUsers?.() || [];
         const allUsers = record.visibility === 'PUBLIC';
         return {
