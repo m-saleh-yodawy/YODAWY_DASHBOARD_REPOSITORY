@@ -242,8 +242,23 @@
     };
 
     const renderTransactionsTable = transactions => {
-        if (!transactions.length) return '<div class="yd-card yd-empty">No NETWORK transactions found.</div>';
-        return `<div class="yd-table-wrap"><table><thead><tr><th>Request ID</th><th>Action</th><th>Status</th><th>Actor</th><th>Updated</th></tr></thead><tbody>${transactions.map(item => `<tr><td><strong>${escapeHTML(item.requestId || item.transactionId || '—')}</strong></td><td>${escapeHTML(item.action || item.requestType || '—')}</td><td><span class="yd-pill ${String(item.status).toUpperCase() === 'COMPLETED' ? 'green' : ['FAILED', 'REJECTED'].includes(String(item.status).toUpperCase()) ? 'red' : ''}">${escapeHTML(item.status || 'PENDING')}</span></td><td>${escapeHTML(item.actor?.name || item.actor?.id || '—')}</td><td>${escapeHTML(formatDate(item.updatedAt || item.createdAt))}</td></tr>`).join('')}</tbody></table></div>`;
+        if (!transactions.length) return '<div class="yd-card yd-empty">No NETWORK activity found.</div>';
+        const totalPages = Math.max(1, Math.ceil(transactions.length / NETWORK_PAGE_SIZE));
+        networkPage = Math.min(Math.max(1, networkPage), totalPages);
+        const start = (networkPage - 1) * NETWORK_PAGE_SIZE;
+        const visible = transactions.slice(start, start + NETWORK_PAGE_SIZE);
+        const rows = visible.map(item => {
+            const status = String(item.status || 'SENT').toUpperCase();
+            const pending = isPendingTransaction(item);
+            const actor = getActorName(item);
+            const summary = item.summary || formatAction(item.action || item.requestType);
+            const statusMarkup = pending
+                ? renderPendingBadge(status === 'PROCESSING' ? 'Processing' : status === 'SENT' ? 'Queued' : 'Pending')
+                : '<span class="yd-pill ' + (status === 'COMPLETED' ? 'green' : 'red') + '">' + escapeHTML(status) + '</span>';
+            return '<tr><td><div class="yd-network-activity"><strong>' + escapeHTML(summary) + '</strong><small>By ' + escapeHTML(actor) + '</small></div></td><td>' + statusMarkup + '</td><td>' + escapeHTML(formatDate(item.updatedAt || item.createdAt)) + '</td></tr>';
+        }).join('');
+        return '<div class="yd-table-wrap yd-network-table"><table><thead><tr><th>Activity</th><th style="width:130px">Status</th><th style="width:190px">Date</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+            '<div class="yd-network-pagination"><span>' + (start + 1) + '–' + Math.min(start + NETWORK_PAGE_SIZE, transactions.length) + ' of ' + transactions.length + '</span><button type="button" data-action="network-page" data-page="' + (networkPage - 1) + '"' + (networkPage <= 1 ? ' disabled' : '') + ' aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button><button type="button" data-action="network-page" data-page="' + (networkPage + 1) + '"' + (networkPage >= totalPages ? ' disabled' : '') + ' aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button></div>';
     };
 
     const renderOverview = () => {
@@ -393,7 +408,7 @@
 
     
     const renderTransactions = () => `
-        <section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Centralized administrative request and transaction history.</p></div></section>
+        <section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Administrative activity and request status.</p></div></section>
         ${renderTransactionsTable(getTransactions())}
     `;
 
