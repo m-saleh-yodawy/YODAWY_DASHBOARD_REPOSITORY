@@ -22,6 +22,16 @@
       "createdAt": "2026-11-02T21:35:15Z",
       "updatedAt": "2026-11-02T21:35:15Z"
     },
+    "DASH-USERS-1793655293868-I5F3GHEVD5": {
+      "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
+      "sequence": "1793655293868348457",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T21:35:20Z",
+      "updatedAt": "2026-11-02T21:35:20Z"
+    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
