@@ -620,7 +620,7 @@
         });
     };
 
-    const updateVisibility = async changes => {
+    const updateVisibility = async (changes, metadata = {}) => {
         ensureLoaded();
 
         if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
@@ -633,9 +633,13 @@
         };
 
         const validated = validateVisibility(updated);
+        const targetToolIds = Array.isArray(metadata.targetToolIds)
+            ? [...new Set(metadata.targetToolIds.map(normalizeText).filter(id => getTools().some(tool => tool.id === id)))]
+            : [];
 
         return submit('UPDATE_VISIBILITY', {
-            visibility: validated
+            visibility: validated,
+            ...(targetToolIds.length ? { targetToolIds } : {})
         });
     };
 
@@ -652,7 +656,7 @@
             [id]: record
         });
 
-        return updateVisibility(updated);
+        return updateVisibility(updated, { targetToolIds: [id] });
     };
 
     const getTransactionHistory = () => {
