@@ -152,10 +152,15 @@
         const userId = AUTH.getUserId();
 
         if (!AUTH.isAuthenticated() || !userId) return false;
-        if (!PERMISSIONS.isLoaded() || !SETTINGS.isLoaded()) return false;
+        if (!SETTINGS.isLoaded() || !VISIBILITY.isLoaded()) return false;
+        if (!PERMISSIONS.isLoaded()) return false;
+
+        const permitted = AUTH.getRole() === 'SUPER_ADMIN'
+            ? true
+            : PERMISSIONS.canUse(userId, tool.id);
 
         return (
-            PERMISSIONS.canUse(userId, tool.id) &&
+            permitted &&
             SETTINGS.isEnabled(tool.id) &&
             VISIBILITY.isVisible(tool.id, tool) === true
         );
