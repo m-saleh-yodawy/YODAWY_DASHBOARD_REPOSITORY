@@ -3,9 +3,10 @@
     {
       "id": "Q-001",
       "name": "MOHAMED SALEH",
-      "repository": "Q-001_MOHAMED_SALEH",
       "role": "SUPER_ADMIN",
-      "status": "Active"
+      "status": "Active",
+      "developer": false,
+      "repository": "Q-001_MOHAMED_SALEH"
     }
   ]
 }
