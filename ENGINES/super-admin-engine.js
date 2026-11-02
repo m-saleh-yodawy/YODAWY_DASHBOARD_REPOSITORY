@@ -434,7 +434,6 @@
             name,
             role,
             status,
-            developer: data?.developer === true,
             ...(data?.id ? { id: normalizeId(data.id) } : {})
         });
     };
@@ -448,7 +447,7 @@
             throw createError('Invalid user update');
         }
 
-        const allowed = ['name', 'role', 'status', 'developer'];
+        const allowed = ['name', 'role', 'status'];
         const update = {};
 
         for (const key of allowed) {
@@ -489,10 +488,6 @@
             if (!['ACTIVE', 'INACTIVE'].includes(update.status.toUpperCase())) {
                 throw createError('Invalid user status');
             }
-        }
-
-        if (update.developer !== undefined && typeof update.developer !== 'boolean') {
-            throw createError('Developer must be a boolean value');
         }
 
         validateLastSuperAdmin(id, update);
