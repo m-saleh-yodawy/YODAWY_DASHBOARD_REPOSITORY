@@ -244,6 +244,68 @@ jobs:
                   return "UPDATE_USER"
               return act or "SYNC_USERS"
 
+          def build_transaction_metadata(action, payload, actor, users_by_id):
+              action = str(action or "").strip().upper()
+              payload = payload if isinstance(payload, dict) else {}
+              actor = actor if isinstance(actor, dict) else {}
+              actor_name = " ".join(str(actor.get("name") or actor.get("username") or actor.get("id") or "Unknown").split())
+              metadata = {"actorName": actor_name}
+              target_id = norm_id(payload.get("id") or payload.get("targetUserId") or payload.get("userId"))
+              target_user = users_by_id.get(target_id, {}) if target_id else {}
+              target_name = " ".join(str(target_user.get("name") or payload.get("name") or "").split())
+              if action == "ADD_USER":
+                  target_name = " ".join(str(payload.get("name") or "").split())
+                  metadata.update({"targetName": target_name, "targetRole": norm_role(payload.get("role") or "USER"), "summary": f"ADD USER · {target_name}"})
+              elif action in {"EDIT_USER", "UPDATE_USER", "CHANGE_USER_ROLE", "CHANGE_USER_STATUS", "DELETE_USER"}:
+                  metadata.update({"targetId": target_id, "targetName": target_name, "summary": f"{'DELETE USER' if action == 'DELETE_USER' else 'UPDATE USER'} · {target_name or target_id or 'User'}"})
+              elif action in PERMISSION_ACTIONS:
+                  changes = []
+                  single_user = norm_id(payload.get("targetUserId") or payload.get("userId") or payload.get("id"))
+                  single_tool = norm_id(payload.get("targetToolId") or payload.get("toolId"))
+                  if single_user and single_tool:
+                      changes.append((single_user, single_tool, payload))
+                  permission_map = payload.get("permissions")
+                  if isinstance(permission_map, dict):
+                      for user_id, tool_map in permission_map.items():
+                          if isinstance(tool_map, dict):
+                              for tool_id, record in tool_map.items():
+                                  if isinstance(record, dict):
+                                      changes.append((norm_id(user_id), norm_id(tool_id), record))
+                  changes = list(dict.fromkeys((uid, tid, json.dumps(rec, sort_keys=True, ensure_ascii=False)) for uid, tid, rec in changes))
+                  user_ids = list(dict.fromkeys(uid for uid, _, _ in changes if uid))
+                  tool_ids = list(dict.fromkeys(tid for _, tid, _ in changes if tid))
+                  metadata["targetToolIds"] = tool_ids
+                  if len(user_ids) == 1:
+                      metadata["targetId"] = user_ids[0]
+                      user_name = str(users_by_id.get(user_ids[0], {}).get("name") or user_ids[0])
+                      metadata["targetName"] = user_name
+                  labels = []
+                  for uid, tid, raw_record in changes[:4]:
+                      record = json.loads(raw_record)
+                      name = str(users_by_id.get(uid, {}).get("name") or uid)
+                      if record.get("forcedState") is True:
+                          state = "FORCED STATE ON"
+                      elif record.get("forcedState") is False and "forcedState" in record:
+                          state = "FORCED STATE OFF"
+                      elif record.get("granted") is True:
+                          state = "PERMITTED"
+                      elif record.get("granted") is False:
+                          state = "ACCESS REVOKED"
+                      else:
+                          state = "PERMISSION UPDATED"
+                      labels.append(f"{state} · {tid} · {name}")
+                  metadata["summary"] = "; ".join(labels) if labels else "MODIFY TOOL PERMISSION"
+              elif action in VISIBILITY_ACTIONS:
+                  visibility = payload.get("visibility") if isinstance(payload.get("visibility"), dict) else {}
+                  tool_ids = payload.get("targetToolIds") if isinstance(payload.get("targetToolIds"), list) else list(visibility.keys())
+                  tool_ids = list(dict.fromkeys(norm_id(value) for value in tool_ids if norm_id(value)))
+                  metadata["targetToolIds"] = tool_ids
+                  metadata["summary"] = "UPDATE VISIBILITY · " + (", ".join(tool_ids[:5]) if tool_ids else "Tools")
+              else:
+                  metadata["summary"] = norm_action(action).replace("_", " ")
+              metadata["summary"] = str(metadata.get("summary") or norm_action(action)).strip()[:220]
+              return {key: value for key, value in metadata.items() if value not in ("", None, [], {})}
+
           def compact_logs(doc):
               txs = copy.deepcopy(doc.get("transactions")) if isinstance(doc.get("transactions"), dict) else {}
               active, terminal = {}, []
@@ -268,10 +330,14 @@ jobs:
                       "createdAt": c_at,
                       "updatedAt": u_at,
                   }
-                  for opt in ("parentRequestId", "targetId", "error", "cleanup"):
+                  for opt in ("parentRequestId", "actorName", "summary", "targetId", "targetName", "targetRole", "targetToolId", "error", "cleanup"):
                       val = v.get(opt) or (v.get("lastError") if opt == "error" else (v.get("targetUserId") if opt == "targetId" else None))
                       if val:
-                          rec[opt] = str(val).strip()
+                          rec[opt] = str(val).strip()[:240]
+                  for opt in ("targetToolIds", "targetUserIds"):
+                      values = v.get(opt)
+                      if isinstance(values, list):
+                          rec[opt] = list(dict.fromkeys(norm_id(value) for value in values if norm_id(value)))
                   if st in ACTIVE_STATES:
                       active[rid] = rec
                   else:
@@ -534,6 +600,7 @@ jobs:
                   raise RuntimeError(f"Unsupported action: {raw_action}")
 
               actor_obj = resolve_verified_actor(raw_data, auth_users_by_id)
+              tx_metadata = build_transaction_metadata(raw_action, payload, actor_obj, auth_users_by_id)
               authorized, auth_err = is_actor_authorized(actor_obj, raw_action, canon_action, payload, auth_users_by_id, auth_perms)
               if not authorized:
                   ts_rej = utc_now()
@@ -554,6 +621,7 @@ jobs:
                           "action": canon_action,
                           "status": "REJECTED",
                           "actorId": actor_obj["id"],
+                          **tx_metadata,
                           "createdAt": ts_rej,
                           "updatedAt": ts_rej,
                           "error": auth_err,
@@ -652,6 +720,7 @@ jobs:
                       "requestType": "DASHBOARD_USERS_SYNC",
                       "action": canon_action,
                       "actorId": actor_obj["id"],
+                      **tx_metadata,
                       "status": "SENT",
                       "updatedAt": ts_s,
                   })
