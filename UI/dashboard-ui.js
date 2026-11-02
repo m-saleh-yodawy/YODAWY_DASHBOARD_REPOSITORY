@@ -798,7 +798,7 @@
                     targetName: formatName(user?.name || userId),
                     targetToolId: toolId,
                     targetToolIds: [toolId],
-                    summary: (field === 'forcedState' ? (nextValue ? 'FORCED STATE ON' : 'FORCED STATE OFF') : (nextValue ? 'PERMITTED' : 'ACCESS REVOKED')) + ' · ' + toolId + ' · ' + formatName(user?.name || userId)
+                    summary: 'MODIFY TOOL PERMISSION · ' + (field === 'forcedState' ? (nextValue ? 'FORCED STATE ON' : 'FORCED STATE OFF') : (nextValue ? 'PERMITTED' : 'ACCESS REVOKED')) + ' · ' + toolId + ' · ' + formatName(user?.name || userId)
                 };
                 button.dataset.value = String(nextValue);
                 button.classList.toggle('on', nextValue);
