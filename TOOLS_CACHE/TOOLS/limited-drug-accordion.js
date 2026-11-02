@@ -1,19 +1,29 @@
-// ==UserScript==
-// @name         ODOO >>> LIMITED DRUG ACCORDION
-// @namespace    https://odoo.yodawy.com/
-// @version      1
-// @author       Mohamed Saleh
-// @match        https://odoo.yodawy.com/web*
-// @run-at       document-idle
-// @grant        none
-// ==/UserScript==
+(function () {
+    'use strict';
 
-(function(){'use strict';
+    const TOOL_ID = 'TOOL-004';
+    const TOOL_PATH = 'TOOLS/limited-drug-accordion.js';
+    const STYLE_ID = 'tm-limited-drug-accordion-style';
+    const PURPLE = '#875A7B';
+    const DARK = '#68465f';
+    const ALT_CLASS = 'tm-alt-clickable';
+    const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
 
-const PURPLE='#875A7B',DARK='#68465f',ALT_CLASS='tm-alt-clickable';
+    if (registry[TOOL_ID]) return;
 
-const style=document.createElement('style');
-style.textContent=`
+    const state = {
+        initialized: false,
+        destroyed: false,
+        observer: null,
+        controller: null,
+        scanTimer: null,
+        timers: new Set(),
+        waiters: new Map(),
+        dialogs: new Set(),
+        originals: new Map()
+    };
+
+    const STYLE_TEXT = `
 .o_Message{min-width:0!important}
 .yodawy-limited-accordion button{style:none}
 .o_Message_core{width:100%!important;max-width:100%!important;min-width:0!important;flex:1 1 auto!important;align-self:stretch!important;box-sizing:border-box!important}
@@ -54,26 +64,74 @@ style.textContent=`
 #tm-alt-call-popup .tm-cancel{width:auto;margin-top:15px;padding:0;background:transparent;color:#000}
 `;
 
-document.head.appendChild(style);
+    function addStyle() {
+        if (document.getElementById(STYLE_ID)) return;
+
+        const style = document.createElement('style');
+        style.id = STYLE_ID;
+        style.textContent = STYLE_TEXT;
+        document.head.appendChild(style);
+    }
+
+    function schedule(callback, delay) {
+        const id = setTimeout(() => {
+            state.timers.delete(id);
+            if (!state.destroyed) callback();
+        }, delay);
+
+        state.timers.add(id);
+        return id;
+    }
+
+    function clearSchedule(id) {
+        if (!id) return;
+        clearTimeout(id);
+        state.timers.delete(id);
+    }
+
+    function delay(milliseconds) {
+        return new Promise(resolve => {
+            if (state.destroyed) {
+                resolve(false);
+                return;
+            }
+
+            const id = setTimeout(() => {
+                state.timers.delete(id);
+                state.waiters.delete(id);
+                resolve(!state.destroyed);
+            }, milliseconds);
+
+            state.timers.add(id);
+            state.waiters.set(id, resolve);
+        });
+    }
+
 
 const clean=t=>(t||'').replace(/\s+/g,' ').trim();
 const normalize=t=>clean(t).replace(/^Limited\s+Drug\s*:\s*/i,'');
 const isTitle=t=>{t=normalize(t);return t.length>3&&/,\s*\d+\s*$/.test(t)};
 
-function success(message){
-    document.querySelector('.yodawy-copy-success')?.remove();
-    const p=document.createElement('div');
-    p.className='yodawy-copy-success';
-    p.textContent=`✓ ${message}`;
-    document.body.appendChild(p);
-    setTimeout(()=>{
-        p.style.opacity='0';
-        p.style.transition='opacity .2s ease';
-        setTimeout(()=>p.remove(),200);
-    },1200);
+function success(message) {
+    if (state.destroyed) return;
+
+    document.querySelectorAll('.yodawy-copy-success').forEach(item => item.remove());
+
+    const popup = document.createElement('div');
+    popup.className = 'yodawy-copy-success';
+    popup.textContent = `✓ ${message}`;
+    document.body.appendChild(popup);
+
+    schedule(() => {
+        popup.style.opacity = '0';
+        popup.style.transition = 'opacity .2s ease';
+        schedule(() => popup.remove(), 200);
+    }, 1200);
 }
 
 async function copy(text,message){
+    if(state.destroyed)return;
+
     if(navigator.clipboard&&window.isSecureContext){
         await navigator.clipboard.writeText(text);
     }else{
@@ -213,6 +271,7 @@ async function getPrices(rows){
             method:'POST',
             headers:{'Content-Type':'application/json'},
             credentials:'same-origin',
+            signal:state.controller?.signal,
             body:JSON.stringify({
                 jsonrpc:'2.0',
                 method:'call',
@@ -271,6 +330,8 @@ async function getPrices(rows){
         });
 
     }catch{
+        if(state.destroyed)return;
+
         rows.forEach(row=>{
             const cell=row.querySelector('.yodawy-price');
 
@@ -353,85 +414,94 @@ function processTables(){
     });
 }
 
-function askCallStatus(){
-    return new Promise(resolve=>{
+function askCallStatus() {
+    return new Promise(resolve => {
+        if (state.destroyed) {
+            resolve(null);
+            return;
+        }
+
         document.getElementById('tm-alt-call-popup')?.remove();
 
-        const overlay=document.createElement('div');
-        overlay.id='tm-alt-call-popup';
+        const overlay = document.createElement('div');
+        overlay.id = 'tm-alt-call-popup';
 
-        const box=document.createElement('div');
-        box.className='tm-alt-call-box';
+        const box = document.createElement('div');
+        box.className = 'tm-alt-call-box';
 
-        const title=document.createElement('div');
-        title.className='tm-alt-call-title';
-        title.textContent='CALL STATUS';
+        const title = document.createElement('div');
+        title.className = 'tm-alt-call-title';
+        title.textContent = 'CALL STATUS';
 
-        const withCall=document.createElement('button');
-        withCall.className='tm-with-call';
-        withCall.textContent='WITH CALL';
+        const withCall = document.createElement('button');
+        withCall.className = 'tm-with-call';
+        withCall.textContent = 'WITH CALL';
 
-        const withoutCall=document.createElement('button');
-        withoutCall.className='tm-without-call';
-        withoutCall.textContent='WITHOUT CALL';
+        const withoutCall = document.createElement('button');
+        withoutCall.className = 'tm-without-call';
+        withoutCall.textContent = 'WITHOUT CALL';
 
-        const cancel=document.createElement('button');
-        cancel.className='tm-cancel';
-        cancel.textContent='CANCEL';
+        const cancel = document.createElement('button');
+        cancel.className = 'tm-cancel';
+        cancel.textContent = 'CANCEL';
 
-        let closed=false;
+        let closed = false;
 
-        const close=result=>{
-            if(closed)return;
+        const close = result => {
+            if (closed) return;
 
-            closed=true;
-            document.removeEventListener('keydown',keys,true);
+            closed = true;
+            document.removeEventListener('keydown', keys, true);
+            state.dialogs.delete(close);
             overlay.remove();
             resolve(result);
         };
 
-        const keys=e=>{
-            if(e.key==='Enter'){
-                e.preventDefault();
-                e.stopPropagation();
+        const keys = event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
                 withCall.click();
-            }else if(e.code==='Space'){
-                e.preventDefault();
-                e.stopPropagation();
+            } else if (event.code === 'Space') {
+                event.preventDefault();
+                event.stopPropagation();
                 withoutCall.click();
-            }else if(e.key==='Escape'){
-                e.preventDefault();
-                e.stopPropagation();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
                 cancel.click();
             }
         };
 
-        withCall.onclick=()=>close('WITH CALL');
-        withoutCall.onclick=()=>close('WITHOUT CALL');
-        cancel.onclick=()=>close(null);
+        withCall.onclick = () => close('WITH CALL');
+        withoutCall.onclick = () => close('WITHOUT CALL');
+        cancel.onclick = () => close(null);
 
-        box.append(title,withCall,withoutCall,cancel);
+        state.dialogs.add(close);
+        box.append(title, withCall, withoutCall, cancel);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
-        document.addEventListener('keydown',keys,true);
+        document.addEventListener('keydown', keys, true);
     });
 }
 
 async function textarea(timeout=5000){
-    const start=Date.now();
+    const started=Date.now();
 
-    while(Date.now()-start<timeout){
+    while(!state.destroyed&&Date.now()-started<timeout){
         const el=document.querySelector('.o_ComposerTextInput_textarea');
 
         if(el)return el;
 
-        await new Promise(r=>setTimeout(r,100));
+        if(!await delay(100))return null;
     }
 
     return null;
 }
 
 async function openLog(){
+    if(state.destroyed)return null;
+
     const el=document.querySelector('.o_ComposerTextInput_textarea');
 
     if(el)return el;
@@ -446,6 +516,8 @@ async function openLog(){
 }
 
 function append(el,text){
+    if(state.destroyed||!el)return;
+
     const value=el.value?.trim()
         ?`${el.value.trimEnd()}\n\n${text}`
         :text;
@@ -465,10 +537,11 @@ function append(el,text){
 }
 
 async function addAll(drugs){
-    if(!drugs?.length)return;
+    if(state.destroyed||!drugs?.length)return;
 
     const el=await openLog();
 
+    if(state.destroyed)return;
     if(!el)return alert('Log Note box was not found.');
 
     append(
@@ -480,12 +553,15 @@ async function addAll(drugs){
 }
 
 async function withoutAlt(drug){
+    if(state.destroyed)return;
+
     const status=await askCallStatus();
 
-    if(!status)return;
+    if(!status||state.destroyed)return;
 
     const el=await openLog();
 
+    if(state.destroyed)return;
     if(!el)return alert('Log Note box was not found.');
 
     append(
@@ -495,12 +571,15 @@ async function withoutAlt(drug){
 }
 
 async function alternative(drug,alt){
+    if(state.destroyed)return;
+
     const status=await askCallStatus();
 
-    if(!status)return;
+    if(!status||state.destroyed)return;
 
     const el=await openLog();
 
+    if(state.destroyed)return;
     if(!el)return alert('Log Note box was not found.');
 
     append(
@@ -515,6 +594,12 @@ function build(body){
     const data=sections(body);
 
     if(!data.length)return;
+
+    state.originals.set(body, {
+        html: body.innerHTML,
+        done: body.dataset.yodawyAccordionDone,
+        drugs: body._yodawyLimitedDrugs
+    });
 
     body.dataset.yodawyAccordionDone='1';
 
@@ -621,34 +706,133 @@ function build(body){
 }
 
 function scan(){
+    if(state.destroyed)return;
+
     document.querySelectorAll('.o_Message_prettyBody').forEach(build);
     processTables();
 }
 
-document.addEventListener('click',async e=>{
-    const cell=e.target.closest(`.${ALT_CLASS}`);
 
-    if(!cell)return;
+const events = {
+    async click(event) {
+        if (state.destroyed) return;
 
-    e.preventDefault();
-    e.stopPropagation();
+        const target = event.target;
+        if (!(target instanceof Element)) return;
 
-    const drug=clean(cell.dataset.limitedDrug);
-    const alt=clean(cell.dataset.alternative);
+        const cell = target.closest(`.${ALT_CLASS}`);
+        if (!cell) return;
 
-    if(drug&&alt)await alternative(drug,alt);
-},true);
+        event.preventDefault();
+        event.stopPropagation();
 
-scan();
+        const drug = clean(cell.dataset.limitedDrug);
+        const alt = clean(cell.dataset.alternative);
 
-let timer;
+        if (drug && alt) await alternative(drug, alt);
+    }
+};
 
-new MutationObserver(()=>{
-    clearTimeout(timer);
-    timer=setTimeout(scan,150);
-}).observe(document.body,{
-    childList:true,
-    subtree:true
-});
+const instance = {
+    id: TOOL_ID,
+    path: TOOL_PATH,
 
-})();
+    init() {
+        if (state.destroyed) return false;
+        if (state.initialized) return true;
+        if (!document.body || !document.head) return false;
+
+        state.initialized = true;
+        state.controller = new AbortController();
+
+        addStyle();
+
+        document.addEventListener('click', events.click, {
+            capture: true,
+            signal: state.controller.signal
+        });
+
+        state.observer = new MutationObserver(() => {
+            if (state.destroyed) return;
+
+            clearSchedule(state.scanTimer);
+            state.scanTimer = schedule(() => {
+                state.scanTimer = null;
+                scan();
+            }, 150);
+        });
+
+        state.observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        scan();
+
+        return true;
+    },
+
+    async destroy() {
+        if (state.destroyed) return true;
+
+        state.destroyed = true;
+        state.controller?.abort();
+        state.controller = null;
+
+        state.observer?.disconnect();
+        state.observer = null;
+
+        for (const timer of state.timers) clearTimeout(timer);
+        state.timers.clear();
+
+        for (const resolve of state.waiters.values()) resolve(false);
+        state.waiters.clear();
+
+        for (const close of [...state.dialogs]) close(null);
+        state.dialogs.clear();
+
+        for (const [body, original] of state.originals) {
+            if (!body.isConnected) continue;
+
+            body.innerHTML = original.html;
+
+            if (original.done === undefined) {
+                delete body.dataset.yodawyAccordionDone;
+            } else {
+                body.dataset.yodawyAccordionDone = original.done;
+            }
+
+            if (original.drugs === undefined) {
+                delete body._yodawyLimitedDrugs;
+            } else {
+                body._yodawyLimitedDrugs = original.drugs;
+            }
+        }
+
+        state.originals.clear();
+
+        document.querySelectorAll('.yodawy-copy-success, #tm-alt-call-popup').forEach(item => item.remove());
+        document.getElementById(STYLE_ID)?.remove();
+
+        state.scanTimer = null;
+        state.initialized = false;
+
+        return true;
+    },
+
+    get status() {
+        return state.destroyed ? 'STOPPED' : state.initialized ? 'RUNNING' : 'IDLE';
+    }
+};
+
+registry[TOOL_ID] = instance;
+
+try {
+    if (instance.init() !== true) {
+        throw new Error('Limited Drug Accordion initialization failed.');
+    }
+} catch (error) {
+    instance.destroy();
+    delete registry[TOOL_ID];
+    throw error;
+}})();
