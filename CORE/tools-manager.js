@@ -142,11 +142,9 @@
     const getRegistry = () => {
         const registry = page[CONFIG.REGISTRY_NAME];
 
-        if (!registry || typeof registry !== 'object') {
-            return null;
-        }
-
-        return registry;
+        return registry && typeof registry === 'object'
+            ? registry
+            : null;
     };
 
     const canLoad = (tool, dependencies) => {
@@ -274,7 +272,9 @@
         const ids = [...loadedTools.keys()];
         const results = await Promise.allSettled(ids.map(stop));
 
-        return results.every(result => result.status === 'fulfilled' && result.value === true);
+        return results.every(result =>
+            result.status === 'fulfilled' && result.value === true
+        );
     };
 
     const getManifest = () => {
@@ -302,7 +302,7 @@
         });
     };
 
-    const API = Object.freeze({
+    global.YODAWY_TOOLS_MANAGER = Object.freeze({
         version: 2,
         loadManifest,
         sync,
@@ -316,7 +316,5 @@
         isLoaded,
         isInitialized: () => initialized
     });
-
-    global.YODAWY_TOOLS_MANAGER = API;
 
 })(window);
