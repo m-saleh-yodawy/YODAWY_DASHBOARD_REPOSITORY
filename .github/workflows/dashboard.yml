@@ -908,20 +908,19 @@ jobs:
                   if not isinstance(u, dict):
                       continue
                   uid = norm_id(u.get("id"))
-                  if not uid or uid not in active_ids:
-                      continue
                   role = norm_role(u.get("role") or u.get("ROLE"))
-                  is_super = role == "SUPER_ADMIN"
+                  if not uid or uid not in active_ids or role not in {"ADMIN", "USER"}:
+                      continue
                   u_perms = permissions.get(uid) if isinstance(permissions.get(uid), dict) else {}
                   new_u_perms = {}
                   for tid in tool_ids:
                       cur = u_perms.get(tid)
                       if not isinstance(cur, dict):
-                          new_u_perms[tid] = {"granted": is_super, "forcedState": False, "type": "SUPER_ADMIN" if is_super else "ADMIN"}
+                          new_u_perms[tid] = {"granted": False, "forcedState": False, "type": "ADMIN"}
                       else:
                           forced = bool(cur.get("forcedState", False))
-                          granted = bool(cur.get("granted", is_super))
-                          p_type = "SUPER_ADMIN" if (forced or is_super or str(cur.get("type", "")).upper() == "SUPER_ADMIN") else "ADMIN"
+                          granted = bool(cur.get("granted", False))
+                          p_type = "SUPER_ADMIN" if (forced or str(cur.get("type", "")).upper() == "SUPER_ADMIN") else "ADMIN"
                           new_u_perms[tid] = {
                               "granted": granted,
                               "forcedState": forced,
