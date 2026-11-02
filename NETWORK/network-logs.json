@@ -7,10 +7,10 @@
       "sequence": "1793592599398300655",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "ADD_USER",
-      "status": "SENT",
+      "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-02T04:10:23Z",
-      "updatedAt": "2026-11-02T04:10:23Z"
+      "updatedAt": "2026-11-02T04:11:57Z"
     }
   }
 }
