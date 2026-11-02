@@ -162,14 +162,15 @@
         showError(code, title, message);
     };
 
-    const execute = (source, name) => {
+    const execute = (source, name, roleContext = null) => {
         if (typeof source !== 'string' || !source.trim()) {
             throw createError(`Empty engine: ${name}`);
         }
 
-        new Function('window', 'document', source)(
+        new Function('window', 'document', 'YODAWY', source)(
             RUNTIME,
-            document
+            document,
+            roleContext
         );
     };
 
@@ -349,17 +350,14 @@
 
         RUNTIME.YODAWY = YODAWY;
 
-        execute(
-            `(${function (YODAWY, window, document, source) {
-                return new Function(
-                    'YODAWY',
-                    'window',
-                    'document',
-                    source
-                )(YODAWY, window, document);
-            }.toString()})(YODAWY, window, document, ${JSON.stringify(engineSource)});`,
-            enginePath
-        );
+        try {
+            execute(engineSource, enginePath, YODAWY);
+        } catch (error) {
+            throw createError(
+                `Role engine execution failed: ${error?.message || 'Unknown execution error'}`,
+                'ENGINE_INIT_FAILED'
+            );
+        }
 
         if (typeof YODAWY.init !== 'function') {
             throw createError(
