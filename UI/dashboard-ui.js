@@ -809,15 +809,19 @@
                 trackBackground((async () => {
                     try {
                         await context.settings.save(updated);
-                        await appendNetworkActivity({
-                            action: 'UPDATE_DASHBOARD_SETTINGS',
-                            summary: 'UPDATE DASHBOARD SETTINGS'
-                        });
-                        showNotice('Personal settings saved and NETWORK activity recorded.');
+                        try {
+                            await appendNetworkActivity({
+                                action: 'UPDATE_DASHBOARD_SETTINGS',
+                                summary: 'UPDATE DASHBOARD SETTINGS'
+                            });
+                            showNotice('Personal settings saved and NETWORK activity recorded.');
+                        } catch (error) {
+                            showMessageDialog('Settings Saved · Activity Not Logged', 'Your personal settings were saved successfully, but NETWORK activity could not be recorded: ' + (error?.message || 'Unknown error.'));
+                        }
                         render();
                     } catch (error) {
                         render();
-                        showMessageDialog('Settings Update Needs Attention', error?.message || 'Unable to complete the settings update or record its activity.');
+                        showMessageDialog('Settings Not Saved', error?.message || 'Unable to save personal settings.');
                     }
                 })());
             } else if (action === 'toggle-my-tool') {
