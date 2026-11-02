@@ -2,6 +2,16 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-01T22:50:30Z",
   "transactions": {
+    "DASH-USERS-1793584340619-TSMB5SUTWH": {
+      "requestId": "DASH-USERS-1793584340619-TSMB5SUTWH",
+      "sequence": "1793584340619198064",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T01:52:43Z",
+      "updatedAt": "2026-11-02T01:52:43Z"
+    },
     "DASH-USERS-1793583075379-YSYP3AH5I1": {
       "requestId": "DASH-USERS-1793583075379-YSYP3AH5I1",
       "sequence": "1793583075379693599",
