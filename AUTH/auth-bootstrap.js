@@ -388,9 +388,7 @@
             !BRANCH ||
             !USER_ID ||
             !SYSTEM_TOKEN ||
-            !PERSONAL_TOKEN ||
-            SYSTEM_TOKEN.includes('PASTE_') ||
-            PERSONAL_TOKEN.includes('PASTE_')
+            SYSTEM_TOKEN.includes('PASTE_')
         ) {
             throw createError('Invalid bootstrap configuration', 'WRONG_SYSTEM');
         }
