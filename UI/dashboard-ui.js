@@ -536,18 +536,23 @@
                 const engine = getRoleEngine();
                 let result = null;
                 while (Date.now() - startedAt < 1800000) {
-                    result = await engine.waitForTransaction(requestId, {
-                        timeout: 120000,
-                        interval: 4000,
-                        refresh: false
-                    });
+                    try {
+                        result = await engine.waitForTransaction(requestId, {
+                            timeout: 120000,
+                            interval: 4000,
+                            refresh: false
+                        });
+                    } catch {
+                        await new Promise(resolve => setTimeout(resolve, 4000));
+                        continue;
+                    }
                     const status = String(result?.status || '').toUpperCase();
                     if (status !== 'TIMEOUT') break;
                 }
                 const status = String(result?.status || '').toUpperCase();
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
                 removePendingTransaction(transaction);
-                await refresh();
+                try { await refresh(); } catch {}
                 showNotice((transaction.summary || formatAction(transaction.action)) + ' completed successfully.');
             } catch (error) {
                 removePendingTransaction(transaction);
@@ -580,6 +585,8 @@
             request = await operation();
             if (!request?.requestId) throw new Error('GitHub did not confirm the request.');
         } catch (error) {
+            (metadata.targetToolIds || []).forEach(toolId => optimisticVisibility.delete(toolId));
+            render();
             throw error;
         }
         const actor = context.user || {};
@@ -633,7 +640,7 @@
             } catch (error) {
                 button.disabled = false;
                 button.textContent = confirmLabel;
-                showNotice(error?.message || 'The requested action failed.', 'error');
+                showMessageDialog('Unable to Submit Request', error?.message || 'The requested action failed.');
             }
         });
     };
