@@ -3,17 +3,18 @@
 
     if (global.YODAWY_TOOLS_MANAGER) return;
 
-    const CONFIG = {
+    const CONFIG = Object.freeze({
         MANIFEST_PATH: 'TOOLS_CACHE/tools-manifest.json',
         REGISTRY_NAME: 'YODAWY_TOOL_INSTANCES'
-    };
+    });
+
+    const page = document.defaultView || global;
+    const loadedTools = new Map();
+    const pendingTools = new Map();
 
     let manifest = [];
     let initialized = false;
     let syncing = false;
-
-    const loadedTools = new Map();
-    const pendingTools = new Map();
 
     const createError = message => {
         const error = new Error(message);
@@ -64,6 +65,16 @@
         return normalized;
     };
 
+    const normalizeHash = hash => {
+        const value = String(hash || '').trim().toLowerCase().replace(/^sha256-/, '');
+
+        if (!/^[a-f0-9]{64}$/.test(value)) {
+            throw createError('Tool manifest contains an invalid SHA-256 hash');
+        }
+
+        return value;
+    };
+
     const validateManifest = data => {
         if (!data || !Array.isArray(data.tools)) {
             throw createError('Invalid tools manifest structure');
@@ -80,6 +91,7 @@
             const id = String(tool.id || '').trim();
             const name = String(tool.name || '').trim();
             const path = normalizePath(tool.path || tool.file);
+            const sha256 = normalizeHash(tool.sha256);
 
             if (!id || !name || ids.has(id) || paths.has(path)) {
                 throw createError('Missing or duplicate tool ID, name, or path');
@@ -92,7 +104,8 @@
                 ...tool,
                 id,
                 name,
-                path
+                path,
+                sha256
             });
         });
     };
@@ -126,6 +139,16 @@
         return tool;
     };
 
+    const getRegistry = () => {
+        const registry = page[CONFIG.REGISTRY_NAME];
+
+        if (!registry || typeof registry !== 'object') {
+            return null;
+        }
+
+        return registry;
+    };
+
     const canLoad = (tool, dependencies) => {
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
@@ -140,16 +163,6 @@
         );
     };
 
-    const getRegistry = () => {
-        const registry = global[CONFIG.REGISTRY_NAME];
-
-        if (!registry || typeof registry !== 'object') {
-            return null;
-        }
-
-        return registry;
-    };
-
     const stop = async toolId => {
         const instance = loadedTools.get(toolId);
 
@@ -158,15 +171,28 @@
         const registry = getRegistry();
         const registered = registry?.[toolId];
 
-        try {
-            if (typeof registered?.destroy === 'function') {
-                await registered.destroy();
-            }
-        } finally {
-            loadedTools.delete(toolId);
+        if (typeof registered?.destroy !== 'function') {
+            instance.destroyable = false;
+            return false;
         }
 
-        return true;
+        const { LOADER } = getDependencies();
+
+        try {
+            await registered.destroy();
+
+            if (registry[toolId] === registered) {
+                delete registry[toolId];
+            }
+
+            LOADER.clear(instance.path);
+
+            loadedTools.delete(toolId);
+
+            return true;
+        } catch (error) {
+            throw createError(`Failed to stop tool ${toolId}: ${error.message}`);
+        }
     };
 
     const start = async tool => {
@@ -181,12 +207,18 @@
 
             if (!canLoad(tool, dependencies)) return false;
 
-            await dependencies.LOADER.load(tool.path);
+            const result = await dependencies.LOADER.load(tool.path, {
+                toolId: tool.id,
+                sha256: tool.sha256
+            });
 
             loadedTools.set(tool.id, {
                 id: tool.id,
+                name: tool.name,
                 path: tool.path,
-                loadedAt: Date.now()
+                loadedAt: result.loadedAt,
+                registered: result.registered,
+                destroyable: result.destroyable
             });
 
             return true;
@@ -209,8 +241,7 @@
             return start(tool);
         }
 
-        await stop(toolId);
-        return false;
+        return stop(toolId);
     };
 
     const sync = async () => {
@@ -224,14 +255,12 @@
 
         try {
             const dependencies = getDependencies();
-            const results = [];
 
             for (const tool of manifest) {
                 if (canLoad(tool, dependencies)) {
-                    results.push(await start(tool));
+                    await start(tool);
                 } else {
                     await stop(tool.id);
-                    results.push(false);
                 }
             }
 
@@ -245,7 +274,7 @@
         const ids = [...loadedTools.keys()];
         const results = await Promise.allSettled(ids.map(stop));
 
-        return results.every(result => result.status === 'fulfilled');
+        return results.every(result => result.status === 'fulfilled' && result.value === true);
     };
 
     const getManifest = () => {
@@ -261,20 +290,24 @@
 
     const getStatus = toolId => {
         const tool = getTool(toolId);
+        const loaded = loadedTools.get(toolId);
 
         return Object.freeze({
             id: tool.id,
             name: tool.name,
-            loaded: loadedTools.has(toolId),
+            loaded: Boolean(loaded),
+            registered: loaded?.registered || false,
+            destroyable: loaded?.destroyable || false,
             path: tool.path
         });
     };
 
     const API = Object.freeze({
-        version: 1,
+        version: 2,
         loadManifest,
         sync,
         syncTool,
+        start: async toolId => start(getTool(toolId)),
         stop,
         stopAll,
         getManifest,
