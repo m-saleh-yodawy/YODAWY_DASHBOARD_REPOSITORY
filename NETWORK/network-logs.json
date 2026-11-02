@@ -11,6 +11,16 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-02T01:39:52Z",
       "updatedAt": "2026-11-02T01:39:52Z"
+    },
+    "DASH-USERS-CONFIRMATION-TOOL-Q001-20261102-001": {
+      "requestId": "DASH-USERS-CONFIRMATION-TOOL-Q001-20261102-001",
+      "sequence": "20261102042845001",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T01:39:56Z",
+      "updatedAt": "2026-11-02T01:39:56Z"
     }
   }
 }
