@@ -279,6 +279,14 @@ jobs:
                       metadata["targetId"] = user_ids[0]
                       user_name = str(users_by_id.get(user_ids[0], {}).get("name") or user_ids[0])
                       metadata["targetName"] = user_name
+                  if len(changes) == 1:
+                      single_record = json.loads(changes[0][2])
+                      if "forcedState" in single_record:
+                          metadata["permissionField"] = "forcedState"
+                          metadata["permissionValue"] = single_record.get("forcedState")
+                      elif "granted" in single_record:
+                          metadata["permissionField"] = "granted"
+                          metadata["permissionValue"] = single_record.get("granted")
                   labels = []
                   for uid, tid, raw_record in changes[:4]:
                       record = json.loads(raw_record)
@@ -330,10 +338,12 @@ jobs:
                       "createdAt": c_at,
                       "updatedAt": u_at,
                   }
-                  for opt in ("parentRequestId", "actorName", "summary", "targetId", "targetName", "targetRole", "targetToolId", "error", "cleanup"):
+                  for opt in ("parentRequestId", "actorName", "summary", "targetId", "targetName", "targetRole", "targetToolId", "permissionField", "error", "cleanup"):
                       val = v.get(opt) or (v.get("lastError") if opt == "error" else (v.get("targetUserId") if opt == "targetId" else None))
                       if val:
                           rec[opt] = str(val).strip()[:240]
+                  if isinstance(v.get("permissionValue"), bool):
+                      rec["permissionValue"] = v["permissionValue"]
                   for opt in ("targetToolIds", "targetUserIds"):
                       values = v.get(opt)
                       if isinstance(values, list):
