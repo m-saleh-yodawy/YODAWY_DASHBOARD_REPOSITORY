@@ -318,17 +318,38 @@
 
     
         const renderUsers = () => {
-        const users = getUsers();
+        const baseUsers = getUsers();
+        const pendingAdds = getPendingTransactions().filter(item => String(item.action || '').toUpperCase() === 'ADD_USER' && item.targetName);
+        const knownNames = new Set(baseUsers.map(user => String(user.name || '').trim().toLocaleLowerCase()));
+        const syntheticUsers = pendingAdds.filter(item => !knownNames.has(String(item.targetName || '').trim().toLocaleLowerCase())).map(item => ({
+            id: 'PENDING-' + String(item.sequence || '').trim(),
+            name: item.targetName,
+            role: item.targetRole || 'USER',
+            status: 'Active',
+            repository: 'PENDING',
+            _pending: true,
+            _transaction: item
+        }));
+        const users = [...baseUsers, ...syntheticUsers];
         const isAdmin = context.userRole === 'ADMIN';
         const currentUserId = String(context.userId || context.user?.id || '').trim().toUpperCase();
         const roleDescription = isAdmin ? 'Manage USER accounts and their basic account details.' : 'Manage registered accounts and their dashboard roles.';
         const rows = users.map(user => {
             const id = String(user.id || '');
             const isSelf = id.trim().toUpperCase() === currentUserId;
-            const canDelete = !isAdmin && !(context.userRole === 'SUPER_ADMIN' && isSelf);
-            const editButton = context.userRole === 'SUPER_ADMIN' && isSelf ? '' : '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"><i class="fa-solid fa-pen-to-square"></i></button>';
-            const deleteButton = canDelete ? '<button type="button" class="yd-icon-btn danger" data-action="delete-user" data-id="' + escapeHTML(id) + '" title="Delete user" aria-label="Delete user"><i class="fa-solid fa-trash-can"></i></button>' : '';
-            return '<tr><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(id) + '</span></td><td><span class="yd-pill">' + escapeHTML(user.role) + '</span></td><td><span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span></td><td><span class="yd-repository-name">' + escapeHTML(String(user.repository || 'Provisioning').toUpperCase()) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
+            const pending = user._pending ? user._transaction : getPendingUser(user);
+            const pendingAction = String(pending?.action || '').toUpperCase();
+            const pendingLabel = pendingAction === 'ADD_USER' ? 'Adding' : pendingAction === 'DELETE_USER' ? 'Deleting' : 'Updating';
+            const canDelete = !isAdmin && !(context.userRole === 'SUPER_ADMIN' && isSelf) && !user._pending;
+            const editButton = !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf)
+                ? '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"' + (pending ? ' disabled' : '') + '><i class="fa-solid fa-pen-to-square"></i></button>'
+                : '';
+            const deleteButton = canDelete
+                ? '<button type="button" class="yd-icon-btn danger" data-action="delete-user" data-id="' + escapeHTML(id) + '" title="Delete user" aria-label="Delete user"' + (pending ? ' disabled' : '') + '><i class="fa-solid fa-trash-can"></i></button>'
+                : '';
+            const status = pending ? renderPendingBadge(pendingLabel) : '<span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span>';
+            const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
+            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td><span class="yd-pill">' + escapeHTML(user.role) + '</span></td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div><button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
@@ -337,7 +358,7 @@
     };
 
     
-        const renderPermissions = () => {
+    const renderPermissions = () => {
         const allUsers = getUsers();
         const isSuperAdmin = context.userRole === 'SUPER_ADMIN';
         const users = allUsers.filter(user => isSuperAdmin ? ['ADMIN', 'USER'].includes(String(user.role).toUpperCase()) : String(user.role).toUpperCase() === 'USER');
@@ -352,15 +373,19 @@
                 const rows = tools.map(tool => {
                     const record = userPermissions[tool.id] || {};
                     const granted = record.granted === true, forced = record.forcedState === true;
+                    const pending = getPendingPermission(userId, tool.id);
                     if (granted) grantedCount++;
                     if (forced) forcedCount++;
-                    const disabled = active ? '' : ' disabled';
+                    const disabled = active && !pending ? '' : ' disabled';
+                    const pendingBadge = pending ? renderPendingBadge('Queued') : '';
                     const permittedSwitch = '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + disabled + '><span class="yd-switch-knob"></span></button>';
                     const forcedSwitch = '<button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + disabled + '><span class="yd-switch-knob"></span></button>';
-                    return '<div class="yd-permission-row"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong><span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls"><div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + permittedSwitch + '</div><div class="yd-permission-control"><span class="yd-permission-label">Forced State</span>' + forcedSwitch + '</div></div></div>';
+                    return '<div class="yd-permission-row' + (pending ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls"><div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + permittedSwitch + '</div><div class="yd-permission-control"><span class="yd-permission-label">Forced State</span>' + forcedSwitch + '</div></div></div>';
                 }).join('');
                 const expanded = expandedUsers.has(userId) ? ' open' : '';
-                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(user.role) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body">' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
+                const userPending = getPendingUser(user);
+                const userBadge = userPending ? renderPendingBadge(String(userPending.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
+                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(user.role) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body">' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
             }).join('');
             return '<section class="yd-welcome"><div><h1>Shared Tools</h1><p>Expand a user to manage tool access and forced states.</p></div><span class="yd-pill">SUPER ADMIN CONTROL</span></section><div class="yd-accordion-list">' + (items || '<div class="yd-empty">No eligible users found.</div>') + '</div>';
         }
@@ -368,7 +393,8 @@
             '<div class="yd-table-wrap"><table><thead><tr><th>User</th><th>Tool</th><th>Permitted</th><th>Forced State</th><th>Action</th></tr></thead><tbody>' +
             (users.flatMap(user => tools.map(tool => {
                 const record = permissions[user.id]?.[tool.id] || {};
-                return '<tr><td><strong>' + escapeHTML(formatName(user.name)) + '</strong><br>' + escapeHTML(user.id) + '</td><td>' + escapeHTML(tool.name) + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '">' + (record.granted ? 'Revoke' : 'Permit') + '</button></td></tr>';
+                const pending = getPendingPermission(user.id, tool.id);
+                return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (pending ? ' disabled' : '') + '>' + (record.granted ? 'Revoke' : 'Permit') + '</button></td></tr>';
             })).join('') || '<tr><td colspan="5" class="yd-empty">No eligible users or visible tools.</td></tr>') + '</tbody></table></div>';
     };
 
@@ -383,24 +409,33 @@
             const record = visibilityMap[tool.id] || { visibility: 'PRIVATE', allowedUsers: [] };
             const allowed = Array.isArray(record.allowedUsers) ? record.allowedUsers : [];
             const id = escapeHTML(tool.id);
+            const pending = getPendingVisibility(tool.id);
             const selectionLabel = record.visibility === 'PUBLIC' ? 'All Users' : allowed.length ? allowed.length + ' Selected' : 'No Users Selected';
             const scope = record.visibility === 'PUBLIC' ? 'PUBLIC' : 'SELECTED_USERS';
-            return '<tr><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + id + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td>' +
-                '<td><div class="yd-access-controls"><select class="yd-select" data-visibility="' + id + '"><option value="PUBLIC" ' + (scope === 'PUBLIC' ? 'selected' : '') + '>All Users</option><option value="SELECTED_USERS" ' + (scope === 'SELECTED_USERS' ? 'selected' : '') + '>Selected Users</option></select><button type="button" class="yd-user-picker" data-action="open-visibility-users" data-tool="' + id + '"><span class="yd-user-picker-icon"><i class="fa-solid fa-users"></i></span><span class="yd-user-picker-copy"><strong>Select Users</strong><small>' + escapeHTML(selectionLabel) + '</small></span><i class="fa-solid fa-chevron-down yd-user-picker-arrow"></i></button></div></td></tr>';
+            const scopeDropdown = renderDropdown('', scope, [
+                { value: 'PUBLIC', label: 'All Users' },
+                { value: 'SELECTED_USERS', label: 'Selected Users' }
+            ], { 'data-change': 'visibility', 'data-tool': id }, Boolean(pending));
+            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + id + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td>' +
+                '<td><div class="yd-access-controls">' + scopeDropdown + '<button type="button" class="yd-user-picker" data-action="open-visibility-users" data-tool="' + id + '"><span class="yd-user-picker-icon"><i class="fa-solid fa-users"></i></span><span class="yd-user-picker-copy"><strong>Select Users</strong><small>' + escapeHTML(selectionLabel) + '</small></span>' + (pending ? renderPendingBadge('Pending') : '<i class="fa-solid fa-chevron-down yd-user-picker-arrow"></i>') + '</button></div></td></tr>';
         }).join('');
         const selectedTool = toolList.find(tool => tool.id === openVisibilityToolId);
         const selectedRecord = selectedTool ? visibilityMap[selectedTool.id] || { visibility: 'PRIVATE', allowedUsers: [] } : null;
         const draft = selectedTool && visibilityDraft?.toolId === selectedTool.id ? visibilityDraft : null;
+        const pendingVisibility = selectedTool ? getPendingVisibility(selectedTool.id) : null;
         const selectedIds = new Set(draft ? [...draft.allowedUsers] : (selectedRecord?.allowedUsers || []).map(id => String(id).trim().toUpperCase()));
         const allUsersSelected = draft ? draft.allUsers : selectedRecord?.visibility === 'PUBLIC';
         const modalRows = selectedTool ? users.map(user => {
             const id = String(user.id || '').trim().toUpperCase();
             const active = String(user.status || '').toLowerCase() === 'active';
             const selected = allUsersSelected || selectedIds.has(id);
-            return '<div class="yd-visibility-user-row"><span class="yd-visibility-user-info"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(id) + ' · ' + escapeHTML(user.role) + (active ? '' : ' · INACTIVE') + '</small></span><button type="button" class="yd-switch ' + (selected ? 'on' : '') + '" data-action="toggle-visibility-user" data-tool="' + escapeHTML(selectedTool.id) + '" data-user="' + escapeHTML(id) + '" data-selected="' + String(selected) + '" ' + (active ? '' : 'disabled') + ' role="switch" aria-checked="' + String(selected) + '" aria-label="Allow ' + escapeHTML(formatName(user.name)) + '"><span class="yd-switch-knob"></span></button></div>';
+            return '<div class="yd-visibility-user-row' + (pendingVisibility ? ' is-pending' : '') + '"><span class="yd-visibility-user-info"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(id) + ' · ' + escapeHTML(user.role) + (active ? '' : ' · INACTIVE') + '</small></span><button type="button" class="yd-switch ' + (selected ? 'on' : '') + '" data-action="toggle-visibility-user" data-tool="' + escapeHTML(selectedTool.id) + '" data-user="' + escapeHTML(id) + '" data-selected="' + String(selected) + '" ' + (active && !pendingVisibility ? '' : 'disabled') + ' role="switch" aria-checked="' + String(selected) + '" aria-label="Allow ' + escapeHTML(formatName(user.name)) + '"><span class="yd-switch-knob"></span></button></div>';
         }).join('') : '';
         const countLabel = allUsersSelected ? users.length + ' users included' : selectedIds.size + ' selected';
-        const modal = selectedTool ? '<div class="yd-modal-backdrop yd-visibility-backdrop" id="yd-visibility-users-backdrop"><section class="yd-modal yd-visibility-users-modal" role="dialog" aria-modal="true" aria-labelledby="yd-visibility-users-title"><header class="yd-visibility-modal-header"><div><h3 id="yd-visibility-users-title">Allowed Users</h3><p>' + escapeHTML(selectedTool.name) + '</p></div><button type="button" class="yd-icon-btn" data-action="close-visibility-users" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></header><div class="yd-visibility-modal-note"><i class="fa-solid fa-circle-info"></i><span>Changes are saved together when you press Save.</span></div><div class="yd-visibility-user-list">' + (modalRows || '<div class="yd-empty">No users found.</div>') + '</div><footer class="yd-visibility-modal-footer"><span>' + escapeHTML(countLabel) + '</span><div class="yd-visibility-modal-footer-actions"><button type="button" class="yd-secondary" data-action="close-visibility-users">Cancel</button><button type="button" class="yd-primary" data-action="save-visibility-users">Save</button></div></footer></section></div>' : '';
+        const modalNote = pendingVisibility
+            ? '<i class="fa-solid fa-circle-info"></i><span>This tool is queued. Its access settings are locked until processing finishes.</span>' + renderPendingBadge('Pending')
+            : '<i class="fa-solid fa-circle-info"></i><span>Changes are saved together when you press Save.</span>';
+        const modal = selectedTool ? '<div class="yd-modal-backdrop yd-visibility-backdrop" id="yd-visibility-users-backdrop"><section class="yd-modal yd-visibility-users-modal" role="dialog" aria-modal="true" aria-labelledby="yd-visibility-users-title"><header class="yd-visibility-modal-header"><div><h3 id="yd-visibility-users-title">Allowed Users</h3><p>' + escapeHTML(selectedTool.name) + '</p></div><button type="button" class="yd-icon-btn" data-action="close-visibility-users" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></header><div class="yd-visibility-modal-note">' + modalNote + '</div><div class="yd-visibility-user-list">' + (modalRows || '<div class="yd-empty">No users found.</div>') + '</div><footer class="yd-visibility-modal-footer"><span>' + escapeHTML(countLabel) + '</span><div class="yd-visibility-modal-footer-actions"><button type="button" class="yd-secondary" data-action="close-visibility-users">Done</button><button type="button" class="yd-primary" data-action="save-visibility-users"' + (pendingVisibility ? ' disabled' : '') + '>Save</button></div></footer></section></div>' : '';
         return '<section class="yd-welcome"><div><h1>Allowed Users</h1><p>Choose which users can discover each tool. Select All Users or manage individual access.</p></div><span class="yd-pill blue">SUPER ADMIN CONTROL</span></section>' +
             '<div class="yd-table-card"><div class="yd-table-card-head"><div class="yd-table-card-title"><span class="yd-title-icon"><i class="fa-solid fa-users"></i></span><span>Tool Access (' + toolList.length + ')</span></div></div>' +
             '<div class="yd-table-responsive"><table><thead><tr><th style="width:70px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Allowed Users</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>' + modal;
@@ -418,7 +453,7 @@
         return '<section class="yd-welcome"><div><h1>Settings</h1><p>Personal dashboard preferences and workspace details.</p></div><button class="yd-primary" data-action="save-settings"><i class="fa-solid fa-cloud-arrow-up"></i><span>Save Settings</span></button></section>' +
             '<div class="yd-panel-grid"><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-sliders"></i></span><span>Personal Dashboard Preferences</span></div>' +
                 '<div class="yd-field"><label for="yd-display-name">Display Name</label><input id="yd-display-name" class="yd-input" value="' + escapeHTML(formatName(settings.displayName || user.name || '')) + '"></div>' +
-                '<div class="yd-field" style="margin-top:10px"><label for="yd-start-page">Default Start Section</label><select id="yd-start-page" class="yd-select"><option value="overview" ' + (settings.startPage !== 'tools' ? 'selected' : '') + '>Overview</option><option value="tools" ' + (settings.startPage === 'tools' ? 'selected' : '') + '>Tools</option></select></div>' +
+                '<div class="yd-field" style="margin-top:10px"><label for="yd-start-page">Default Start Section</label>' + renderDropdown('startPage', settings.startPage === 'tools' ? 'tools' : 'overview', [{ value: 'overview', label: 'Overview' }, { value: 'tools', label: 'Tools' }], { id: 'yd-start-page' }) + '</div>' +
             '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-database"></i></span><span>Repository & Account</span></div>' +
                 '<div class="yd-info-row"><span>Full Name</span><strong>' + escapeHTML(formatName(user.name || '—')) + '</strong></div>' +
                 '<div class="yd-info-row"><span>User ID</span><strong>' + escapeHTML(user.id || user.userId || context.userId || '—') + '</strong></div>' +
