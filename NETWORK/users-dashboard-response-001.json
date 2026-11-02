@@ -1,0 +1,65 @@
+{
+  "protocolVersion": 1,
+  "requestId": "USERS-PERS-20261102T005727Z-1AEBCD59",
+  "transactionId": "USERS-PERS-20261102T005727Z-1AEBCD59",
+  "sequence": "001",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "responseType": "USERS_DASHBOARD_RESPONSE",
+  "status": "COMPLETED",
+  "actor": {
+    "id": "SYSTEM",
+    "userId": "SYSTEM",
+    "role": "SYSTEM",
+    "verified": true
+  },
+  "action": "SYNC_USERS",
+  "user": null,
+  "users": [
+    {
+      "id": "Q-001",
+      "name": "MOHAMED SALEH",
+      "role": "SUPER_ADMIN",
+      "status": "Active",
+      "developer": false,
+      "repository": "Q-001_MOHAMED_SALEH"
+    }
+  ],
+  "permissions": {
+    "Q-001": {
+      "TOOL-001": {
+        "granted": true,
+        "forcedState": false,
+        "type": "SUPER_ADMIN"
+      },
+      "TOOL-002": {
+        "granted": true,
+        "forcedState": false,
+        "type": "SUPER_ADMIN"
+      },
+      "TOOL-003": {
+        "granted": true,
+        "forcedState": false,
+        "type": "SUPER_ADMIN"
+      }
+    }
+  },
+  "visibility": {
+    "TOOL-001": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "enabled": false
+    },
+    "TOOL-002": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "enabled": false
+    },
+    "TOOL-003": {
+      "visibility": "PRIVATE",
+      "allowedUsers": [],
+      "enabled": false
+    }
+  },
+  "processedAt": "2026-11-02T00:58:03Z",
+  "completedAt": "2026-11-02T00:58:03Z"
+}
