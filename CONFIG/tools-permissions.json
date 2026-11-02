@@ -1,7 +1,7 @@
 {
   "Q-001": {
     "TOOL-001": {
-      "granted": true,
+      "granted": false,
       "forcedState": true,
       "type": "SUPER_ADMIN"
     },
