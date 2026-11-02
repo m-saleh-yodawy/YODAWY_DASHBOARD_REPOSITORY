@@ -493,19 +493,35 @@
                 const updated = context.settings.getSettings();
                 updated.displayName = document.getElementById(CONFIG.ID).querySelector('#yd-display-name')?.value.trim() || context.user?.name || '';
                 updated.startPage = document.getElementById(CONFIG.ID).querySelector('#yd-start-page')?.value || 'overview';
-                setBusy(true, 'Saving personal dashboard settings...');
-                await context.settings.save(updated);
-                showNotice('Personal settings saved.');
-                render();
+                button.disabled = true;
+                showNotice('Saving personal dashboard settings in the background...');
+                trackBackground((async () => {
+                    try {
+                        await context.settings.save(updated);
+                        showNotice('Personal settings saved.');
+                        render();
+                    } catch (error) {
+                        button.disabled = false;
+                        showNotice(error?.message || 'Unable to save personal settings.', 'error');
+                    }
+                })());
             } else if (action === 'toggle-my-tool') {
                 const toolId = button.dataset.tool;
                 const nextEnabled = button.dataset.enabled !== 'true';
-                setBusy(true, (nextEnabled ? 'Enabling ' : 'Disabling ') + toolId + '...');
-                if (nextEnabled) await context.settings.enableTool(toolId);
-                else await context.settings.disableTool(toolId);
-                await context.tools.syncTool(toolId);
-                showNotice('Tool setting saved.');
-                render();
+                button.disabled = true;
+                showNotice((nextEnabled ? 'Enabling ' : 'Disabling ') + toolId + ' in the background...');
+                trackBackground((async () => {
+                    try {
+                        if (nextEnabled) await context.settings.enableTool(toolId);
+                        else await context.settings.disableTool(toolId);
+                        await context.tools.syncTool(toolId);
+                        showNotice('Tool setting saved.');
+                        render();
+                    } catch (error) {
+                        render();
+                        showNotice(error?.message || 'Unable to update tool setting.', 'error');
+                    }
+                })());
             } else if (action === 'add-user') {
                 openUserModal();
             } else if (action === 'edit-user') {
