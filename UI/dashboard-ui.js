@@ -584,12 +584,15 @@
         const editing = Boolean(user);
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
+        const roleDropdown = context.userRole === 'SUPER_ADMIN'
+            ? '<div class="yd-field"><label>Role</label>' + renderDropdown('role', user?.role || 'USER', [{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }, { value: 'SUPER_ADMIN', label: 'SUPER_ADMIN' }]) + '</div>'
+            : '';
+        const statusDropdown = '<div class="yd-field"><label>Status</label>' + renderDropdown('status', user?.status || 'Active', [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }]) + '</div>';
         overlay.innerHTML = '<form class="yd-modal" id="yd-user-form">' +
             '<h3>' + (editing ? 'Edit User' : 'Add User') + '</h3>' +
             '<div class="yd-form-grid">' +
                 '<div class="yd-field"><label>Full Name</label><input name="name" required value="' + escapeHTML(formatName(user?.name || '')) + '" placeholder="Employee full name"></div>' +
-                (context.userRole === 'SUPER_ADMIN' ? '<div class="yd-field"><label>Role</label><select name="role"><option value="USER" ' + (user?.role === 'USER' ? 'selected' : '') + '>USER</option><option value="ADMIN" ' + (user?.role === 'ADMIN' ? 'selected' : '') + '>ADMIN</option><option value="SUPER_ADMIN" ' + (user?.role === 'SUPER_ADMIN' ? 'selected' : '') + '>SUPER_ADMIN</option></select></div>' : '') +
-                '<div class="yd-field"><label>Status</label><select name="status"><option value="Active" ' + (String(user?.status || 'Active').toLowerCase() === 'active' ? 'selected' : '') + '>Active</option><option value="Inactive" ' + (String(user?.status).toLowerCase() === 'inactive' ? 'selected' : '') + '>Inactive</option></select></div>' +
+                roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
         overlay.addEventListener('click', event => {
@@ -597,26 +600,58 @@
         });
         overlay.querySelector('form').addEventListener('submit', async event => {
             event.preventDefault();
-            if (busy) return;
             const form = new FormData(event.currentTarget);
             const payload = {
-                name: form.get('name'),
-                status: form.get('status'),
-                ...(context.userRole === 'SUPER_ADMIN' ? { role: form.get('role') } : {})
+                name: String(form.get('name') || '').trim(),
+                status: form.get('status') || 'Active',
+                ...(context.userRole === 'SUPER_ADMIN' ? { role: form.get('role') || 'USER' } : {})
             };
+            const normalizedName = payload.name.replace(/\s+/g, ' ').toLocaleLowerCase();
+            const duplicatePending = !editing && getPendingTransactions().find(item =>
+                String(item.action || '').toUpperCase() === 'ADD_USER' &&
+                String(item.targetName || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase() === normalizedName
+            );
+            if (duplicatePending) {
+                showMessageDialog('User Already Queued', formatName(payload.name) + ' is already being created. Wait for that request to finish before submitting another one.');
+                return;
+            }
             const engine = getRoleEngine();
+            const metadata = {
+                action: editing ? 'UPDATE_USER' : 'ADD_USER',
+                targetId: editing ? user.id : '',
+                targetName: payload.name || formatName(user?.name || ''),
+                targetRole: payload.role || user?.role || 'USER',
+                summary: (editing ? 'UPDATE USER · ' : 'ADD USER · ') + formatName(payload.name || user?.name || '')
+            };
+            const submitButton = event.currentTarget.querySelector('[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Submitting</span>';
             try {
                 await runNetworkOperation(editing ? 'Updating user' : 'Creating user', () =>
-                    editing ? engine.editUser(user.id, payload) : engine.addUser(payload)
+                    editing ? engine.editUser(user.id, payload) : engine.addUser(payload), metadata
                 );
                 overlay.remove();
             } catch (error) {
-                showNotice(error?.message || 'Unable to submit user request.', 'error');
+                submitButton.disabled = false;
+                submitButton.textContent = editing ? 'Save Changes' : 'Create User';
+                showMessageDialog('Unable to submit user request', error?.message || 'The request could not be submitted.');
             }
         });
     };
 
     
+    const showMessageDialog = (title, message, type = 'error') => {
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><p>' + escapeHTML(message) + '</p><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
+        document.getElementById(CONFIG.ID)?.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay || event.target.closest('[data-message-close]')) close();
+        });
+    };
+
     const runAction = async (action, button) => {
         if (busy) return;
         try {
