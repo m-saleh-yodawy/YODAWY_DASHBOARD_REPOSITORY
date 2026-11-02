@@ -15,6 +15,16 @@
     },
     {
       "id": "TOOL-002",
+      "name": "ODOO >>> LIMITED DRUG ACCORDION",
+      "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
+      "version": "1",
+      "author": "Mohamed Saleh",
+      "path": "TOOLS_CACHE/TOOLS/limited-drug-accordion.js",
+      "file": "limited-drug-accordion.js",
+      "sha256": "8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23"
+    },
+    {
+      "id": "TOOL-003",
       "name": "PORTAL AUTO LOGIN",
       "description": "Unified Odoo to Portal login using YODAWY LOADER",
       "version": "1",
@@ -24,7 +34,7 @@
       "sha256": "6a163b61352e768fa34988ea133ebd69869d5d0d64ac0e6e24a41b431c4e277c"
     },
     {
-      "id": "TOOL-003",
+      "id": "TOOL-004",
       "name": "test",
       "description": "",
       "version": "",
@@ -32,16 +42,6 @@
       "path": "TOOLS_CACHE/TOOLS/test.js",
       "file": "test.js",
       "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-    },
-    {
-      "id": "TOOL-004",
-      "name": "ODOO >>> LIMITED DRUG ACCORDION",
-      "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
-      "version": "1",
-      "author": "Mohamed Saleh",
-      "path": "TOOLS_CACHE/TOOLS/limited-drug-accordion.js",
-      "file": "limited-drug-accordion.js",
-      "sha256": "8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23"
     }
   ]
 }
