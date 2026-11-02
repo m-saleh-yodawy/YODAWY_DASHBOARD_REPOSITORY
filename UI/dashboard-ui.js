@@ -28,6 +28,7 @@
     const backgroundTransactions = new Set();
     const localTransactions = new Map();
     const pendingLocalTools = new Map();
+    const trackedTransactions = new Set();
     let networkPage = 1;
     const NETWORK_PAGE_SIZE = 10;
 
@@ -93,7 +94,7 @@
         try { records = getRoleEngine()?.getTransactionHistory?.() || []; }
         catch {}
         const merged = new Map(records.map(record => [record.requestId || record.transactionId, record]));
-        for (const [id, record] of localTransactions) merged.set(id, { ...merged.get(id), ...record });
+        for (const [id, record] of localTransactions) merged.set(id, { ...record, ...merged.get(id) });
         return [...merged.values()].filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
     };
 
@@ -509,38 +510,91 @@
         return true;
     };
 
-    const runNetworkOperation = async (message, operation, onComplete, onFailure) => {
-        showNotice(message + ' is being submitted...');
+    const persistTransaction = transaction => {
+        localTransactions.set(transaction.requestId, transaction);
+        persistPendingTransactions();
+    };
+
+    const removePendingTransaction = transaction => {
+        if (!transaction?.requestId) return;
+        localTransactions.delete(transaction.requestId);
+        (transaction.targetToolIds || []).forEach(toolId => optimisticVisibility.delete(toolId));
+        persistPendingTransactions();
+    };
+
+    const monitorTransaction = transaction => {
+        const requestId = transaction?.requestId;
+        if (!requestId || trackedTransactions.has(requestId)) return;
+        trackedTransactions.add(requestId);
+        const task = (async () => {
+            const startedAt = Date.now();
+            try {
+                const engine = getRoleEngine();
+                let result = null;
+                while (Date.now() - startedAt < 1800000) {
+                    result = await engine.waitForTransaction(requestId, {
+                        timeout: 120000,
+                        interval: 4000,
+                        refresh: false
+                    });
+                    const status = String(result?.status || '').toUpperCase();
+                    if (status !== 'TIMEOUT') break;
+                }
+                const status = String(result?.status || '').toUpperCase();
+                if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
+                removePendingTransaction(transaction);
+                await refresh();
+                showNotice((transaction.summary || formatAction(transaction.action)) + ' completed successfully.');
+            } catch (error) {
+                removePendingTransaction(transaction);
+                try { await refresh(); } catch {}
+                showMessageDialog('Operation Failed', error?.message || 'The background operation failed. No changes were confirmed.');
+            } finally {
+                trackedTransactions.delete(requestId);
+            }
+        })();
+        trackBackground(task);
+    };
+
+    const resumePendingTransactions = () => {
+        const engine = getRoleEngine();
+        const serverRecords = engine?.getTransactionHistory?.() || [];
+        for (const item of serverRecords) {
+            if (!isPendingTransaction(item) || !item.requestId) continue;
+            const stored = localTransactions.get(item.requestId) || {};
+            const merged = { ...stored, ...item };
+            persistTransaction(merged);
+        }
+        for (const transaction of [...localTransactions.values()]) {
+            if (isPendingTransaction(transaction)) monitorTransaction(transaction);
+        }
+    };
+
+    const runNetworkOperation = async (message, operation, metadata = {}) => {
         let request;
         try {
             request = await operation();
             if (!request?.requestId) throw new Error('GitHub did not confirm the request.');
         } catch (error) {
-            onFailure?.(error);
             throw error;
         }
-        const engine = getRoleEngine();
-        if (typeof engine?.waitForTransaction !== 'function') throw new Error('Transaction monitoring is unavailable.');
-        showNotice(message + ' submitted. Processing continues in the background.');
-        const task = (async () => {
-            try {
-                const transaction = await engine.waitForTransaction(request.requestId, {
-                    timeout: 1800000,
-                    interval: 4000,
-                    refresh: false
-                });
-                const status = String(transaction?.status || '').toUpperCase();
-                if (status !== 'COMPLETED') throw new Error(transaction?.error || transaction?.message || ('GitHub operation ended with status ' + (status || 'UNKNOWN') + '.'));
-                onComplete?.(transaction);
-                await refresh();
-                showNotice(message + ' completed successfully.');
-            } catch (error) {
-                onFailure?.(error);
-                try { await refresh(); } catch {}
-                showNotice(error?.message || (message + ' failed.'), 'error');
-            }
-        })();
-        trackBackground(task);
+        const actor = context.user || {};
+        const transaction = {
+            ...metadata,
+            requestId: request.requestId,
+            sequence: request.sequence,
+            requestType: 'DASHBOARD_USERS_SYNC',
+            status: 'SENT',
+            actorId: String(context.userId || actor.id || actor.userId || '').trim().toUpperCase(),
+            actorName: formatName(actor.name || context.userId || ''),
+            createdAt: request.createdAt || new Date().toISOString(),
+            updatedAt: request.createdAt || new Date().toISOString()
+        };
+        if (!transaction.summary) transaction.summary = formatAction(transaction.action || message);
+        persistTransaction(transaction);
+        render();
+        showNotice(message + ' queued. You can continue working while it processes.');
+        monitorTransaction(transaction);
         return request;
     };
 
