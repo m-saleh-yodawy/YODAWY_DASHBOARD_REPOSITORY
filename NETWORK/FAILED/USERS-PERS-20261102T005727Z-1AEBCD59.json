@@ -1,0 +1,8 @@
+{
+  "protocolVersion": 1,
+  "requestId": "USERS-PERS-20261102T005727Z-1AEBCD59",
+  "sequence": "001",
+  "status": "FAILED",
+  "error": "Missing or mismatched original dashboard-users-request",
+  "failedAt": "2026-11-02T01:41:04Z"
+}
