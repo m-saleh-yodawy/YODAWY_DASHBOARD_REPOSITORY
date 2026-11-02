@@ -15,5 +15,22 @@
       "forcedState": false,
       "type": "ADMIN"
     }
+  },
+  "Q-003": {
+    "TOOL-001": {
+      "granted": false,
+      "forcedState": false,
+      "type": "ADMIN"
+    },
+    "TOOL-002": {
+      "granted": false,
+      "forcedState": false,
+      "type": "ADMIN"
+    },
+    "TOOL-004": {
+      "granted": false,
+      "forcedState": false,
+      "type": "ADMIN"
+    }
   }
 }
