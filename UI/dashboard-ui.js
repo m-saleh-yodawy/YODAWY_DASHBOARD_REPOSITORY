@@ -619,6 +619,68 @@
         return request;
     };
 
+    const encodeJSON = value => {
+        const bytes = new TextEncoder().encode(JSON.stringify(value, null, 2));
+        let binary = '';
+        for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+        return btoa(binary);
+    };
+
+    const decodeJSON = value => {
+        const binary = atob(String(value || '').replace(/\s/g, ''));
+        const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+        return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+    };
+
+    const appendNetworkActivity = async ({ action, toolId = '', toolName = '', summary = '' }) => {
+        const api = window.YODAWY_API_ENGINE;
+        const config = api?.getConfig?.();
+        if (!api?.getFile || !api?.put || !config?.owner || !config?.repo || !config?.branch) throw new Error('Central NETWORK API is unavailable.');
+        const actor = context.user || {};
+        const now = new Date().toISOString();
+        const requestId = 'ACTIVITY-' + (window.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2)));
+        const record = {
+            requestId,
+            sequence: String(Date.now()),
+            requestType: 'DASHBOARD_ACTIVITY_LOG',
+            action,
+            status: 'COMPLETED',
+            actorId: String(context.userId || actor.id || actor.userId || '').trim().toUpperCase(),
+            actorName: formatName(actor.name || context.userId || 'Unknown'),
+            ...(toolId ? { targetToolId: toolId, targetToolIds: [toolId] } : {}),
+            ...(toolName ? { targetToolName: toolName } : {}),
+            summary,
+            createdAt: now,
+            updatedAt: now
+        };
+        const endpoint = '/repos/' + encodeURIComponent(config.owner) + '/' + encodeURIComponent(config.repo) + '/contents/NETWORK/network-logs.json';
+        let lastError = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                const file = await api.getFile('NETWORK/network-logs.json');
+                const log = file?.content ? decodeJSON(file.content) : { protocolVersion: 1, transactions: {} };
+                const transactions = log.transactions && typeof log.transactions === 'object' && !Array.isArray(log.transactions) ? log.transactions : {};
+                transactions[requestId] = record;
+                const active = Object.entries(transactions).filter(([, item]) => ['SENT', 'RECEIVED', 'PROCESSING', 'PROCESSED', 'RESPONSE_SENT'].includes(String(item?.status || '').toUpperCase()));
+                const completed = Object.entries(transactions).filter(([, item]) => !['SENT', 'RECEIVED', 'PROCESSING', 'PROCESSED', 'RESPONSE_SENT'].includes(String(item?.status || '').toUpperCase())).sort((left, right) => String(right[1]?.updatedAt || '').localeCompare(String(left[1]?.updatedAt || ''))).slice(0, 50);
+                const retained = Object.fromEntries([...active, ...completed]);
+                const response = await api.put(endpoint, {
+                    message: 'Record dashboard activity ' + action,
+                    content: encodeJSON({ protocolVersion: 1, updatedAt: now, transactions: retained }),
+                    sha: file.sha,
+                    branch: config.branch
+                });
+                if (!response.data?.content?.sha) throw new Error('NETWORK activity log update was not confirmed.');
+                return record;
+            } catch (error) {
+                lastError = error;
+                if (![409, 422].includes(Number(error?.status)) || attempt === 4) break;
+                await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+            }
+        }
+        throw lastError || new Error('Unable to record NETWORK activity.');
+    };
+
     const createVisibilityDraft = toolId => {
         const engine = getRoleEngine();
         const record = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
@@ -762,9 +824,22 @@
                         if (nextEnabled) await context.settings.enableTool(toolId);
                         else await context.settings.disableTool(toolId);
                         await context.tools.syncTool(toolId);
-                        pendingLocalTools.delete(toolId);
-                        render();
-                        showNotice('Tool setting saved.');
+                        try {
+                            const toolName = getTools().find(tool => String(tool.id) === String(toolId))?.name || toolId;
+                            await appendNetworkActivity({
+                                action: nextEnabled ? 'ENABLE_TOOL' : 'DISABLE_TOOL',
+                                toolId,
+                                toolName,
+                                summary: (nextEnabled ? 'ENABLE TOOL · ' : 'DISABLE TOOL · ') + toolName
+                            });
+                            pendingLocalTools.delete(toolId);
+                            render();
+                            showNotice('Tool setting saved and NETWORK activity recorded.');
+                        } catch (error) {
+                            pendingLocalTools.delete(toolId);
+                            render();
+                            showMessageDialog('Tool Updated · Activity Not Logged', 'The tool state was saved successfully, but NETWORK activity could not be recorded: ' + (error?.message || 'Unknown error.'));
+                        }
                     } catch (error) {
                         pendingLocalTools.delete(toolId);
                         render();
