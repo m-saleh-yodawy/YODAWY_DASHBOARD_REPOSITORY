@@ -2,6 +2,16 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-02T02:49:44Z",
   "transactions": {
+    "DASH-USERS-1793655277550-LUCBTQKKE7": {
+      "requestId": "DASH-USERS-1793655277550-LUCBTQKKE7",
+      "sequence": "1793655277550281607",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T21:35:02Z",
+      "updatedAt": "2026-11-02T21:35:02Z"
+    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
