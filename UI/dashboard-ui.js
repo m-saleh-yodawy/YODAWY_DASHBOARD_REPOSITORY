@@ -26,6 +26,10 @@
     let visibilityDraft = null;
     const optimisticVisibility = new Map();
     const backgroundTransactions = new Set();
+    const localTransactions = new Map();
+    const pendingLocalTools = new Map();
+    let networkPage = 1;
+    const NETWORK_PAGE_SIZE = 10;
 
     const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -62,9 +66,88 @@
         catch { return []; }
     };
 
+    const getPendingStorageKey = () => 'yd-dashboard-pending-v1:' + String(context?.userId || context?.user?.id || context?.user?.userId || 'UNKNOWN').trim().toUpperCase();
+
+    const persistPendingTransactions = () => {
+        try {
+            localStorage.setItem(getPendingStorageKey(), JSON.stringify([...localTransactions.values()]));
+        } catch {}
+    };
+
+    const restorePendingTransactions = () => {
+        try {
+            const records = JSON.parse(localStorage.getItem(getPendingStorageKey()) || '[]');
+            localTransactions.clear();
+            if (Array.isArray(records)) records.forEach(record => {
+                if (record?.requestId && isPendingTransaction(record)) localTransactions.set(record.requestId, record);
+            });
+        } catch {
+            localTransactions.clear();
+        }
+    };
+
+    const isPendingTransaction = transaction => !['COMPLETED', 'FAILED', 'REJECTED', 'CANCELLED'].includes(String(transaction?.status || '').toUpperCase());
+
     const getTransactions = () => {
-        try { return getRoleEngine()?.getTransactionHistory?.() || []; }
-        catch { return []; }
+        let records = [];
+        try { records = getRoleEngine()?.getTransactionHistory?.() || []; }
+        catch {}
+        const merged = new Map(records.map(record => [record.requestId || record.transactionId, record]));
+        for (const [id, record] of localTransactions) merged.set(id, { ...merged.get(id), ...record });
+        return [...merged.values()].filter(Boolean).sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+    };
+
+    const getPendingTransactions = () => getTransactions().filter(isPendingTransaction);
+
+    const getPendingPermission = (userId, toolId) => getPendingTransactions().find(item =>
+        ['MODIFY_TOOL_PERMISSION', 'UPDATE_TOOL_PERMISSION', 'GRANT_TOOL_PERMISSION', 'REVOKE_TOOL_PERMISSION'].includes(String(item.action || '').toUpperCase()) &&
+        String(item.targetId || item.targetUserId || '').trim().toUpperCase() === String(userId || '').trim().toUpperCase() &&
+        (item.targetToolIds || [item.targetToolId]).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
+    ) || null;
+
+    const getPendingVisibility = toolId => getPendingTransactions().find(item =>
+        String(item.action || '').toUpperCase() === 'UPDATE_VISIBILITY' &&
+        (item.targetToolIds || []).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
+    ) || null;
+
+    const getPendingUser = user => {
+        const id = String(user?.id || '').trim().toUpperCase();
+        const name = String(user?.name || '').trim().toLocaleLowerCase();
+        return getPendingTransactions().find(item => {
+            const action = String(item.action || '').toUpperCase();
+            if (!['ADD_USER', 'UPDATE_USER', 'EDIT_USER', 'DELETE_USER'].includes(action)) return false;
+            if (id && String(item.targetId || '').trim().toUpperCase() === id) return true;
+            return action === 'ADD_USER' && name && String(item.targetName || '').trim().toLocaleLowerCase() === name;
+        }) || null;
+    };
+
+    const formatAction = value => ({
+        UPDATE_VISIBILITY: 'UPDATE VISIBILITY',
+        MODIFY_TOOL_PERMISSION: 'MODIFY TOOL PERMISSION',
+        ADD_USER: 'ADD USER',
+        UPDATE_USER: 'UPDATE USER',
+        DELETE_USER: 'DELETE USER',
+        SYNC_USERS: 'SYNC USERS',
+        UPDATE_DASHBOARD_SETTINGS: 'UPDATE DASHBOARD SETTINGS'
+    }[String(value || '').trim().toUpperCase()] || String(value || 'ACTIVITY').trim().replace(/_/g, ' ').toUpperCase());
+
+    const getActorName = transaction => {
+        const actorId = String(transaction?.actorId || '').trim().toUpperCase();
+        const actor = getUsers().find(user => String(user?.id || '').trim().toUpperCase() === actorId);
+        return transaction?.actorName || transaction?.actor?.name || actor?.name || actorId || 'Unknown';
+    };
+
+    const renderPendingBadge = (label = 'Pending') => '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>' + escapeHTML(label) + '</span></span>';
+
+    const renderDropdown = (name, value, options, attributes = {}, disabled = false) => {
+        const selected = options.find(option => String(option.value) === String(value)) || options[0] || { value: '', label: '' };
+        const attrs = Object.entries(attributes).map(([key, item]) => ' ' + key + '="' + escapeHTML(item) + '"').join('');
+        const nameAttr = name ? ' name="' + escapeHTML(name) + '"' : '';
+        const idAttr = attributes.id ? '' : '';
+        return '<div class="yd-dropdown yd-select-dropdown' + (disabled ? ' disabled' : '') + '" data-dropdown' + attrs + '>' +
+            '<input type="hidden"' + nameAttr + (attributes.id ? ' id="' + escapeHTML(attributes.id) + '"' : '') + ' value="' + escapeHTML(selected.value) + '">' +
+            '<button type="button" class="yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="menu" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="yd-dropdown-value">' + escapeHTML(selected.label) + '</span><i class="fa-solid fa-chevron-down"></i></button>' +
+            '<div class="yd-dropdown-menu" role="menu" hidden>' + options.map(option => '<button type="button" class="yd-dropdown-item' + (String(option.value) === String(selected.value) ? ' selected' : '') + '" role="menuitem" data-action="select-dropdown" data-value="' + escapeHTML(option.value) + '">' + escapeHTML(option.label) + (String(option.value) === String(selected.value) ? '<i class="fa-solid fa-check"></i>' : '') + '</button>').join('') + '</div></div>';
     };
 
     const showNotice = (message, type = 'success') => {
