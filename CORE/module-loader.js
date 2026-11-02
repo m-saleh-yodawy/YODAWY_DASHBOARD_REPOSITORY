@@ -5,6 +5,7 @@
 
     const loadedModules = new Map();
     const pendingModules = new Map();
+    const page = document.defaultView || global;
 
     const createError = (message, cause = null) => {
         const error = new Error(message);
@@ -13,12 +14,23 @@
         return error;
     };
 
+    const getRegistry = () => {
+        if (!page.YODAWY_TOOL_INSTANCES || typeof page.YODAWY_TOOL_INSTANCES !== 'object') {
+            Object.defineProperty(page, 'YODAWY_TOOL_INSTANCES', {
+                value: Object.create(null),
+                configurable: true
+            });
+        }
+
+        return page.YODAWY_TOOL_INSTANCES;
+    };
+
     const normalizePath = path => {
         if (typeof path !== 'string' || !path.trim()) {
             throw createError('Invalid module path');
         }
 
-        const normalized = path.trim().replace(/^\/+/, '');
+        const normalized = path.trim().replace(/\\/g, '/').replace(/^\/+/, '');
 
         if (
             normalized.split('/').some(part => !part || part === '.' || part === '..') ||
@@ -30,11 +42,56 @@
         return normalized;
     };
 
+    const normalizeHash = hash => {
+        const value = String(hash || '').trim().toLowerCase().replace(/^sha256-/, '');
+
+        if (!/^[a-f0-9]{64}$/.test(value)) {
+            throw createError('A valid SHA-256 hash is required');
+        }
+
+        return value;
+    };
+
+    const calculateHash = async source => {
+        if (!global.crypto?.subtle) {
+            throw createError('SHA-256 verification is unavailable in this browser context');
+        }
+
+        const bytes = new TextEncoder().encode(source);
+        const digest = await global.crypto.subtle.digest('SHA-256', bytes);
+
+        return Array.from(new Uint8Array(digest))
+            .map(byte => byte.toString(16).padStart(2, '0'))
+            .join('');
+    };
+
+    const verifyHash = async (source, expectedHash) => {
+        const expected = normalizeHash(expectedHash);
+        const actual = await calculateHash(source);
+
+        if (actual !== expected) {
+            throw createError('Module SHA-256 verification failed');
+        }
+
+        return true;
+    };
+
     const load = async (path, options = {}) => {
         const modulePath = normalizePath(path);
+        const toolId = String(options.toolId || '').trim();
 
-        if (loadedModules.has(modulePath)) {
-            return loadedModules.get(modulePath);
+        if (!toolId) {
+            throw createError('Tool ID is required');
+        }
+
+        const cached = loadedModules.get(modulePath);
+
+        if (cached) {
+            if (cached.toolId !== toolId) {
+                throw createError('Module is already assigned to another tool');
+            }
+
+            return cached;
         }
 
         if (pendingModules.has(modulePath)) {
@@ -57,21 +114,35 @@
                 throw createError(`Module source is empty: ${modulePath}`);
             }
 
+            await verifyHash(source, options.sha256);
+
+            const registry = getRegistry();
+
+            if (registry[toolId]) {
+                throw createError(`Tool is already registered: ${toolId}`);
+            }
+
             const script = document.createElement('script');
             script.type = 'text/javascript';
-            script.textContent = source;
+            script.textContent = `${source}\n//# sourceURL=${modulePath}`;
 
             try {
                 (document.head || document.documentElement).appendChild(script);
             } catch (error) {
+                delete registry[toolId];
                 throw createError(`Module execution failed: ${modulePath}`, error);
             } finally {
                 script.remove();
             }
 
+            const instance = registry[toolId] || null;
+
             const result = Object.freeze({
+                toolId,
                 path: modulePath,
-                loadedAt: Date.now()
+                loadedAt: Date.now(),
+                registered: Boolean(instance),
+                destroyable: typeof instance?.destroy === 'function'
             });
 
             loadedModules.set(modulePath, result);
@@ -88,15 +159,26 @@
         }
     };
 
-    const loadMany = async (paths, options = {}) => {
-        if (!Array.isArray(paths)) {
-            throw createError('Module paths must be an array');
+    const loadMany = async (items, options = {}) => {
+        if (!Array.isArray(items)) {
+            throw createError('Module list must be an array');
         }
 
-        const uniquePaths = [...new Set(paths.map(normalizePath))];
-
         return Promise.all(
-            uniquePaths.map(path => load(path, options))
+            items.map(item => {
+                if (typeof item === 'string') {
+                    return load(item, options);
+                }
+
+                if (!item || typeof item !== 'object') {
+                    throw createError('Invalid module entry');
+                }
+
+                return load(item.path, {
+                    ...options,
+                    ...item
+                });
+            })
         );
     };
 
@@ -106,21 +188,45 @@
     const getLoaded = () =>
         [...loadedModules.values()];
 
-    const clear = path => {
+    const getInstance = toolId => {
+        const id = String(toolId || '').trim();
+        return id ? getRegistry()[id] || null : null;
+    };
+
+    const clear = (path, options = {}) => {
         if (path === undefined) {
-            loadedModules.clear();
+            if (loadedModules.size) {
+                throw createError('Individual modules must be stopped before clearing the cache');
+            }
+
             return true;
         }
 
-        return loadedModules.delete(normalizePath(path));
+        const modulePath = normalizePath(path);
+        const cached = loadedModules.get(modulePath);
+
+        if (!cached) return false;
+
+        const instance = getInstance(cached.toolId);
+
+        if (typeof instance?.destroy === 'function' && options.destroy !== true) {
+            throw createError('Tool must be destroyed before clearing its module');
+        }
+
+        if (options.destroy === true) {
+            delete getRegistry()[cached.toolId];
+        }
+
+        return loadedModules.delete(modulePath);
     };
 
     const API = Object.freeze({
-        version: 1,
+        version: 2,
         load,
         loadMany,
         isLoaded,
         getLoaded,
+        getInstance,
         clear
     });
 
