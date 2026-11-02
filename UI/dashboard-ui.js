@@ -518,6 +518,7 @@
 
     const persistTransaction = transaction => {
         localTransactions.set(transaction.requestId, transaction);
+        networkPage = 1;
         persistPendingTransactions();
     };
 
