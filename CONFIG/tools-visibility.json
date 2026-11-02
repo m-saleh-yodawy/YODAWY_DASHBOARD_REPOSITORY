@@ -1,17 +1,14 @@
 {
   "TOOL-001": {
     "visibility": "PRIVATE",
-    "allowedUsers": [],
-    "enabled": false
+    "allowedUsers": []
   },
   "TOOL-002": {
     "visibility": "PRIVATE",
-    "allowedUsers": [],
-    "enabled": false
+    "allowedUsers": []
   },
   "TOOL-004": {
     "visibility": "PRIVATE",
-    "allowedUsers": [],
-    "enabled": false
+    "allowedUsers": []
   }
 }
