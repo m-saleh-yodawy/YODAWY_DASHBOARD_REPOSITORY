@@ -764,7 +764,6 @@ jobs:
                           tid: {
                               "visibility": str(v_map.get("visibility", "PRIVATE")).strip().upper(),
                               "allowedUsers": list(v_map.get("allowedUsers", [])) if isinstance(v_map.get("allowedUsers"), list) else [],
-                              "enabled": bool(v_map.get("enabled", str(v_map.get("visibility", "PRIVATE")).strip().upper() != "PRIVATE")),
                           }
                           for tid, v_map in resp["visibility"].items()
                           if (not tool_ids or tid in tool_ids) and isinstance(v_map, dict)
@@ -883,7 +882,6 @@ jobs:
                       out[tid] = {
                           "visibility": "PRIVATE",
                           "allowedUsers": [],
-                          "enabled": False,
                       }
                   else:
                       vis_mode = str(ex.get("visibility") or "PRIVATE").strip().upper()
@@ -893,7 +891,6 @@ jobs:
                       out[tid] = {
                           "visibility": vis_mode,
                           "allowedUsers": list(dict.fromkeys(norm_id(uid) for uid in (allowed if isinstance(allowed, list) else []) if norm_id(uid) in active_ids)) if vis_mode == "SELECTED_USERS" else [],
-                          "enabled": bool(ex.get("enabled", vis_mode != "PRIVATE")),
                       }
               return out
 
