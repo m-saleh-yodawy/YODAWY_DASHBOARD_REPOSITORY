@@ -663,6 +663,25 @@
     YODAWY.init = async () => {
         await API.initialize();
         YODAWY.authenticated = true;
+
+        if (typeof YODAWY.ui?.init !== 'function') {
+            const error = new Error('Dashboard UI engine is unavailable');
+            error.code = 'ENGINE_INIT_FAILED';
+            throw error;
+        }
+
+        try {
+            const initialized = await YODAWY.ui.init(YODAWY);
+
+            if (initialized !== true) {
+                throw new Error('Dashboard UI initialization failed');
+            }
+        } catch (cause) {
+            const error = new Error(cause?.message || 'Dashboard UI initialization failed');
+            error.code = 'ENGINE_INIT_FAILED';
+            throw error;
+        }
+
         return true;
     };
 
