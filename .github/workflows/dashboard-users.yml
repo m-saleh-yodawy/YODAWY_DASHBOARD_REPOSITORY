@@ -422,6 +422,8 @@ jobs:
                   return False, "ADMIN cannot create, modify, or delete a SUPER_ADMIN user."
               if actor_role == "ADMIN" and (target_role != "USER" or (target_id and existing_target_role != "USER")):
                   return False, "ADMIN can manage USER accounts only."
+              if actor_role == "ADMIN" and payload.get("developer") is True:
+                  return False, "ADMIN cannot grant developer access."
               if canon_action in {"ADD_USER", "UPDATE_USER"}:
                   return True, ""
               return False, f"ADMIN is not authorized to perform {canon_action}."
