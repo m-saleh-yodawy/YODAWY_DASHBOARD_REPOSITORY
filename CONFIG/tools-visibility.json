@@ -13,5 +13,10 @@
     "visibility": "PRIVATE",
     "allowedUsers": [],
     "enabled": false
+  },
+  "TOOL-004": {
+    "visibility": "PRIVATE",
+    "allowedUsers": [],
+    "enabled": false
   }
 }
