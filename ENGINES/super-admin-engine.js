@@ -115,8 +115,7 @@
                 typeof record !== 'object' ||
                 Array.isArray(record) ||
                 !CONFIG.VISIBILITY_TYPES.includes(record.visibility) ||
-                !Array.isArray(record.allowedUsers) ||
-                typeof record.enabled !== 'boolean'
+                !Array.isArray(record.allowedUsers)
             ) {
                 throw createError(`Invalid visibility record: ${toolId}`);
             }
@@ -125,8 +124,7 @@
                 visibility: record.visibility,
                 allowedUsers: [
                     ...new Set(record.allowedUsers.map(normalizeId).filter(Boolean))
-                ],
-                enabled: record.enabled
+                ]
             };
         }
 
