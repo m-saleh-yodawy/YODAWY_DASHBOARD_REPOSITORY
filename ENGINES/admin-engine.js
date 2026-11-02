@@ -304,6 +304,10 @@
             throw createError('Invalid user status');
         }
 
+        if (snapshot.users.some(user => normalizeText(user.name).toLowerCase() === name.toLowerCase())) {
+            throw createError('A USER with this name already exists');
+        }
+
         if (id && getUser(id)) {
             throw createError('User ID already exists');
         }
