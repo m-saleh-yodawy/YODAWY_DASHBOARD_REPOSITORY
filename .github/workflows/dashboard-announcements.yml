@@ -1,0 +1,303 @@
+name: DASHBOARD - ANNOUNCEMENTS WORKFLOW
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "NETWORK/announcements-request-*.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: yodawy-dashboard-announcements
+  cancel-in-progress: false
+
+jobs:
+  process-announcements:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OWNER: m-saleh-yodawy
+      REPO: YODAWY_DASHBOARD_REPOSITORY
+      BRANCH: main
+      SYNC_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+
+    steps:
+      - name: Validate publishers and process announcements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          import copy
+          import json
+          import os
+          import random
+          import re
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+
+          OWNER = os.environ["OWNER"]
+          REPO = os.environ["REPO"]
+          BRANCH = os.environ["BRANCH"]
+          TOKEN = os.environ.get("SYNC_TOKEN", "").strip()
+          API = "https://api.github.com"
+          USERS_PATH = "CONFIG/users.json"
+          ANNOUNCEMENTS_PATH = "CONFIG/announcements.json"
+          LOGS_PATH = "NETWORK/network-logs.json"
+
+          if not TOKEN:
+              raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
+
+          HEADERS = {
+              "Authorization": f"Bearer {TOKEN}",
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "Content-Type": "application/json",
+              "User-Agent": "Yodawy-Dashboard-Announcements",
+          }
+
+          def utc_now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def api_request(method, endpoint, body=None, allow_404=False):
+              data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+              for attempt in range(1, 7):
+                  request = urllib.request.Request(API + endpoint, data=data, headers=HEADERS, method=method)
+                  try:
+                      with urllib.request.urlopen(request, timeout=45) as response:
+                          raw = response.read().decode("utf-8")
+                          return json.loads(raw) if raw else {}
+                  except urllib.error.HTTPError as error:
+                      if allow_404 and error.code == 404:
+                          return None
+                      detail = error.read().decode("utf-8", errors="replace")
+                      if error.code in {409, 422, 429, 500, 502, 503, 504} and attempt < 6:
+                          time.sleep(attempt * 1.5 + random.uniform(0.1, 0.6))
+                          continue
+                      raise RuntimeError(f"HTTP {error.code}: {detail}") from error
+                  except urllib.error.URLError as error:
+                      if attempt < 6:
+                          time.sleep(attempt * 1.5)
+                          continue
+                      raise RuntimeError(f"Network error: {error}") from error
+
+          def endpoint(path):
+              return f"/repos/{OWNER}/{REPO}/contents/{urllib.parse.quote(path, safe='/')}"
+
+          def read_json(path, default=None):
+              response = api_request("GET", endpoint(path) + f"?ref={urllib.parse.quote(BRANCH)}", allow_404=True)
+              if not response or not isinstance(response.get("content"), str):
+                  return copy.deepcopy(default), None
+              raw = base64.b64decode(response["content"]).decode("utf-8-sig").strip()
+              if not raw:
+                  return copy.deepcopy(default), response.get("sha")
+              value = json.loads(raw)
+              return (value if isinstance(value, dict) else copy.deepcopy(default)), response.get("sha")
+
+          def mutate_json(path, default, mutator, message):
+              for attempt in range(1, 7):
+                  current, sha = read_json(path, default)
+                  updated = mutator(copy.deepcopy(current if isinstance(current, dict) else default))
+                  content = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
+                  payload = {
+                      "message": f"{message} [skip ci]",
+                      "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+                      "branch": BRANCH,
+                  }
+                  if sha:
+                      payload["sha"] = sha
+                  try:
+                      api_request("PUT", endpoint(path), payload)
+                      return updated
+                  except RuntimeError as error:
+                      if ("HTTP 409" in str(error) or "HTTP 422" in str(error)) and attempt < 6:
+                          continue
+                      raise
+              raise RuntimeError(f"Unable to update {path}")
+
+          def remove_request(path, request_id):
+              response = api_request("GET", endpoint(path) + f"?ref={urllib.parse.quote(BRANCH)}", allow_404=True)
+              if not response or not response.get("sha"):
+                  return
+              api_request("DELETE", endpoint(path), {
+                  "message": f"Remove processed announcement request {request_id} [skip ci]",
+                  "sha": response["sha"],
+                  "branch": BRANCH,
+              })
+
+          def read_publisher(actor_id):
+              users_doc, _ = read_json(USERS_PATH, {"users": []})
+              users = users_doc.get("users") if isinstance(users_doc, dict) else []
+              for user in users if isinstance(users, list) else []:
+                  if not isinstance(user, dict):
+                      continue
+                  user_id = str(user.get("id") or "").strip().upper()
+                  if user_id != actor_id:
+                      continue
+                  status = str(user.get("status") or "Active").strip().casefold()
+                  role = str(user.get("role") or "").strip().upper().replace("-", "_").replace(" ", "_")
+                  if status != "active":
+                      return None
+                  if role not in {"ADMIN", "SUPER_ADMIN"}:
+                      return None
+                  return {
+                      "id": actor_id,
+                      "name": " ".join(str(user.get("name") or actor_id).split()),
+                      "role": role,
+                  }
+              return None
+
+          def update_announcements(action, payload, publisher):
+              post_id = str(payload.get("id") or "").strip()
+              title = " ".join(str(payload.get("title") or "").strip().split())
+              body = str(payload.get("body") or "").strip()
+
+              if action in {"CREATE_ANNOUNCEMENT", "UPDATE_ANNOUNCEMENT"}:
+                  if not title or not body:
+                      raise ValueError("Announcement title and message are required.")
+                  if len(title) > 140 or len(body) > 6000:
+                      raise ValueError("Announcement exceeds the allowed length.")
+
+              outcome = {"id": post_id, "title": title}
+
+              def mutate(document):
+                  posts = document.get("posts")
+                  if not isinstance(posts, list):
+                      posts = []
+                  now = utc_now()
+                  if action == "CREATE_ANNOUNCEMENT":
+                      if not post_id:
+                          raise ValueError("Announcement ID is required.")
+                      existing = next((post for post in posts if isinstance(post, dict) and str(post.get("id")) == post_id), None)
+                      if existing:
+                          if str(existing.get("createdById") or "").upper() == publisher["id"] and existing.get("title") == title and existing.get("body") == body:
+                              outcome["post"] = existing
+                              return document
+                          raise ValueError("Announcement ID already exists.")
+                      post = {
+                          "id": post_id,
+                          "title": title,
+                          "body": body,
+                          "createdBy": publisher["name"],
+                          "createdById": publisher["id"],
+                          "createdByRole": publisher["role"],
+                          "createdAt": now,
+                          "updatedAt": now,
+                      }
+                      posts.append(post)
+                      outcome["post"] = post
+                  elif action == "UPDATE_ANNOUNCEMENT":
+                      if not post_id:
+                          raise ValueError("Announcement ID is required.")
+                      index = next((i for i, post in enumerate(posts) if isinstance(post, dict) and str(post.get("id")) == post_id), -1)
+                      if index < 0:
+                          raise ValueError("Announcement was not found.")
+                      updated = {
+                          **posts[index],
+                          "title": title,
+                          "body": body,
+                          "updatedBy": publisher["name"],
+                          "updatedById": publisher["id"],
+                          "updatedAt": now,
+                      }
+                      posts[index] = updated
+                      outcome["post"] = updated
+                  elif action == "DELETE_ANNOUNCEMENT":
+                      if not post_id:
+                          raise ValueError("Announcement ID is required.")
+                      original = len(posts)
+                      posts = [post for post in posts if not (isinstance(post, dict) and str(post.get("id")) == post_id)]
+                      if len(posts) == original:
+                          outcome["deleted"] = True
+                      else:
+                          outcome["deleted"] = True
+                  else:
+                      raise ValueError("Unsupported announcement action.")
+                  document["protocolVersion"] = 1
+                  document["updatedAt"] = now
+                  document["posts"] = sorted(posts, key=lambda item: str(item.get("updatedAt") or item.get("createdAt") or ""), reverse=True)
+                  return document
+
+              mutate_json(ANNOUNCEMENTS_PATH, {"protocolVersion": 1, "updatedAt": None, "posts": []}, mutate, f"{action} by {publisher['id']}")
+              return outcome
+
+          def record_transaction(request_id, sequence, action, status, actor_id, actor_name, summary, target_id="", error=""):
+              now = utc_now()
+              def mutate(document):
+                  transactions = document.get("transactions")
+                  if not isinstance(transactions, dict):
+                      transactions = {}
+                  record = {
+                      "requestId": request_id,
+                      "sequence": sequence,
+                      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+                      "action": action,
+                      "status": status,
+                      "actorId": actor_id or "UNKNOWN",
+                      "actorName": actor_name or actor_id or "Unknown",
+                      "summary": summary,
+                      "createdAt": str(document.get("transactions", {}).get(request_id, {}).get("createdAt") or now),
+                      "updatedAt": now,
+                  }
+                  if target_id:
+                      record["targetId"] = target_id
+                  if error:
+                      record["error"] = str(error)[:240]
+                  transactions[request_id] = record
+                  document["protocolVersion"] = 1
+                  document["updatedAt"] = now
+                  document["transactions"] = transactions
+                  return document
+              mutate_json(LOGS_PATH, {"protocolVersion": 1, "updatedAt": now, "transactions": {}}, mutate, f"Record {action} {request_id}")
+
+          directory = api_request("GET", f"/repos/{OWNER}/{REPO}/contents/NETWORK?ref={urllib.parse.quote(BRANCH)}", allow_404=True)
+          filenames = sorted(item.get("name", "") for item in (directory or []) if isinstance(item, dict))
+          for filename in filenames:
+              match = re.fullmatch(r"announcements-request-(\d{3,})\.json", filename)
+              if not match:
+                  continue
+              path = "NETWORK/" + filename
+              request_doc, _ = read_json(path, {})
+              if not isinstance(request_doc, dict) or not request_doc:
+                  continue
+              request_id = str(request_doc.get("requestId") or "").strip()
+              sequence = str(request_doc.get("sequence") or match.group(1))
+              action = str(request_doc.get("action") or "").strip().upper()
+              payload = request_doc.get("payload") if isinstance(request_doc.get("payload"), dict) else {}
+              actor = request_doc.get("actor") if isinstance(request_doc.get("actor"), dict) else {}
+              actor_id = str(actor.get("id") or actor.get("userId") or "").strip().upper()
+              publisher = read_publisher(actor_id)
+              actor_name = publisher["name"] if publisher else actor_id or "Unknown"
+              title = " ".join(str(payload.get("title") or "").strip().split())
+              summary = action.replace("_", " ") + (" · " + title if title else "")
+              status = "FAILED"
+              error_message = ""
+              try:
+                  if not request_id:
+                      raise ValueError("Missing request ID.")
+                  if publisher is None:
+                      status = "REJECTED"
+                      raise PermissionError("Only active ADMIN or SUPER_ADMIN accounts can manage announcements.")
+                  if action not in {"CREATE_ANNOUNCEMENT", "UPDATE_ANNOUNCEMENT", "DELETE_ANNOUNCEMENT"}:
+                      raise ValueError("Unsupported announcement action.")
+                  outcome = update_announcements(action, payload, publisher)
+                  status = "COMPLETED"
+                  if action == "DELETE_ANNOUNCEMENT":
+                      summary = "DELETE ANNOUNCEMENT · " + str(payload.get("id") or "")
+                  else:
+                      summary = ("PUBLISH ANNOUNCEMENT · " if action == "CREATE_ANNOUNCEMENT" else "UPDATE ANNOUNCEMENT · ") + title
+                  record_transaction(request_id, sequence, action, status, actor_id, publisher["name"], summary, str(payload.get("id") or ""))
+              except Exception as error:
+                  error_message = str(error)
+                  if status != "REJECTED":
+                      status = "FAILED"
+                  record_transaction(request_id, sequence, action, status, actor_id, actor_name, summary, str(payload.get("id") or ""), error_message)
+              finally:
+                  remove_request(path, request_id or sequence)
+          PY
