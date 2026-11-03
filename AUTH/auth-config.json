@@ -20,6 +20,11 @@
     "messagesPath": "AUTH/auth-messages.json",
     "errorMessageEngine": {
       "path": "UI/error-message-engine.js"
+    },
+    "engines": {
+      "USER": "ENGINES/user-engine.js",
+      "ADMIN": "ENGINES/admin-engine.js",
+      "SUPER_ADMIN": "ENGINES/super-admin-engine.js"
     }
   }
 }
