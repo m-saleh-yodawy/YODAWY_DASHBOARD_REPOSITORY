@@ -295,7 +295,6 @@
             '</section>' +
             '<section class="yd-info-grid">' +
                 '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-user"></i></span><span>Account</span></div>' +
-                    '<div class="yd-clean-row"><span class="yd-clean-label">Name</span><span class="yd-clean-val">' + escapeHTML(formatName(settings.displayName || user.name || '—')) + '</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">User ID</span><span class="yd-id-badge">' + escapeHTML(user.id || user.userId || context.userId || '—') + '</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Role</span><span class="yd-pill blue">' + escapeHTML(role) + '</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Account Status</span><span class="yd-pill green">' + escapeHTML(user.status || 'Active') + '</span></div>' +
