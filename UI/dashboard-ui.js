@@ -570,14 +570,6 @@
         root.innerHTML = renderShell(renderPage());
     };
 
-    const setBusy = (value, message) => {
-        busy = value;
-        if (typeof message === 'string' && message) busyMessage = message;
-        const overlay = document.getElementById('yd-global-loading');
-        if (overlay) overlay.hidden = true;
-    };
-
-    
     const refresh = async () => {
         await Promise.all([
             context.permissions?.load?.(),
@@ -867,7 +859,6 @@
     };
 
     const runAction = async (action, button) => {
-        if (busy) return;
         try {
             if (action === 'refresh-connection') {
                 showNotice('Refreshing connection in the background...');
@@ -972,60 +963,40 @@
                 await runNetworkOperation(field === 'forcedState' ? 'Updating forced state' : 'Updating tool access', () =>
                     getRoleEngine().setToolPermission(userId, toolId, { [field]: nextValue }), metadata
                 );
-            } else if (action === 'open-visibility-users') {
-                openVisibilityToolId = button.dataset.tool;
-                visibilityDraft = createVisibilityDraft(openVisibilityToolId);
-                render();
-            } else if (action === 'close-visibility-users') {
-                openVisibilityToolId = null;
-                visibilityDraft = null;
-                render();
-            } else if (action === 'toggle-visibility-user') {
+            } else if (action === 'save-allowed-users') {
                 const toolId = button.dataset.tool;
-                const userId = button.dataset.user;
-                if (getPendingVisibility(toolId)) return;
-                if (!visibilityDraft || visibilityDraft.toolId !== toolId) visibilityDraft = createVisibilityDraft(toolId);
-                const selected = visibilityDraft.allUsers || visibilityDraft.allowedUsers.has(userId);
-                if (visibilityDraft.allUsers) visibilityDraft.allowedUsers = new Set((getRoleEngine().getUsers() || []).map(user => String(user.id || '').trim().toUpperCase()));
-                visibilityDraft.allUsers = false;
-                if (selected) visibilityDraft.allowedUsers.delete(userId);
-                else visibilityDraft.allowedUsers.add(userId);
-                render();
-            } else if (action === 'save-visibility-users') {
                 const draft = visibilityDraft;
-                if (!draft || draft.toolId !== openVisibilityToolId) throw new Error('No visibility changes are available to save.');
-                if (getPendingVisibility(draft.toolId)) return;
-                const toolId = draft.toolId;
-                const record = draft.allUsers ? { visibility: 'PUBLIC', allowedUsers: [] } : { visibility: 'SELECTED_USERS', allowedUsers: [...draft.allowedUsers] };
+                if (!draft || draft.toolId !== toolId) throw new Error('No allowed-user changes are available to apply.');
+                if (getPendingVisibility(toolId)) return;
+                const record = draft.allUsers
+                    ? { visibility: 'PUBLIC', allowedUsers: [] }
+                    : { visibility: 'SELECTED_USERS', allowedUsers: [...draft.allowedUsers] };
                 optimisticVisibility.set(toolId, record);
-                openVisibilityToolId = null;
                 visibilityDraft = null;
+                openVisibilityToolId = null;
+                closeDropdowns(null);
                 render();
                 const metadata = { action: 'UPDATE_VISIBILITY', targetToolIds: [toolId], summary: 'UPDATE VISIBILITY · ' + toolId };
                 await runNetworkOperation('Saving allowed users', () => getRoleEngine().setToolVisibility(toolId, record), metadata);
-            } else if (action === 'change-visibility') {
-                const toolId = button.dataset.visibility;
-                const visibility = button.value;
-                if (getPendingVisibility(toolId)) return;
-                if (visibility === 'SELECTED_USERS') {
-                    openVisibilityToolId = toolId;
-                    visibilityDraft = createVisibilityDraft(toolId);
-                    visibilityDraft.allUsers = false;
+            } else if (action === 'add-announcement') {
+                openAnnouncementModal();
+            } else if (action === 'edit-announcement') {
+                const post = (context.announcements?.getPosts?.() || []).find(item => item.id === button.dataset.id);
+                if (!post) throw new Error('Announcement was not found.');
+                openAnnouncementModal(post);
+            } else if (action === 'delete-announcement') {
+                const post = (context.announcements?.getPosts?.() || []).find(item => item.id === button.dataset.id);
+                if (!post) throw new Error('Announcement was not found.');
+                openConfirmDialog('Delete Announcement', 'Delete "' + post.title + '"?', 'Delete', async () => {
+                    await context.announcements.deletePost(post.id);
+                    await context.announcements.load();
                     render();
-                } else {
-                    const record = { visibility: 'PUBLIC', allowedUsers: [] };
-                    optimisticVisibility.set(toolId, record);
-                    render();
-                    const metadata = { action: 'UPDATE_VISIBILITY', targetToolIds: [toolId], summary: 'UPDATE VISIBILITY · ' + toolId + ' · ALL USERS' };
-                    await runNetworkOperation('Updating allowed users', () => getRoleEngine().setToolVisibility(toolId, record), metadata);
-                }
+                    showNotice('Announcement deleted.');
+                });
             }
         } catch (error) {
-            setBusy(false);
             if (button && action === 'toggle-permission') render();
             showMessageDialog('Operation Not Submitted', error?.message || 'The requested operation could not be submitted.');
-        } finally {
-            setBusy(false);
         }
     };
 
