@@ -3,169 +3,237 @@
 
     if (global.YODAWY_ANNOUNCEMENTS_ENGINE) return;
 
-    const CONFIG = Object.freeze({ PATH: 'CONFIG/announcements.json', MAX_TITLE: 140, MAX_BODY: 6000 });
+    const CONFIG = Object.freeze({
+        PATH: 'CONFIG/announcements.json',
+        LOGS_PATH: 'NETWORK/network-logs.json',
+        REQUEST_TYPE: 'DASHBOARD_ANNOUNCEMENTS_SYNC',
+        MAX_TITLE: 140,
+        MAX_BODY: 6000,
+        FINAL_STATUSES: ['COMPLETED', 'FAILED', 'REJECTED']
+    });
+
     let posts = [];
     let loaded = false;
     let saving = false;
+    let submitting = false;
 
     const createError = message => {
         const error = new Error(message);
         error.code = 'ANNOUNCEMENTS_ENGINE_ERROR';
         return error;
     };
-    const clone = value => JSON.parse(JSON.stringify(value));
-    const text = value => String(value || '').trim();
-    const id = value => text(value).toUpperCase();
 
-    const dependencies = () => {
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const normalizeText = value => String(value || '').trim();
+    const normalizeId = value => normalizeText(value).toUpperCase();
+
+    const getDependencies = () => {
         const API = global.YODAWY_API_ENGINE;
         const AUTH = global.YODAWY_AUTH_ENGINE;
         if (!API || !AUTH || !AUTH.isAuthenticated()) throw createError('Authenticated dashboard engines are unavailable');
         return { API, AUTH };
     };
 
-    const config = () => {
-        const { API } = dependencies();
-        const value = API.getConfig();
-        if (!value?.owner || !value?.repo || !value?.branch) throw createError('Dashboard repository configuration is incomplete');
-        return { ...value, endpoint: '/repos/' + encodeURIComponent(value.owner) + '/' + encodeURIComponent(value.repo) + '/contents/' + CONFIG.PATH };
+    const getActor = () => {
+        const { AUTH } = getDependencies();
+        const role = AUTH.getRole();
+        if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) throw createError('Only ADMIN or SUPER ADMIN can manage announcements');
+        const user = AUTH.getUser() || {};
+        const actorId = normalizeId(user.userId || user.id);
+        const actorName = normalizeText(user.name || actorId);
+        if (!actorId || !actorName) throw createError('Authenticated publisher information is incomplete');
+        return { id: actorId, userId: actorId, name: actorName, username: actorName, role };
     };
 
-    const decode = value => {
-        const binary = atob(String(value || '').replace(/\s/g, ''));
-        const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
-        return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+    const validateDocument = data => {
+        if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.posts)) throw createError('Invalid announcements registry');
+        const ids = new Set();
+        return data.posts.map(post => {
+            if (!post || typeof post !== 'object' || Array.isArray(post)) throw createError('Invalid announcement record');
+            const id = normalizeText(post.id);
+            const title = normalizeText(post.title);
+            const body = normalizeText(post.body);
+            if (!id || !title || !body || ids.has(id)) throw createError('Announcement contains missing or duplicate fields');
+            if (title.length > CONFIG.MAX_TITLE || body.length > CONFIG.MAX_BODY) throw createError('Announcement exceeds the allowed length');
+            ids.add(id);
+            return {
+                ...post,
+                id,
+                title,
+                body,
+                createdBy: normalizeText(post.createdBy) || 'Unknown',
+                createdById: normalizeId(post.createdById),
+                createdAt: normalizeText(post.createdAt),
+                updatedAt: normalizeText(post.updatedAt || post.createdAt)
+            };
+        }).sort((a, b) => normalizeText(b.updatedAt).localeCompare(normalizeText(a.updatedAt)));
     };
 
-    const encode = value => {
-        const bytes = new TextEncoder().encode(JSON.stringify(value, null, 2) + '\n');
+    const readJSON = async path => {
+        const { API } = getDependencies();
+        const data = JSON.parse(await API.getFileContent(path));
+        if (!data || typeof data !== 'object' || Array.isArray(data)) throw createError('Invalid JSON structure: ' + path);
+        return data;
+    };
+
+    const load = async () => {
+        const data = await readJSON(CONFIG.PATH);
+        posts = validateDocument(data);
+        loaded = true;
+        return getPosts();
+    };
+
+    const ensureLoaded = () => {
+        if (!loaded) throw createError('Announcements have not been loaded');
+    };
+
+    const getPosts = () => {
+        ensureLoaded();
+        return clone(posts);
+    };
+
+    const encodeContent = value => {
+        const bytes = new TextEncoder().encode(JSON.stringify(value, null, 2));
         let binary = '';
         for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
         return btoa(binary);
     };
 
-    const validate = data => {
-        if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.posts)) throw createError('Invalid announcements registry');
-        const ids = new Set();
-        return data.posts.map(post => {
-            if (!post || typeof post !== 'object' || Array.isArray(post)) throw createError('Invalid announcement record');
-            const postId = text(post.id);
-            const title = text(post.title);
-            const body = text(post.body);
-            if (!postId || !title || !body || ids.has(postId)) throw createError('Announcement contains missing or duplicate fields');
-            if (title.length > CONFIG.MAX_TITLE || body.length > CONFIG.MAX_BODY) throw createError('Announcement exceeds the allowed length');
-            ids.add(postId);
-            return { ...post, id: postId, title, body, createdBy: text(post.createdBy) || 'Unknown', createdById: id(post.createdById), createdAt: text(post.createdAt), updatedAt: text(post.updatedAt || post.createdAt) };
-        }).sort((a, b) => text(b.updatedAt).localeCompare(text(a.updatedAt)));
-    };
+    const createId = () => global.crypto?.randomUUID
+        ? global.crypto.randomUUID().toUpperCase()
+        : String(Date.now()) + '-' + Math.random().toString(36).slice(2, 12).toUpperCase();
 
-    const readDocument = async () => {
-        const { API } = dependencies();
-        const repository = config();
-        const response = await API.get(repository.endpoint + '?ref=' + encodeURIComponent(repository.branch));
-        const file = response.data;
-        if (!file?.sha || typeof file.content !== 'string') throw createError('Announcements file is unavailable');
-        const data = decode(file.content);
-        if (!data || typeof data !== 'object' || !Array.isArray(data.posts)) throw createError('Announcements file has an invalid structure');
-        return { repository, sha: file.sha, document: { protocolVersion: 1, updatedAt: text(data.updatedAt) || null, posts: validate(data) } };
-    };
+    const createSequence = () => String(Date.now()) + String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
 
-    const load = async () => {
-        const result = await readDocument();
-        posts = result.document.posts;
-        loaded = true;
-        return getPosts();
-    };
-    const ensureLoaded = () => { if (!loaded) throw createError('Announcements have not been loaded'); };
-    const getPosts = () => { ensureLoaded(); return clone(posts); };
-
-    const manager = () => {
-        const { AUTH } = dependencies();
-        const role = AUTH.getRole();
-        if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) throw createError('Only ADMIN or SUPER ADMIN can manage announcements');
-        const user = AUTH.getUser() || {};
-        const actorId = id(user.userId || user.id);
-        const actorName = text(user.name || actorId);
-        if (!actorId || !actorName) throw createError('Authenticated publisher information is incomplete');
-        return { role, actorId, actorName };
-    };
-
-    const mutate = async mutator => {
-        manager();
-        if (saving) throw createError('Another announcement update is in progress');
-        saving = true;
+    const createRequest = async (action, payload) => {
+        const { API } = getDependencies();
+        const actor = getActor();
+        const config = API.getConfig();
+        if (!config?.owner || !config?.repo || !config?.branch) throw createError('Dashboard repository configuration is incomplete');
+        if (submitting) throw createError('Another announcement request is being submitted');
+        submitting = true;
         try {
             let lastError = null;
             for (let attempt = 0; attempt < 6; attempt++) {
-                const current = await readDocument();
-                const updated = mutator(clone(current.document));
-                updated.updatedAt = new Date().toISOString();
-                updated.posts = validate(updated);
+                const sequence = createSequence();
+                const requestId = 'ANNOUNCEMENT-' + createId();
+                const path = 'NETWORK/announcements-request-' + sequence + '.json';
+                const endpoint = '/repos/' + encodeURIComponent(config.owner) + '/' + encodeURIComponent(config.repo) + '/contents/' + path;
+                const createdAt = new Date().toISOString();
+                const request = {
+                    protocolVersion: 1,
+                    requestId,
+                    sequence,
+                    requestType: CONFIG.REQUEST_TYPE,
+                    status: 'PENDING',
+                    createdAt,
+                    actor,
+                    action,
+                    payload: { ...clone(payload), action }
+                };
                 try {
-                    const { API } = dependencies();
-                    const response = await API.put(current.repository.endpoint, { message: 'Update dashboard announcements', content: encode(updated), sha: current.sha, branch: current.repository.branch });
-                    if (!response.data?.content?.sha) throw createError('Announcement update was not confirmed');
-                    posts = updated.posts;
-                    loaded = true;
-                    return clone(updated);
+                    const response = await API.put(endpoint, {
+                        message: 'Submit ' + action + ' ' + requestId,
+                        content: encodeContent(request),
+                        branch: config.branch
+                    });
+                    if (!response.data?.content?.sha) throw createError('Announcement request was not confirmed');
+                    return { requestId, sequence, path, status: 'PENDING', createdAt };
                 } catch (error) {
                     lastError = error;
                     if (![409, 422].includes(Number(error?.status)) || attempt === 5) throw error;
-                    await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+                    await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
                 }
             }
-            throw lastError || createError('Unable to update announcements');
+            throw lastError || createError('Unable to submit announcement request');
+        } finally {
+            submitting = false;
+        }
+    };
+
+    const getTransaction = async requestId => {
+        const id = normalizeText(requestId);
+        if (!id) throw createError('Invalid transaction ID');
+        const logs = await readJSON(CONFIG.LOGS_PATH);
+        const transaction = logs.transactions?.[id];
+        return transaction ? clone(transaction) : null;
+    };
+
+    const waitForTransaction = async (requestId, options = {}) => {
+        const timeout = Math.max(10000, Number(options.timeout) || 600000);
+        const interval = Math.max(1000, Number(options.interval) || 4000);
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < timeout) {
+            let transaction = null;
+            try {
+                transaction = await getTransaction(requestId);
+            } catch {}
+            if (transaction && CONFIG.FINAL_STATUSES.includes(normalizeText(transaction.status).toUpperCase())) {
+                if (transaction.status === 'COMPLETED' && options.refresh !== false) await load();
+                return transaction;
+            }
+            await new Promise(resolve => setTimeout(resolve, interval));
+        }
+        return { requestId, status: 'TIMEOUT', message: 'Announcement request is still being processed' };
+    };
+
+    const submit = async (action, payload) => {
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw createError('Invalid announcement payload');
+        if (saving) throw createError('Another announcement update is in progress');
+        saving = true;
+        try {
+            const request = await createRequest(action, payload);
+            const transaction = await waitForTransaction(request.requestId, { timeout: 600000, interval: 4000 });
+            if (transaction.status === 'TIMEOUT') throw createError('Announcement is still processing. Reference: ' + request.requestId);
+            if (transaction.status !== 'COMPLETED') throw createError(transaction.error || transaction.message || 'Announcement request was rejected');
+            return transaction;
         } finally {
             saving = false;
         }
     };
 
     const createPost = async input => {
-        const actor = manager();
-        const title = text(input?.title);
-        const body = text(input?.body);
+        getActor();
+        const title = normalizeText(input?.title);
+        const body = normalizeText(input?.body);
         if (!title || !body) throw createError('Announcement title and message are required');
         if (title.length > CONFIG.MAX_TITLE || body.length > CONFIG.MAX_BODY) throw createError('Announcement exceeds the allowed length');
-        const now = new Date().toISOString();
-        const post = { id: global.crypto?.randomUUID?.() || Date.now() + '-' + Math.random().toString(36).slice(2), title, body, createdBy: actor.actorName, createdById: actor.actorId, createdByRole: actor.role, createdAt: now, updatedAt: now };
-        await mutate(document => {
-            if (document.posts.some(item => item.id === post.id)) throw createError('Announcement ID already exists');
-            document.posts.push(post);
-            return document;
-        });
-        return clone(post);
+        const id = createId();
+        await submit('CREATE_ANNOUNCEMENT', { id, title, body });
+        return clone(posts.find(post => post.id === id) || null);
     };
 
     const updatePost = async (postId, input) => {
-        const actor = manager();
-        const postIdValue = text(postId);
-        const title = text(input?.title);
-        const body = text(input?.body);
-        if (!postIdValue || !title || !body) throw createError('Announcement title and message are required');
+        getActor();
+        const id = normalizeText(postId);
+        const title = normalizeText(input?.title);
+        const body = normalizeText(input?.body);
+        if (!id || !title || !body) throw createError('Announcement title and message are required');
         if (title.length > CONFIG.MAX_TITLE || body.length > CONFIG.MAX_BODY) throw createError('Announcement exceeds the allowed length');
-        const now = new Date().toISOString();
-        let updatedPost = null;
-        await mutate(document => {
-            const index = document.posts.findIndex(item => item.id === postIdValue);
-            if (index < 0) throw createError('Announcement was not found');
-            updatedPost = { ...document.posts[index], title, body, updatedBy: actor.actorName, updatedById: actor.actorId, updatedAt: now };
-            document.posts[index] = updatedPost;
-            return document;
-        });
-        return clone(updatedPost);
+        await submit('UPDATE_ANNOUNCEMENT', { id, title, body });
+        return clone(posts.find(post => post.id === id) || null);
     };
 
     const deletePost = async postId => {
-        const postIdValue = text(postId);
-        if (!postIdValue) throw createError('Invalid announcement ID');
-        await mutate(document => {
-            const count = document.posts.length;
-            document.posts = document.posts.filter(item => item.id !== postIdValue);
-            if (document.posts.length === count) throw createError('Announcement was not found');
-            return document;
-        });
+        getActor();
+        const id = normalizeText(postId);
+        if (!id) throw createError('Invalid announcement ID');
+        await submit('DELETE_ANNOUNCEMENT', { id });
         return true;
     };
 
-    global.YODAWY_ANNOUNCEMENTS_ENGINE = Object.freeze({ version: 1, load, getPosts, createPost, updatePost, deletePost, isLoaded: () => loaded, isSaving: () => saving });
+    global.YODAWY_ANNOUNCEMENTS_ENGINE = Object.freeze({
+        version: 2,
+        load,
+        getPosts,
+        createPost,
+        updatePost,
+        deletePost,
+        getTransaction,
+        waitForTransaction,
+        isLoaded: () => loaded,
+        isSaving: () => saving,
+        isSubmitting: () => submitting
+    });
+
 })(window);
