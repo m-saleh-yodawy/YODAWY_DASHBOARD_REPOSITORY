@@ -476,6 +476,53 @@
             '<div class="yd-table-responsive"><table><thead><tr><th style="width:70px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Allowed Users</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
     };
 
+    const renderAnnouncements = () => {
+        const posts = context.announcements?.getPosts?.() || [];
+        const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
+        const cards = posts.map(post =>
+            '<article class="yd-announcement-card"><div class="yd-announcement-head"><div><h2 class="yd-announcement-title">' + escapeHTML(post.title) + '</h2><div class="yd-announcement-meta">By ' + escapeHTML(post.createdBy || 'Dashboard Team') + ' · ' + escapeHTML(formatDate(post.updatedAt || post.createdAt)) + (post.updatedBy ? ' · Edited by ' + escapeHTML(post.updatedBy) : '') + '</div></div>' +
+            (canManage ? '<div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + escapeHTML(post.id) + '" title="Edit announcement" aria-label="Edit announcement"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + escapeHTML(post.id) + '" title="Delete announcement" aria-label="Delete announcement"><i class="fa-solid fa-trash-can"></i></button></div>' : '') +
+            '</div><div class="yd-announcement-body">' + escapeHTML(post.body) + '</div></article>'
+        ).join('');
+        return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
+            (canManage ? '<button type="button" class="yd-primary" data-action="add-announcement"><i class="fa-solid fa-plus"></i><span>New Announcement</span></button>' : '') +
+            '</section><div class="yd-announcement-list">' + (cards || '<div class="yd-card yd-empty">No announcements have been published yet.</div>') + '</div>';
+    };
+
+    const openAnnouncementModal = post => {
+        const editing = Boolean(post);
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-title">Title</label><input id="yd-announcement-title" class="yd-input" name="title" maxlength="140" required value="' + escapeHTML(post?.title || '') + '" placeholder="Announcement title"></div><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the operational message here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
+        document.getElementById(CONFIG.ID).appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay || event.target.closest('[data-announcement-cancel]')) close();
+        });
+        overlay.querySelector('form').addEventListener('submit', async event => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const submit = form.querySelector('[type="submit"]');
+            const data = new FormData(form);
+            const payload = { title: String(data.get('title') || '').trim(), body: String(data.get('body') || '').trim() };
+            if (!payload.title || !payload.body) return;
+            submit.disabled = true;
+            submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>' + (editing ? 'Saving' : 'Publishing') + '</span>';
+            try {
+                if (editing) await context.announcements.updatePost(post.id, payload);
+                else await context.announcements.createPost(payload);
+                await context.announcements.load();
+                close();
+                render();
+                showNotice(editing ? 'Announcement updated.' : 'Announcement published.');
+            } catch (error) {
+                submit.disabled = false;
+                submit.textContent = editing ? 'Save Changes' : 'Publish';
+                showMessageDialog('Announcement Not Saved', error?.message || 'Unable to save this announcement.');
+            }
+        });
+    };
+
     const renderTransactions = () => `
         <section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Administrative activity and request status.</p></div></section>
         ${renderTransactionsTable(getTransactions())}
@@ -501,6 +548,7 @@
         const renderPage = () => ({
         overview: renderOverview,
         tools: renderTools,
+        announcements: renderAnnouncements,
         users: renderUsers,
         permissions: renderPermissions,
         visibility: renderVisibility,
