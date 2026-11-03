@@ -47,10 +47,10 @@
     const formatName = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase().replace(/(^|[\s'’-])\p{L}/gu, value => value.toLocaleUpperCase());
 
     const getRoleEngine = () => context.userRole === 'SUPER_ADMIN'
-        ? context.superAdmin || null
+        ? context.superAdminEngine || context.superAdmin || null
         : context.userRole === 'ADMIN'
-            ? context.admin || null
-            : context.user || null;
+            ? context.adminEngine || context.admin || null
+            : context.userEngine || null;
 
     const getUsers = () => {
         try { return getRoleEngine()?.getUsers?.() || [context.user]; }
