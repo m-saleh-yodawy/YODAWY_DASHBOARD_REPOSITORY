@@ -1036,9 +1036,46 @@
         root.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
+            if (actionButton?.dataset.action === 'toggle-allowed-all') {
+                const toolId = actionButton.dataset.tool;
+                if (!visibilityDraft || visibilityDraft.toolId !== toolId || getPendingVisibility(toolId)) return;
+                visibilityDraft.allUsers = !visibilityDraft.allUsers;
+                visibilityDraft.allowedUsers = visibilityDraft.allUsers
+                    ? new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()))
+                    : new Set();
+                openVisibilityToolId = toolId;
+                refreshAllowedUsersDropdown(toolId);
+                return;
+            }
+            if (actionButton?.dataset.action === 'toggle-allowed-user') {
+                const toolId = actionButton.dataset.tool;
+                const userId = actionButton.dataset.user;
+                if (getPendingVisibility(toolId)) return;
+                if (!visibilityDraft || visibilityDraft.toolId !== toolId) visibilityDraft = createVisibilityDraft(toolId);
+                if (visibilityDraft.allUsers) {
+                    visibilityDraft.allowedUsers = new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()));
+                    visibilityDraft.allUsers = false;
+                }
+                if (visibilityDraft.allowedUsers.has(userId)) visibilityDraft.allowedUsers.delete(userId);
+                else visibilityDraft.allowedUsers.add(userId);
+                openVisibilityToolId = toolId;
+                refreshAllowedUsersDropdown(toolId);
+                return;
+            }
+            if (actionButton?.dataset.action === 'cancel-allowed-users') {
+                visibilityDraft = null;
+                openVisibilityToolId = null;
+                closeDropdowns(null);
+                return;
+            }
             if (actionButton?.dataset.action === 'toggle-dropdown') {
                 closeDropdowns(dropdown);
                 const opening = !dropdown.classList.contains('open');
+                if (dropdown.classList.contains('yd-allowed-users-dropdown')) {
+                    const toolId = dropdown.dataset.tool;
+                    if (opening && (!visibilityDraft || visibilityDraft.toolId !== toolId)) visibilityDraft = createVisibilityDraft(toolId);
+                    openVisibilityToolId = opening ? toolId : null;
+                }
                 dropdown.classList.toggle('open', opening);
                 const menu = dropdown.querySelector('.yd-dropdown-menu');
                 const trigger = dropdown.querySelector('.yd-dropdown-trigger');
@@ -1062,13 +1099,12 @@
                 dropdown.classList.remove('open');
                 dropdown.querySelector('.yd-dropdown-menu').hidden = true;
                 dropdown.querySelector('.yd-dropdown-trigger').setAttribute('aria-expanded', 'false');
-                if (dropdown.dataset.change === 'visibility') runAction('change-visibility', { dataset: { visibility: dropdown.dataset.tool }, value });
                 return;
             }
             closeDropdowns(dropdown);
-            if (event.target.id === 'yd-overlay' || event.target.id === 'yd-visibility-users-backdrop') {
-                if (event.target.id === 'yd-visibility-users-backdrop') { openVisibilityToolId = null; visibilityDraft = null; }
-                else { isOpen = false; profileOpen = false; }
+            if (event.target.id === 'yd-overlay') {
+                isOpen = false;
+                profileOpen = false;
                 render();
                 return;
             }
@@ -1082,6 +1118,7 @@
             if (actionButton?.dataset.action === 'close-dashboard') { isOpen = false; profileOpen = false; render(); return; }
             if (actionButton?.dataset.action === 'profile-toggle') { profileOpen = !profileOpen; render(); return; }
             if (actionButton?.dataset.action === 'network-page') {
+                event.preventDefault();
                 networkPage = Math.max(1, Number(actionButton.dataset.page) || 1);
                 render();
                 return;
@@ -1091,7 +1128,7 @@
                 activePage = nav.dataset.page;
                 notice = null;
                 profileOpen = false;
-                if (activePage !== 'visibility') { openVisibilityToolId = null; visibilityDraft = null; }
+                if (activePage !== 'visibility') visibilityDraft = null;
                 render();
                 return;
             }
@@ -1113,12 +1150,6 @@
             if (event.key !== 'Escape') return;
             if (root.querySelector('.yd-dropdown.open')) {
                 closeDropdowns(null);
-                return;
-            }
-            if (openVisibilityToolId) {
-                openVisibilityToolId = null;
-                visibilityDraft = null;
-                render();
                 return;
             }
             if (isOpen) {
