@@ -13,16 +13,13 @@
     });
 
     let context = null;
-    let activePage = 'overview';
+    let activePage = 'tools';
     let refreshTimer = null;
-    let busy = false;
     let notice = null;
     let isOpen = false;
     let profileOpen = false;
-    let busyMessage = 'Please wait while GitHub completes the operation.';
     const expandedUsers = new Set();
     const expandedTools = new Set();
-    let openVisibilityToolId = null;
     let visibilityDraft = null;
     const optimisticVisibility = new Map();
     const backgroundTransactions = new Set();
@@ -45,6 +42,7 @@
     const initials = value => String(value || 'Y').trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase();
 
     const formatName = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase().replace(/(^|[\s'’-])\p{L}/gu, value => value.toLocaleUpperCase());
+    const formatRole = value => String(value || 'USER').trim().toUpperCase().replace(/SUPER_ADMIN/g, 'SUPER ADMIN').replace(/_/g, ' ');
 
     const getRoleEngine = () => context.userRole === 'SUPER_ADMIN'
         ? context.superAdminEngine || context.superAdmin || null
@@ -183,7 +181,7 @@
 
     const injectStyles = () => {
         ensureExternalStylesheet('yd-fontawesome-css', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css');
-        ensureExternalStylesheet('yd-cairo-font', 'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+        ensureExternalStylesheet('yd-nunito-font', 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&display=swap');
         if (document.getElementById(CONFIG.STYLE_ID)) return;
         const style = document.createElement('style');
         style.id = CONFIG.STYLE_ID;
@@ -191,10 +189,11 @@
         style.textContent += "\n#yd-dashboard-root{font-family:'Cairo',sans-serif!important}\n#yd-dashboard-root strong,#yd-dashboard-root b{font-weight:600!important}\n#yd-dashboard-root .yd-welcome h1,#yd-dashboard-root .yd-section-head h2{font-weight:700!important}\n#yd-dashboard-root .yd-nav,#yd-dashboard-root .yd-primary,#yd-dashboard-root .yd-secondary,#yd-dashboard-root .yd-danger{font-weight:600!important}\n#yd-dashboard-root .yd-switch.yd-switch-forced.on{background:#c33d4b!important;border-color:#c33d4b!important}\n#yd-dashboard-root .yd-switch-state{display:none!important}\n#yd-dashboard-root .yd-accordion-body{padding:10px 14px!important;border-top:1px solid #ded6e2;background:#f8f6f9!important}\n#yd-dashboard-root .yd-permission-row{margin:7px 0;padding:10px 12px!important;border:1px solid #d8cfdd!important;border-radius:10px;background:#fff;box-shadow:0 1px 3px #29242e08}\n#yd-dashboard-root .yd-permission-row:last-child{border-bottom:1px solid #d8cfdd!important}\n#yd-dashboard-root .yd-permission-row + .yd-permission-row{margin-top:8px}\n#yd-dashboard-root .yd-visibility-modal-note{background:#f7f3f8;border-color:#e0d5e3;color:#66556a}\n#yd-dashboard-root .yd-visibility-modal-footer{justify-content:space-between;gap:10px}\n#yd-dashboard-root .yd-visibility-modal-footer-actions{display:flex;align-items:center;gap:8px}\n#yd-dashboard-root .yd-access-controls{display:flex;align-items:center;gap:8px;min-width:300px}\n#yd-dashboard-root .yd-access-controls .yd-select{min-width:132px;flex:0 0 132px;height:34px}\n#yd-dashboard-root .yd-access-controls .yd-user-picker{flex:1;min-width:145px}\n#yd-dashboard-root .yd-confirm-modal{width:min(430px,100%);padding:22px}\n#yd-dashboard-root .yd-confirm-modal p{margin:0;color:var(--muted);font-size:12px;line-height:1.7}\n#yd-dashboard-root .yd-confirm-modal .yd-modal-actions{margin-top:20px}\n#yd-dashboard-root .yd-global-loading,#yd-dashboard-root .yd-loading-overlay{display:none!important}\n@media(max-width:760px){#yd-dashboard-root .yd-access-controls{min-width:250px;flex-wrap:wrap}#yd-dashboard-root .yd-permission-row{grid-template-columns:1fr!important;gap:10px!important}#yd-dashboard-root .yd-permission-controls{justify-content:flex-start!important}}\n";
         style.textContent += "\n#yd-dashboard-root .yd-switch{transition:background-color .24s ease,border-color .24s ease,box-shadow .2s ease,opacity .2s ease,transform .2s ease}\n#yd-dashboard-root .yd-switch-knob{transition:transform .24s cubic-bezier(.2,.8,.2,1),background-color .2s ease,box-shadow .2s ease}\n#yd-dashboard-root .yd-switch:hover:not(:disabled){box-shadow:0 0 0 4px #875a7b16}\n#yd-dashboard-root .yd-permission-row,#yd-dashboard-root .yd-permission-control,#yd-dashboard-root .yd-permission-tool,#yd-dashboard-root .yd-visibility-user-row,#yd-dashboard-root .yd-tool-accordion-actions,#yd-dashboard-root .yd-accordion-summary-meta,#yd-dashboard-root .yd-pill,#yd-dashboard-root .yd-user-actions{transition:background-color .22s ease,border-color .22s ease,color .22s ease,opacity .22s ease,transform .22s ease,box-shadow .22s ease}\n#yd-dashboard-root details::details-content{block-size:0;overflow:clip;opacity:0;transition:block-size .26s ease,content-visibility .26s allow-discrete,opacity .2s ease}\n#yd-dashboard-root details[open]::details-content{block-size:auto;opacity:1}\n#yd-dashboard-root .yd-dropdown{position:relative;display:inline-flex;min-width:0}\n#yd-dashboard-root .yd-select-dropdown{width:100%}\n#yd-dashboard-root .yd-dropdown-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-width:0;min-height:36px;padding:0 11px;border:1px solid #ded8e1;border-radius:9px;background:#fff;color:var(--ink);font-size:11.5px;font-weight:500;text-align:left;cursor:pointer;transition:background-color .16s,border-color .16s,box-shadow .16s,color .16s}\n#yd-dashboard-root .yd-dropdown-trigger:hover:not(:disabled),#yd-dashboard-root .yd-dropdown.open .yd-dropdown-trigger{border-color:#cbb8ce;background:#fcf9fc;color:var(--brand-dark)}\n#yd-dashboard-root .yd-dropdown-trigger:focus-visible{outline:3px solid #875a7b20;outline-offset:2px}\n#yd-dashboard-root .yd-dropdown-trigger>i{flex:0 0 auto;color:var(--muted);font-size:10px;transition:transform .18s ease}\n#yd-dashboard-root .yd-dropdown.open .yd-dropdown-trigger>i{transform:rotate(180deg)}\n#yd-dashboard-root .yd-dropdown-menu,#yd-dashboard-root .yd-profile-menu{border:1px solid #ded8e3;border-radius:10px;background:#fff;color:var(--ink);box-shadow:0 12px 30px #21132b20,0 0 0 1px #29242e08;outline:none}\n#yd-dashboard-root .yd-dropdown-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:2147483012;display:flex;flex-direction:column;gap:2px;width:max(100%,160px);min-width:160px;max-width:min(280px,calc(100vw - 32px));max-height:min(320px,calc(100vh - 80px));overflow-x:hidden;overflow-y:auto;padding:5px;transform-origin:top left;animation:yd-dropdown-enter .13s cubic-bezier(.2,.8,.2,1) both}\n#yd-dashboard-root .yd-dropdown-menu[hidden]{display:none!important}\n#yd-dashboard-root .yd-dropdown-item{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:33px;padding:5px 8px;border:0;border-radius:7px;background:transparent;color:var(--text);font-size:11px;font-weight:500;text-align:left;cursor:pointer;transition:background-color .12s,color .12s}\n#yd-dashboard-root .yd-dropdown-item:hover,#yd-dashboard-root .yd-dropdown-item:focus-visible{background:#f4eef5;color:var(--brand-dark);outline:none}\n#yd-dashboard-root .yd-dropdown-item.selected{color:var(--brand-dark);font-weight:600}\n#yd-dashboard-root .yd-dropdown-item>i{color:var(--brand);font-size:10px}\n#yd-dashboard-root .yd-dropdown.disabled{opacity:.58}\n#yd-dashboard-root .yd-dropdown.disabled .yd-dropdown-trigger{cursor:not-allowed}\n#yd-dashboard-root .yd-profile-menu{padding:6px;animation:yd-dropdown-enter .13s cubic-bezier(.2,.8,.2,1) both}\n#yd-dashboard-root .yd-profile-menu .yd-gb-card{margin:0 0 5px;padding:12px;border:0;border-bottom:1px solid var(--border);border-radius:7px;background:#faf9fb}\n#yd-dashboard-root .yd-profile-menu .yd-dropdown-action{min-height:36px;margin-top:2px;padding:5px 8px;border:0;border-radius:7px;background:transparent;box-shadow:none}\n#yd-dashboard-root .yd-profile-menu .yd-dropdown-action:hover{background:#f4eef5}\n#yd-dashboard-root .yd-profile-menu .yd-action-icon{width:25px;height:25px;flex-basis:25px;border-radius:6px}\n#yd-dashboard-root .yd-pending-badge{display:inline-flex;align-items:center;gap:6px;min-height:22px;padding:2px 8px;border:1px solid #ead7a9;border-radius:999px;background:#fff8e8;color:#8a6421;font-size:9px;font-weight:600;white-space:nowrap}\n#yd-dashboard-root .yd-pending-badge i{font-size:9px}\n#yd-dashboard-root .yd-pending-badge.failed{border-color:var(--danger-border);background:var(--danger-bg);color:var(--danger)}\n#yd-dashboard-root .yd-pending-row{background:#fffcf5!important}\n#yd-dashboard-root .yd-pending-row td{background:#fffcf5!important}\n#yd-dashboard-root .yd-permission-row.is-pending{border-color:#ead7a9!important;background:#fffcf5}\n#yd-dashboard-root .yd-permission-row.is-pending .yd-permission-tool{opacity:.82}\n#yd-dashboard-root .yd-visibility-user-row.is-pending{background:#fffcf5}\n#yd-dashboard-root .yd-visibility-user-row .yd-pending-badge{margin-left:8px}\n#yd-dashboard-root .yd-network-table td{white-space:normal}\n#yd-dashboard-root .yd-network-activity{display:flex;flex-direction:column;gap:2px;min-width:180px}\n#yd-dashboard-root .yd-network-activity strong{color:var(--ink);font-size:11px;font-weight:600}\n#yd-dashboard-root .yd-network-activity small{color:var(--muted);font-size:9px}\n#yd-dashboard-root .yd-network-pagination{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:12px 2px 2px}\n#yd-dashboard-root .yd-network-pagination span{margin-right:6px;color:var(--muted);font-size:10px}\n#yd-dashboard-root .yd-network-pagination button{min-width:32px;min-height:30px;padding:0 9px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text);font-size:10px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}\n#yd-dashboard-root .yd-network-pagination button:hover:not(:disabled){border-color:#cbb8ce;background:#f7f1f7;color:var(--brand-dark)}\n#yd-dashboard-root .yd-network-pagination button:disabled{opacity:.4;cursor:not-allowed}\n#yd-dashboard-root .yd-modal-backdrop{animation:yd-backdrop-enter .16s ease-out both}\n#yd-dashboard-root .yd-modal{animation:yd-modal-enter .18s cubic-bezier(.2,.8,.2,1) both}\n#yd-dashboard-root .yd-toast{animation:yd-toast-enter .18s cubic-bezier(.2,.8,.2,1) both}\n@keyframes yd-dropdown-enter{from{opacity:0;transform:translateY(-5px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}\n@keyframes yd-backdrop-enter{from{opacity:0}to{opacity:1}}\n@keyframes yd-modal-enter{from{opacity:0;transform:translateY(7px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}\n@keyframes yd-toast-enter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}\n@media(prefers-reduced-motion:reduce){#yd-dashboard-root *,#yd-dashboard-root *::before,#yd-dashboard-root *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}\n";
         style.textContent += "\n#yd-dashboard-root .yd-message-icon{display:grid;place-items:center;width:42px;height:42px;margin:0 0 12px;border:1px solid var(--danger-border);border-radius:12px;background:var(--danger-bg);color:var(--danger);font-size:19px}\n#yd-dashboard-root .yd-message-icon.success{border-color:var(--success-border);background:var(--success-bg);color:var(--success)}\n#yd-dashboard-root .yd-message-modal h3{margin-bottom:8px}\n#yd-dashboard-root .yd-tool-accordion-actions .yd-pending-badge{margin-right:5px}\n#yd-dashboard-root .yd-tool-accordion-item .yd-tool-accordion-actions button:disabled{opacity:.72}\n#yd-dashboard-root .yd-switch:disabled{opacity:.5;cursor:not-allowed}\n#yd-dashboard-root .yd-dropdown-trigger:disabled{opacity:.58;cursor:not-allowed}\n#yd-dashboard-root .yd-dropdown-menu{z-index:2147483015}\n#yd-dashboard-root .yd-select-dropdown{min-width:0}\n";
+        style.textContent += "\n#yd-dashboard-root,#yd-dashboard-root *{font-family:'Nunito',sans-serif!important}\n#yd-dashboard-root{font-weight:400;line-height:1.45}\n#yd-dashboard-root strong,#yd-dashboard-root b{font-weight:600!important}\n#yd-dashboard-root .yd-welcome h1,#yd-dashboard-root .yd-section-head h2{font-weight:650!important}\n#yd-dashboard-root .yd-brand-title{font-weight:650!important}\n#yd-dashboard-root .yd-nav,#yd-dashboard-root .yd-primary,#yd-dashboard-root .yd-secondary,#yd-dashboard-root .yd-danger{font-weight:600!important}\n#yd-dashboard-root .yd-pill,#yd-dashboard-root .yd-pending-badge{font-weight:500!important}\n#yd-dashboard-root .yd-accordion-item>summary,#yd-dashboard-root .yd-tool-accordion-item>summary{min-height:43px!important;padding:5px 11px!important}\n#yd-dashboard-root .yd-accordion-body,#yd-dashboard-root .yd-tool-accordion-body{padding:6px 10px!important}\n#yd-dashboard-root .yd-permission-row{margin:4px 0!important;padding:6px 9px!important;gap:9px!important}\n#yd-dashboard-root .yd-permission-row+.yd-permission-row{margin-top:5px!important}\n#yd-dashboard-root .yd-permission-control{gap:5px!important}\n#yd-dashboard-root .yd-tool-settings-placeholder{min-height:32px!important;padding:5px 7px!important}\n#yd-dashboard-root .yd-dropdown-menu{width:max-content!important;min-width:max(100%,160px)!important;max-width:min(360px,calc(100vw - 32px))!important}\n#yd-dashboard-root .yd-dropdown-item{min-height:31px!important;padding:5px 9px!important;font-weight:500!important}\n#yd-dashboard-root .yd-pagination{display:flex;justify-content:center;width:100%;margin:0 auto}\n#yd-dashboard-root .yd-pagination-content{display:flex;align-items:center;gap:2px;margin:0;padding:0;list-style:none}\n#yd-dashboard-root .yd-pagination-item{display:flex;list-style:none}\n#yd-dashboard-root .yd-pagination-link{display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;padding:0;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text);font-size:12px;font-weight:500;text-decoration:none;cursor:pointer;transition:background-color .14s,color .14s,border-color .14s}\n#yd-dashboard-root .yd-pagination-link:hover:not(.disabled){background:#f1edf3;color:var(--ink)}\n#yd-dashboard-root .yd-pagination-link.active{border-color:var(--border);background:#fff;color:var(--ink);font-weight:600}\n#yd-dashboard-root .yd-pagination-link.disabled{opacity:.35;pointer-events:none;cursor:not-allowed}\n#yd-dashboard-root .yd-network-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 2px 2px}\n#yd-dashboard-root .yd-network-pagination>span{color:var(--muted);font-size:10.5px}\n#yd-dashboard-root .yd-loading-overlay,#yd-dashboard-root .yd-global-loading{display:none!important}\n@media(max-width:760px){#yd-dashboard-root .yd-network-pagination{align-items:flex-start;flex-direction:column}#yd-dashboard-root .yd-pagination{justify-content:flex-start}}\n";
         (document.head || document.documentElement).appendChild(style);
     };
     const navItems = () => {
-        const items = [['overview', 'fa-solid fa-chart-pie', 'Overview'], ['tools', 'fa-solid fa-toolbox', 'Tools']];
+        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements']];
         if (['ADMIN', 'SUPER_ADMIN'].includes(context.userRole)) items.push(['users', 'fa-solid fa-users', 'Users']);
         if (context.userRole === 'ADMIN') items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (context.userRole === 'SUPER_ADMIN') items.push(['permissions', 'fa-solid fa-share-nodes', 'Shared Tools'], ['visibility', 'fa-solid fa-eye', 'Visibility'], ['transactions', 'fa-solid fa-right-left', 'NETWORK']);
@@ -203,16 +202,15 @@
     };
 
     
-        const pageTitle = () => ({ overview: 'Overview', tools: 'Tools', users: 'Users & Permissions', permissions: 'Shared Tools', visibility: 'Visibility', transactions: 'NETWORK Activity', account: 'Settings' })[activePage] || 'Dashboard';
+        const pageTitle = () => ({ overview: 'Overview', tools: 'Tools', announcements: 'Announcements', users: 'Users & Permissions', permissions: 'Shared Tools', visibility: 'Visibility', transactions: 'NETWORK Activity', account: 'Settings' })[activePage] || 'Dashboard';
 
     const renderShell = body => {
         const user = context.user || {};
-        const role = String(context.userRole || 'USER').replace(/_/g, ' ');
+        const role = formatRole(context.userRole);
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
         const avatar = escapeHTML(initials(user.name || user.id));
         const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="' + icon + '"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
         const toast = notice ? '<div class="yd-toast ' + escapeHTML(notice.type) + '">' + escapeHTML(notice.message) + '</div>' : '';
-        const loading = '<div id="yd-global-loading" class="yd-loading-overlay"' + (busy ? '' : ' hidden') + ' role="status" aria-live="polite"><div class="yd-loading-card"><span class="yd-spinner"></span><div><strong>WORKING WITH GITHUB</strong><span class="yd-loading-message">' + escapeHTML(busyMessage) + '</span></div></div></div>';
         return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
@@ -224,7 +222,7 @@
                                     '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
-                '</div></div>' + toast + loading;
+                '</div></div>' + toast;
     };
 
     
@@ -241,6 +239,21 @@
                 <div class="yd-tool-foot"><span class="yd-status ${loaded.has(tool.id) ? 'on' : ''}"><i class="yd-dot"></i>${loaded.has(tool.id) ? 'Loaded' : 'Not loaded'}</span><span class="yd-pill">${escapeHTML(tool.author || 'Yodawy')}</span></div>
             </article>
         `).join('')}</div>`;
+    };
+
+    const renderPagination = (currentPage, totalPages, action) => {
+        if (totalPages <= 1) return '';
+        const firstPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+        const lastPage = Math.min(totalPages, firstPage + 4);
+        const link = (label, page, active = false, disabled = false, aria = '') =>
+            '<li data-slot="pagination-item"><a data-slot="pagination-link" href="#" role="button" tabindex="' + (disabled ? '-1' : '0') + '" data-action="' + escapeHTML(action) + '" data-page="' + page + '" aria-label="' + escapeHTML(aria || String(label)) + '"' +
+            (active ? ' aria-current="page" data-active="true"' : '') +
+            (disabled ? ' aria-disabled="true"' : '') +
+            ' class="yd-pagination-link' + (active ? ' active' : '') + (disabled ? ' disabled' : '') + '">' + label + '</a></li>';
+        let pages = link('<i class="fa-solid fa-chevron-left"></i>', currentPage - 1, false, currentPage <= 1, 'Previous page');
+        for (let page = firstPage; page <= lastPage; page++) pages += link(String(page), page, page === currentPage, false, 'Page ' + page);
+        pages += link('<i class="fa-solid fa-chevron-right"></i>', currentPage + 1, false, currentPage >= totalPages, 'Next page');
+        return '<nav role="navigation" aria-label="pagination" data-slot="pagination" class="yd-pagination"><ul data-slot="pagination-content" class="yd-pagination-content">' + pages + '</ul></nav>';
     };
 
     const renderTransactionsTable = transactions => {
@@ -260,7 +273,7 @@
             return '<tr><td><div class="yd-network-activity"><strong>' + escapeHTML(summary) + '</strong><small>By ' + escapeHTML(actor) + '</small></div></td><td>' + statusMarkup + '</td><td>' + escapeHTML(formatDate(item.updatedAt || item.createdAt)) + '</td></tr>';
         }).join('');
         return '<div class="yd-table-wrap yd-network-table"><table><thead><tr><th>Activity</th><th style="width:130px">Status</th><th style="width:190px">Date</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-            '<div class="yd-network-pagination"><span>' + (start + 1) + '–' + Math.min(start + NETWORK_PAGE_SIZE, transactions.length) + ' of ' + transactions.length + '</span><button type="button" data-action="network-page" data-page="' + (networkPage - 1) + '"' + (networkPage <= 1 ? ' disabled' : '') + ' aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button><button type="button" data-action="network-page" data-page="' + (networkPage + 1) + '"' + (networkPage >= totalPages ? ' disabled' : '') + ' aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button></div>';
+            '<div class="yd-network-pagination"><span>' + (start + 1) + '–' + Math.min(start + NETWORK_PAGE_SIZE, transactions.length) + ' of ' + transactions.length + '</span>' + renderPagination(networkPage, totalPages, 'network-page') + '</div>';
     };
 
     const renderOverview = () => {
@@ -270,7 +283,7 @@
         const enabledTools = visibleTools.filter(tool => context.settings?.isEnabled?.(tool.id) === true);
         const settings = context.settings?.getSettings?.() || {};
         const user = context.user || {};
-        const role = String(context.userRole || 'USER').replace(/_/g, ' ');
+        const role = formatRole(context.userRole);
         return '<section class="yd-welcome"><div><h1>Overview</h1><p>Your centralized Yodawy tools workspace and account status.</p></div></section>' +
             '<section class="yd-stats">' +
                 statCard('Tools', visibleTools.length, 'fa-solid fa-toolbox', 'blue') +
@@ -354,7 +367,7 @@
                 : '';
             const status = pending ? renderPendingBadge(pendingLabel) : '<span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span>';
             const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
-            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td><span class="yd-pill">' + escapeHTML(user.role) + '</span></td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
+            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td><span class="yd-pill">' + escapeHTML(formatRole(user.role)) + '</span></td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div><button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
@@ -392,7 +405,7 @@
                 const expanded = expandedUsers.has(userId) ? ' open' : '';
                 const userPending = getPendingUser(user);
                 const userBadge = userPending ? renderPendingBadge(String(userPending.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
-                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(user.role) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body">' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
+                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(formatRole(user.role)) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body">' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
             }).join('');
             return '<section class="yd-welcome"><div><h1>Shared Tools</h1><p>Expand a user to manage tool access and forced states.</p></div><span class="yd-pill">SUPER ADMIN CONTROL</span></section><div class="yd-accordion-list">' + (items || '<div class="yd-empty">No eligible users found.</div>') + '</div>';
         }
@@ -438,7 +451,7 @@
             const id = String(user.id || '').trim().toUpperCase();
             const active = String(user.status || '').toLowerCase() === 'active';
             const selected = allUsersSelected || selectedIds.has(id);
-            return '<div class="yd-visibility-user-row' + (pendingVisibility ? ' is-pending' : '') + '"><span class="yd-visibility-user-info"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(id) + ' · ' + escapeHTML(user.role) + (active ? '' : ' · INACTIVE') + '</small></span><button type="button" class="yd-switch ' + (selected ? 'on' : '') + '" data-action="toggle-visibility-user" data-tool="' + escapeHTML(selectedTool.id) + '" data-user="' + escapeHTML(id) + '" data-selected="' + String(selected) + '" ' + (active && !pendingVisibility ? '' : 'disabled') + ' role="switch" aria-checked="' + String(selected) + '" aria-label="Allow ' + escapeHTML(formatName(user.name)) + '"><span class="yd-switch-knob"></span></button></div>';
+            return '<div class="yd-visibility-user-row' + (pendingVisibility ? ' is-pending' : '') + '"><span class="yd-visibility-user-info"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(id) + ' · ' + escapeHTML(formatRole(user.role)) + (active ? '' : ' · INACTIVE') + '</small></span><button type="button" class="yd-switch ' + (selected ? 'on' : '') + '" data-action="toggle-visibility-user" data-tool="' + escapeHTML(selectedTool.id) + '" data-user="' + escapeHTML(id) + '" data-selected="' + String(selected) + '" ' + (active && !pendingVisibility ? '' : 'disabled') + ' role="switch" aria-checked="' + String(selected) + '" aria-label="Allow ' + escapeHTML(formatName(user.name)) + '"><span class="yd-switch-knob"></span></button></div>';
         }).join('') : '';
         const countLabel = allUsersSelected ? users.length + ' users included' : selectedIds.size + ' selected';
         const modalNote = pendingVisibility
@@ -461,12 +474,11 @@
         const settings = context.settings?.getSettings?.() || { tools: {} };
         return '<section class="yd-welcome"><div><h1>Settings</h1><p>Personal dashboard preferences and workspace details.</p></div><button class="yd-primary" data-action="save-settings"><i class="fa-solid fa-cloud-arrow-up"></i><span>Save Settings</span></button></section>' +
             '<div class="yd-panel-grid"><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-sliders"></i></span><span>Personal Dashboard Preferences</span></div>' +
-                '<div class="yd-field"><label for="yd-display-name">Display Name</label><input id="yd-display-name" class="yd-input" value="' + escapeHTML(formatName(settings.displayName || user.name || '')) + '"></div>' +
-                '<div class="yd-field" style="margin-top:10px"><label for="yd-start-page">Default Start Section</label>' + renderDropdown('startPage', settings.startPage === 'tools' ? 'tools' : 'overview', [{ value: 'overview', label: 'Overview' }, { value: 'tools', label: 'Tools' }], { id: 'yd-start-page' }) + '</div>' +
+                '<div class="yd-field"><label for="yd-start-page">Default Start Section</label>' + renderDropdown('startPage', settings.startPage === 'overview' ? 'overview' : 'tools', [{ value: 'tools', label: 'Tools' }, { value: 'overview', label: 'Overview' }], { id: 'yd-start-page' }) + '</div>' +
             '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-database"></i></span><span>Repository & Account</span></div>' +
                 '<div class="yd-info-row"><span>Full Name</span><strong>' + escapeHTML(formatName(user.name || '—')) + '</strong></div>' +
                 '<div class="yd-info-row"><span>User ID</span><strong>' + escapeHTML(user.id || user.userId || context.userId || '—') + '</strong></div>' +
-                '<div class="yd-info-row"><span>Role</span><strong>' + escapeHTML(context.userRole) + '</strong></div>' +
+                '<div class="yd-info-row"><span>Role</span><strong>' + escapeHTML(formatRole(context.userRole)) + '</strong></div>' +
                 '<div class="yd-info-row"><span>Personal Repository</span><strong>' + escapeHTML(context.personalRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Dashboard Repository</span><strong>' + escapeHTML(context.dashboardRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Branch</span><strong>' + escapeHTML(context.branch || 'main') + '</strong></div>' +
@@ -512,6 +524,7 @@
             context.visibility?.load?.()
         ]);
         await context.tools?.loadManifest?.();
+        await context.announcements?.load?.();
         const engine = getRoleEngine();
         if (engine?.refresh) await engine.refresh();
         render();
@@ -726,7 +739,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
         const roleDropdown = context.userRole === 'SUPER_ADMIN'
-            ? '<div class="yd-field"><label>Role</label>' + renderDropdown('role', user?.role || 'USER', [{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }, { value: 'SUPER_ADMIN', label: 'SUPER_ADMIN' }]) + '</div>'
+            ? '<div class="yd-field"><label>Role</label>' + renderDropdown('role', user?.role || 'USER', [{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }, { value: 'SUPER_ADMIN', label: 'SUPER ADMIN' }]) + '</div>'
             : '';
         const statusDropdown = '<div class="yd-field"><label>Status</label>' + renderDropdown('status', user?.status || 'Active', [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }]) + '</div>';
         overlay.innerHTML = '<form class="yd-modal" id="yd-user-form">' +
@@ -801,8 +814,9 @@
                 trackBackground(refresh().then(() => showNotice('Connection refreshed successfully.')).catch(error => showMessageDialog('Refresh Failed', error?.message || 'Unable to refresh connection.')));
             } else if (action === 'save-settings') {
                 const updated = context.settings.getSettings();
-                updated.displayName = document.getElementById(CONFIG.ID).querySelector('#yd-display-name')?.value.trim() || context.user?.name || '';
-                updated.startPage = document.getElementById(CONFIG.ID).querySelector('#yd-start-page')?.value || 'overview';
+                delete updated.displayName;
+                updated.startPage = document.getElementById(CONFIG.ID).querySelector('#yd-start-page')?.value || 'tools';
+                activePage = updated.startPage;
                 button.disabled = true;
                 button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Saving</span>';
                 showNotice('Saving personal dashboard settings in the background...');
@@ -1091,6 +1105,8 @@
             throw new Error('Authenticated dashboard context is required.');
         }
         context = options;
+        const defaultPage = context.settings?.getSettings?.()?.startPage;
+        activePage = defaultPage === 'overview' ? 'overview' : 'tools';
         restorePendingTransactions();
         isOpen = false;
         profileOpen = false;
