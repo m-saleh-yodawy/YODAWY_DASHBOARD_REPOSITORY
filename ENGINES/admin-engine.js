@@ -442,6 +442,7 @@
     });
 
     global.YODAWY_ADMIN_ENGINE = API;
+    YODAWY.adminEngine = API;
     YODAWY.admin = API;
 
     YODAWY.init = async () => {
