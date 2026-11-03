@@ -125,6 +125,8 @@
             }
         }
 
+        if (!['overview', 'tools'].includes(String(data.startPage || '').toLowerCase())) data.startPage = 'tools';
+
         return data;
     };
 
