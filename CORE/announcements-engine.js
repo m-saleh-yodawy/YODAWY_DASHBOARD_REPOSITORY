@@ -169,7 +169,13 @@
                 transaction = await getTransaction(requestId);
             } catch {}
             if (transaction && CONFIG.FINAL_STATUSES.includes(normalizeText(transaction.status).toUpperCase())) {
-                if (transaction.status === 'COMPLETED' && options.refresh !== false) await load();
+                if (transaction.status === 'COMPLETED' && options.refresh !== false) {
+                    await load();
+                    const roleEngine = global.YODAWY_SUPER_ADMIN_ENGINE || global.YODAWY_ADMIN_ENGINE;
+                    try {
+                        await roleEngine?.refresh?.();
+                    } catch {}
+                }
                 return transaction;
             }
             await new Promise(resolve => setTimeout(resolve, interval));
