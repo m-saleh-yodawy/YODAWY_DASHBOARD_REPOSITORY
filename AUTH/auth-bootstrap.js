@@ -25,7 +25,8 @@
             'CORE/permissions-engine.js',
             'CORE/settings-engine.js',
             'CORE/visibility-engine.js',
-            'CORE/tools-manager.js'
+            'CORE/tools-manager.js',
+            'CORE/announcements-engine.js'
         ],
         ui: 'UI/dashboard-ui.js',
         roles: {
@@ -198,7 +199,8 @@
             'YODAWY_PERMISSIONS_ENGINE',
             'YODAWY_SETTINGS_ENGINE',
             'YODAWY_VISIBILITY_ENGINE',
-            'YODAWY_TOOLS_MANAGER'
+            'YODAWY_TOOLS_MANAGER',
+            'YODAWY_ANNOUNCEMENTS_ENGINE'
         ];
 
         for (const name of required) {
@@ -238,6 +240,7 @@
         const PERMISSIONS = RUNTIME.YODAWY_PERMISSIONS_ENGINE;
         const VISIBILITY = RUNTIME.YODAWY_VISIBILITY_ENGINE;
         const TOOLS = RUNTIME.YODAWY_TOOLS_MANAGER;
+        const ANNOUNCEMENTS = RUNTIME.YODAWY_ANNOUNCEMENTS_ENGINE;
 
         API.configure({
             owner: OWNER,
@@ -265,6 +268,7 @@
         await PERMISSIONS.load();
         await VISIBILITY.load();
         await TOOLS.loadManifest();
+        await ANNOUNCEMENTS.load();
 
         return true;
     };
@@ -329,6 +333,7 @@
             visibility: RUNTIME.YODAWY_VISIBILITY_ENGINE,
             moduleLoader: RUNTIME.YODAWY_MODULE_LOADER,
             tools: RUNTIME.YODAWY_TOOLS_MANAGER,
+            announcements: RUNTIME.YODAWY_ANNOUNCEMENTS_ENGINE,
             ui: RUNTIME.YODAWY_DASHBOARD_UI || null,
             request: (url, options) =>
                 RUNTIME.YODAWY_API_ENGINE.request(url, options),
