@@ -10,6 +10,7 @@
     const USER_ID = C.USER_ID;
 
     const PAGE = window;
+    PAGE.__YODAWY_BOOTSTRAP_READY__ = false;
     const RUNTIME = Object.create(null);
 
     const PATHS = {
@@ -509,6 +510,9 @@
             authConfig,
             personalRepository
         );
+
+        PAGE.__YODAWY_BOOTSTRAP_READY__ = true;
+        return true;
 
     } catch (error) {
         const code = error?.code ||
