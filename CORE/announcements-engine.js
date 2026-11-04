@@ -57,7 +57,6 @@
             return {
                 ...post,
                 id,
-                title,
                 body,
                 createdBy: normalizeText(post.createdBy) || 'Unknown',
                 createdById: normalizeId(post.createdById),
