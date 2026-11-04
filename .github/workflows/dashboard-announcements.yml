@@ -159,12 +159,12 @@ jobs:
               body = str(payload.get("body") or "").strip()
 
               if action in {"CREATE_ANNOUNCEMENT", "UPDATE_ANNOUNCEMENT"}:
-                  if not title or not body:
-                      raise ValueError("Announcement title and message are required.")
-                  if len(title) > 140 or len(body) > 6000:
-                      raise ValueError("Announcement exceeds the allowed length.")
+                  if not body:
+                      raise ValueError("Announcement message is required.")
+                  if len(body) > 6000:
+                      raise ValueError("Announcement message exceeds the allowed length.")
 
-              outcome = {"id": post_id, "title": title}
+              outcome = {"id": post_id}
 
               def mutate(document):
                   posts = document.get("posts")
@@ -176,13 +176,12 @@ jobs:
                           raise ValueError("Announcement ID is required.")
                       existing = next((post for post in posts if isinstance(post, dict) and str(post.get("id")) == post_id), None)
                       if existing:
-                          if str(existing.get("createdById") or "").upper() == publisher["id"] and existing.get("title") == title and existing.get("body") == body:
+                          if str(existing.get("createdById") or "").upper() == publisher["id"] and existing.get("body") == body:
                               outcome["post"] = existing
                               return document
                           raise ValueError("Announcement ID already exists.")
                       post = {
                           "id": post_id,
-                          "title": title,
                           "body": body,
                           "createdBy": publisher["name"],
                           "createdById": publisher["id"],
@@ -200,12 +199,12 @@ jobs:
                           raise ValueError("Announcement was not found.")
                       updated = {
                           **posts[index],
-                          "title": title,
                           "body": body,
                           "updatedBy": publisher["name"],
                           "updatedById": publisher["id"],
                           "updatedAt": now,
                       }
+                      updated.pop("title", None)
                       posts[index] = updated
                       outcome["post"] = updated
                   elif action == "DELETE_ANNOUNCEMENT":
@@ -274,8 +273,8 @@ jobs:
               actor_id = str(actor.get("id") or actor.get("userId") or "").strip().upper()
               publisher = read_publisher(actor_id)
               actor_name = publisher["name"] if publisher else actor_id or "Unknown"
-              title = " ".join(str(payload.get("title") or "").strip().split())
-              summary = action.replace("_", " ") + (" · " + title if title else "")
+              preview = " ".join(str(payload.get("body") or "").strip().split())[:100]
+              summary = action.replace("_", " ") + (" · " + preview if preview else "")
               status = "FAILED"
               error_message = ""
               try:
@@ -291,7 +290,7 @@ jobs:
                   if action == "DELETE_ANNOUNCEMENT":
                       summary = "DELETE ANNOUNCEMENT · " + str(payload.get("id") or "")
                   else:
-                      summary = ("PUBLISH ANNOUNCEMENT · " if action == "CREATE_ANNOUNCEMENT" else "UPDATE ANNOUNCEMENT · ") + title
+                      summary = ("PUBLISH ANNOUNCEMENT · " if action == "CREATE_ANNOUNCEMENT" else "UPDATE ANNOUNCEMENT · ") + preview
                   record_transaction(request_id, sequence, action, status, actor_id, publisher["name"], summary, str(payload.get("id") or ""))
               except Exception as error:
                   error_message = str(error)
