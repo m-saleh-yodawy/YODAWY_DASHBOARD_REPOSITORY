@@ -7,7 +7,6 @@
         PATH: 'CONFIG/announcements.json',
         LOGS_PATH: 'NETWORK/network-logs.json',
         REQUEST_TYPE: 'DASHBOARD_ANNOUNCEMENTS_SYNC',
-        MAX_TITLE: 140,
         MAX_BODY: 6000,
         FINAL_STATUSES: ['COMPLETED', 'FAILED', 'REJECTED']
     });
@@ -51,10 +50,9 @@
         return data.posts.map(post => {
             if (!post || typeof post !== 'object' || Array.isArray(post)) throw createError('Invalid announcement record');
             const id = normalizeText(post.id);
-            const title = normalizeText(post.title);
             const body = normalizeText(post.body);
             if (!id || !body || ids.has(id)) throw createError('Announcement contains missing or duplicate fields');
-            if (title.length > CONFIG.MAX_TITLE || body.length > CONFIG.MAX_BODY) throw createError('Announcement exceeds the allowed length');
+            if (body.length > CONFIG.MAX_BODY) throw createError('Announcement message exceeds the allowed length');
             ids.add(id);
             return {
                 ...post,
@@ -200,7 +198,6 @@
 
     const createPost = async input => {
         getActor();
-        const title = normalizeText(input?.title);
         const body = normalizeText(input?.body);
         if (!body) throw createError('Announcement message is required');
         if (body.length > CONFIG.MAX_BODY) throw createError('Announcement message is too long');
