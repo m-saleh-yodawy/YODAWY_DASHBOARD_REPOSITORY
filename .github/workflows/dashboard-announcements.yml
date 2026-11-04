@@ -155,7 +155,6 @@ jobs:
 
           def update_announcements(action, payload, publisher):
               post_id = str(payload.get("id") or "").strip()
-              title = " ".join(str(payload.get("title") or "").strip().split())
               body = str(payload.get("body") or "").strip()
 
               if action in {"CREATE_ANNOUNCEMENT", "UPDATE_ANNOUNCEMENT"}:
