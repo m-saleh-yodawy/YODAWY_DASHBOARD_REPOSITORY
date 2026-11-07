@@ -1,16 +1,18 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-03T14:14:40Z",
+  "updatedAt": "2026-11-07T21:59:22Z",
   "posts": [
     {
       "id": "1793715257459-CV8YPK1G9P",
-      "title": "جامعة القاهرة",
       "body": "مستشفي جامعه القاهره\nسايكل اكتوبر\nعدوها من غير الأصناف الناقصه\nده بس اللي هيعدي بدون كول\n مستشفى جامعة القاهرة  سايكل أكتوبر",
       "createdBy": "MOHAMED SALEH",
       "createdById": "Q-001",
       "createdByRole": "SUPER_ADMIN",
       "createdAt": "2026-11-03T14:14:40Z",
-      "updatedAt": "2026-11-03T14:14:40Z"
+      "updatedAt": "2026-11-07T21:59:22Z",
+      "cycle": "December",
+      "updatedBy": "MOHAMED SALEH",
+      "updatedById": "Q-001"
     }
   ]
 }
