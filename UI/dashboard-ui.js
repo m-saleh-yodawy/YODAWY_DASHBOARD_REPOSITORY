@@ -1456,7 +1456,7 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
         dropdownScrollHandler = () => root.querySelectorAll('.ui-select[data-open="true"]').forEach(positionDropdownMenu);
         dropdownResizeHandler = () => root.querySelectorAll('.ui-select[data-open="true"]').forEach(positionDropdownMenu);
         document.addEventListener('scroll', dropdownScrollHandler, true);
-        window.addEventListener('resize', dropdownResizeHandler);
+        document.defaultView?.addEventListener('resize', dropdownResizeHandler);
     };
 
     
@@ -1491,7 +1491,7 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
         if (dropdownOutsideClickHandler) document.removeEventListener('click', dropdownOutsideClickHandler);
         if (dropdownKeydownHandler) document.removeEventListener('keydown', dropdownKeydownHandler);
         if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
-        if (dropdownResizeHandler) window.removeEventListener('resize', dropdownResizeHandler);
+        if (dropdownResizeHandler) document.defaultView?.removeEventListener('resize', dropdownResizeHandler);
         dropdownMenuClickHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         document.getElementById(CONFIG.ID)?.remove();
         document.getElementById(CONFIG.STYLE_ID)?.remove();
