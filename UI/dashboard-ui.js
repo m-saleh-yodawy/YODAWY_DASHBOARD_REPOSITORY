@@ -184,6 +184,17 @@
             }).join('') + '</div></div>';
     };
 
+    const renderAnnouncementCycleDropdown = (cycle, id) => {
+        const options = ANNOUNCEMENT_CYCLES.map(item => {
+            const selected = item === cycle;
+            return '<button type="button" class="ui-select-option ui-select-item yd-dropdown-item" role="option" aria-selected="' + String(selected) + '" data-selected="' + String(selected) + '" data-action="select-dropdown" data-value="' + escapeHTML(item) + '"><span>' + escapeHTML(item) + '</span></button>';
+        }).join('');
+        return '<div class="ui-select yd-dropdown yd-select-dropdown yd-announcement-cycle-select" data-dropdown data-multiple="false" data-open="false" data-placeholder="Cycle" data-value="' + escapeHTML(cycle) + '" data-announcement-cycle="true" data-id="' + escapeHTML(id) + '" aria-label="Announcement cycle">' +
+            '<input type="hidden" value="' + escapeHTML(cycle) + '">' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="false"><span class="ui-select-value yd-dropdown-value" data-placeholder="false">' + escapeHTML(cycle) + '</span><svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
+            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-announcement-cycle-menu" role="listbox" aria-label="Cycle options" aria-multiselectable="false" hidden><div class="ui-select-group"><div class="ui-select-label">Cycle</div>' + options + '</div></div></div>';
+    };
+
     const showNotice = (message, type = 'success') => {
         notice = { message, type };
         const element = document.querySelector('#' + CONFIG.ID + ' .yd-toast');
@@ -345,6 +356,48 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
 body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-dropdown-separator{height:1px!important;margin:5px 2px!important;background:#e9e4eb!important}
 body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer{display:flex!important;justify-content:flex-end!important;gap:6px!important;padding:6px 2px 1px!important}
 body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer button{min-height:29px!important;padding:0 10px!important;border-radius:7px!important;font-size:10.5px!important;font-weight:600!important}
+`;
+        style.textContent += String.raw`
+#yd-dashboard-root .yd-announcement-list{display:flex!important;flex-direction:column!important;align-items:center!important;gap:16px!important;width:50%!important;margin:0 auto!important}
+#yd-dashboard-root article.yd-announcement-card{display:flex!important;flex-direction:column!important;width:100%!important;max-width:760px!important;min-width:0!important;margin:0!important;padding:0!important;overflow:hidden!important;border:1px solid #e4e4e7!important;border-radius:12px!important;background:#fff!important;box-shadow:0 4px 12px #0000000d!important}
+#yd-dashboard-root .yd-announcement-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;width:100%!important;padding:14px 18px!important;border:0!important;border-bottom:1px solid #f0f0f2!important;background:#fff!important}
+#yd-dashboard-root .yd-announcement-author-wrap{display:flex!important;align-items:center!important;gap:12px!important;min-width:0!important}
+#yd-dashboard-root .yd-announcement-avatar{display:flex!important;align-items:center!important;justify-content:center!important;width:38px!important;height:38px!important;flex:0 0 38px!important;border-radius:50%!important;background:#875a7b!important;color:#fff!important;font-size:13px!important;font-weight:700!important}
+#yd-dashboard-root .yd-announcement-meta{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:2px!important;min-width:0!important;margin:0!important}
+#yd-dashboard-root .yd-announcement-author{color:#18181b!important;font-size:14px!important;font-weight:700!important;letter-spacing:0!important}
+#yd-dashboard-root .yd-announcement-by{color:#875a7b!important;font-weight:800!important}
+#yd-dashboard-root .yd-announcement-date{display:flex!important;align-items:center!important;gap:4px!important;color:#71717a!important;font-size:12px!important;line-height:1.45!important;white-space:nowrap!important}
+#yd-dashboard-root .yd-announcement-date svg{width:13px!important;height:13px!important;flex:0 0 13px!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap{display:flex!important;align-items:center!important;justify-content:flex-end!important;flex:0 0 auto!important;min-width:120px!important}
+#yd-dashboard-root .yd-announcement-cycle-select{width:120px!important;min-width:120px!important}
+#yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:6px!important;width:100%!important;height:32px!important;min-height:32px!important;padding:6px 10px!important;border:1px solid #875a7b!important;border-radius:8px!important;background:#875a7b!important;color:#fff!important;font-size:13px!important;font-weight:600!important;white-space:nowrap!important;outline:none!important;cursor:pointer!important;transition:background-color .15s,box-shadow .15s!important}
+#yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger:hover:not(:disabled){border-color:#68465f!important;background:#68465f!important;color:#fff!important}
+#yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger:focus-visible,#yd-dashboard-root .yd-announcement-cycle-select[data-open="true"] .ui-select-trigger{border-color:#68465f!important;box-shadow:0 0 0 3px #875a7b35!important}
+#yd-dashboard-root .yd-announcement-cycle-select .ui-select-value{flex:1!important;min-width:0!important;color:#fff!important;text-align:left!important;text-overflow:ellipsis!important}
+#yd-dashboard-root .yd-announcement-cycle-select .ui-select-chevron{width:14px!important;height:14px!important;flex:0 0 14px!important;color:#ffffffd9!important;pointer-events:none!important}
+#yd-dashboard-root .yd-announcement-cycle-menu .ui-select-group{padding:4px!important}
+#yd-dashboard-root .yd-announcement-cycle-menu .ui-select-label{padding:4px 6px!important;color:#71717a!important;font-size:11px!important;font-weight:700!important}
+#yd-dashboard-root .yd-announcement-cycle-menu .ui-select-item{min-height:31px!important;padding:5px 28px 5px 8px!important;border-radius:6px!important;font-size:13px!important}
+#yd-dashboard-root .yd-announcement-cycle-menu .ui-select-item[data-selected="true"]{background:#f4eff2!important;color:#714b67!important;font-weight:700!important}
+#yd-dashboard-root .yd-announcement-cycle-box{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:120px!important;min-height:32px!important;padding:4px 10px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#f4eff2!important;color:#68465f!important;font-size:13px!important;font-weight:700!important;text-align:center!important;white-space:nowrap!important}
+#yd-dashboard-root .yd-announcement-body{margin:0!important;padding:18px!important;border:0!important;background:#fff!important;color:#18181b!important;font-size:14px!important;font-weight:600!important;line-height:1.7!important;text-align:right!important;direction:rtl!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}
+#yd-dashboard-root .yd-announcement-footer{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:8px!important;padding:0 18px 14px!important;border:0!important;background:#fff!important}
+#yd-dashboard-root .yd-announcement-footer .yd-announcement-actions{display:flex!important;align-items:center!important;gap:8px!important;margin:0!important}
+#yd-dashboard-root .yd-announcement-footer .yd-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:32px!important;height:32px!important;padding:0!important;border:0!important;border-radius:8px!important;cursor:pointer!important;transition:opacity .15s,transform .1s!important}
+#yd-dashboard-root .yd-announcement-footer .yd-btn:hover{opacity:.85!important}
+#yd-dashboard-root .yd-announcement-footer .yd-btn:active{transform:scale(.96)!important}
+#yd-dashboard-root .yd-announcement-footer .yd-btn svg{width:15px!important;height:15px!important}
+#yd-dashboard-root .yd-announcement-footer .yd-btn-edit{background:#f4eff2!important;color:#875a7b!important}
+#yd-dashboard-root .yd-announcement-footer .yd-btn-delete{background:#fee2e2!important;color:#dc2626!important}
+#yd-dashboard-root .yd-announcement-list[data-role="user"] .yd-announcement-footer{display:none!important}
+#yd-dashboard-root .yd-announcement-list[data-role="user"] .yd-announcement-cycle-box{pointer-events:none!important;cursor:default!important}
+body>.ui-select-menu.yd-announcement-cycle-menu.yd-select-portal-menu[data-portal="true"]{min-width:144px!important;max-height:260px!important;padding:4px!important}
+body>.ui-select-menu.yd-announcement-cycle-menu.yd-select-portal-menu[data-portal="true"] .ui-select-group{padding:4px!important}
+body>.ui-select-menu.yd-announcement-cycle-menu.yd-select-portal-menu[data-portal="true"] .ui-select-label{padding:4px 6px!important;color:#71717a!important;font-size:11px!important;font-weight:700!important}
+body>.ui-select-menu.yd-announcement-cycle-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item{min-height:31px!important;padding:5px 28px 5px 8px!important;border-radius:6px!important;font-size:13px!important}
+body>.ui-select-menu.yd-announcement-cycle-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item[data-selected="true"]{background:#f4eff2!important;color:#714b67!important;font-weight:700!important}
+body>.ui-select-menu.yd-announcement-cycle-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item>i.fa-check{display:none!important}
+@media(max-width:760px){#yd-dashboard-root .yd-announcement-list{width:100%!important;gap:10px!important}#yd-dashboard-root article.yd-announcement-card{width:100%!important}#yd-dashboard-root .yd-announcement-head{flex-wrap:wrap!important;gap:10px!important;padding:13px!important}#yd-dashboard-root .yd-announcement-author-wrap{flex:1 1 160px!important}#yd-dashboard-root .yd-announcement-cycle-wrap{margin-left:auto!important}#yd-dashboard-root .yd-announcement-body{padding:15px!important;font-size:13px!important}}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
@@ -639,21 +692,23 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
     const renderAnnouncements = () => {
         const posts = context.announcements?.getPosts?.() || [];
         const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
+        const role = String(context.userRole || 'USER').trim().toLowerCase().replace(/_/g, '');
         const cards = posts.map(post => {
             const published = formatAnnouncementDate(post.createdAt || post.updatedAt);
             const cycle = getAnnouncementCycle(post);
             const id = escapeHTML(post.id);
-            const author = escapeHTML(String(post.createdBy || 'Dashboard Team').toLocaleUpperCase());
+            const authorName = String(post.createdBy || 'Dashboard Team').toLocaleUpperCase();
+            const author = escapeHTML(authorName);
             const cycleControl = canManage
-                ? renderDropdown('', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { 'data-announcement-cycle': 'true', 'data-id': id, 'aria-label': 'Change announcement cycle' })
+                ? renderAnnouncementCycleDropdown(cycle, post.id)
                 : '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
-            return '<article class="yd-announcement-card"><header class="yd-announcement-head"><div class="yd-announcement-identity"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong></div><div class="yd-announcement-meta"><div class="yd-announcement-datetime"><span class="yd-announcement-date">' + escapeHTML(published.date) + '</span><span class="yd-announcement-time">' + escapeHTML(published.time) + '</span></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></div></header><div class="yd-announcement-body">' + escapeHTML(post.body) + '</div>' +
-                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><i class="fa-solid fa-trash-can"></i></button></div></footer>' : '') +
+            return '<article class="yd-announcement-card"><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time></div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' +
+                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-btn yd-btn-edit" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button><button type="button" class="yd-btn yd-btn-delete" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg></button></div></footer>' : '') +
                 '</article>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
             (canManage ? '<button type="button" class="yd-primary" data-action="add-announcement"><i class="fa-solid fa-plus"></i><span>New Announcement</span></button>' : '') +
-            '</section><div class="yd-announcement-list">' + (cards || '<div class="yd-card yd-empty">No announcements have been published yet.</div>') + '</div>';
+            '</section><div class="yd-announcement-list" data-role="' + escapeHTML(role) + '">' + (cards || '<div class="yd-card yd-empty">No announcements have been published yet.</div>') + '</div>';
     };
 
         const openAnnouncementModal = post => {
@@ -1181,7 +1236,7 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
         const width = Math.min(Math.max(rect.width, dropdown.classList.contains('yd-allowed-users-dropdown') ? 220 : 144), viewportWidth - 24);
-        const maxHeight = Math.min(478, viewportHeight - 24);
+        const maxHeight = Math.min(dropdown.classList.contains('yd-announcement-cycle-select') ? 260 : 478, viewportHeight - 24);
         const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
         const roomBelow = viewportHeight - rect.bottom - 12;
         const roomAbove = rect.top - 12;
@@ -1304,7 +1359,7 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
             option.setAttribute('aria-selected', String(selected));
             option.classList.toggle('selected', selected);
             const check = option.querySelector('i.fa-check');
-            if (selected && !check) option.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check" aria-hidden="true"></i>');
+            if (selected && !check && !dropdown.hasAttribute('data-announcement-cycle')) option.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check" aria-hidden="true"></i>');
             if (!selected && check) check.remove();
         });
         if (multiple) positionDropdownMenu(dropdown);
