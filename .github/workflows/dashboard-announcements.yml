@@ -50,7 +50,7 @@ jobs:
           USERS_PATH = "CONFIG/users.json"
           ANNOUNCEMENTS_PATH = "CONFIG/announcements.json"
           LOGS_PATH = "NETWORK/network-logs.json"
-          CYCLES = ("November", "December", "January")
+          CYCLES = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
 
           if not TOKEN:
               raise RuntimeError("Missing YODAWY_REPOSITORIES_SYNC_TOKEN")
@@ -175,7 +175,7 @@ jobs:
               cycle_value = str(payload.get("cycle") or "").strip()
               cycle = next((item for item in CYCLES if item.casefold() == cycle_value.casefold()), "")
               if cycle_value and not cycle:
-                  raise ValueError("Cycle must be November, December, or January.")
+                  raise ValueError("Cycle must be one of the twelve calendar months.")
 
               if action in {"CREATE_ANNOUNCEMENT", "UPDATE_ANNOUNCEMENT"}:
                   if not body:
