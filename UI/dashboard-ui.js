@@ -60,10 +60,6 @@
         return ANNOUNCEMENT_CYCLES.find(cycle => cycle.toLowerCase() === month.toLowerCase()) || ANNOUNCEMENT_CYCLES[0];
     };
 
-    const renderAnnouncementCycleOptions = selected => ANNOUNCEMENT_CYCLES.map(cycle =>
-        '<option value="' + escapeHTML(cycle) + '"' + (cycle === selected ? ' selected' : '') + '>' + escapeHTML(cycle) + '</option>'
-    ).join('');
-
     const initials = value => String(value || 'Y').trim().split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase();
 
     const formatName = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase().replace(/(^|[\s'’-])\p{L}/gu, value => value.toLocaleUpperCase());
@@ -219,6 +215,32 @@
         style.textContent += "\n#yd-dashboard-root .yd-accordion-list .yd-accordion-item .yd-accordion-body,#yd-dashboard-root .yd-accordion-item .yd-accordion-body,#yd-dashboard-root .yd-tool-accordion-list .yd-tool-accordion-item .yd-tool-accordion-body,#yd-dashboard-root .yd-tool-accordion-item .yd-tool-accordion-body{box-sizing:border-box!important;width:auto!important;margin:10px!important;padding:10px!important;border:1px solid #ded7e2!important;border-radius:10px!important;background:#fff!important;box-shadow:0 1px 3px #29242e08!important}\n#yd-dashboard-root .yd-accordion-item,#yd-dashboard-root .yd-tool-accordion-item{border-bottom:0!important}\n#yd-dashboard-root .yd-accordion-item+.yd-accordion-item>summary,#yd-dashboard-root .yd-tool-accordion-item+.yd-tool-accordion-item>summary{border-top:1px solid #e2dbe5!important}\n";
         style.textContent += "\n#yd-dashboard-root .yd-announcement-list{display:flex!important;flex-direction:column!important;align-items:center!important;gap:14px!important;width:100%!important}\n#yd-dashboard-root article.yd-announcement-card{display:flex!important;flex-direction:column!important;width:50%!important;max-width:760px!important;min-width:0!important;margin:0 auto!important;padding:16px!important;border:1px solid #e3dfe7!important;border-radius:12px!important;background:#fff!important;box-shadow:0 3px 10px #29242e0c!important}\n#yd-dashboard-root .yd-announcement-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;width:100%!important}\n#yd-dashboard-root .yd-announcement-identity{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:2px!important;min-width:0!important;margin:0!important}\n#yd-dashboard-root .yd-announcement-author{color:var(--ink)!important;font-size:12px!important;font-weight:650!important;letter-spacing:.025em!important}\n#yd-dashboard-root .yd-announcement-date,#yd-dashboard-root .yd-announcement-time{color:var(--muted)!important;font-size:10.5px!important;line-height:1.45!important}\n#yd-dashboard-root .yd-announcement-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex:0 0 auto!important;margin-left:auto!important}\n#yd-dashboard-root .yd-announcement-actions button{width:30px!important;height:30px!important;flex:0 0 30px!important}\n#yd-dashboard-root .yd-announcement-title{display:none!important}\n#yd-dashboard-root .yd-announcement-body{margin-top:12px!important;padding-top:11px!important;border-top:1px solid #f0edf2!important;color:var(--text)!important;font-size:12px!important;line-height:1.8!important;text-align:right!important;direction:rtl!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}\n@media(max-width:760px){#yd-dashboard-root article.yd-announcement-card{width:100%!important}}\n";
         style.textContent += "\n#yd-dashboard-root .yd-announcement-list{display:flex!important;flex-direction:column!important;align-items:center!important;gap:14px!important;width:100%!important}\n#yd-dashboard-root article.yd-announcement-card{display:flex!important;flex-direction:column!important;width:50%!important;max-width:760px!important;min-width:0!important;margin:0 auto!important;padding:0!important;overflow:hidden!important;border:1px solid #e3dfe7!important;border-radius:14px!important;background:#fff!important;box-shadow:0 3px 12px #29242e0d!important}\n#yd-dashboard-root .yd-announcement-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;width:100%!important;padding:15px 17px!important;border:0!important;border-bottom:1px solid #eee9f0!important;background:#fff!important}\n#yd-dashboard-root .yd-announcement-meta{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:2px!important;min-width:0!important;margin:0!important}\n#yd-dashboard-root .yd-announcement-author{color:var(--ink)!important;font-size:12px!important;font-weight:700!important;letter-spacing:.025em!important}\n#yd-dashboard-root .yd-announcement-date,#yd-dashboard-root .yd-announcement-time{color:var(--muted)!important;font-size:10.5px!important;line-height:1.45!important}\n#yd-dashboard-root .yd-announcement-cycle-wrap{display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:4px!important;flex:0 0 auto!important}\n#yd-dashboard-root .yd-announcement-cycle-label{color:var(--muted)!important;font-size:9px!important;font-weight:700!important;letter-spacing:.09em!important}\n#yd-dashboard-root .yd-announcement-cycle-select,#yd-dashboard-root .yd-announcement-cycle-box{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:118px!important;min-height:32px!important;padding:4px 10px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#f8f5f8!important;color:var(--brand-dark)!important;font-size:11px!important;font-weight:700!important;text-align:center!important}\n#yd-dashboard-root .yd-announcement-cycle-select{cursor:pointer!important;outline:none!important}\n#yd-dashboard-root .yd-announcement-cycle-select:focus{border-color:#b28aa8!important;box-shadow:0 0 0 3px #875a7b15!important}\n#yd-dashboard-root .yd-announcement-body{margin:0!important;padding:18px!important;border:0!important;background:#fff!important;color:var(--text)!important;font-size:12px!important;line-height:1.8!important;text-align:right!important;direction:rtl!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}\n#yd-dashboard-root .yd-announcement-footer{display:flex!important;align-items:center!important;justify-content:flex-end!important;padding:9px 13px!important;border-top:1px solid #eee9f0!important;background:#fcfbfd!important}\n#yd-dashboard-root .yd-announcement-footer .yd-announcement-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:7px!important;margin:0!important}\n#yd-dashboard-root .yd-announcement-footer .yd-announcement-actions button{width:30px!important;height:30px!important;flex:0 0 30px!important}\n#yd-dashboard-root .yd-announcement-title{display:none!important}\n@media(max-width:760px){#yd-dashboard-root article.yd-announcement-card{width:100%!important}#yd-dashboard-root .yd-announcement-head{gap:10px!important;padding:13px!important}#yd-dashboard-root .yd-announcement-body{padding:14px!important}}\n";
+        style.textContent += String.raw`
+#yd-dashboard-root .yd-announcement-list{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:14px!important;width:50%!important;margin:0 auto!important}
+#yd-dashboard-root article.yd-announcement-card{display:flex!important;flex-direction:column!important;width:100%!important;max-width:760px!important;min-width:0!important;margin:0!important;padding:0!important;overflow:hidden!important;border:1px solid #d7d1d9!important;border-radius:12px!important;background:#e9e9e9!important;box-shadow:0 3px 10px #29242e0c!important}
+#yd-dashboard-root .yd-announcement-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;width:100%!important;padding:10px!important;border:0!important;border-bottom:1px solid #d5ced7!important;background:#e9e9e9!important}
+#yd-dashboard-root .yd-announcement-identity{display:flex!important;align-items:center!important;justify-content:flex-start!important;min-width:0!important;margin:0!important}
+#yd-dashboard-root .yd-announcement-author{color:#29242e!important;font-size:12px!important;font-weight:700!important;letter-spacing:.02em!important;white-space:normal!important}
+#yd-dashboard-root .yd-announcement-by{margin-right:4px!important;color:#875a7b!important;font-weight:800!important}
+#yd-dashboard-root .yd-announcement-meta{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-width:0!important;margin:0!important;color:#514a56!important;font-size:10.5px!important;white-space:nowrap!important}
+#yd-dashboard-root .yd-announcement-date,#yd-dashboard-root .yd-announcement-time{color:#68465f!important;font-size:10.5px!important;font-weight:600!important;line-height:1.45!important}
+#yd-dashboard-root .yd-announcement-body{margin:0!important;padding:16px!important;border:0!important;background:#e9e9e9!important;color:#514a56!important;font-size:12px!important;line-height:1.8!important;text-align:right!important;direction:rtl!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important}
+#yd-dashboard-root .yd-announcement-footer{display:flex!important;align-items:center!important;justify-content:flex-end!important;padding:8px 10px!important;border-top:1px solid #d5ced7!important;background:#e9e9e9!important}
+#yd-dashboard-root .yd-announcement-footer .yd-announcement-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:7px!important;margin:0!important}
+#yd-dashboard-root .yd-announcement-footer .yd-announcement-actions button{width:30px!important;height:30px!important;flex:0 0 30px!important}
+#yd-dashboard-root .yd-dropdown-trigger{min-height:36px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#fff!important;color:#514a56!important}
+#yd-dashboard-root .yd-dropdown-trigger:hover:not(:disabled),#yd-dashboard-root .yd-dropdown.open .yd-dropdown-trigger{border-color:#b28aa8!important;background:#fdfafd!important;color:#68465f!important}
+#yd-dashboard-root .yd-dropdown-trigger:focus-visible{outline:3px solid #875a7b24!important;outline-offset:2px!important}
+#yd-dashboard-root .yd-dropdown-menu,#yd-dashboard-root .yd-allowed-users-menu{position:absolute!important;z-index:2147483015!important;display:flex!important;flex-direction:column!important;gap:0!important;width:max(100%,144px)!important;min-width:144px!important;max-width:min(360px,calc(100vw - 32px))!important;max-height:min(478px,calc(100vh - 32px))!important;overflow-x:hidden!important;overflow-y:auto!important;padding:4px!important;border:1px solid #ded6e2!important;border-radius:9px!important;background:#fff!important;color:#514a56!important;box-shadow:0 8px 24px #39223920,0 0 0 1px #875a7b12!important;outline:none!important;transform-origin:top left!important;animation:yd-dropdown-enter .12s cubic-bezier(.2,.8,.2,1) both!important}
+#yd-dashboard-root .yd-dropdown-item{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;width:100%!important;min-height:33px!important;padding:6px 30px 6px 9px!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#514a56!important;font-size:12px!important;font-weight:500!important;text-align:left!important;white-space:normal!important;cursor:pointer!important;transition:background-color .12s,color .12s!important}
+#yd-dashboard-root .yd-dropdown-item:hover,#yd-dashboard-root .yd-dropdown-item:focus-visible{background:#f1eaf1!important;color:#68465f!important;outline:none!important}
+#yd-dashboard-root .yd-dropdown-item.selected{background:#f8f5f7!important;color:#68465f!important;font-weight:700!important}
+#yd-dashboard-root .yd-dropdown-item>i{position:absolute!important;right:9px!important;top:50%!important;margin:0!important;color:#875a7b!important;font-size:11px!important;transform:translateY(-50%)!important}
+#yd-dashboard-root .yd-allowed-users-option{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;width:100%!important;min-height:33px!important;padding:6px 9px!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#514a56!important;font-size:12px!important;font-weight:500!important;text-align:left!important;cursor:pointer!important;transition:background-color .12s,color .12s!important}
+#yd-dashboard-root .yd-allowed-users-option:hover,#yd-dashboard-root .yd-allowed-users-option:focus-visible{background:#f1eaf1!important;color:#68465f!important;outline:none!important}
+#yd-dashboard-root .yd-allowed-users-option.selected{background:#f8f5f7!important;color:#68465f!important;font-weight:700!important}
+@media(max-width:760px){#yd-dashboard-root .yd-announcement-list{width:100%!important;gap:10px!important}#yd-dashboard-root article.yd-announcement-card{width:100%!important}#yd-dashboard-root .yd-announcement-head{align-items:flex-start!important;gap:8px!important;padding:10px!important}#yd-dashboard-root .yd-announcement-meta{flex-wrap:wrap!important;justify-content:flex-end!important;gap:4px 10px!important;font-size:10px!important}#yd-dashboard-root .yd-announcement-date,#yd-dashboard-root .yd-announcement-time{font-size:10px!important}#yd-dashboard-root .yd-announcement-body{padding:14px!important}}
+`;
         (document.head || document.documentElement).appendChild(style);
     };
     const navItems = () => {
@@ -507,12 +529,9 @@
         const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
         const cards = posts.map(post => {
             const published = formatAnnouncementDate(post.createdAt || post.updatedAt);
-            const cycle = getAnnouncementCycle(post);
             const id = escapeHTML(post.id);
-            const cycleControl = canManage
-                ? '<select class="yd-announcement-cycle-select" data-announcement-cycle data-id="' + id + '" data-current-cycle="' + escapeHTML(cycle) + '" aria-label="Change announcement cycle">' + renderAnnouncementCycleOptions(cycle) + '</select>'
-                : '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
-            return '<article class="yd-announcement-card"><header class="yd-announcement-head"><div class="yd-announcement-meta"><strong class="yd-announcement-author">' + escapeHTML(String(post.createdBy || 'Dashboard Team').toLocaleUpperCase()) + '</strong><span class="yd-announcement-date">' + escapeHTML(published.date) + '</span><span class="yd-announcement-time">' + escapeHTML(published.time) + '</span></div><div class="yd-announcement-cycle-wrap"><span class="yd-announcement-cycle-label">CYCLE</span>' + cycleControl + '</div></header><div class="yd-announcement-body">' + escapeHTML(post.body) + '</div>' +
+            const author = escapeHTML(String(post.createdBy || 'Dashboard Team').toLocaleUpperCase());
+            return '<article class="yd-announcement-card"><header class="yd-announcement-head"><div class="yd-announcement-identity"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong></div><div class="yd-announcement-meta"><span class="yd-announcement-date">' + escapeHTML(published.date) + '</span><span class="yd-announcement-time">' + escapeHTML(published.time) + '</span></div></header><div class="yd-announcement-body">' + escapeHTML(post.body) + '</div>' +
                 (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><i class="fa-solid fa-trash-can"></i></button></div></footer>' : '') +
                 '</article>';
         }).join('');
@@ -524,10 +543,9 @@
         const openAnnouncementModal = post => {
         const editing = Boolean(post);
         const cycle = getAnnouncementCycle(post || { createdAt: new Date().toISOString() });
-        const cycleOptions = renderAnnouncementCycleOptions(cycle);
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label><select id="yd-announcement-cycle" name="cycle">' + cycleOptions + '</select></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
+        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
         const close = () => overlay.remove();
         overlay.addEventListener('click', event => {
@@ -1168,36 +1186,6 @@
             }
             if (actionButton?.dataset.action === 'refresh-connection') { runAction('refresh-connection'); return; }
             if (actionButton) runAction(actionButton.dataset.action, actionButton);
-        });
-        root.addEventListener('change', event => {
-            const select = event.target.closest?.('select[data-announcement-cycle]');
-            if (!select || select.dataset.saving === 'true') return;
-            if (!['ADMIN', 'SUPER_ADMIN'].includes(context.userRole)) {
-                render();
-                return;
-            }
-            const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(select.dataset.id));
-            const cycle = ANNOUNCEMENT_CYCLES.find(item => item === select.value);
-            if (!post || !cycle) {
-                render();
-                return;
-            }
-            const previousCycle = getAnnouncementCycle(post);
-            select.dataset.saving = 'true';
-            select.disabled = true;
-            trackBackground((async () => {
-                try {
-                    await context.announcements.updatePost(post.id, { body: post.body, cycle });
-                    await context.announcements.load();
-                    render();
-                    showNotice('Announcement cycle updated.');
-                } catch (error) {
-                    select.dataset.saving = 'false';
-                    select.disabled = false;
-                    select.value = previousCycle;
-                    showMessageDialog('Cycle Not Updated', error?.message || 'Unable to update the announcement cycle.');
-                }
-            })());
         });
         root.addEventListener('input', event => {
             if (event.target.id === 'yd-user-search' || event.target.id === 'yd-tool-search') {
