@@ -12,7 +12,7 @@
         REFRESH_INTERVAL: 30000
     });
 
-    const ANNOUNCEMENT_CYCLES = Object.freeze(['November', 'December', 'January']);
+    const ANNOUNCEMENT_CYCLES = Object.freeze(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
 
     let context = null;
     let activePage = 'tools';
@@ -160,14 +160,23 @@
     const renderPendingBadge = (label = 'Pending') => '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>' + escapeHTML(label) + '</span></span>';
 
     const renderDropdown = (name, value, options, attributes = {}, disabled = false) => {
-        const selected = options.find(option => String(option.value) === String(value)) || options[0] || { value: '', label: '' };
-        const attrs = Object.entries(attributes).map(([key, item]) => ' ' + key + '="' + escapeHTML(item) + '"').join('');
+        const multiple = attributes['data-multiple'] === 'true';
+        const values = multiple ? (Array.isArray(value) ? value : value == null ? [] : [value]).map(String) : [String(value ?? '')];
+        const selected = options.filter(option => values.includes(String(option.value)));
+        const selectedOption = selected[0] || options[0] || { value: '', label: '' };
+        const placeholder = String(attributes['data-placeholder'] || 'Select...');
+        const label = selected.length ? selected.map(option => option.label).join(', ') : placeholder;
+        const storedValue = multiple ? JSON.stringify(selected.map(option => String(option.value))) : String(selectedOption.value);
+        const attrs = Object.entries(attributes).filter(([key]) => key !== 'id' && key !== 'data-multiple' && key !== 'data-placeholder').map(([key, item]) => ' ' + key + '="' + escapeHTML(item) + '"').join('');
         const nameAttr = name ? ' name="' + escapeHTML(name) + '"' : '';
-        const idAttr = attributes.id ? '' : '';
-        return '<div class="yd-dropdown yd-select-dropdown' + (disabled ? ' disabled' : '') + '" data-dropdown' + attrs + '>' +
-            '<input type="hidden"' + nameAttr + (attributes.id ? ' id="' + escapeHTML(attributes.id) + '"' : '') + ' value="' + escapeHTML(selected.value) + '">' +
-            '<button type="button" class="yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="menu" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="yd-dropdown-value">' + escapeHTML(selected.label) + '</span><i class="fa-solid fa-chevron-down"></i></button>' +
-            '<div class="yd-dropdown-menu" role="menu" hidden>' + options.map(option => '<button type="button" class="yd-dropdown-item' + (String(option.value) === String(selected.value) ? ' selected' : '') + '" role="menuitem" data-action="select-dropdown" data-value="' + escapeHTML(option.value) + '">' + escapeHTML(option.label) + (String(option.value) === String(selected.value) ? '<i class="fa-solid fa-check"></i>' : '') + '</button>').join('') + '</div></div>';
+        const idAttr = attributes.id ? ' id="' + escapeHTML(attributes.id) + '"' : '';
+        return '<div class="ui-select yd-dropdown yd-select-dropdown' + (disabled ? ' disabled' : '') + '" data-dropdown data-multiple="' + String(multiple) + '" data-open="false" data-placeholder="' + escapeHTML(placeholder) + '" data-value="' + escapeHTML(storedValue) + '"' + attrs + '>' +
+            '<input type="hidden"' + nameAttr + idAttr + ' value="' + escapeHTML(multiple ? storedValue : selectedOption.value) + '">' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value"' + (selected.length ? ' data-placeholder="false"' : ' data-placeholder="true"') + '>' + escapeHTML(label) + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
+            '<div class="ui-select-menu yd-dropdown-menu" role="listbox" aria-multiselectable="' + String(multiple) + '" hidden>' + options.map(option => {
+                const optionSelected = values.includes(String(option.value));
+                return '<button type="button" class="ui-select-option yd-dropdown-item' + (optionSelected ? ' selected' : '') + '" role="option" aria-selected="' + String(optionSelected) + '" data-selected="' + String(optionSelected) + '" data-action="select-dropdown" data-value="' + escapeHTML(option.value) + '"><span>' + escapeHTML(option.label) + '</span>' + (optionSelected ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : '') + '</button>';
+            }).join('') + '</div></div>';
     };
 
     const showNotice = (message, type = 'success') => {
@@ -250,6 +259,40 @@
 #yd-dashboard-root .yd-announcement-cycle-wrap .yd-dropdown-trigger>i{color:#875a7b!important}
 #yd-dashboard-root .yd-announcement-cycle-box{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:116px!important;min-height:32px!important;padding:4px 9px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#f8f5f7!important;color:#68465f!important;font-size:11px!important;font-weight:700!important}
 @media(max-width:760px){#yd-dashboard-root .yd-announcement-meta{align-items:flex-end!important;flex-direction:column!important;gap:8px!important}#yd-dashboard-root .yd-announcement-datetime{gap:7px!important;font-size:10px!important}#yd-dashboard-root .yd-announcement-cycle-wrap{width:116px!important}}
+`;
+        style.textContent += String.raw`
+#yd-dashboard-root .ui-select{position:relative;display:inline-flex;width:100%;min-width:0;max-width:none;font-family:Nunito,sans-serif}
+#yd-dashboard-root .ui-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;height:36px;min-height:36px;padding:0 10px;border:1px solid #ded8e1;border-radius:8px;background:#fff;color:#514a56;font-size:12px;font-weight:500;text-align:left;white-space:nowrap;outline:none;user-select:none;cursor:pointer;transition:border-color .15s,box-shadow .15s,background-color .15s}
+#yd-dashboard-root .ui-select-trigger:focus-visible,#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger{border-color:#b28aa8;box-shadow:0 0 0 3px #875a7b24}
+#yd-dashboard-root .ui-select-trigger:hover:not(:disabled){border-color:#cbb8ce;background:#fcf9fc;color:#68465f}
+#yd-dashboard-root .ui-select-trigger:disabled{cursor:not-allowed;opacity:.5}
+#yd-dashboard-root .ui-select-value{flex:1;min-width:0;overflow:hidden;color:#29242e;text-align:left;text-overflow:ellipsis;white-space:nowrap}
+#yd-dashboard-root .ui-select-value[data-placeholder="true"]{color:#77717d}
+#yd-dashboard-root .ui-select-trigger svg{width:16px;height:16px;flex-shrink:0;color:#77717d;pointer-events:none;transition:transform .15s}
+#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger svg{transform:rotate(180deg)}
+#yd-dashboard-root .ui-select-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:2147483015;display:none;width:100%;min-width:max(100%,144px);max-width:min(360px,calc(100vw - 32px));max-height:min(478px,calc(100vh - 32px));overflow-x:hidden;overflow-y:auto;padding:4px;border:1px solid #ded6e2;border-radius:8px;background:#fff;color:#514a56;box-shadow:0 4px 6px -1px #0000001a,0 2px 4px -2px #0000001a,0 8px 24px #39223914;box-sizing:border-box;transform-origin:top left;animation:yd-dropdown-enter .12s cubic-bezier(.2,.8,.2,1) both}
+#yd-dashboard-root .ui-select-menu[hidden]{display:none!important}
+#yd-dashboard-root .ui-select[data-open="true"] .ui-select-menu{display:block}
+#yd-dashboard-root .ui-select-option{position:relative;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:33px;padding:6px 30px 6px 9px;border:0;border-radius:6px;background:transparent;color:#514a56;font-size:12px;font-weight:500;text-align:left;white-space:normal;cursor:pointer;user-select:none;transition:background-color .12s,color .12s}
+#yd-dashboard-root .ui-select-option:hover,#yd-dashboard-root .ui-select-option:focus-visible{background:#f1eaf1;color:#68465f;outline:none}
+#yd-dashboard-root .ui-select-option[data-selected="true"]{background:#f8f5f7;color:#68465f;font-weight:700}
+#yd-dashboard-root .ui-select-option:not(.yd-allowed-users-option)[data-selected="true"]::after{content:"";position:absolute;right:12px;top:calc(50% - 5px);width:5px;height:9px;border:solid #875a7b;border-width:0 2px 2px 0;transform:rotate(45deg)}
+#yd-dashboard-root .ui-select-option>i.fa-check{position:absolute;right:10px;top:50%;margin:0;color:#875a7b;font-size:11px;transform:translateY(-50%)}
+#yd-dashboard-root .yd-allowed-users-dropdown{display:flex;width:100%;min-width:220px}
+#yd-dashboard-root .yd-allowed-users-menu{width:max-content;min-width:100%;padding:4px}
+#yd-dashboard-root .yd-allowed-users-option{min-height:34px;padding:6px 9px 6px 8px}
+#yd-dashboard-root .yd-allowed-users-option>span:first-child{display:flex;align-items:center;gap:8px;min-width:0}
+#yd-dashboard-root .yd-allowed-users-option>span:first-child>i{width:14px;color:#875a7b}
+#yd-dashboard-root .yd-allowed-users-option>i{color:#875a7b}
+#yd-dashboard-root .yd-dropdown-separator{height:1px;margin:5px 2px;background:#e9e4eb}
+#yd-dashboard-root .yd-allowed-users-footer{display:flex;justify-content:flex-end;gap:6px;padding:6px 2px 1px}
+#yd-dashboard-root .yd-allowed-users-footer button{min-height:29px;padding:0 10px;border-radius:7px;font-size:10.5px;font-weight:600}
+#yd-dashboard-root .ui-select.disabled{opacity:.58}
+#yd-dashboard-root .ui-select.disabled .ui-select-trigger{cursor:not-allowed}
+#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select{width:118px;min-width:118px}
+#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select-trigger{height:32px;min-height:32px;padding:0 9px;border-color:#ded6e2;background:#f8f5f7;color:#68465f;font-size:11px;font-weight:700}
+#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select-trigger svg{color:#875a7b}
+@media(max-width:760px){#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select{width:116px;min-width:116px}}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
@@ -489,22 +532,24 @@
             allowedUsers: new Set((record.allowedUsers || []).map(id => String(id).trim().toUpperCase()))
         };
         const allSelected = draft.allUsers;
-        const selectedCount = allSelected ? users.filter(user => String(user.status || '').toLowerCase() === 'active').length : draft.allowedUsers.size;
+        const activeUsers = users.filter(user => String(user.status || '').toLowerCase() === 'active');
+        const selectedCount = allSelected ? activeUsers.length : draft.allowedUsers.size;
         const label = allSelected ? 'All Users' : selectedCount ? selectedCount + ' Selected' : 'No Users Selected';
         const isOpen = openVisibilityToolId === toolId && !pending;
-        const allOption = '<button type="button" class="yd-allowed-users-option' + (allSelected ? ' selected' : '') + '" data-action="toggle-allowed-all" data-tool="' + escapeHTML(toolId) + '" role="menuitemcheckbox" aria-checked="' + String(allSelected) + '"' + (pending ? ' disabled' : '') + '><span><i class="fa-solid fa-users"></i>All Users</span>' + (allSelected ? '<i class="fa-solid fa-check"></i>' : '') + '</button>';
+        const allOption = '<button type="button" class="ui-select-option yd-allowed-users-option' + (allSelected ? ' selected' : '') + '" data-selected="' + String(allSelected) + '" data-action="toggle-allowed-all" data-tool="' + escapeHTML(toolId) + '" role="option" aria-selected="' + String(allSelected) + '"' + (pending ? ' disabled' : '') + '><span><i class="fa-solid fa-users"></i>All Users</span>' + (allSelected ? '<i class="fa-solid fa-check"></i>' : '') + '</button>';
         const userOptions = users.map(user => {
             const id = String(user.id || '').trim().toUpperCase();
             const active = String(user.status || '').toLowerCase() === 'active';
             const selected = allSelected || draft.allowedUsers.has(id);
-            return '<button type="button" class="yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="menuitemcheckbox" aria-checked="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + escapeHTML(formatRole(user.role)) + '</small></span></span>' + (selected ? '<i class="fa-solid fa-check"></i>' : '') + '</button>';
+            return '<button type="button" class="ui-select-option yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-selected="' + String(selected) + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="option" aria-selected="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + escapeHTML(formatRole(user.role)) + '</small></span></span>' + (selected ? '<i class="fa-solid fa-check"></i>' : '') + '</button>';
         }).join('');
         const footer = pending
             ? '<div class="yd-allowed-users-footer">' + renderPendingBadge('Pending') + '</div>'
             : '<div class="yd-allowed-users-footer"><button type="button" class="yd-secondary" data-action="cancel-allowed-users" data-tool="' + escapeHTML(toolId) + '">Cancel</button><button type="button" class="yd-primary" data-action="save-allowed-users" data-tool="' + escapeHTML(toolId) + '">Apply</button></div>';
-        return '<div class="yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-tool="' + escapeHTML(toolId) + '">' +
-            '<button type="button" class="yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="menu" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="yd-dropdown-value">' + escapeHTML(label) + '</span>' + (pending ? '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>Pending</span></span>' : '<i class="fa-solid fa-chevron-down"></i>') + '</button>' +
-            '<div class="yd-dropdown-menu yd-allowed-users-menu" role="menu"' + (isOpen ? '' : ' hidden') + '>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + footer + '</div></div>';
+        const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
+        return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>Pending</span></span>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>') + '</button>' +
+            '<div class="ui-select-menu yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + footer + '</div></div>';
     };
 
     const refreshAllowedUsersDropdown = toolId => {
@@ -1068,11 +1113,12 @@
 
     
     const closeDropdowns = except => {
-        document.querySelectorAll('#' + CONFIG.ID + ' .yd-dropdown.open').forEach(dropdown => {
-            if (dropdown === except) return;
-            dropdown.classList.remove('open');
-            dropdown.querySelector('.yd-dropdown-menu')?.setAttribute('hidden', '');
-            dropdown.querySelector('.yd-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"]').forEach(select => {
+            if (select === except) return;
+            select.dataset.open = 'false';
+            select.classList.remove('open');
+            select.querySelector('.ui-select-menu')?.setAttribute('hidden', '');
+            select.querySelector('.ui-select-trigger')?.setAttribute('aria-expanded', 'false');
         });
     };
 
@@ -1136,15 +1182,16 @@
             }
             if (actionButton?.dataset.action === 'toggle-dropdown') {
                 closeDropdowns(dropdown);
-                const opening = !dropdown.classList.contains('open');
+                const opening = dropdown.dataset.open !== 'true';
                 if (dropdown.classList.contains('yd-allowed-users-dropdown')) {
                     const toolId = dropdown.dataset.tool;
                     if (opening && (!visibilityDraft || visibilityDraft.toolId !== toolId)) visibilityDraft = createVisibilityDraft(toolId);
                     openVisibilityToolId = opening ? toolId : null;
                 }
+                dropdown.dataset.open = String(opening);
                 dropdown.classList.toggle('open', opening);
-                const menu = dropdown.querySelector('.yd-dropdown-menu');
-                const trigger = dropdown.querySelector('.yd-dropdown-trigger');
+                const menu = dropdown.querySelector('.ui-select-menu');
+                const trigger = dropdown.querySelector('.ui-select-trigger');
                 if (menu) menu.hidden = !opening;
                 if (trigger) trigger.setAttribute('aria-expanded', String(opening));
                 return;
@@ -1152,23 +1199,44 @@
             if (actionButton?.dataset.action === 'select-dropdown') {
                 const hidden = dropdown?.querySelector('input[type="hidden"]');
                 if (!dropdown || !hidden) return;
-                const value = actionButton.dataset.value;
-                hidden.value = value;
-                dropdown.querySelector('.yd-dropdown-value').textContent = actionButton.querySelector('span')?.textContent.trim() || actionButton.textContent.trim();
-                dropdown.querySelectorAll('.yd-dropdown-item').forEach(item => {
-                    const selected = item.dataset.value === value;
-                    item.classList.toggle('selected', selected);
-                    const check = item.querySelector('i');
-                    if (selected && !check) item.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check"></i>');
+                const multiple = dropdown.dataset.multiple === 'true';
+                const value = String(actionButton.dataset.value ?? '');
+                const currentValues = multiple ? (() => {
+                    try { return JSON.parse(dropdown.dataset.value || '[]').map(String); } catch { return []; }
+                })() : [];
+                const values = multiple
+                    ? currentValues.includes(value) ? currentValues.filter(item => item !== value) : [...currentValues, value]
+                    : [value];
+                const selectedOptions = [...dropdown.querySelectorAll('.ui-select-option[data-value]')].filter(option => values.includes(String(option.dataset.value)));
+                const placeholder = dropdown.dataset.placeholder || 'Select...';
+                const label = selectedOptions.map(option => option.querySelector('span')?.textContent.trim() || option.textContent.trim()).join(', ');
+                dropdown.dataset.value = multiple ? JSON.stringify(values) : value;
+                hidden.value = multiple ? JSON.stringify(values) : value;
+                const valueElement = dropdown.querySelector('.ui-select-value');
+                if (valueElement) {
+                    valueElement.textContent = label || placeholder;
+                    valueElement.dataset.placeholder = String(!label);
+                }
+                dropdown.querySelectorAll('.ui-select-option[data-value]').forEach(option => {
+                    const selected = values.includes(String(option.dataset.value));
+                    option.dataset.selected = String(selected);
+                    option.setAttribute('aria-selected', String(selected));
+                    option.classList.toggle('selected', selected);
+                    const check = option.querySelector('i.fa-check');
+                    if (selected && !check) option.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check" aria-hidden="true"></i>');
                     if (!selected && check) check.remove();
                 });
-                dropdown.classList.remove('open');
-                dropdown.querySelector('.yd-dropdown-menu').hidden = true;
-                dropdown.querySelector('.yd-dropdown-trigger').setAttribute('aria-expanded', 'false');
+                if (!multiple) {
+                    dropdown.dataset.open = 'false';
+                    dropdown.classList.remove('open');
+                    dropdown.querySelector('.ui-select-menu').hidden = true;
+                    dropdown.querySelector('.ui-select-trigger').setAttribute('aria-expanded', 'false');
+                }
+                dropdown.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { values } }));
                 if (dropdown.hasAttribute('data-announcement-cycle')) {
                     const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(dropdown.dataset.id));
                     if (!post || !ANNOUNCEMENT_CYCLES.includes(value) || getAnnouncementCycle(post) === value) return;
-                    const trigger = dropdown.querySelector('.yd-dropdown-trigger');
+                    const trigger = dropdown.querySelector('.ui-select-trigger');
                     if (trigger) trigger.disabled = true;
                     trackBackground((async () => {
                         try {
