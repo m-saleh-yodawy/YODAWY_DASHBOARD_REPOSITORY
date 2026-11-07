@@ -8,7 +8,7 @@
         LOGS_PATH: 'NETWORK/network-logs.json',
         REQUEST_TYPE: 'DASHBOARD_ANNOUNCEMENTS_SYNC',
         MAX_BODY: 6000,
-        CYCLES: Object.freeze(['November', 'December', 'January']),
+        CYCLES: Object.freeze(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']),
         FINAL_STATUSES: ['COMPLETED', 'FAILED', 'REJECTED']
     });
 
