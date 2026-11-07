@@ -1491,29 +1491,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 #yd-dashboard-root .yd-announcement-footer {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: flex-end;
     gap: 8px;
     padding: 0 18px 14px;
     background: #fff;
 }
 #yd-dashboard-root .yd-announcement-actions { display: flex; align-items: center; gap: 8px; }
-#yd-dashboard-root .yd-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border: 0;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: opacity .15s, transform .1s;
-}
-#yd-dashboard-root .yd-btn:hover { opacity: .85; }
-#yd-dashboard-root .yd-btn:active { transform: scale(.96); }
-#yd-dashboard-root .yd-btn svg { width: 15px; height: 15px; }
-#yd-dashboard-root .yd-btn-edit { background: var(--brand-soft); color: var(--brand); }
-#yd-dashboard-root .yd-btn-delete { background: var(--danger-bg); color: var(--danger); }
+#yd-dashboard-root .yd-announcement-footer .yd-icon-btn { width: 30px; height: 30px; }
 #yd-dashboard-root .yd-announcement-list[data-role="user"] .yd-announcement-footer { display: none !important; }
 
 #yd-dashboard-root .yd-announcement-form { width: min(620px, 100%); padding: 22px; }
@@ -1856,7 +1840,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
                 ? renderAnnouncementCycleDropdown(cycle, post.id)
                 : '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
             return '<article class="yd-announcement-card"><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time></div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' +
-                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-btn yd-btn-edit" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button><button type="button" class="yd-btn yd-btn-delete" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg></button></div></footer>' : '') +
+                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></div></footer>' : '') +
                 '</article>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
