@@ -31,6 +31,11 @@
     const trackedTransactions = new Set();
     let networkPage = 1;
     const NETWORK_PAGE_SIZE = 10;
+    let dropdownMenuClickHandler = null;
+    let dropdownOutsideClickHandler = null;
+    let dropdownKeydownHandler = null;
+    let dropdownScrollHandler = null;
+    let dropdownResizeHandler = null;
 
     const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -327,6 +332,20 @@
 #yd-dashboard-root .yd-announcement-cycle-wrap .ui-select-trigger svg{color:#875a7b!important}
 @media(max-width:760px){#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select{width:116px!important;min-width:116px!important}}
 `;
+        style.textContent += String.raw`
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"]{position:fixed!important;display:block!important;z-index:2147483647!important;overflow-x:hidden!important;overflow-y:auto!important;padding:4px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#fff!important;color:#514a56!important;box-shadow:0 4px 6px -1px #0000001a,0 2px 4px -2px #0000001a,0 8px 24px #39223914!important;box-sizing:border-box!important;transform-origin:top left!important;animation:yd-dropdown-enter .12s cubic-bezier(.2,.8,.2,1) both!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"][hidden]{display:none!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;width:100%!important;min-height:33px!important;padding:6px 30px 6px 9px!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#514a56!important;font-size:12px!important;font-weight:500!important;text-align:left!important;white-space:normal!important;cursor:pointer!important;user-select:none!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:focus-visible{background:#f1eaf1!important;color:#68465f!important;outline:none!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option[data-selected="true"]{background:#f8f5f7!important;color:#68465f!important;font-weight:700!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option>i.fa-check{position:absolute!important;right:10px!important;top:50%!important;margin:0!important;color:#875a7b!important;font-size:11px!important;transform:translateY(-50%)!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option{min-height:34px!important;padding:6px 9px 6px 8px!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option>span:first-child{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option>span:first-child>i,body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option>i{color:#875a7b!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-dropdown-separator{height:1px!important;margin:5px 2px!important;background:#e9e4eb!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer{display:flex!important;justify-content:flex-end!important;gap:6px!important;padding:6px 2px 1px!important}
+body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer button{min-height:29px!important;padding:0 10px!important;border-radius:7px!important;font-size:10.5px!important;font-weight:600!important}
+`;
         (document.head || document.documentElement).appendChild(style);
     };
     const navItems = () => {
@@ -590,11 +609,16 @@
         const current = [...(root?.querySelectorAll('.yd-allowed-users-dropdown') || [])].find(item => item.dataset.tool === toolId);
         const tool = getTools().find(item => String(item.id) === String(toolId));
         if (!current || !tool) return;
+        const shouldRemainOpen = openVisibilityToolId === toolId && !getPendingVisibility(toolId);
+        closeDropdowns(null);
         const engine = getRoleEngine();
         const record = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
         const fresh = document.createElement('div');
         fresh.innerHTML = renderAllowedUsersDropdown(tool, record, engine?.getUsers?.() || [], getPendingVisibility(toolId));
-        if (fresh.firstElementChild) current.replaceWith(fresh.firstElementChild);
+        const replacement = fresh.firstElementChild;
+        if (!replacement) return;
+        current.replaceWith(replacement);
+        if (shouldRemainOpen) openDropdownMenu(replacement);
     };
 
     const renderVisibility = () => {
@@ -711,6 +735,7 @@
             if (item.open) expandedTools.add(item.dataset.tool);
             else expandedTools.delete(item.dataset.tool);
         });
+        closeDropdowns(null);
         root.innerHTML = renderShell(renderPage());
     };
 
@@ -1145,14 +1170,161 @@
     };
 
     
+    const getDropdownMenu = dropdown => dropdown?._ydSelectMenu || dropdown?.querySelector('.ui-select-menu') || null;
+
+    const positionDropdownMenu = dropdown => {
+        const menu = getDropdownMenu(dropdown);
+        const trigger = dropdown?.querySelector('.ui-select-trigger');
+        if (!menu || !trigger || menu.dataset.portal !== 'true') return;
+        const rect = trigger.getBoundingClientRect();
+        const viewportWidth = document.documentElement.clientWidth;
+        const viewportHeight = document.documentElement.clientHeight;
+        const width = Math.min(Math.max(rect.width, dropdown.classList.contains('yd-allowed-users-dropdown') ? 220 : 144), viewportWidth - 24);
+        const maxHeight = Math.min(478, viewportHeight - 24);
+        const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
+        const roomBelow = viewportHeight - rect.bottom - 12;
+        const roomAbove = rect.top - 12;
+        const openAbove = roomBelow < Math.min(menuHeight, 180) && roomAbove > roomBelow;
+        const left = Math.max(12, Math.min(rect.left, viewportWidth - width - 12));
+        const top = openAbove
+            ? Math.max(12, rect.top - menuHeight - 4)
+            : Math.max(12, Math.min(rect.bottom + 4, viewportHeight - menuHeight - 12));
+        menu.style.setProperty('position', 'fixed', 'important');
+        menu.style.setProperty('left', left + 'px', 'important');
+        menu.style.setProperty('top', top + 'px', 'important');
+        menu.style.setProperty('width', width + 'px', 'important');
+        menu.style.setProperty('min-width', width + 'px', 'important');
+        menu.style.setProperty('max-width', 'calc(100vw - 24px)', 'important');
+        menu.style.setProperty('max-height', maxHeight + 'px', 'important');
+        menu.style.setProperty('z-index', '2147483647', 'important');
+    };
+
+    const openDropdownMenu = dropdown => {
+        const menu = getDropdownMenu(dropdown);
+        const trigger = dropdown?.querySelector('.ui-select-trigger');
+        if (!menu || !trigger) return;
+        dropdown._ydSelectMenu = menu;
+        menu._ydSelectOwner = dropdown;
+        menu.dataset.portal = 'true';
+        menu.classList.add('yd-select-portal-menu');
+        menu.hidden = false;
+        document.body.appendChild(menu);
+        positionDropdownMenu(dropdown);
+    };
+
+    const closeDropdownMenu = dropdown => {
+        const menu = getDropdownMenu(dropdown);
+        if (menu) {
+            menu.hidden = true;
+            menu.removeAttribute('data-portal');
+            menu.classList.remove('yd-select-portal-menu');
+            menu.style.cssText = '';
+            if (menu.parentElement !== dropdown) dropdown.appendChild(menu);
+            delete menu._ydSelectOwner;
+        }
+        dropdown.dataset.open = 'false';
+        dropdown.classList.remove('open');
+        dropdown.querySelector('.ui-select-trigger')?.setAttribute('aria-expanded', 'false');
+    };
+
     const closeDropdowns = except => {
-        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"]').forEach(select => {
-            if (select === except) return;
-            select.dataset.open = 'false';
-            select.classList.remove('open');
-            select.querySelector('.ui-select-menu')?.setAttribute('hidden', '');
-            select.querySelector('.ui-select-trigger')?.setAttribute('aria-expanded', 'false');
+        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"]').forEach(dropdown => {
+            if (dropdown === except) return;
+            closeDropdownMenu(dropdown);
         });
+    };
+
+    const handleAllowedUsersAction = actionButton => {
+        if (actionButton?.dataset.action === 'toggle-allowed-all') {
+            const toolId = actionButton.dataset.tool;
+            if (!visibilityDraft || visibilityDraft.toolId !== toolId || getPendingVisibility(toolId)) return true;
+            visibilityDraft.allUsers = !visibilityDraft.allUsers;
+            visibilityDraft.allowedUsers = visibilityDraft.allUsers
+                ? new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()))
+                : new Set();
+            openVisibilityToolId = toolId;
+            refreshAllowedUsersDropdown(toolId);
+            return true;
+        }
+        if (actionButton?.dataset.action === 'toggle-allowed-user') {
+            const toolId = actionButton.dataset.tool;
+            const userId = actionButton.dataset.user;
+            if (getPendingVisibility(toolId)) return true;
+            if (!visibilityDraft || visibilityDraft.toolId !== toolId) visibilityDraft = createVisibilityDraft(toolId);
+            if (visibilityDraft.allUsers) {
+                visibilityDraft.allowedUsers = new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()));
+                visibilityDraft.allUsers = false;
+            }
+            if (visibilityDraft.allowedUsers.has(userId)) visibilityDraft.allowedUsers.delete(userId);
+            else visibilityDraft.allowedUsers.add(userId);
+            openVisibilityToolId = toolId;
+            refreshAllowedUsersDropdown(toolId);
+            return true;
+        }
+        if (actionButton?.dataset.action === 'cancel-allowed-users') {
+            visibilityDraft = null;
+            openVisibilityToolId = null;
+            closeDropdowns(null);
+            return true;
+        }
+        if (actionButton?.dataset.action === 'save-allowed-users') {
+            runAction('save-allowed-users', actionButton);
+            return true;
+        }
+        return false;
+    };
+
+    const handleDropdownSelection = (dropdown, actionButton) => {
+        const hidden = dropdown?.querySelector('input[type="hidden"]');
+        const menu = getDropdownMenu(dropdown);
+        if (!dropdown || !hidden || !menu) return;
+        const multiple = dropdown.dataset.multiple === 'true';
+        const value = String(actionButton.dataset.value ?? '');
+        const currentValues = multiple ? (() => {
+            try { return JSON.parse(dropdown.dataset.value || '[]').map(String); } catch { return []; }
+        })() : [];
+        const values = multiple
+            ? currentValues.includes(value) ? currentValues.filter(item => item !== value) : [...currentValues, value]
+            : [value];
+        const options = [...menu.querySelectorAll('.ui-select-option[data-value]')];
+        const selectedOptions = options.filter(option => values.includes(String(option.dataset.value)));
+        const placeholder = dropdown.dataset.placeholder || 'Select...';
+        const label = selectedOptions.map(option => option.querySelector('span')?.textContent.trim() || option.textContent.trim()).join(', ');
+        dropdown.dataset.value = multiple ? JSON.stringify(values) : value;
+        hidden.value = multiple ? JSON.stringify(values) : value;
+        const valueElement = dropdown.querySelector('.ui-select-value');
+        if (valueElement) {
+            valueElement.textContent = label || placeholder;
+            valueElement.dataset.placeholder = String(!label);
+        }
+        options.forEach(option => {
+            const selected = values.includes(String(option.dataset.value));
+            option.dataset.selected = String(selected);
+            option.setAttribute('aria-selected', String(selected));
+            option.classList.toggle('selected', selected);
+            const check = option.querySelector('i.fa-check');
+            if (selected && !check) option.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check" aria-hidden="true"></i>');
+            if (!selected && check) check.remove();
+        });
+        if (multiple) positionDropdownMenu(dropdown);
+        else closeDropdowns(null);
+        dropdown.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { values } }));
+        if (!dropdown.hasAttribute('data-announcement-cycle')) return;
+        const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(dropdown.dataset.id));
+        if (!post || !ANNOUNCEMENT_CYCLES.includes(value) || getAnnouncementCycle(post) === value) return;
+        const trigger = dropdown.querySelector('.ui-select-trigger');
+        if (trigger) trigger.disabled = true;
+        trackBackground((async () => {
+            try {
+                await context.announcements.updatePost(post.id, { body: post.body, cycle: value });
+                await context.announcements.load();
+                render();
+                showNotice('Announcement cycle updated.');
+            } catch (error) {
+                render();
+                showMessageDialog('Cycle Not Updated', error?.message || 'Unable to update the announcement cycle.');
+            }
+        })());
     };
 
     const bindEvents = root => {
@@ -1181,108 +1353,28 @@
         root.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
-            if (actionButton?.dataset.action === 'toggle-allowed-all') {
-                const toolId = actionButton.dataset.tool;
-                if (!visibilityDraft || visibilityDraft.toolId !== toolId || getPendingVisibility(toolId)) return;
-                visibilityDraft.allUsers = !visibilityDraft.allUsers;
-                visibilityDraft.allowedUsers = visibilityDraft.allUsers
-                    ? new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()))
-                    : new Set();
-                openVisibilityToolId = toolId;
-                refreshAllowedUsersDropdown(toolId);
-                return;
-            }
-            if (actionButton?.dataset.action === 'toggle-allowed-user') {
-                const toolId = actionButton.dataset.tool;
-                const userId = actionButton.dataset.user;
-                if (getPendingVisibility(toolId)) return;
-                if (!visibilityDraft || visibilityDraft.toolId !== toolId) visibilityDraft = createVisibilityDraft(toolId);
-                if (visibilityDraft.allUsers) {
-                    visibilityDraft.allowedUsers = new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()));
-                    visibilityDraft.allUsers = false;
-                }
-                if (visibilityDraft.allowedUsers.has(userId)) visibilityDraft.allowedUsers.delete(userId);
-                else visibilityDraft.allowedUsers.add(userId);
-                openVisibilityToolId = toolId;
-                refreshAllowedUsersDropdown(toolId);
-                return;
-            }
-            if (actionButton?.dataset.action === 'cancel-allowed-users') {
-                visibilityDraft = null;
-                openVisibilityToolId = null;
-                closeDropdowns(null);
-                return;
-            }
+            if (handleAllowedUsersAction(actionButton)) return;
             if (actionButton?.dataset.action === 'toggle-dropdown') {
-                closeDropdowns(dropdown);
                 const opening = dropdown.dataset.open !== 'true';
+                if (!opening) {
+                    if (dropdown.classList.contains('yd-allowed-users-dropdown')) openVisibilityToolId = null;
+                    closeDropdowns(null);
+                    return;
+                }
+                closeDropdowns(dropdown);
                 if (dropdown.classList.contains('yd-allowed-users-dropdown')) {
                     const toolId = dropdown.dataset.tool;
-                    if (opening && (!visibilityDraft || visibilityDraft.toolId !== toolId)) visibilityDraft = createVisibilityDraft(toolId);
-                    openVisibilityToolId = opening ? toolId : null;
+                    if (!visibilityDraft || visibilityDraft.toolId !== toolId) visibilityDraft = createVisibilityDraft(toolId);
+                    openVisibilityToolId = toolId;
                 }
-                dropdown.dataset.open = String(opening);
-                dropdown.classList.toggle('open', opening);
-                const menu = dropdown.querySelector('.ui-select-menu');
-                const trigger = dropdown.querySelector('.ui-select-trigger');
-                if (menu) menu.hidden = !opening;
-                if (trigger) trigger.setAttribute('aria-expanded', String(opening));
+                dropdown.dataset.open = 'true';
+                dropdown.classList.add('open');
+                dropdown.querySelector('.ui-select-trigger')?.setAttribute('aria-expanded', 'true');
+                openDropdownMenu(dropdown);
                 return;
             }
             if (actionButton?.dataset.action === 'select-dropdown') {
-                const hidden = dropdown?.querySelector('input[type="hidden"]');
-                if (!dropdown || !hidden) return;
-                const multiple = dropdown.dataset.multiple === 'true';
-                const value = String(actionButton.dataset.value ?? '');
-                const currentValues = multiple ? (() => {
-                    try { return JSON.parse(dropdown.dataset.value || '[]').map(String); } catch { return []; }
-                })() : [];
-                const values = multiple
-                    ? currentValues.includes(value) ? currentValues.filter(item => item !== value) : [...currentValues, value]
-                    : [value];
-                const selectedOptions = [...dropdown.querySelectorAll('.ui-select-option[data-value]')].filter(option => values.includes(String(option.dataset.value)));
-                const placeholder = dropdown.dataset.placeholder || 'Select...';
-                const label = selectedOptions.map(option => option.querySelector('span')?.textContent.trim() || option.textContent.trim()).join(', ');
-                dropdown.dataset.value = multiple ? JSON.stringify(values) : value;
-                hidden.value = multiple ? JSON.stringify(values) : value;
-                const valueElement = dropdown.querySelector('.ui-select-value');
-                if (valueElement) {
-                    valueElement.textContent = label || placeholder;
-                    valueElement.dataset.placeholder = String(!label);
-                }
-                dropdown.querySelectorAll('.ui-select-option[data-value]').forEach(option => {
-                    const selected = values.includes(String(option.dataset.value));
-                    option.dataset.selected = String(selected);
-                    option.setAttribute('aria-selected', String(selected));
-                    option.classList.toggle('selected', selected);
-                    const check = option.querySelector('i.fa-check');
-                    if (selected && !check) option.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-check" aria-hidden="true"></i>');
-                    if (!selected && check) check.remove();
-                });
-                if (!multiple) {
-                    dropdown.dataset.open = 'false';
-                    dropdown.classList.remove('open');
-                    dropdown.querySelector('.ui-select-menu').hidden = true;
-                    dropdown.querySelector('.ui-select-trigger').setAttribute('aria-expanded', 'false');
-                }
-                dropdown.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { values } }));
-                if (dropdown.hasAttribute('data-announcement-cycle')) {
-                    const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(dropdown.dataset.id));
-                    if (!post || !ANNOUNCEMENT_CYCLES.includes(value) || getAnnouncementCycle(post) === value) return;
-                    const trigger = dropdown.querySelector('.ui-select-trigger');
-                    if (trigger) trigger.disabled = true;
-                    trackBackground((async () => {
-                        try {
-                            await context.announcements.updatePost(post.id, { body: post.body, cycle: value });
-                            await context.announcements.load();
-                            render();
-                            showNotice('Announcement cycle updated.');
-                        } catch (error) {
-                            render();
-                            showMessageDialog('Cycle Not Updated', error?.message || 'Unable to update the announcement cycle.');
-                        }
-                    })());
-                }
+                handleDropdownSelection(dropdown, actionButton);
                 return;
             }
             closeDropdowns(dropdown);
@@ -1327,12 +1419,29 @@
                 });
             }
         });
-        document.addEventListener('click', event => {
+        dropdownMenuClickHandler = event => {
+            const actionButton = event.target.closest?.('.ui-select-menu.yd-select-portal-menu[data-portal="true"] [data-action]');
+            if (!actionButton) return;
+            const menu = actionButton.closest('.ui-select-menu');
+            const dropdown = menu?._ydSelectOwner;
+            if (!dropdown || !root.contains(dropdown)) return;
+            event._ydSelectHandled = true;
+            if (handleAllowedUsersAction(actionButton)) return;
+            if (actionButton.dataset.action === 'select-dropdown') {
+                handleDropdownSelection(dropdown, actionButton);
+                return;
+            }
+            runAction(actionButton.dataset.action, actionButton);
+        };
+        document.addEventListener('click', dropdownMenuClickHandler);
+        dropdownOutsideClickHandler = event => {
+            if (event._ydSelectHandled || event.target.closest?.('.ui-select-menu.yd-select-portal-menu[data-portal="true"]')) return;
             if (!root.contains(event.target)) closeDropdowns(null);
-        });
-        document.addEventListener('keydown', event => {
+        };
+        document.addEventListener('click', dropdownOutsideClickHandler);
+        dropdownKeydownHandler = event => {
             if (event.key !== 'Escape') return;
-            if (root.querySelector('.yd-dropdown.open')) {
+            if (root.querySelector('.ui-select[data-open="true"]')) {
                 closeDropdowns(null);
                 return;
             }
@@ -1341,7 +1450,12 @@
                 profileOpen = false;
                 render();
             }
-        });
+        };
+        document.addEventListener('keydown', dropdownKeydownHandler);
+        dropdownScrollHandler = () => root.querySelectorAll('.ui-select[data-open="true"]').forEach(positionDropdownMenu);
+        dropdownResizeHandler = () => root.querySelectorAll('.ui-select[data-open="true"]').forEach(positionDropdownMenu);
+        document.addEventListener('scroll', dropdownScrollHandler, true);
+        window.addEventListener('resize', dropdownResizeHandler);
     };
 
     
@@ -1371,6 +1485,13 @@
     const destroy = async () => {
         clearInterval(refreshTimer);
         refreshTimer = null;
+        closeDropdowns(null);
+        if (dropdownMenuClickHandler) document.removeEventListener('click', dropdownMenuClickHandler);
+        if (dropdownOutsideClickHandler) document.removeEventListener('click', dropdownOutsideClickHandler);
+        if (dropdownKeydownHandler) document.removeEventListener('keydown', dropdownKeydownHandler);
+        if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
+        if (dropdownResizeHandler) window.removeEventListener('resize', dropdownResizeHandler);
+        dropdownMenuClickHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         document.getElementById(CONFIG.ID)?.remove();
         document.getElementById(CONFIG.STYLE_ID)?.remove();
         context = null;
