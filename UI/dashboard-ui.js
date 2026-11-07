@@ -278,6 +278,21 @@
     box-sizing: border-box;
     font-family: 'Nunito', system-ui, -apple-system, sans-serif !important;
 }
+#yd-dashboard-root .fa-solid, #yd-dashboard-root .fas {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+}
+#yd-dashboard-root .fa-regular, #yd-dashboard-root .far {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+}
+#yd-dashboard-root .fa-brands, #yd-dashboard-root .fab {
+    font-family: "Font Awesome 6 Brands" !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+}
 #yd-dashboard-root strong, #yd-dashboard-root b { font-weight: 600 !important; }
 #yd-dashboard-root button, #yd-dashboard-root input, #yd-dashboard-root select, #yd-dashboard-root textarea { font: inherit; }
 #yd-dashboard-root button:disabled { opacity: .48; cursor: not-allowed; box-shadow: none; }
