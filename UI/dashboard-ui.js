@@ -736,6 +736,7 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
             else expandedTools.delete(item.dataset.tool);
         });
         closeDropdowns(null);
+        openVisibilityToolId = null;
         root.innerHTML = renderShell(renderPage());
     };
 
@@ -1404,7 +1405,7 @@ body>.ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users
                 activePage = nav.dataset.page;
                 notice = null;
                 profileOpen = false;
-                if (activePage !== 'visibility') visibilityDraft = null;
+                if (activePage !== 'visibility') { visibilityDraft = null; openVisibilityToolId = null; }
                 render();
                 return;
             }
