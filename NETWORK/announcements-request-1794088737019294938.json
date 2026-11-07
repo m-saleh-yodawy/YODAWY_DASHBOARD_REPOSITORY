@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "requestId": "ANNOUNCEMENT-1794088737019-2OVHOLF5L6",
+  "sequence": "1794088737019294938",
+  "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+  "status": "PENDING",
+  "createdAt": "2026-11-07T21:58:57.019Z",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN"
+  },
+  "action": "UPDATE_ANNOUNCEMENT",
+  "payload": {
+    "id": "1793715257459-CV8YPK1G9P",
+    "body": "مستشفي جامعه القاهره\nسايكل اكتوبر\nعدوها من غير الأصناف الناقصه\nده بس اللي هيعدي بدون كول\n مستشفى جامعة القاهرة  سايكل أكتوبر",
+    "cycle": "December",
+    "action": "UPDATE_ANNOUNCEMENT"
+  }
+}
