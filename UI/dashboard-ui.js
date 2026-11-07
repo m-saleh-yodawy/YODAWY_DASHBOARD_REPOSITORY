@@ -294,6 +294,39 @@
 #yd-dashboard-root .yd-announcement-cycle-wrap .ui-select-trigger svg{color:#875a7b}
 @media(max-width:760px){#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select{width:116px;min-width:116px}}
 `;
+        style.textContent += String.raw`
+#yd-dashboard-root .ui-select{position:relative!important;display:inline-flex!important;width:100%!important;min-width:0!important;max-width:none!important;font-family:Nunito,sans-serif!important}
+#yd-dashboard-root .ui-select-trigger{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:6px!important;width:100%!important;height:36px!important;min-height:36px!important;padding:0 10px!important;border:1px solid #ded8e1!important;border-radius:8px!important;background:#fff!important;color:#514a56!important;font-size:12px!important;font-weight:500!important;text-align:left!important;white-space:nowrap!important;outline:none!important;user-select:none!important;cursor:pointer!important;transition:border-color .15s,box-shadow .15s,background-color .15s!important}
+#yd-dashboard-root .ui-select-trigger:focus-visible,#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger{border-color:#b28aa8!important;box-shadow:0 0 0 3px #875a7b24!important}
+#yd-dashboard-root .ui-select-trigger:hover:not(:disabled){border-color:#cbb8ce!important;background:#fcf9fc!important;color:#68465f!important}
+#yd-dashboard-root .ui-select-trigger:disabled{cursor:not-allowed!important;opacity:.5!important}
+#yd-dashboard-root .ui-select-value{flex:1!important;min-width:0!important;overflow:hidden!important;color:#29242e!important;text-align:left!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+#yd-dashboard-root .ui-select-value[data-placeholder="true"]{color:#77717d!important}
+#yd-dashboard-root .ui-select-trigger svg{width:16px!important;height:16px!important;flex-shrink:0!important;color:#77717d!important;pointer-events:none!important;transition:transform .15s!important}
+#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger svg{transform:rotate(180deg)!important}
+#yd-dashboard-root .ui-select-menu{position:absolute!important;top:calc(100% + 4px)!important;left:0!important;z-index:2147483015!important;display:none!important;width:100%!important;min-width:max(100%,144px)!important;max-width:min(360px,calc(100vw - 32px))!important;max-height:min(478px,calc(100vh - 32px))!important;overflow-x:hidden!important;overflow-y:auto!important;padding:4px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#fff!important;color:#514a56!important;box-shadow:0 4px 6px -1px #0000001a,0 2px 4px -2px #0000001a,0 8px 24px #39223914!important;box-sizing:border-box!important;transform-origin:top left!important;animation:yd-dropdown-enter .12s cubic-bezier(.2,.8,.2,1) both!important}
+#yd-dashboard-root .ui-select-menu[hidden]{display:none!important}
+#yd-dashboard-root .ui-select[data-open="true"] .ui-select-menu{display:block!important}
+#yd-dashboard-root .ui-select-option{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;width:100%!important;min-height:33px!important;padding:6px 30px 6px 9px!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#514a56!important;font-size:12px!important;font-weight:500!important;text-align:left!important;white-space:normal!important;cursor:pointer!important;user-select:none!important;transition:background-color .12s,color .12s!important}
+#yd-dashboard-root .ui-select-option:hover,#yd-dashboard-root .ui-select-option:focus-visible{background:#f1eaf1!important;color:#68465f!important;outline:none!important}
+#yd-dashboard-root .ui-select-option[data-selected="true"]{background:#f8f5f7!important;color:#68465f!important;font-weight:700!important}
+#yd-dashboard-root .ui-select-option>i.fa-check{position:absolute!important;right:10px!important;top:50%!important;margin:0!important;color:#875a7b!important;font-size:11px!important;transform:translateY(-50%)!important}
+#yd-dashboard-root .yd-allowed-users-dropdown{display:flex!important;width:100%!important;min-width:220px!important}
+#yd-dashboard-root .yd-allowed-users-menu{width:max-content!important;min-width:100%!important;padding:4px!important}
+#yd-dashboard-root .yd-allowed-users-option{min-height:34px!important;padding:6px 9px 6px 8px!important}
+#yd-dashboard-root .yd-allowed-users-option>span:first-child{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important}
+#yd-dashboard-root .yd-allowed-users-option>span:first-child>i{width:14px!important;color:#875a7b!important}
+#yd-dashboard-root .yd-allowed-users-option>i{color:#875a7b!important}
+#yd-dashboard-root .yd-dropdown-separator{height:1px!important;margin:5px 2px!important;background:#e9e4eb!important}
+#yd-dashboard-root .yd-allowed-users-footer{display:flex!important;justify-content:flex-end!important;gap:6px!important;padding:6px 2px 1px!important}
+#yd-dashboard-root .yd-allowed-users-footer button{min-height:29px!important;padding:0 10px!important;border-radius:7px!important;font-size:10.5px!important;font-weight:600!important}
+#yd-dashboard-root .ui-select.disabled{opacity:.58!important}
+#yd-dashboard-root .ui-select.disabled .ui-select-trigger{cursor:not-allowed!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select{width:118px!important;min-width:118px!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select-trigger{height:32px!important;min-height:32px!important;padding:0 9px!important;border-color:#ded6e2!important;background:#f8f5f7!important;color:#68465f!important;font-size:11px!important;font-weight:700!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select-trigger svg{color:#875a7b!important}
+@media(max-width:760px){#yd-dashboard-root .yd-announcement-cycle-wrap .ui-select{width:116px!important;min-width:116px!important}}
+`;
         (document.head || document.documentElement).appendChild(style);
     };
     const navItems = () => {
