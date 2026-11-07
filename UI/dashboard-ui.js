@@ -241,6 +241,16 @@
 #yd-dashboard-root .yd-allowed-users-option.selected{background:#f8f5f7!important;color:#68465f!important;font-weight:700!important}
 @media(max-width:760px){#yd-dashboard-root .yd-announcement-list{width:100%!important;gap:10px!important}#yd-dashboard-root article.yd-announcement-card{width:100%!important}#yd-dashboard-root .yd-announcement-head{align-items:flex-start!important;gap:8px!important;padding:10px!important}#yd-dashboard-root .yd-announcement-meta{flex-wrap:wrap!important;justify-content:flex-end!important;gap:4px 10px!important;font-size:10px!important}#yd-dashboard-root .yd-announcement-date,#yd-dashboard-root .yd-announcement-time{font-size:10px!important}#yd-dashboard-root .yd-announcement-body{padding:14px!important}}
 `;
+        style.textContent += String.raw`
+#yd-dashboard-root .yd-announcement-meta{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-end!important;gap:12px!important;min-width:0!important;margin:0!important}
+#yd-dashboard-root .yd-announcement-datetime{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:10px!important;white-space:nowrap!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap{display:flex!important;align-items:center!important;justify-content:flex-end!important;min-width:116px!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap .yd-dropdown{width:100%!important;min-width:116px!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap .yd-dropdown-trigger{min-height:32px!important;padding:0 9px!important;border-color:#ded6e2!important;border-radius:8px!important;background:#f8f5f7!important;color:#68465f!important;font-size:11px!important;font-weight:700!important}
+#yd-dashboard-root .yd-announcement-cycle-wrap .yd-dropdown-trigger>i{color:#875a7b!important}
+#yd-dashboard-root .yd-announcement-cycle-box{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:116px!important;min-height:32px!important;padding:4px 9px!important;border:1px solid #ded6e2!important;border-radius:8px!important;background:#f8f5f7!important;color:#68465f!important;font-size:11px!important;font-weight:700!important}
+@media(max-width:760px){#yd-dashboard-root .yd-announcement-meta{align-items:flex-end!important;flex-direction:column!important;gap:8px!important}#yd-dashboard-root .yd-announcement-datetime{gap:7px!important;font-size:10px!important}#yd-dashboard-root .yd-announcement-cycle-wrap{width:116px!important}}
+`;
         (document.head || document.documentElement).appendChild(style);
     };
     const navItems = () => {
@@ -529,9 +539,13 @@
         const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
         const cards = posts.map(post => {
             const published = formatAnnouncementDate(post.createdAt || post.updatedAt);
+            const cycle = getAnnouncementCycle(post);
             const id = escapeHTML(post.id);
             const author = escapeHTML(String(post.createdBy || 'Dashboard Team').toLocaleUpperCase());
-            return '<article class="yd-announcement-card"><header class="yd-announcement-head"><div class="yd-announcement-identity"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong></div><div class="yd-announcement-meta"><span class="yd-announcement-date">' + escapeHTML(published.date) + '</span><span class="yd-announcement-time">' + escapeHTML(published.time) + '</span></div></header><div class="yd-announcement-body">' + escapeHTML(post.body) + '</div>' +
+            const cycleControl = canManage
+                ? renderDropdown('', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { 'data-announcement-cycle': 'true', 'data-id': id, 'aria-label': 'Change announcement cycle' })
+                : '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
+            return '<article class="yd-announcement-card"><header class="yd-announcement-head"><div class="yd-announcement-identity"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong></div><div class="yd-announcement-meta"><div class="yd-announcement-datetime"><span class="yd-announcement-date">' + escapeHTML(published.date) + '</span><span class="yd-announcement-time">' + escapeHTML(published.time) + '</span></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></div></header><div class="yd-announcement-body">' + escapeHTML(post.body) + '</div>' +
                 (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><i class="fa-solid fa-pen-to-square"></i></button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><i class="fa-solid fa-trash-can"></i></button></div></footer>' : '') +
                 '</article>';
         }).join('');
@@ -1140,7 +1154,7 @@
                 if (!dropdown || !hidden) return;
                 const value = actionButton.dataset.value;
                 hidden.value = value;
-                dropdown.querySelector('.yd-dropdown-value').textContent = actionButton.textContent.trim();
+                dropdown.querySelector('.yd-dropdown-value').textContent = actionButton.querySelector('span')?.textContent.trim() || actionButton.textContent.trim();
                 dropdown.querySelectorAll('.yd-dropdown-item').forEach(item => {
                     const selected = item.dataset.value === value;
                     item.classList.toggle('selected', selected);
@@ -1151,6 +1165,23 @@
                 dropdown.classList.remove('open');
                 dropdown.querySelector('.yd-dropdown-menu').hidden = true;
                 dropdown.querySelector('.yd-dropdown-trigger').setAttribute('aria-expanded', 'false');
+                if (dropdown.hasAttribute('data-announcement-cycle')) {
+                    const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(dropdown.dataset.id));
+                    if (!post || !ANNOUNCEMENT_CYCLES.includes(value) || getAnnouncementCycle(post) === value) return;
+                    const trigger = dropdown.querySelector('.yd-dropdown-trigger');
+                    if (trigger) trigger.disabled = true;
+                    trackBackground((async () => {
+                        try {
+                            await context.announcements.updatePost(post.id, { body: post.body, cycle: value });
+                            await context.announcements.load();
+                            render();
+                            showNotice('Announcement cycle updated.');
+                        } catch (error) {
+                            render();
+                            showMessageDialog('Cycle Not Updated', error?.message || 'Unable to update the announcement cycle.');
+                        }
+                    })());
+                }
                 return;
             }
             closeDropdowns(dropdown);
