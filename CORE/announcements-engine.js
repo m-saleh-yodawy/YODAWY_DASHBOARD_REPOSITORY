@@ -8,6 +8,7 @@
         LOGS_PATH: 'NETWORK/network-logs.json',
         REQUEST_TYPE: 'DASHBOARD_ANNOUNCEMENTS_SYNC',
         MAX_BODY: 6000,
+        CYCLES: Object.freeze(['November', 'December', 'January']),
         FINAL_STATUSES: ['COMPLETED', 'FAILED', 'REJECTED']
     });
 
@@ -25,6 +26,15 @@
     const clone = value => JSON.parse(JSON.stringify(value));
     const normalizeText = value => String(value || '').trim();
     const normalizeId = value => normalizeText(value).toUpperCase();
+
+    const normalizeCycle = (value, fallbackDate) => {
+        const selected = normalizeText(value).toLowerCase();
+        const match = CONFIG.CYCLES.find(cycle => cycle.toLowerCase() === selected);
+        if (match) return match;
+        const date = new Date(fallbackDate || Date.now());
+        const month = Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('en-US', { month: 'long' }).format(date);
+        return CONFIG.CYCLES.find(cycle => cycle.toLowerCase() === month.toLowerCase()) || CONFIG.CYCLES[0];
+    };
 
     const getDependencies = () => {
         const API = global.YODAWY_API_ENGINE;
@@ -61,7 +71,8 @@
                 createdBy: normalizeText(post.createdBy) || 'Unknown',
                 createdById: normalizeId(post.createdById),
                 createdAt: normalizeText(post.createdAt),
-                updatedAt: normalizeText(post.updatedAt || post.createdAt)
+                updatedAt: normalizeText(post.updatedAt || post.createdAt),
+                cycle: normalizeCycle(post.cycle, post.createdAt)
             };
         }).sort((a, b) => normalizeText(b.updatedAt).localeCompare(normalizeText(a.updatedAt)));
     };
@@ -201,7 +212,8 @@
         if (!body) throw createError('Announcement message is required');
         if (body.length > CONFIG.MAX_BODY) throw createError('Announcement message is too long');
         const id = createId();
-        await submit('CREATE_ANNOUNCEMENT', { id, body });
+        const cycle = normalizeCycle(input?.cycle, new Date());
+        await submit('CREATE_ANNOUNCEMENT', { id, body, cycle });
         return clone(posts.find(post => post.id === id) || null);
     };
 
@@ -211,7 +223,9 @@
         const body = normalizeText(input?.body);
         if (!id || !body) throw createError('Announcement message is required');
         if (body.length > CONFIG.MAX_BODY) throw createError('Announcement message is too long');
-        await submit('UPDATE_ANNOUNCEMENT', { id, body });
+        const existing = posts.find(post => post.id === id);
+        const cycle = normalizeCycle(input?.cycle ?? existing?.cycle, existing?.createdAt || new Date());
+        await submit('UPDATE_ANNOUNCEMENT', { id, body, cycle });
         return clone(posts.find(post => post.id === id) || null);
     };
 
@@ -224,7 +238,7 @@
     };
 
     global.YODAWY_ANNOUNCEMENTS_ENGINE = Object.freeze({
-        version: 2,
+        version: 3,
         load,
         getPosts,
         createPost,
