@@ -2448,7 +2448,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const executableSource = source.replace(registrationGuard, '');
         const previousUI = page.YODAWY_DASHBOARD_UI || window.YODAWY_DASHBOARD_UI;
         if (typeof previousUI?.destroy !== 'function') throw new Error('The current Dashboard UI cannot be safely replaced.');
-        const nextOptions = { ...context, uiState };
+        const runtimeContext = context;
+        const nextOptions = { ...runtimeContext, uiState };
         let nextUI = null;
         try {
             let executionError = null;
@@ -2470,8 +2471,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             if (!nextUI || nextUI === previousUI || typeof nextUI.init !== 'function') {
                 throw new Error('The updated Dashboard UI did not register in the page window.');
             }
+            nextOptions.ui = nextUI;
             await previousUI.destroy();
             await nextUI.init(nextOptions);
+            runtimeContext.ui = nextUI;
             return true;
         } catch (error) {
             const failedUI = page.YODAWY_DASHBOARD_UI;
@@ -2480,6 +2483,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             }
             window.YODAWY_DASHBOARD_UI = previousUI;
             page.YODAWY_DASHBOARD_UI = previousUI;
+            runtimeContext.ui = previousUI;
+            nextOptions.ui = previousUI;
             if (!previousUI.getContext?.()) await previousUI.init(nextOptions);
             throw new Error('The previous Dashboard interface was restored. ' + (error?.message || 'The update could not be activated.'));
         }
