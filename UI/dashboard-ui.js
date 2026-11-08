@@ -1107,14 +1107,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     vertical-align: middle;
 }
 
-#yd-dashboard-root .yd-accordion-list, #yd-dashboard-root .yd-tool-accordion-list {
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 11px;
-    background: #fff;
-    box-shadow: 0 2px 5px #29242e08;
-}
-#yd-dashboard-root .yd-accordion-list {
+#yd-dashboard-root .yd-accordion-list,
+#yd-dashboard-root .yd-tool-accordion-list {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -1124,7 +1118,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: transparent;
     box-shadow: none;
 }
-#yd-dashboard-root .yd-accordion-list .yd-accordion-item {
+#yd-dashboard-root .yd-accordion-list .yd-accordion-item,
+#yd-dashboard-root .yd-tool-accordion-list .yd-tool-accordion-item {
     overflow: hidden;
     border: 1px solid var(--border);
     border-radius: 11px;
@@ -1133,9 +1128,6 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-accordion-item + .yd-accordion-item > summary,
 #yd-dashboard-root .yd-tool-accordion-item + .yd-tool-accordion-item > summary {
-    border-top: 1px solid var(--border);
-}
-#yd-dashboard-root .yd-accordion-list .yd-accordion-item + .yd-accordion-item > summary {
     border-top: 0;
 }
 #yd-dashboard-root .yd-accordion-item > summary, #yd-dashboard-root .yd-tool-accordion-item > summary {
@@ -1248,12 +1240,13 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     grid-template-columns: minmax(180px, 1fr) minmax(300px, 1.2fr);
     align-items: center;
     gap: 10px;
-    margin: 4px 0;
+    margin: 0 0 10px;
     padding: 6px 9px;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: #fff;
 }
+#yd-dashboard-root .yd-permission-row:last-child { margin-bottom: 0; }
 #yd-dashboard-root .yd-permission-row.is-pending { border-color: #ead7a9; background: #fffcf5; }
 #yd-dashboard-root .yd-permission-tool { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 #yd-dashboard-root .yd-permission-tool strong { color: var(--ink); font-size: 11.5px; }
@@ -2014,14 +2007,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 }
 #yd-dashboard-root thead th {
     border: 0;
-    border-bottom: 8px solid #e1e1e1;
+    border-bottom: 10px solid #e1e1e1;
     background: var(--brand) !important;
     color: #fff !important;
 }
 #yd-dashboard-root tbody td,
 #yd-dashboard-root tbody th {
     border-top: 0;
-    border-bottom: 4px solid #e1e1e1;
+    border-bottom: 10px solid #e1e1e1;
     background: #fff;
 }
 #yd-dashboard-root tbody tr:nth-child(even) td,
@@ -2061,30 +2054,31 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 }
 
 #yd-dashboard-root .yd-pill.yd-role-super-admin {
-    border-color: #875a7b !important;
-    background: #875a7b !important;
-    color: #fff !important;
+    border-color: #d8b4fe !important;
+    background: #f3e8ff !important;
+    color: #6b21a8 !important;
 }
 #yd-dashboard-root .yd-pill.yd-role-admin {
-    border-color: #d5e3ff !important;
-    background: #eaf2ff !important;
-    color: #315b9a !important;
+    border-color: #bfdbfe !important;
+    background: #dbeafe !important;
+    color: #1d4ed8 !important;
 }
 #yd-dashboard-root .yd-pill.yd-role-user {
-    border-color: #dde2e7 !important;
-    background: #f1f3f5 !important;
-    color: #4b5563 !important;
+    border-color: #cbd5e1 !important;
+    background: #f1f5f9 !important;
+    color: #475569 !important;
 }
 #yd-dashboard-root .yd-role-label {
     display: inline-block;
     padding: 1px 5px;
+    border: 1px solid transparent;
     border-radius: 5px;
     font-size: inherit;
     font-weight: 700 !important;
 }
-#yd-dashboard-root .yd-role-label.yd-role-super-admin { background: #875a7b !important; color: #fff !important; }
-#yd-dashboard-root .yd-role-label.yd-role-admin { background: #eaf2ff !important; color: #315b9a !important; }
-#yd-dashboard-root .yd-role-label.yd-role-user { background: #f1f3f5 !important; color: #4b5563 !important; }
+#yd-dashboard-root .yd-role-label.yd-role-super-admin { border-color: #d8b4fe !important; background: #f3e8ff !important; color: #6b21a8 !important; }
+#yd-dashboard-root .yd-role-label.yd-role-admin { border-color: #bfdbfe !important; background: #dbeafe !important; color: #1d4ed8 !important; }
+#yd-dashboard-root .yd-role-label.yd-role-user { border-color: #cbd5e1 !important; background: #f1f5f9 !important; color: #475569 !important; }
 
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
 #yd-dashboard-root select,
