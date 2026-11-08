@@ -1,0 +1,33 @@
+{
+  "protocolVersion": 1,
+  "requestId": "DASH-USERS-1794174206040-S0LN0IW04N",
+  "transactionId": "DASH-USERS-1794174206040-S0LN0IW04N",
+  "sequence": "1794174206040800276",
+  "requestType": "DASHBOARD_USERS_SYNC",
+  "status": "PENDING",
+  "createdAt": "2026-11-08T21:43:26.040Z",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN"
+  },
+  "source": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "destination": {
+    "owner": "m-saleh-yodawy",
+    "repository": "YODAWY_DASHBOARD_REPOSITORY",
+    "branch": "main"
+  },
+  "action": "MODIFY_TOOL_PERMISSION",
+  "payload": {
+    "targetUserId": "Q-003",
+    "targetToolId": "TOOL-002",
+    "granted": true,
+    "action": "MODIFY_TOOL_PERMISSION"
+  }
+}
