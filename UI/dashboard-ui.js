@@ -88,6 +88,12 @@
     const formatName = value => String(value || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase().replace(/(^|[\s'’-])\p{L}/gu, char => char.toLocaleUpperCase());
 
     const formatRole = value => String(value || 'USER').trim().toUpperCase().replace(/SUPER_ADMIN/g, 'SUPER ADMIN').replace(/_/g, ' ');
+    const getRoleTone = value => {
+        const role = String(value || 'USER').trim().toUpperCase().replace(/[\s-]+/g, '_');
+        return role === 'SUPER_ADMIN' ? 'super-admin' : role === 'ADMIN' ? 'admin' : 'user';
+    };
+    const renderRolePill = value => '<span class="yd-pill yd-role-pill yd-role-' + getRoleTone(value) + '">' + escapeHTML(formatRole(value)) + '</span>';
+    const renderRoleLabel = value => '<span class="yd-role-label yd-role-' + getRoleTone(value) + '">' + escapeHTML(formatRole(value)) + '</span>';
 
     const getRoleEngine = () => context.userRole === 'SUPER_ADMIN'
         ? context.superAdminEngine || context.superAdmin || null
@@ -2053,6 +2059,51 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 #yd-dashboard-root .ui-select-trigger .ui-select-chevron {
     color: #fff !important;
 }
+
+#yd-dashboard-root .yd-pill.yd-role-super-admin {
+    border-color: #875a7b !important;
+    background: #875a7b !important;
+    color: #fff !important;
+}
+#yd-dashboard-root .yd-pill.yd-role-admin {
+    border-color: #d5e3ff !important;
+    background: #eaf2ff !important;
+    color: #315b9a !important;
+}
+#yd-dashboard-root .yd-pill.yd-role-user {
+    border-color: #dde2e7 !important;
+    background: #f1f3f5 !important;
+    color: #4b5563 !important;
+}
+#yd-dashboard-root .yd-role-label {
+    display: inline;
+    font-size: inherit;
+    font-weight: 700 !important;
+}
+#yd-dashboard-root .yd-role-label.yd-role-super-admin { color: #875a7b !important; }
+#yd-dashboard-root .yd-role-label.yd-role-admin { color: #315b9a !important; }
+#yd-dashboard-root .yd-role-label.yd-role-user { color: #4b5563 !important; }
+
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+#yd-dashboard-root select,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
+    max-width: 340px;
+    color: #18181b !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
+#yd-dashboard-root textarea:focus,
+#yd-dashboard-root textarea:focus-visible,
+#yd-dashboard-root select:focus,
+#yd-dashboard-root select:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search:focus {
+    border: 2px solid var(--brand) !important;
+    color: #18181b !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
@@ -2076,11 +2127,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
-                    '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD (' + escapeHTML(role.toUpperCase()) + ')</div></div>' +
+                    '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD (' + renderRoleLabel(context.userRole) + ')</div></div>' +
                         '<div class="yd-header-actions"><div class="yd-header-status"><span class="yd-header-dot"></span><span>Connected</span></div>' +
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span><span class="yd-gb-badge"><i class="fa-solid fa-check"></i></span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
-                                    '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills"><span class="yd-pill blue">' + escapeHTML(role) + '</span><span class="yd-pill green">Connected</span></div></div>' +
+                                    '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
                                     '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
@@ -2131,7 +2182,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const permittedTools = visibleTools.filter(tool => context.permissions?.canUse?.(context.userId || context.user?.id, tool.id) === true);
         const enabledTools = visibleTools.filter(tool => context.settings?.isEnabled?.(tool.id) === true);
         const user = context.user || {};
-        const role = formatRole(context.userRole);
         return '<section class="yd-welcome"><div><h1>Overview</h1><p>Your centralized Yodawy tools workspace and account status.</p></div></section>' +
             '<section class="yd-stats">' +
                 statCard('Tools', visibleTools.length, 'fa-solid fa-toolbox', 'blue') +
@@ -2142,7 +2192,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             '<section class="yd-info-grid">' +
                 '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-user"></i></span><span>Account</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">User ID</span><span class="yd-id-badge">' + escapeHTML(user.id || user.userId || context.userId || '—') + '</span></div>' +
-                    '<div class="yd-clean-row"><span class="yd-clean-label">Role</span><span class="yd-pill blue">' + escapeHTML(role) + '</span></div>' +
+                    '<div class="yd-clean-row"><span class="yd-clean-label">Role</span>' + renderRolePill(context.userRole) + '</div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Account Status</span><span class="yd-pill green">' + escapeHTML(user.status || 'Active') + '</span></div>' +
                 '</div>' +
                 '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-plug-circle-check"></i></span><span>Connection</span></div>' +
@@ -2215,7 +2265,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 : '';
             const status = pending ? renderPendingBadge(pendingLabel) : '<span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span>';
             const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
-            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td><span class="yd-pill">' + escapeHTML(formatRole(user.role)) + '</span></td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
+            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + renderRolePill(user.role) + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div><button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
@@ -2251,7 +2301,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 }).join('');
                 const expanded = expandedUsers.has(userId) ? ' open' : '';
                 const userBadge = pendingUser ? renderPendingBadge(String(pendingUser.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
-                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(formatRole(user.role)) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body"><div class="yd-permission-search-wrap"><input type="search" class="yd-permission-search" placeholder="ACTIVE SEARCH" aria-label="Search tools by name or ID"></div><div class="yd-permission-search-empty" hidden>No matching tools found.</div>' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
+                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span>' + renderRolePill(user.role) + '</small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body"><div class="yd-permission-search-wrap"><input type="search" class="yd-permission-search" placeholder="ACTIVE SEARCH" aria-label="Search tools by name or ID"></div><div class="yd-permission-search-empty" hidden>No matching tools found.</div>' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
             }).join('');
             return '<section class="yd-welcome"><div><h1>Shared Tools</h1><p>Expand a user to manage tool access and forced states.</p></div><span class="yd-pill">SUPER ADMIN CONTROL</span></section><div class="yd-accordion-list">' + (items || '<div class="yd-empty">No eligible users found.</div>') + '</div>';
         }
@@ -2302,7 +2352,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             const id = String(user.id || '').trim().toUpperCase();
             const active = String(user.status || '').toLowerCase() === 'active';
             const selected = allSelected || draft.allowedUsers.has(id);
-            return '<button type="button" class="ui-select-option ui-select-item yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-selected="' + String(selected) + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="option" aria-selected="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + escapeHTML(formatRole(user.role)) + '</small></span></span></button>';
+            return '<button type="button" class="ui-select-option ui-select-item yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-selected="' + String(selected) + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="option" aria-selected="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + renderRoleLabel(user.role) + '</small></span></span></button>';
         }).join('');
         const pendingLabel = pending?.action === 'SUBMITTING' ? 'Saving' : 'Pending';
         const footer = pending
@@ -2443,7 +2493,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-database"></i></span><span>Repository & Account</span></div>' +
                 '<div class="yd-info-row"><span>Full Name</span><strong>' + escapeHTML(formatName(user.name || '—')) + '</strong></div>' +
                 '<div class="yd-info-row"><span>User ID</span><strong>' + escapeHTML(user.id || user.userId || context.userId || '—') + '</strong></div>' +
-                '<div class="yd-info-row"><span>Role</span><strong>' + escapeHTML(formatRole(context.userRole)) + '</strong></div>' +
+                '<div class="yd-info-row"><span>Role</span><strong>' + renderRolePill(context.userRole) + '</strong></div>' +
                 '<div class="yd-info-row"><span>Personal Repository</span><strong>' + escapeHTML(context.personalRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Dashboard Repository</span><strong>' + escapeHTML(context.dashboardRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Branch</span><strong>' + escapeHTML(context.branch || 'main') + '</strong></div>' +
