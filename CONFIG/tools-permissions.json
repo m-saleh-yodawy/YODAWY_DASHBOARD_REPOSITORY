@@ -35,9 +35,9 @@
   },
   "Q-004": {
     "TOOL-001": {
-      "granted": false,
+      "granted": true,
       "forcedState": false,
-      "type": "ADMIN"
+      "type": "SUPER_ADMIN"
     },
     "TOOL-002": {
       "granted": false,
