@@ -1419,8 +1419,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
         left: anchor(left) !important;
         right: auto !important;
         margin-top: 4px !important;
-        width: anchor-size(width) !important;
-        min-width: max(anchor-size(width), 144px) !important;
+        width: var(--yd-select-menu-width, anchor-size(width)) !important;
+        min-width: max(var(--yd-select-menu-width, anchor-size(width)), 144px) !important;
         max-width: min(360px, calc(100vw - 24px)) !important;
         max-height: min(320px, calc(100vh - 24px)) !important;
         position-try-fallbacks: flip-block, flip-inline !important;
@@ -1496,6 +1496,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 }
 
 #yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 220px; }
+#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger { max-width: 220px; }
 #yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger,
 #yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled),
 #yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
@@ -1576,21 +1577,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    width: 50%;
+    width: 55%;
     margin: 0 auto;
 }
 #yd-dashboard-root article.yd-announcement-card {
     display: flex;
     flex-direction: column;
     width: 100%;
-    max-width: 760px;
+    max-width: 836px;
     min-width: 0;
     margin: 0;
     padding: 0;
     overflow: hidden;
     border: 1px solid #e4e4e7;
     border-radius: 12px;
-    background: #fff;
+    background: #F8F5F7 !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 #yd-dashboard-root .yd-announcement-header {
@@ -1601,7 +1602,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     width: 100%;
     padding: 7px 12px;
     border-bottom: 1px solid #f0f0f2;
-    background: #fff;
+    background: transparent;
 }
 #yd-dashboard-root .yd-announcement-author-wrap {
     display: flex;
@@ -1721,7 +1722,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
     padding: 14px;
-    background: #fff;
+    background: transparent;
     color: #18181b;
     font-size: 13px;
     font-weight: 600 !important;
@@ -1737,7 +1738,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     justify-content: flex-end;
     gap: 8px;
     padding: 0 14px 12px;
-    background: #fff;
+    background: transparent;
 }
 #yd-dashboard-root .yd-announcement-actions { display: flex; align-items: center; gap: 8px; }
 #yd-dashboard-root .yd-announcement-footer .yd-icon-btn { width: 30px; height: 30px; }
@@ -1782,7 +1783,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 
 @media (max-width: 1120px) {
     #yd-dashboard-root .yd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    #yd-dashboard-root .yd-announcement-list { width: 75%; }
+    #yd-dashboard-root .yd-announcement-list { width: 82.5%; }
 }
 @media (max-width: 850px) {
     #yd-dashboard-root .yd-panel-grid, #yd-dashboard-root .yd-info-grid { grid-template-columns: 1fr; }
@@ -2707,13 +2708,20 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         if (supportsAnchor) {
             trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
             menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
+            if (dropdown.classList.contains('yd-allowed-users-dropdown')) {
+                menu.style.setProperty('--yd-select-menu-width', dropdown.getBoundingClientRect().width + 'px');
+            } else {
+                menu.style.removeProperty('--yd-select-menu-width');
+            }
             ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
             return;
         }
         const rect = trigger.getBoundingClientRect();
+        const dropdownRect = dropdown.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
-        const width = Math.min(Math.max(rect.width, dropdown.classList.contains('yd-allowed-users-dropdown') ? 240 : 144), viewportWidth - 24);
+        const isAllowedUsers = dropdown.classList.contains('yd-allowed-users-dropdown');
+        const width = Math.min(Math.max(isAllowedUsers ? dropdownRect.width : rect.width, isAllowedUsers ? 240 : 144), viewportWidth - 24);
         const maxHeight = Math.min(dropdown.classList.contains('yd-announcement-cycle-select') ? 260 : 320, viewportHeight - 24);
         const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
         const roomBelow = viewportHeight - rect.bottom - 12;
