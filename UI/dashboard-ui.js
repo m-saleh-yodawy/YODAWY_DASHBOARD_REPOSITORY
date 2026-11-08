@@ -1033,7 +1033,7 @@
     gap: 12px;
     min-height: 44px;
     padding: 6px 12px;
-    background: #f2edf3 !important;
+    background: #fff;
     color: var(--ink);
     cursor: pointer;
     list-style: none;
@@ -1043,9 +1043,12 @@
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
 #yd-dashboard-root .yd-tool-accordion-item > summary::-webkit-details-marker { display: none; }
 #yd-dashboard-root .yd-accordion-item > summary:hover,
-#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #ebe3ed !important; }
+#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #faf7fb; }
 #yd-dashboard-root .yd-accordion-item[open] > summary,
-#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: #e9dfea !important; }
+#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: var(--brand-soft); }
+#yd-dashboard-root .yd-accordion-item > summary { background: #f2edf3 !important; }
+#yd-dashboard-root .yd-accordion-item > summary:hover { background: #ebe3ed !important; }
+#yd-dashboard-root .yd-accordion-item[open] > summary { background: #e9dfea !important; }
 #yd-dashboard-root .yd-accordion-item > summary::after {
     position: absolute;
     right: 16px;
