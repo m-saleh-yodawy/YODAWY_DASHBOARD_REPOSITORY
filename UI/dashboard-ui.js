@@ -271,7 +271,8 @@
     const injectStyles = () => {
         ensureExternalStylesheet('yd-fontawesome-css', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css', 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css');
         document.getElementById('yd-nunito-font')?.remove();
-        ensureExternalStylesheet('yd-poppins-font', 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap');
+        document.getElementById('yd-poppins-font')?.remove();
+        ensureExternalStylesheet('yd-nunito-sans-font', 'https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
         style.textContent = String.raw`
@@ -300,13 +301,13 @@
     --danger-bg: #fee2e2;
     --danger-border: #f0d7d9;
     color: var(--ink);
-    font: 400 12px/1.45 'Poppins', system-ui, -apple-system, sans-serif;
+    font: 400 12px/1.45 'Nunito Sans', system-ui, -apple-system, sans-serif;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
 }
 #yd-dashboard-root *, #yd-dashboard-root *::before, #yd-dashboard-root *::after {
     box-sizing: border-box;
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
 }
 #yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
 #yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
@@ -924,7 +925,7 @@
     border-radius: 7px;
     background: #f7f2f6;
     color: var(--brand-dark);
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
     font-size: 10px;
     font-weight: 600 !important;
 }
@@ -1063,7 +1064,7 @@
     max-width: 260px;
     overflow: hidden;
     color: var(--muted);
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
     font-size: 10.5px;
     text-overflow: ellipsis;
     vertical-align: middle;
@@ -1138,7 +1139,7 @@
 #yd-dashboard-root .yd-permission-row.is-pending { border-color: #ead7a9; background: #fffcf5; }
 #yd-dashboard-root .yd-permission-tool { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 #yd-dashboard-root .yd-permission-tool strong { color: var(--ink); font-size: 11.5px; }
-#yd-dashboard-root .yd-permission-tool > span { color: var(--muted); font-family: 'Poppins', system-ui, -apple-system, sans-serif !important; font-size: 10px; }
+#yd-dashboard-root .yd-permission-tool > span { color: var(--muted); font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important; font-size: 10px; }
 #yd-dashboard-root .yd-permission-controls { display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap; }
 #yd-dashboard-root .yd-permission-control { display: flex; align-items: center; gap: 6px; min-width: 132px; }
 #yd-dashboard-root .yd-permission-label { min-width: 75px; color: var(--muted); font-size: 10px; font-weight: 600 !important; }
@@ -1358,7 +1359,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     color: #18181b;
     box-shadow: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #00000014, 0 0 0 1px #875a7b12;
     box-sizing: border-box;
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
     transform-origin: top left;
     animation: yd-dropdown-enter .12s cubic-bezier(.2, .8, .2, 1) both;
 }
