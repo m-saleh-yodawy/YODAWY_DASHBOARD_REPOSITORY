@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T02:00:31Z",
+  "updatedAt": "2026-11-08T02:45:51Z",
   "transactions": {
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
@@ -278,6 +278,19 @@
       "createdAt": "2026-11-08T01:58:12Z",
       "updatedAt": "2026-11-08T02:00:30Z",
       "targetId": "Q-002"
+    },
+    "ANNOUNCEMENT-1794105922648-R643W74MU5": {
+      "requestId": "ANNOUNCEMENT-1794105922648-R643W74MU5",
+      "sequence": "1794105922647358549",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "UPDATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
+      "createdAt": "2026-11-08T02:45:51Z",
+      "updatedAt": "2026-11-08T02:45:51Z",
+      "targetId": "1793715257459-CV8YPK1G9P"
     }
   }
 }
