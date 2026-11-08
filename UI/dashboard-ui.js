@@ -697,7 +697,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     min-width: 0;
     overflow: auto;
     padding: 22px 26px;
-    background: var(--canvas);
+    background: #e1e1e1;
     scrollbar-color: #d7cfd9 transparent;
     scrollbar-width: thin;
 }
@@ -1109,9 +1109,29 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: #fff;
     box-shadow: 0 2px 5px #29242e08;
 }
+#yd-dashboard-root .yd-accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+#yd-dashboard-root .yd-accordion-list .yd-accordion-item {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: #fff;
+    box-shadow: 0 2px 5px #29242e08;
+}
 #yd-dashboard-root .yd-accordion-item + .yd-accordion-item > summary,
 #yd-dashboard-root .yd-tool-accordion-item + .yd-tool-accordion-item > summary {
     border-top: 1px solid var(--border);
+}
+#yd-dashboard-root .yd-accordion-list .yd-accordion-item + .yd-accordion-item > summary {
+    border-top: 0;
 }
 #yd-dashboard-root .yd-accordion-item > summary, #yd-dashboard-root .yd-tool-accordion-item > summary {
     position: relative;
@@ -1126,6 +1146,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     cursor: pointer;
     list-style: none;
     transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+#yd-dashboard-root .yd-accordion-list .yd-accordion-item > summary,
+#yd-dashboard-root .yd-accordion-list .yd-accordion-item > summary:hover,
+#yd-dashboard-root .yd-accordion-list .yd-accordion-item[open] > summary {
+    background: #fff !important;
 }
 #yd-dashboard-root .yd-accordion-item > summary { padding-right: 38px; }
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
@@ -1676,7 +1701,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     overflow: hidden;
     border: 0;
     border-radius: 12px;
-    background: #F8F5F7 !important;
+    background: #ffffff !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 #yd-dashboard-root .yd-announcement-header {
