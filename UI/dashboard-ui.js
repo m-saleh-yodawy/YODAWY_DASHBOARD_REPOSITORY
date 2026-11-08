@@ -1064,12 +1064,12 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     padding: 3px;
     border: 0;
     border-radius: 999px;
-    background: #d8d2da;
+    background: #aaaaaa;
     cursor: pointer;
     vertical-align: middle;
     transition: background-color .24s ease, box-shadow .2s ease, opacity .2s ease;
 }
-#yd-dashboard-root .yd-switch.on { background: #2b865c; }
+#yd-dashboard-root .yd-switch.on { background: #aaaaaa; }
 #yd-dashboard-root .yd-switch.yd-switch-forced.on { background: #c33d4b !important; }
 #yd-dashboard-root .yd-switch-knob {
     display: block;
@@ -1269,7 +1269,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     padding: 6px 9px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: #fff;
+    background: #e1e1e1;
 }
 #yd-dashboard-root .yd-permission-row:last-child { margin-bottom: 0; }
 #yd-dashboard-root .yd-permission-row.is-pending { border-color: #ead7a9; background: #fffcf5; }
