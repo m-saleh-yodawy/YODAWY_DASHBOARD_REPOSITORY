@@ -1069,7 +1069,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     vertical-align: middle;
     transition: background-color .24s ease, box-shadow .2s ease, opacity .2s ease;
 }
-#yd-dashboard-root .yd-switch.on { background: #aaaaaa; }
+#yd-dashboard-root .yd-switch.on { background: #2b865c; }
 #yd-dashboard-root .yd-switch.yd-switch-forced.on { background: #c33d4b !important; }
 #yd-dashboard-root .yd-switch-knob {
     display: block;
@@ -1208,24 +1208,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-tool-accordion-item[open] > .yd-tool-accordion-body {
     animation: yd-accordion-enter .2s cubic-bezier(.2, .8, .2, 1) both;
 }
-@supports selector(details::details-content) and (interpolate-size: allow-keywords) {
-    #yd-dashboard-root .yd-accordion-item,
-    #yd-dashboard-root .yd-tool-accordion-item {
-        interpolate-size: allow-keywords;
-    }
-    #yd-dashboard-root .yd-accordion-item::details-content,
-    #yd-dashboard-root .yd-tool-accordion-item::details-content {
-        block-size: 0;
-        overflow: clip;
-        content-visibility: hidden;
-        transition: block-size .22s cubic-bezier(.2, .8, .2, 1), content-visibility .22s allow-discrete;
-    }
-    #yd-dashboard-root .yd-accordion-item[open]::details-content,
-    #yd-dashboard-root .yd-tool-accordion-item[open]::details-content {
-        block-size: auto;
-        content-visibility: visible;
-    }
-}
+
 #yd-dashboard-root .yd-permission-search-wrap {
     display: flex;
     justify-content: flex-start;
