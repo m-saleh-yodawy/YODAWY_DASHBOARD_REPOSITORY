@@ -1,26 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T21:47:46Z",
+  "updatedAt": "2026-11-08T22:16:26Z",
   "transactions": {
-    "DASH-USERS-1794176072479-H0XYAUN952": {
-      "requestId": "DASH-USERS-1794176072479-H0XYAUN952",
-      "sequence": "1794176072479380314",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T22:15:02Z",
-      "updatedAt": "2026-11-08T22:15:02Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-002 · ahmed saleh",
-      "targetId": "Q-004",
-      "targetName": "ahmed saleh",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-002"
-      ]
-    },
     "DASH-USERS-1794176078534-A7PKM6SWGH": {
       "requestId": "DASH-USERS-1794176078534-A7PKM6SWGH",
       "sequence": "1794176078534691426",
@@ -30,15 +11,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T22:15:07Z",
       "updatedAt": "2026-11-08T22:15:07Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · FORCED STATE ON · TOOL-004 · ahmed saleh",
-      "targetId": "Q-004",
-      "targetName": "ahmed saleh",
-      "permissionField": "forcedState",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-004"
-      ]
+      "targetId": "Q-004"
     },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
@@ -370,6 +343,17 @@
       "createdAt": "2026-11-08T21:46:21Z",
       "updatedAt": "2026-11-08T21:47:46Z",
       "targetId": "Q-003"
+    },
+    "DASH-USERS-1794176072479-H0XYAUN952": {
+      "requestId": "DASH-USERS-1794176072479-H0XYAUN952",
+      "sequence": "1794176072479380314",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T22:15:02Z",
+      "updatedAt": "2026-11-08T22:16:26Z",
+      "targetId": "Q-004"
     }
   }
 }
