@@ -1033,7 +1033,7 @@
     gap: 12px;
     min-height: 44px;
     padding: 6px 12px;
-    background: #fff;
+    background: #ebe3ed !important;
     color: var(--ink);
     cursor: pointer;
     list-style: none;
@@ -1043,12 +1043,9 @@
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
 #yd-dashboard-root .yd-tool-accordion-item > summary::-webkit-details-marker { display: none; }
 #yd-dashboard-root .yd-accordion-item > summary:hover,
-#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #faf7fb; }
+#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #ebe3ed !important; }
 #yd-dashboard-root .yd-accordion-item[open] > summary,
-#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: var(--brand-soft); }
-#yd-dashboard-root .yd-accordion-item > summary { background: #f2edf3 !important; }
-#yd-dashboard-root .yd-accordion-item > summary:hover { background: #ebe3ed !important; }
-#yd-dashboard-root .yd-accordion-item[open] > summary { background: #e9dfea !important; }
+#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: #ebe3ed !important; }
 #yd-dashboard-root .yd-accordion-item > summary::after {
     position: absolute;
     right: 16px;
@@ -1067,7 +1064,7 @@
 #yd-dashboard-root .yd-accordion-body, #yd-dashboard-root .yd-tool-accordion-body {
     margin: 10px;
     padding: 10px;
-    border: 1px solid #ded7e2;
+    border: 0;
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 1px 3px #29242e08;
@@ -1316,11 +1313,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 }
 #yd-dashboard-root .ui-select-item:hover,
 #yd-dashboard-root .ui-select-item:focus-visible,
+#yd-dashboard-root .ui-select-option:hover,
+#yd-dashboard-root .ui-select-option:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:hover,
-body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:focus-visible {
-    background: #f4eff2;
-    color: #68465f;
-    outline: none;
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:focus-visible {
+    background-color: #e9dfea !important;
+    color: #68465f !important;
+    outline: none !important;
 }
 #yd-dashboard-root .ui-select-item[data-selected="true"],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item[data-selected="true"] {
