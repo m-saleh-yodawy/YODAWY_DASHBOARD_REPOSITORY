@@ -1,26 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T01:57:45Z",
+  "updatedAt": "2026-11-08T01:59:13Z",
   "transactions": {
-    "DASH-USERS-1794103037035-HK4O1MBKBS": {
-      "requestId": "DASH-USERS-1794103037035-HK4O1MBKBS",
-      "sequence": "1794103037035415353",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:57:45Z",
-      "updatedAt": "2026-11-08T01:57:45Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · ACCESS REVOKED · TOOL-001 · OMAR SALEH",
-      "targetId": "Q-002",
-      "targetName": "OMAR SALEH",
-      "permissionField": "granted",
-      "permissionValue": false,
-      "targetToolIds": [
-        "TOOL-001"
-      ]
-    },
     "DASH-USERS-1794103059005-XTB0XAKL1Y": {
       "requestId": "DASH-USERS-1794103059005-XTB0XAKL1Y",
       "sequence": "1794103059005951815",
@@ -30,15 +11,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T01:58:07Z",
       "updatedAt": "2026-11-08T01:58:07Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-002 · OMAR SALEH",
-      "targetId": "Q-002",
-      "targetName": "OMAR SALEH",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-002"
-      ]
+      "targetId": "Q-002"
     },
     "DASH-USERS-1794103061212-XHLOK29GKM": {
       "requestId": "DASH-USERS-1794103061212-XHLOK29GKM",
@@ -49,15 +22,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T01:58:12Z",
       "updatedAt": "2026-11-08T01:58:12Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-004 · OMAR SALEH",
-      "targetId": "Q-002",
-      "targetName": "OMAR SALEH",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-004"
-      ]
+      "targetId": "Q-002"
     },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
@@ -260,8 +225,6 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T00:58:43Z",
       "updatedAt": "2026-11-08T00:58:43Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
       "targetId": "1793715257459-CV8YPK1G9P"
     },
     "ANNOUNCEMENT-1794099512062-1UM6BWHW8E": {
@@ -273,8 +236,6 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T00:58:58Z",
       "updatedAt": "2026-11-08T00:58:58Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
       "targetId": "1793715257459-CV8YPK1G9P"
     },
     "ACTIVITY-1794102891561-ntlhfaasq28": {
@@ -285,13 +246,7 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-08T01:54:51.561Z",
-      "updatedAt": "2026-11-08T01:54:51.561Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "DISABLE TOOL · CONFIRMATION TYPE BUTTONS",
-      "targetToolId": "TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "updatedAt": "2026-11-08T01:54:51.561Z"
     },
     "ACTIVITY-1794102896898-7uwjgghya5a": {
       "requestId": "ACTIVITY-1794102896898-7uwjgghya5a",
@@ -301,13 +256,7 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-08T01:54:56.898Z",
-      "updatedAt": "2026-11-08T01:54:56.898Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "DISABLE TOOL · PORTAL AUTO LOGIN",
-      "targetToolId": "TOOL-002",
-      "targetToolIds": [
-        "TOOL-002"
-      ]
+      "updatedAt": "2026-11-08T01:54:56.898Z"
     },
     "ACTIVITY-1794102901001-zzmil9mfboq": {
       "requestId": "ACTIVITY-1794102901001-zzmil9mfboq",
@@ -317,13 +266,18 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-08T01:55:01.001Z",
-      "updatedAt": "2026-11-08T01:55:01.001Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "DISABLE TOOL · ODOO >>> LIMITED DRUG ACCORDION",
-      "targetToolId": "TOOL-004",
-      "targetToolIds": [
-        "TOOL-004"
-      ]
+      "updatedAt": "2026-11-08T01:55:01.001Z"
+    },
+    "DASH-USERS-1794103037035-HK4O1MBKBS": {
+      "requestId": "DASH-USERS-1794103037035-HK4O1MBKBS",
+      "sequence": "1794103037035415353",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:57:45Z",
+      "updatedAt": "2026-11-08T01:59:12Z",
+      "targetId": "Q-002"
     }
   }
 }
