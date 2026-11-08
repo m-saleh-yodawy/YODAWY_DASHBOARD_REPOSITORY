@@ -872,9 +872,9 @@
 #yd-dashboard-root thead th {
     height: 38px;
     padding: 0 12px;
-    border-bottom: 1px solid #d9d2df;
-    background: #faf9fb;
-    color: #716a76;
+    border-bottom: 1px solid #d8c9dc;
+    background: #e9dfea;
+    color: #68465f;
     font-size: 10px;
     font-weight: 700 !important;
     letter-spacing: .025em;
@@ -1702,11 +1702,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     #yd-dashboard-root .yd-nav span:not(.yd-nav-icon), #yd-dashboard-root .yd-nav-label, #yd-dashboard-root .yd-sidebar-bottom { display: none; }
     #yd-dashboard-root .yd-form-grid { grid-template-columns: 1fr; }
 }
-#yd-dashboard-root .yd-visibility-table-card thead th {
-    background: #e9dfea !important;
-    color: #68465f !important;
-    border-bottom-color: #d8c9dc !important;
-}
 #yd-dashboard-root .ui-select-option:hover,
 #yd-dashboard-root .ui-select-option:focus-visible,
 #yd-dashboard-root .ui-select-item:hover,
@@ -1731,6 +1726,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     box-shadow: none !important;
 }
 
+#yd-dashboard-root .yd-allowed-users-option[data-selected="true"]::after,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option[data-selected="true"]::after {
+    content: none !important;
+    display: none !important;
+}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
