@@ -1374,6 +1374,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top left;
+    box-sizing: border-box !important;
     animation: yd-dropdown-enter .12s cubic-bezier(.2, .8, .2, 1) both;
 }
 #yd-dashboard-root .ui-select[data-open="true"] .ui-select-menu,
@@ -1709,8 +1710,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 #yd-dashboard-root .yd-announcement-form .yd-field { margin-top: 10px; }
 
 @keyframes yd-dropdown-enter {
-    from { opacity: 0; transform: translateY(-4px) scale(.97); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 @keyframes yd-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes yd-modal-enter {
@@ -2650,8 +2651,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const roomBelow = viewportHeight - rect.bottom - 12;
         const roomAbove = rect.top - 12;
         const openAbove = roomBelow < Math.min(menuHeight, 180) && roomAbove > roomBelow;
-        const alignedLeft = rect.left + (rect.width - width) / 2;
-        const left = Math.max(12, Math.min(alignedLeft, viewportWidth - width - 12));
+        const left = Math.max(12, Math.min(rect.left, viewportWidth - width - 12));
         const top = openAbove
             ? Math.max(12, rect.top - menuHeight - 4)
             : Math.max(12, Math.min(rect.bottom + 4, viewportHeight - menuHeight - 12));
