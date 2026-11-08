@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T23:51:41Z",
+  "updatedAt": "2026-11-08T23:58:09Z",
   "transactions": {
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
@@ -375,6 +375,19 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T23:50:10Z",
       "updatedAt": "2026-11-08T23:51:40Z"
+    },
+    "ANNOUNCEMENT-1794182261143-HU70BPJGES": {
+      "requestId": "ANNOUNCEMENT-1794182261143-HU70BPJGES",
+      "sequence": "1794182261143017212",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "CREATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "actorName": "MOHAMED SALEH",
+      "summary": "PUBLISH ANNOUNCEMENT · test for test 2",
+      "createdAt": "2026-11-08T23:58:09Z",
+      "updatedAt": "2026-11-08T23:58:09Z",
+      "targetId": "1794182261143-687DT2P22D"
     }
   }
 }
