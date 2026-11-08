@@ -55,6 +55,30 @@
     let dropdownScrollHandler = null;
     let dropdownResizeHandler = null;
 
+    const syncInputSurfaceBackgrounds = scope => {
+        const selector = 'input:not([type="hidden"]), textarea, select, .yd-allowed-users-search';
+        const controls = [...(scope?.querySelectorAll?.(selector) || [])];
+        if (scope?.matches?.(selector)) controls.unshift(scope);
+        controls.forEach(control => {
+            let ancestor = control.parentElement;
+            let background = '';
+            while (ancestor) {
+                const color = page.getComputedStyle(ancestor).backgroundColor.replace(/\s+/g, '').toLowerCase();
+                if (color === 'rgb(255,255,255)' || color === 'rgba(255,255,255,1)') {
+                    background = '#e1e1e1';
+                    break;
+                }
+                if (color === 'rgb(225,225,225)' || color === 'rgba(225,225,225,1)') {
+                    background = '#fff';
+                    break;
+                }
+                ancestor = ancestor.parentElement;
+            }
+            if (background) control.style.setProperty('background-color', background, 'important');
+            else control.style.removeProperty('background-color');
+        });
+    };
+
     const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[char]);
@@ -1152,10 +1176,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-accordion-item > summary { padding-right: 38px; }
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
 #yd-dashboard-root .yd-tool-accordion-item > summary::-webkit-details-marker { display: none; }
-#yd-dashboard-root .yd-accordion-item > summary:hover,
-#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #ebe3ed !important; }
-#yd-dashboard-root .yd-accordion-item[open] > summary,
-#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: #ebe3ed !important; }
+#yd-dashboard-root .yd-accordion-item > summary:hover { background: #ebe3ed !important; }
+#yd-dashboard-root .yd-accordion-item[open] > summary { background: #ebe3ed !important; }
+#yd-dashboard-root .yd-tool-accordion-item > summary,
+#yd-dashboard-root .yd-tool-accordion-item > summary:hover,
+#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: #fff !important; }
 #yd-dashboard-root .yd-accordion-item > summary::after {
     position: absolute;
     right: 16px;
@@ -2470,6 +2495,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         overlay.className = 'yd-modal-backdrop';
         overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', class: 'yd-announcement-cycle-select', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
+        syncInputSurfaceBackgrounds(overlay);
         const close = () => {
             closeDropdowns(null);
             overlay.remove();
@@ -2546,6 +2572,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         closeDropdowns(null);
         openVisibilityToolId = null;
         root.innerHTML = renderShell(renderPage());
+        syncInputSurfaceBackgrounds(root);
     };
 
     const captureUIState = noticeMessage => ({
@@ -2875,6 +2902,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
+        syncInputSurfaceBackgrounds(overlay);
         const close = () => {
             closeDropdowns(null);
             overlay.remove();
@@ -3160,6 +3188,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         menu.classList.add('yd-select-portal-menu');
         menu.hidden = false;
         document.body.appendChild(menu);
+        syncInputSurfaceBackgrounds(menu);
         positionDropdownMenu(dropdown);
     };
 
