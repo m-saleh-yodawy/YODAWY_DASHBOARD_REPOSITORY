@@ -230,17 +230,27 @@
         return task;
     };
 
-    const ensureExternalStylesheet = (id, href) => {
-        if (document.getElementById(id)) return;
-        const link = document.createElement('link');
-        link.id = id;
-        link.rel = 'stylesheet';
-        link.href = href;
-        document.head.appendChild(link);
+    const ensureExternalStylesheet = (id, href, fallbackHref) => {
+        let link = document.getElementById(id);
+        if (!link) {
+            link = document.createElement('link');
+            link.id = id;
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+        }
+        if (fallbackHref && link.dataset.fallbackBound !== 'true') {
+            link.dataset.fallbackBound = 'true';
+            link.addEventListener('error', () => {
+                if (link.dataset.fallbackUsed === 'true') return;
+                link.dataset.fallbackUsed = 'true';
+                link.href = fallbackHref;
+            });
+        }
+        if (!link.sheet) link.href = href;
     };
 
     const injectStyles = () => {
-        ensureExternalStylesheet('yd-fontawesome-css', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css');
+        ensureExternalStylesheet('yd-fontawesome-css', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css', 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css');
         ensureExternalStylesheet('yd-nunito-font', 'https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&display=swap');
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
@@ -278,20 +288,32 @@
     box-sizing: border-box;
     font-family: 'Nunito', system-ui, -apple-system, sans-serif !important;
 }
-#yd-dashboard-root .fa-solid, #yd-dashboard-root .fas {
+#yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
+#yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
     font-family: "Font Awesome 6 Free" !important;
     font-weight: 900 !important;
     font-style: normal !important;
+    font-variant: normal !important;
 }
-#yd-dashboard-root .fa-regular, #yd-dashboard-root .far {
+#yd-dashboard-root .fa-regular, #yd-dashboard-root .far,
+#yd-dashboard-root .fa-regular::before, #yd-dashboard-root .far::before {
     font-family: "Font Awesome 6 Free" !important;
     font-weight: 400 !important;
     font-style: normal !important;
+    font-variant: normal !important;
 }
-#yd-dashboard-root .fa-brands, #yd-dashboard-root .fab {
+#yd-dashboard-root .fa-brands, #yd-dashboard-root .fab,
+#yd-dashboard-root .fa-brands::before, #yd-dashboard-root .fab::before {
     font-family: "Font Awesome 6 Brands" !important;
     font-weight: 400 !important;
     font-style: normal !important;
+    font-variant: normal !important;
+}
+#yd-dashboard-root i.fa-solid::before, #yd-dashboard-root i.fas::before,
+#yd-dashboard-root i.fa-regular::before, #yd-dashboard-root i.far::before,
+#yd-dashboard-root i.fa-brands::before, #yd-dashboard-root i.fab::before {
+    display: inline-block !important;
+    line-height: 1 !important;
 }
 #yd-dashboard-root strong, #yd-dashboard-root b { font-weight: 600 !important; }
 #yd-dashboard-root button, #yd-dashboard-root input, #yd-dashboard-root select, #yd-dashboard-root textarea { font: inherit; }
@@ -1011,7 +1033,7 @@
     gap: 12px;
     min-height: 44px;
     padding: 6px 12px;
-    background: #fff;
+    background: #f2edf3 !important;
     color: var(--ink);
     cursor: pointer;
     list-style: none;
@@ -1021,9 +1043,9 @@
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
 #yd-dashboard-root .yd-tool-accordion-item > summary::-webkit-details-marker { display: none; }
 #yd-dashboard-root .yd-accordion-item > summary:hover,
-#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #faf7fb; }
+#yd-dashboard-root .yd-tool-accordion-item > summary:hover { background: #ebe3ed !important; }
 #yd-dashboard-root .yd-accordion-item[open] > summary,
-#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: var(--brand-soft); }
+#yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: #e9dfea !important; }
 #yd-dashboard-root .yd-accordion-item > summary::after {
     position: absolute;
     right: 16px;
