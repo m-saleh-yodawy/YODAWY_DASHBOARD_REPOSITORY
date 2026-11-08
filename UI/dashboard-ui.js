@@ -1485,7 +1485,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     border-radius: 8px;
     background: #fff;
     color: #18181b;
-    box-shadow: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #00000014, 0 0 0 1px #875a7b12;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, .24), 0 5px 12px rgba(0, 0, 0, .14), 0 0 0 1px rgba(135, 90, 123, .16);
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top left;
@@ -1517,7 +1517,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][hidden] {
 }
 #yd-dashboard-root .ui-select-group,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-group {
-    padding: 4px;
+    padding: 10px;
 }
 #yd-dashboard-root .ui-select-label,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-label {
@@ -1535,7 +1535,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     gap: 8px;
     width: 100%;
     min-height: 31px;
-    padding: 5px 28px 5px 8px;
+    padding: 8px 30px 8px 10px;
     border: 0;
     border-radius: 6px;
     background: transparent;
@@ -1609,8 +1609,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     top: 0;
     z-index: 5;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     height: 30px;
     margin: 0 0 6px;
+    align-self: stretch;
+    flex: 0 0 100%;
     background-color: #e1e1e1 !important;
     box-shadow: 0 3px 6px rgba(0, 0, 0, .04);
     padding: 0 9px;
