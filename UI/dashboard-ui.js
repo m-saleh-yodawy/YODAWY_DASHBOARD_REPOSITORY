@@ -612,13 +612,30 @@
     font-weight: 500 !important;
     transition: all .14s;
 }
-#yd-dashboard-root .yd-nav:hover { background: #f8f5f8; color: var(--brand-dark); }
+#yd-dashboard-root .yd-nav {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
+#yd-dashboard-root .yd-nav:hover,
+#yd-dashboard-root .yd-nav:focus,
+#yd-dashboard-root .yd-nav:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+#yd-dashboard-root .yd-nav:not(.active):hover,
+#yd-dashboard-root .yd-nav:not(.active):focus-visible {
+    border-color: #e2d5e5;
+    background: #e9dfea;
+    color: #68465f;
+}
 #yd-dashboard-root .yd-nav.active {
-    border-color: #eadfe8;
-    background: var(--brand-soft);
-    color: var(--brand-dark);
+    border-color: #875a7b;
+    background: #875a7b;
+    color: #fff;
     font-weight: 600 !important;
 }
+
 #yd-dashboard-root .yd-nav-icon {
     display: inline-flex;
     align-items: center;
@@ -632,7 +649,7 @@
     color: var(--brand);
     font-size: 12px;
 }
-#yd-dashboard-root .yd-nav.active .yd-nav-icon { border-color: #d9c6d8; background: #fff; }
+#yd-dashboard-root .yd-nav.active .yd-nav-icon { border-color: #fff; background: #fff; color: #875a7b; }
 #yd-dashboard-root .yd-sidebar-bottom {
     margin-top: auto;
     padding: 16px 12px 4px;
@@ -1597,6 +1614,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     #yd-dashboard-root .yd-nav span:not(.yd-nav-icon), #yd-dashboard-root .yd-nav-label, #yd-dashboard-root .yd-sidebar-bottom { display: none; }
     #yd-dashboard-root .yd-form-grid { grid-template-columns: 1fr; }
 }
+#yd-dashboard-root .yd-visibility-table-card thead th {
+    background: #e9dfea !important;
+    color: #68465f !important;
+    border-bottom-color: #d8c9dc !important;
+}
 #yd-dashboard-root .ui-select-option:hover,
 #yd-dashboard-root .ui-select-option:focus-visible,
 #yd-dashboard-root .ui-select-item:hover,
@@ -1875,8 +1897,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
             return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + escapeHTML(tool.id) + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td><td>' + renderAllowedUsersDropdown(tool, record, users, pending) + '</td></tr>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Allowed Users</h1><p>Choose All Users or manage access for individual accounts.</p></div><span class="yd-pill blue">SUPER ADMIN CONTROL</span></section>' +
-            '<div class="yd-table-card"><div class="yd-table-card-head"><div class="yd-table-card-title"><span class="yd-title-icon"><i class="fa-solid fa-users"></i></span><span>Tool Access (' + tools.length + ')</span></div></div>' +
-            '<div class="yd-table-responsive"><table><thead><tr><th style="width:70px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Allowed Users</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
+            '<div class="yd-table-card yd-visibility-table-card"><div class="yd-table-responsive"><table><thead><tr><th style="width:70px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Allowed Users</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
     };
 
     const renderAnnouncements = () => {
