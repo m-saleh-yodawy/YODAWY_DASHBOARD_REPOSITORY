@@ -36,6 +36,7 @@
     let networkPage = 1;
     const NETWORK_PAGE_SIZE = 10;
     let dropdownMenuClickHandler = null;
+    let dropdownMenuInputHandler = null;
     let dropdownOutsideClickHandler = null;
     let dropdownKeydownHandler = null;
     let dropdownScrollHandler = null;
@@ -1164,6 +1165,40 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
         content-visibility: visible;
     }
 }
+#yd-dashboard-root .yd-permission-search-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 0 0 10px;
+}
+#yd-dashboard-root .yd-permission-search {
+    box-sizing: border-box;
+    width: 50%;
+    min-width: 220px;
+    max-width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid #ded6e2;
+    border-radius: 8px;
+    background: #f8f5f7;
+    color: #18181b;
+    font-size: 11.5px;
+    transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+#yd-dashboard-root .yd-permission-search::placeholder { color: #8b838d; }
+#yd-dashboard-root .yd-permission-search:focus {
+    border-color: var(--brand);
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(135, 90, 123, .12);
+}
+#yd-dashboard-root .yd-permission-search-empty {
+    margin: 8px 0;
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+}
+#yd-dashboard-root .yd-permission-row[hidden] { display: none !important; }
+#yd-dashboard-root .yd-permission-search-wrap + .yd-permission-search-empty[hidden] { display: none !important; }
 #yd-dashboard-root .yd-permission-row {
     display: grid;
     grid-template-columns: minmax(180px, 1fr) minmax(300px, 1.2fr);
@@ -1516,6 +1551,42 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     outline: none !important;
     box-shadow: none !important;
 }
+#yd-dashboard-root .yd-allowed-users-search,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    height: 30px;
+    margin: 0 0 6px;
+    padding: 0 9px;
+    border: 1px solid #ded6e2;
+    border-radius: 7px;
+    background: #f8f5f7;
+    color: #18181b;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
+    font-size: 11px;
+}
+#yd-dashboard-root .yd-allowed-users-search::placeholder,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search::placeholder { color: #8b838d; }
+#yd-dashboard-root .yd-allowed-users-search:focus,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search:focus {
+    border-color: var(--brand);
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(135, 90, 123, .12);
+}
+#yd-dashboard-root .yd-allowed-users-option[hidden],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option[hidden],
+#yd-dashboard-root .yd-dropdown-separator[hidden],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-dropdown-separator[hidden] { display: none !important; }
+#yd-dashboard-root .yd-allowed-users-search-empty,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search-empty {
+    padding: 8px 4px;
+    color: #71717a;
+    font-size: 11px;
+    text-align: center;
+}
+#yd-dashboard-root .yd-allowed-users-search-empty[hidden],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search-empty[hidden] { display: none !important; }
 #yd-dashboard-root .yd-allowed-users-option > span:first-child,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option > span:first-child {
     display: flex;
@@ -1791,6 +1862,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     #yd-dashboard-root .yd-announcement-list { width: 100%; }
 }
 @media (max-width: 760px) {
+    #yd-dashboard-root .yd-permission-search { width: 100%; min-width: 0; }
     #yd-dashboard-root .yd-permission-row { grid-template-columns: 1fr; }
     #yd-dashboard-root .yd-permission-controls { justify-content: flex-start; }
     #yd-dashboard-root .yd-network-pagination { align-items: flex-start; flex-direction: column; }
@@ -2030,7 +2102,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 }).join('');
                 const expanded = expandedUsers.has(userId) ? ' open' : '';
                 const userBadge = pendingUser ? renderPendingBadge(String(pendingUser.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
-                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(formatRole(user.role)) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body">' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
+                return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span><span class="yd-pill">' + escapeHTML(formatRole(user.role)) + '</span></small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body"><div class="yd-permission-search-wrap"><input type="search" class="yd-permission-search" placeholder="ACTIVE SEARCH" aria-label="Search tools by name or ID"></div><div class="yd-permission-search-empty" hidden>No matching tools found.</div>' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
             }).join('');
             return '<section class="yd-welcome"><div><h1>Shared Tools</h1><p>Expand a user to manage tool access and forced states.</p></div><span class="yd-pill">SUPER ADMIN CONTROL</span></section><div class="yd-accordion-list">' + (items || '<div class="yd-empty">No eligible users found.</div>') + '</div>';
         }
@@ -2046,6 +2118,22 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                     : record.granted ? 'Revoke' : 'Permit';
                 return '<tr' + (blocked ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (blocked ? ' disabled' : '') + '>' + permissionAction + '</button></td></tr>';
             })).join('') || '<tr><td colspan="5" class="yd-empty">No eligible users or visible tools.</td></tr>') + '</tbody></table></div>';
+    };
+
+    const filterAllowedUsersMenu = (menu, query) => {
+        if (!menu) return;
+        const normalized = String(query || '').trim().toLocaleLowerCase();
+        const options = [...menu.querySelectorAll('.yd-allowed-users-option[data-action="toggle-allowed-user"]')];
+        let visible = 0;
+        options.forEach(option => {
+            const matches = !normalized || option.textContent.toLocaleLowerCase().includes(normalized);
+            option.hidden = !matches;
+            if (matches) visible++;
+        });
+        const separator = menu.querySelector('.yd-dropdown-separator');
+        if (separator) separator.hidden = Boolean(normalized) && visible === 0;
+        const empty = menu.querySelector('.yd-allowed-users-search-empty');
+        if (empty) empty.hidden = !normalized || visible > 0;
     };
 
     const renderAllowedUsersDropdown = (tool, record, users, pending) => {
@@ -2074,7 +2162,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
             '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
-            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><div class="ui-select-label">Allowed Users</div>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + footer + '</div></div></div>';
+            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users"><div class="ui-select-label">Allowed Users</div>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div>' + footer + '</div></div></div>';
     };
 
     const refreshAllowedUsersDropdown = toolId => {
@@ -2095,6 +2183,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const currentValue = currentTrigger?.querySelector('.ui-select-value');
         const currentMenu = getDropdownMenu(current);
         const nextMenu = replacement.querySelector('.ui-select-menu');
+        const currentSearch = currentMenu?.querySelector('.yd-allowed-users-search')?.value || '';
         current.dataset.value = replacement.dataset.value;
         current.dataset.open = String(shouldRemainOpen);
         current.classList.toggle('open', shouldRemainOpen);
@@ -2107,6 +2196,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         }
         if (currentMenu && nextMenu) {
             currentMenu.innerHTML = nextMenu.innerHTML;
+            const searchInput = currentMenu.querySelector('.yd-allowed-users-search');
+            if (searchInput) {
+                searchInput.value = currentSearch;
+                filterAllowedUsersMenu(currentMenu, currentSearch);
+            }
             currentMenu.hidden = !shouldRemainOpen;
             if (shouldRemainOpen) {
                 if (currentMenu.dataset.portal === 'true') positionDropdownMenu(current);
@@ -2943,8 +3037,27 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 root.querySelectorAll('tbody tr, .yd-tool-accordion-item').forEach(row => {
                     row.hidden = !row.textContent.toLowerCase().includes(query);
                 });
+            } else if (event.target.matches('.yd-permission-search')) {
+                const body = event.target.closest('.yd-accordion-body');
+                const query = event.target.value.trim().toLocaleLowerCase();
+                const rows = [...(body?.querySelectorAll('.yd-permission-row') || [])];
+                let visible = 0;
+                rows.forEach(row => {
+                    const matches = !query || row.textContent.toLocaleLowerCase().includes(query);
+                    row.hidden = !matches;
+                    if (matches) visible++;
+                });
+                const empty = body?.querySelector('.yd-permission-search-empty');
+                if (empty) empty.hidden = !query || visible > 0;
             }
         });
+
+        dropdownMenuInputHandler = event => {
+            const searchInput = event.target.closest?.('.yd-allowed-users-search');
+            if (!searchInput) return;
+            filterAllowedUsersMenu(searchInput.closest('.ui-select-menu'), searchInput.value);
+        };
+        document.addEventListener('input', dropdownMenuInputHandler);
 
         dropdownMenuClickHandler = event => {
             const actionButton = event.target.closest?.('.ui-select-menu.yd-select-portal-menu[data-portal="true"] [data-action]');
@@ -3016,11 +3129,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         refreshTimer = null;
         closeDropdowns(null);
         if (dropdownMenuClickHandler) document.removeEventListener('click', dropdownMenuClickHandler);
+        if (dropdownMenuInputHandler) document.removeEventListener('input', dropdownMenuInputHandler);
         if (dropdownOutsideClickHandler) document.removeEventListener('click', dropdownOutsideClickHandler);
         if (dropdownKeydownHandler) document.removeEventListener('keydown', dropdownKeydownHandler);
         if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
         if (dropdownResizeHandler) document.defaultView?.removeEventListener('resize', dropdownResizeHandler);
-        dropdownMenuClickHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
+        dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         document.getElementById(CONFIG.ID)?.remove();
         document.getElementById(CONFIG.STYLE_ID)?.remove();
         context = null;
