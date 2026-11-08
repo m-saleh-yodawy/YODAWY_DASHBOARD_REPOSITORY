@@ -668,27 +668,19 @@
     scrollbar-color: #d7cfd9 transparent;
     scrollbar-width: thin;
 }
-#yd-dashboard-root #yd-main.yd-main-network {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
 #yd-dashboard-root .yd-network-page {
     display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
+    justify-content: space-between;
     width: 100%;
-    height: 100%;
-    min-height: 0;
+    min-height: 100%;
 }
 #yd-dashboard-root .yd-network-page > .yd-welcome {
     flex: 0 0 auto;
 }
 #yd-dashboard-root .yd-network-page .yd-network-table {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 0 0 auto;
     margin-bottom: 0;
-    overflow: auto;
 }
 #yd-dashboard-root .yd-network-page .yd-network-pagination {
     flex: 0 0 auto;
@@ -1687,7 +1679,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills"><span class="yd-pill blue">' + escapeHTML(role) + '</span><span class="yd-pill green">Connected</span></div></div>' +
                                     '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
-                    '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main' + (activePage === 'transactions' ? ' yd-main-network' : '') + '">' + body + '</main></div>' +
+                    '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>' + toast;
     };
 
