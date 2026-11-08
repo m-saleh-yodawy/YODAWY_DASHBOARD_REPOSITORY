@@ -1,26 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T21:45:25Z",
+  "updatedAt": "2026-11-08T21:47:46Z",
   "transactions": {
-    "DASH-USERS-1794174351416-YXP24969PS": {
-      "requestId": "DASH-USERS-1794174351416-YXP24969PS",
-      "sequence": "1794174351416519425",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T21:46:21Z",
-      "updatedAt": "2026-11-08T21:46:21Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · ACCESS REVOKED · TOOL-002 · MOAAZ SALEH",
-      "targetId": "Q-003",
-      "targetName": "MOAAZ SALEH",
-      "permissionField": "granted",
-      "permissionValue": false,
-      "targetToolIds": [
-        "TOOL-002"
-      ]
-    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
@@ -339,6 +320,17 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T21:43:56Z",
       "updatedAt": "2026-11-08T21:45:25Z",
+      "targetId": "Q-003"
+    },
+    "DASH-USERS-1794174351416-YXP24969PS": {
+      "requestId": "DASH-USERS-1794174351416-YXP24969PS",
+      "sequence": "1794174351416519425",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T21:46:21Z",
+      "updatedAt": "2026-11-08T21:47:46Z",
       "targetId": "Q-003"
     }
   }
