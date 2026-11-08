@@ -2402,29 +2402,42 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         if (typeof source !== 'string' || !source.includes('window.YODAWY_DASHBOARD_UI')) {
             throw new Error('The latest Dashboard UI source is invalid or unavailable.');
         }
+        const registrationGuard = '    if (window.YODAWY_DASHBOARD_UI) return;\\n';
+        if (source.split(registrationGuard).length !== 2) {
+            throw new Error('The Dashboard UI registration guard could not be safely bypassed.');
+        }
+        const executableSource = source.replace(registrationGuard, '');
         const previousUI = window.YODAWY_DASHBOARD_UI;
         if (typeof previousUI?.destroy !== 'function') throw new Error('The current Dashboard UI cannot be safely replaced.');
         const nextOptions = { ...context, uiState };
         await previousUI.destroy();
-        delete window.YODAWY_DASHBOARD_UI;
         try {
+            let executionError = null;
+            const captureExecutionError = event => {
+                executionError = event.error || new Error(event.message || 'The updated Dashboard UI script failed to execute.');
+            };
+            window.addEventListener('error', captureExecutionError, true);
             const script = document.createElement('script');
             script.type = 'text/javascript';
-            script.textContent = source;
+            script.textContent = executableSource;
             try {
                 (document.head || document.documentElement).appendChild(script);
             } finally {
                 script.remove();
+                window.removeEventListener('error', captureExecutionError, true);
             }
+            if (executionError) throw executionError;
             const nextUI = window.YODAWY_DASHBOARD_UI;
             if (!nextUI || nextUI === previousUI || typeof nextUI.init !== 'function') {
-                throw new Error('The updated Dashboard UI did not initialize.');
+                throw new Error('The updated Dashboard UI did not register a new interface.');
             }
             await nextUI.init(nextOptions);
             return true;
         } catch (error) {
-            try { await window.YODAWY_DASHBOARD_UI?.destroy?.(); } catch {}
-            delete window.YODAWY_DASHBOARD_UI;
+            const failedUI = window.YODAWY_DASHBOARD_UI;
+            if (failedUI && failedUI !== previousUI) {
+                try { await failedUI.destroy?.(); } catch {}
+            }
             window.YODAWY_DASHBOARD_UI = previousUI;
             await previousUI.init(nextOptions);
             throw new Error('The previous Dashboard interface was restored. ' + (error?.message || 'The update could not be activated.'));
