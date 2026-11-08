@@ -28,6 +28,7 @@
     let visibilityDraft = null;
     let openVisibilityToolId = null;
     const optimisticVisibility = new Map();
+    const pendingVisibilitySubmissions = new Set();
     const backgroundTransactions = new Set();
     const localTransactions = new Map();
     const pendingLocalTools = new Map();
@@ -137,7 +138,7 @@
     const getPendingVisibility = toolId => getPendingTransactions().find(item =>
         String(item.action || '').toUpperCase() === 'UPDATE_VISIBILITY' &&
         (item.targetToolIds || []).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
-    ) || null;
+    ) || (pendingVisibilitySubmissions.has(String(toolId || '').trim()) ? { action: 'SUBMITTING' } : null);
 
     const getPendingUser = user => {
         const id = String(user?.id || '').trim().toUpperCase();
@@ -167,6 +168,24 @@
     };
 
     const renderPendingBadge = (label = 'Pending') => '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>' + escapeHTML(label) + '</span></span>';
+    const setButtonLoading = (button, label = 'Loading') => {
+        if (!button) return;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.innerHTML = '<span class="yd-inline-loading"><span class="yd-control-spinner" aria-hidden="true"></span><span>' + escapeHTML(label) + '</span></span>';
+    };
+    const setControlLoading = control => {
+        if (!control) return;
+        control.disabled = true;
+        control.setAttribute('aria-busy', 'true');
+        const chevron = control.querySelector('.ui-select-chevron');
+        if (chevron) {
+            const spinner = document.createElement('span');
+            spinner.className = 'yd-control-spinner';
+            spinner.setAttribute('aria-hidden', 'true');
+            chevron.replaceWith(spinner);
+        }
+    };
 
     const renderDropdown = (name, value, options, attributes = {}, disabled = false) => {
         const multiple = attributes['data-multiple'] === 'true';
@@ -928,8 +947,8 @@
 #yd-dashboard-root .yd-search { width: min(340px, 100%); }
 #yd-dashboard-root .yd-search::placeholder, #yd-dashboard-root input::placeholder { color: #aaa3ad; }
 #yd-dashboard-root .yd-search:focus, #yd-dashboard-root input:focus {
-    border-color: #aa82a3;
-    box-shadow: 0 0 0 3px var(--brand-ring);
+    outline: none !important;
+    box-shadow: none !important;
 }
 #yd-dashboard-root .yd-empty { padding: 30px 18px !important; color: var(--muted) !important; font-size: 12px !important; text-align: center; }
 
@@ -1184,6 +1203,45 @@
     font-weight: 500 !important;
     white-space: nowrap;
 }
+#yd-dashboard-root .yd-inline-loading {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+#yd-dashboard-root .yd-control-spinner {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: yd-control-spin .7s linear infinite;
+}
+#yd-dashboard-root button[aria-busy="true"]:disabled,
+#yd-dashboard-root .ui-select-trigger[aria-busy="true"]:disabled {
+    opacity: .9;
+    cursor: wait;
+}
+#yd-dashboard-root .yd-switch.is-loading .yd-switch-knob {
+    opacity: 0;
+}
+#yd-dashboard-root .yd-switch.is-loading::after {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 13px;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #fff;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: yd-control-spin .7s linear infinite;
+}
+@keyframes yd-control-spin {
+    to { transform: rotate(360deg); }
+}
 #yd-dashboard-root .yd-pending-row, #yd-dashboard-root .yd-pending-row td { background: #fffcf5 !important; }
 
 #yd-dashboard-root .yd-network-table td { white-space: normal; }
@@ -1256,8 +1314,8 @@
 }
 #yd-dashboard-root .ui-select-trigger:focus-visible,
 #yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger {
-    border-color: var(--brand);
-    box-shadow: 0 0 0 3px var(--brand-ring);
+    outline: none !important;
+    box-shadow: none !important;
 }
 #yd-dashboard-root .ui-select-trigger:disabled { cursor: not-allowed; opacity: .5; }
 #yd-dashboard-root .ui-select-value {
@@ -1602,9 +1660,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     resize: vertical;
 }
 #yd-dashboard-root .yd-announcement-form textarea:focus {
-    outline: none;
-    border-color: var(--brand);
-    box-shadow: 0 0 0 3px var(--brand-ring);
+    outline: none !important;
+    box-shadow: none !important;
 }
 #yd-dashboard-root .yd-announcement-form .yd-field { margin-top: 10px; }
 
@@ -1661,6 +1718,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     color: #68465f !important;
     outline: none !important;
 }
+#yd-dashboard-root input:focus,
+#yd-dashboard-root input:focus-visible,
+#yd-dashboard-root textarea:focus,
+#yd-dashboard-root textarea:focus-visible,
+#yd-dashboard-root select:focus,
+#yd-dashboard-root select:focus-visible,
+#yd-dashboard-root .ui-select-trigger:focus,
+#yd-dashboard-root .ui-select-trigger:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
 `;
         (document.head || document.documentElement).appendChild(style);
     };
@@ -1779,7 +1848,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
             const status = pending ? renderPendingBadge(pending.label || 'Updating') : '<span class="yd-pill ' + (enabled ? 'green' : 'red') + '">' + (enabled ? 'ON' : 'OFF') + '</span>';
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + ' · v' + escapeHTML(tool.version || '1') + '</small></span></span>' +
-                '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
+                '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
                 '<div class="yd-tool-accordion-body"><div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>Tool-specific user settings will be available here.</small></span>' + (pending ? renderPendingBadge(pending.label || 'Updating') : '') + '</div></div></details>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Tools</h1><p>' + (isSuperAdmin ? 'Manage your personal tools and their availability.' : 'Expand a tool to access its personal settings and control its status.') + '</p></div></section>' +
@@ -1850,8 +1919,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                     if (forced) forcedCount++;
                     const disabled = active && !pending && !pendingUser ? '' : ' disabled';
                     const pendingBadge = pending ? renderPendingBadge('Queued') : '';
-                    const permittedSwitch = '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + disabled + '><span class="yd-switch-knob"></span></button>';
-                    const forcedSwitch = '<button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + disabled + '><span class="yd-switch-knob"></span></button>';
+                    const permittedSwitch = '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + disabled + '><span class="yd-switch-knob"></span></button>';
+                    const forcedSwitch = '<button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + disabled + '><span class="yd-switch-knob"></span></button>';
                     return '<div class="yd-permission-row' + (pending ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls"><div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + permittedSwitch + '</div><div class="yd-permission-control"><span class="yd-permission-label">Forced State</span>' + forcedSwitch + '</div></div></div>';
                 }).join('');
                 const expanded = expandedUsers.has(userId) ? ' open' : '';
@@ -1867,7 +1936,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                 const pending = getPendingPermission(user.id, tool.id);
                 const pendingUser = getPendingUser(user);
                 const blocked = pending || pendingUser;
-                return '<tr' + (blocked ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (blocked ? ' disabled' : '') + '>' + (record.granted ? 'Revoke' : 'Permit') + '</button></td></tr>';
+                const permissionAction = blocked
+                    ? '<span class="yd-inline-loading"><span class="yd-control-spinner" aria-hidden="true"></span><span>' + (pendingUser ? 'Updating' : 'Saving') + '</span></span>'
+                    : record.granted ? 'Revoke' : 'Permit';
+                return '<tr' + (blocked ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (blocked ? ' disabled' : '') + '>' + permissionAction + '</button></td></tr>';
             })).join('') || '<tr><td colspan="5" class="yd-empty">No eligible users or visible tools.</td></tr>') + '</tbody></table></div>';
     };
 
@@ -1890,12 +1962,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
             const selected = allSelected || draft.allowedUsers.has(id);
             return '<button type="button" class="ui-select-option ui-select-item yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-selected="' + String(selected) + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="option" aria-selected="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + escapeHTML(formatRole(user.role)) + '</small></span></span></button>';
         }).join('');
+        const pendingLabel = pending?.action === 'SUBMITTING' ? 'Saving' : 'Pending';
         const footer = pending
-            ? '<div class="yd-allowed-users-footer">' + renderPendingBadge('Pending') + '</div>'
+            ? '<div class="yd-allowed-users-footer">' + renderPendingBadge(pendingLabel) + '</div>'
             : '<div class="yd-allowed-users-footer"><button type="button" class="yd-secondary" data-action="cancel-allowed-users" data-tool="' + escapeHTML(toolId) + '">Cancel</button><button type="button" class="yd-primary" data-action="save-allowed-users" data-tool="' + escapeHTML(toolId) + '">Apply</button></div>';
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
-            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge('Pending') : '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>') + '</button>' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>') + '</button>' +
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><div class="ui-select-label">Allowed Users</div>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + footer + '</div></div></div>';
     };
 
@@ -1973,8 +2046,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
             const data = new FormData(form);
             const payload = { body: String(data.get('body') || '').trim(), cycle: String(data.get('cycle') || '') };
             if (!payload.body) return;
-            submit.disabled = true;
-            submit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>' + (editing ? 'Saving' : 'Publishing') + '</span>';
+            setButtonLoading(submit, editing ? 'Saving' : 'Publishing');
             try {
                 if (editing) await context.announcements.updatePost(post.id, payload);
                 else await context.announcements.createPost(payload);
@@ -1984,6 +2056,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                 showNotice(editing ? 'Announcement updated.' : 'Announcement published.');
             } catch (error) {
                 submit.disabled = false;
+                submit.removeAttribute('aria-busy');
                 submit.textContent = editing ? 'Save Changes' : 'Publish';
                 showMessageDialog('Announcement Not Saved', error?.message || 'Unable to save this announcement.');
             }
@@ -2240,13 +2313,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
         });
         overlay.querySelector('[data-confirm-accept]').addEventListener('click', async event => {
             const button = event.currentTarget;
-            button.disabled = true;
-            button.textContent = 'Submitting...';
+            setButtonLoading(button, 'Submitting');
             try {
                 await onConfirm();
                 close();
             } catch (error) {
                 button.disabled = false;
+                button.removeAttribute('aria-busy');
                 button.textContent = confirmLabel;
                 showMessageDialog('Unable to Submit Request', error?.message || 'The requested action failed.');
             }
@@ -2301,8 +2374,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                 summary: (editing ? 'UPDATE USER · ' : 'ADD USER · ') + formatName(payload.name || user?.name || '')
             };
             const submitButton = event.currentTarget.querySelector('[type="submit"]');
-            submitButton.disabled = true;
-            submitButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Submitting</span>';
+            setButtonLoading(submitButton, 'Submitting');
             try {
                 await runNetworkOperation(editing ? 'Updating user' : 'Creating user', () =>
                     editing ? engine.editUser(user.id, payload) : engine.addUser(payload), metadata
@@ -2310,6 +2382,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                 close();
             } catch (error) {
                 submitButton.disabled = false;
+                submitButton.removeAttribute('aria-busy');
                 submitButton.textContent = editing ? 'Save Changes' : 'Create User';
                 showMessageDialog('Unable to submit user request', error?.message || 'The request could not be submitted.');
             }
@@ -2331,15 +2404,32 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     const runAction = async (action, button) => {
         try {
             if (action === 'refresh-connection') {
+                if (button?.disabled) return;
+                if (button) {
+                    button.disabled = true;
+                    button.setAttribute('aria-busy', 'true');
+                    const icon = button.querySelector('.yd-action-icon');
+                    const label = button.querySelector('b');
+                    if (icon) icon.innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
+                    if (label) label.textContent = 'Refreshing';
+                }
                 showNotice('Refreshing connection in the background...');
-                trackBackground(refresh().then(() => showNotice('Connection refreshed successfully.')).catch(error => showMessageDialog('Refresh Failed', error?.message || 'Unable to refresh connection.')));
+                trackBackground(refresh().then(() => showNotice('Connection refreshed successfully.')).catch(error => showMessageDialog('Refresh Failed', error?.message || 'Unable to refresh connection.')).finally(() => {
+                    if (button?.isConnected) {
+                        button.disabled = false;
+                        button.removeAttribute('aria-busy');
+                        const icon = button.querySelector('.yd-action-icon');
+                        const label = button.querySelector('b');
+                        if (icon) icon.innerHTML = '<i class="fa-solid fa-arrow-rotate-right"></i>';
+                        if (label) label.textContent = 'Refresh';
+                    }
+                }));
             } else if (action === 'save-settings') {
                 const updated = context.settings.getSettings();
                 delete updated.displayName;
                 updated.startPage = document.getElementById(CONFIG.ID).querySelector('#yd-start-page')?.value || 'tools';
                 activePage = updated.startPage;
-                button.disabled = true;
-                button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Saving</span>';
+                setButtonLoading(button, 'Saving');
                 showNotice('Saving personal dashboard settings in the background...');
                 trackBackground((async () => {
                     try {
@@ -2429,6 +2519,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                 button.dataset.value = String(nextValue);
                 button.classList.toggle('on', nextValue);
                 button.setAttribute('aria-checked', String(nextValue));
+                if (button.classList.contains('yd-switch')) {
+                    button.disabled = true;
+                    button.classList.add('is-loading');
+                    button.setAttribute('aria-busy', 'true');
+                } else setButtonLoading(button, 'Saving');
                 await runNetworkOperation(field === 'forcedState' ? 'Updating forced state' : 'Updating tool access', () =>
                     getRoleEngine().setToolPermission(userId, toolId, { [field]: nextValue }), metadata
                 );
@@ -2441,12 +2536,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                     ? { visibility: 'PUBLIC', allowedUsers: [] }
                     : { visibility: 'SELECTED_USERS', allowedUsers: [...draft.allowedUsers] };
                 optimisticVisibility.set(toolId, record);
+                pendingVisibilitySubmissions.add(toolId);
                 visibilityDraft = null;
                 openVisibilityToolId = null;
                 closeDropdowns(null);
                 render();
                 const metadata = { action: 'UPDATE_VISIBILITY', targetToolIds: [toolId], summary: 'UPDATE VISIBILITY · ' + toolId };
-                await runNetworkOperation('Saving allowed users', () => getRoleEngine().setToolVisibility(toolId, record), metadata);
+                try {
+                    await runNetworkOperation('Saving allowed users', () => getRoleEngine().setToolVisibility(toolId, record), metadata);
+                } finally {
+                    pendingVisibilitySubmissions.delete(toolId);
+                    render();
+                }
             } else if (action === 'add-announcement') {
                 openAnnouncementModal();
             } else if (action === 'edit-announcement') {
@@ -2609,7 +2710,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
         const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(dropdown.dataset.id));
         if (!post || !ANNOUNCEMENT_CYCLES.includes(value) || getAnnouncementCycle(post) === value) return;
         const trigger = dropdown.querySelector('.ui-select-trigger');
-        if (trigger) trigger.disabled = true;
+        setControlLoading(trigger);
         trackBackground((async () => {
             try {
                 await context.announcements.updatePost(post.id, { body: post.body, cycle: value });
@@ -2705,7 +2806,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
                 render();
                 return;
             }
-            if (actionButton?.dataset.action === 'refresh-connection') { runAction('refresh-connection'); return; }
+            if (actionButton?.dataset.action === 'refresh-connection') { runAction('refresh-connection', actionButton); return; }
             if (actionButton) runAction(actionButton.dataset.action, actionButton);
         });
 
@@ -2804,6 +2905,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
         openVisibilityToolId = null;
         visibilityDraft = null;
         optimisticVisibility.clear();
+        pendingVisibilitySubmissions.clear();
         pendingLocalTools.clear();
         trackedTransactions.clear();
         return true;
