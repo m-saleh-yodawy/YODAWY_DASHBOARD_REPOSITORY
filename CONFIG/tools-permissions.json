@@ -23,7 +23,7 @@
       "type": "ADMIN"
     },
     "TOOL-002": {
-      "granted": true,
+      "granted": false,
       "forcedState": false,
       "type": "SUPER_ADMIN"
     },
