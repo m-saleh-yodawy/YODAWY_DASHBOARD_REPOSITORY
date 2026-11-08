@@ -2328,17 +2328,92 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         root.innerHTML = renderShell(renderPage());
     };
 
+    const captureUIState = noticeMessage => ({
+        activePage,
+        isOpen,
+        profileOpen,
+        expandedUsers: [...document.querySelectorAll('#' + CONFIG.ID + ' details[data-user-accordion][open]')].map(item => item.dataset.user),
+        expandedTools: [...document.querySelectorAll('#' + CONFIG.ID + ' details[data-tool-accordion][open]')].map(item => item.dataset.tool),
+        notice: noticeMessage || '',
+        noticeType: 'success'
+    });
+
+    const reloadLatestDashboardUI = async uiState => {
+        const API = window.YODAWY_API_ENGINE;
+        if (!API?.getFileContent) throw new Error('Dashboard API Engine is unavailable.');
+        const source = await API.getFileContent('UI/dashboard-ui.js', { timeout: 30000 });
+        if (typeof source !== 'string' || !source.includes('window.YODAWY_DASHBOARD_UI')) {
+            throw new Error('The latest Dashboard UI source is invalid or unavailable.');
+        }
+        const previousUI = window.YODAWY_DASHBOARD_UI;
+        if (typeof previousUI?.destroy !== 'function') throw new Error('The current Dashboard UI cannot be safely replaced.');
+        const nextOptions = { ...context, uiState };
+        await previousUI.destroy();
+        delete window.YODAWY_DASHBOARD_UI;
+        try {
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.textContent = source;
+            try {
+                (document.head || document.documentElement).appendChild(script);
+            } finally {
+                script.remove();
+            }
+            const nextUI = window.YODAWY_DASHBOARD_UI;
+            if (!nextUI || nextUI === previousUI || typeof nextUI.init !== 'function') {
+                throw new Error('The updated Dashboard UI did not initialize.');
+            }
+            await nextUI.init(nextOptions);
+            return true;
+        } catch (error) {
+            try { await window.YODAWY_DASHBOARD_UI?.destroy?.(); } catch {}
+            delete window.YODAWY_DASHBOARD_UI;
+            window.YODAWY_DASHBOARD_UI = previousUI;
+            await previousUI.init(nextOptions);
+            throw new Error('The previous Dashboard interface was restored. ' + (error?.message || 'The update could not be activated.'));
+        }
+    };
+
     const refresh = async () => {
+        const toolsManager = context.tools;
+        let previousManifest = [];
+        let loadedTools = [];
+        try { previousManifest = toolsManager?.getManifest?.() || []; } catch {}
+        try { loadedTools = toolsManager?.getLoadedTools?.() || []; } catch {}
         await Promise.all([
             context.permissions?.load?.(),
             context.visibility?.load?.(),
             context.settings?.load?.(),
-            context.tools?.loadManifest?.(),
+            toolsManager?.loadManifest?.(),
             context.announcements?.load?.()
         ]);
         const engine = getRoleEngine();
         if (engine?.refresh) await engine.refresh();
-        render();
+        const nextManifest = toolsManager?.getManifest?.() || [];
+        const previousById = new Map(previousManifest.map(tool => [String(tool.id), tool]));
+        const nextById = new Map(nextManifest.map(tool => [String(tool.id), tool]));
+        const outdatedTools = loadedTools.filter(loaded => {
+            const previous = previousById.get(String(loaded.id));
+            const next = nextById.get(String(loaded.id));
+            return !next || !previous || previous.path !== next.path || previous.sha256 !== next.sha256;
+        });
+        const skippedTools = [];
+        for (const loaded of outdatedTools) {
+            if (loaded.destroyable === false || typeof toolsManager?.stop !== 'function') {
+                skippedTools.push(loaded.name || loaded.id);
+                continue;
+            }
+            try {
+                if (await toolsManager.stop(loaded.id) !== true) skippedTools.push(loaded.name || loaded.id);
+            } catch {
+                skippedTools.push(loaded.name || loaded.id);
+            }
+        }
+        await toolsManager?.sync?.();
+        const message = skippedTools.length
+            ? 'Dashboard updated. These tools could not be safely restarted: ' + skippedTools.join(', ')
+            : 'Dashboard and available tools updated successfully.';
+        await reloadLatestDashboardUI(captureUIState(message));
         return true;
     };
 
@@ -2632,8 +2707,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                     if (icon) icon.innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
                     if (label) label.textContent = 'Refreshing';
                 }
-                showNotice('Refreshing dashboard data and rebuilding the interface...');
-                trackBackground(refresh().then(() => showNotice('Dashboard refreshed successfully.')).catch(error => showMessageDialog('Dashboard Refresh Failed', error?.message || 'Unable to refresh the dashboard.')).finally(() => {
+                showNotice('Refreshing dashboard files, data and available tools...');
+                trackBackground(refresh().catch(error => showMessageDialog('Dashboard Refresh Failed', error?.message || 'Unable to refresh the dashboard.')).finally(() => {
                     if (button?.isConnected) {
                         button.disabled = false;
                         button.removeAttribute('aria-busy');
@@ -3107,11 +3182,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             throw new Error('Authenticated dashboard context is required.');
         }
         context = options;
+        const uiState = options.uiState && typeof options.uiState === 'object' ? options.uiState : {};
         const defaultPage = context.settings?.getSettings?.()?.startPage;
-        activePage = defaultPage === 'overview' ? 'overview' : 'tools';
+        const requestedPage = String(uiState.activePage || '');
+        activePage = navItems().some(item => item[0] === requestedPage) ? requestedPage : defaultPage === 'overview' ? 'overview' : 'tools';
+        expandedUsers.clear();
+        expandedTools.clear();
+        (Array.isArray(uiState.expandedUsers) ? uiState.expandedUsers : []).forEach(id => expandedUsers.add(String(id)));
+        (Array.isArray(uiState.expandedTools) ? uiState.expandedTools : []).forEach(id => expandedTools.add(String(id)));
         restorePendingTransactions();
-        isOpen = false;
-        profileOpen = false;
+        isOpen = uiState.isOpen === true;
+        profileOpen = uiState.profileOpen === true;
+        notice = uiState.notice ? { message: String(uiState.notice), type: uiState.noticeType === 'error' ? 'error' : 'success' } : null;
         injectStyles();
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
@@ -3119,6 +3201,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         document.body.appendChild(root);
         render();
         bindEvents(root);
+        if (notice) {
+            const toast = root.querySelector('.yd-toast');
+            if (toast) toast._ydTimer = setTimeout(() => {
+                toast.hidden = true;
+                notice = null;
+            }, 4500);
+        }
         resumePendingTransactions();
         refreshTimer = null;
         return true;
