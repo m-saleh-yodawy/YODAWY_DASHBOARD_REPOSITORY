@@ -909,8 +909,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     white-space: nowrap;
 }
 #yd-dashboard-root tbody tr:first-child td, #yd-dashboard-root tbody tr:first-child th { border-top: 0; }
-#yd-dashboard-root tbody tr:nth-child(even) td, #yd-dashboard-root tbody tr:nth-child(even) th { background: #fcfbfd; }
-#yd-dashboard-root tbody tr:hover td, #yd-dashboard-root tbody tr:hover th { background: #f7f2f8; }
+#yd-dashboard-root tbody tr:nth-child(even) td, #yd-dashboard-root tbody tr:nth-child(even) th { background: #fff; }
+#yd-dashboard-root tbody tr:hover td, #yd-dashboard-root tbody tr:hover th { background: #faf8fb; }
 
 #yd-dashboard-root .yd-pill {
     display: inline-flex;
@@ -1377,18 +1377,32 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 32px;
     height: 32px;
     padding: 0;
-    border: 1px solid transparent;
+    border: 1px solid #e6dbe3;
     border-radius: 8px;
-    background: transparent;
-    color: var(--text);
+    background: var(--brand-soft);
+    color: var(--brand-dark);
     font-size: 12px;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
     text-decoration: none;
     cursor: pointer;
     transition: all .12s;
 }
-#yd-dashboard-root .yd-pagination-link:hover:not(.disabled) { background: #f1eef3; color: var(--ink); }
-#yd-dashboard-root .yd-pagination-link.active { border-color: var(--border); background: #fff; color: var(--ink); font-weight: 600 !important; }
+#yd-dashboard-root .yd-pagination-link[aria-label="Previous page"],
+#yd-dashboard-root .yd-pagination-link[aria-label="Next page"] {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 58px;
+    padding: 0 10px;
+    border-color: var(--brand) !important;
+    background: var(--brand) !important;
+    color: #fff !important;
+    font-size: 10px;
+    font-weight: 700 !important;
+}
+#yd-dashboard-root .yd-pagination-link:hover:not(.disabled) { border-color: var(--brand-dark); background: var(--brand-dark); color: #fff; }
+#yd-dashboard-root .yd-pagination-link[aria-label="Previous page"]:hover:not(.disabled),
+#yd-dashboard-root .yd-pagination-link[aria-label="Next page"]:hover:not(.disabled) { border-color: var(--brand-dark) !important; background: var(--brand-dark) !important; color: #fff !important; }
+#yd-dashboard-root .yd-pagination-link.active { border-color: var(--brand) !important; background: var(--brand) !important; color: #fff !important; font-weight: 700 !important; }
 #yd-dashboard-root .yd-pagination-link.disabled { opacity: .38; pointer-events: none; cursor: not-allowed; }
 
 #yd-dashboard-root .ui-select {
@@ -2003,31 +2017,35 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 #yd-dashboard-root table {
     background: #e1e1e1;
     border-collapse: separate;
-    border-spacing: 0;
+    border-spacing: 0 10px;
 }
 #yd-dashboard-root thead th {
     border: 0;
-    border-bottom: 10px solid #e1e1e1;
     background: var(--brand) !important;
     color: #fff !important;
 }
 #yd-dashboard-root tbody td,
 #yd-dashboard-root tbody th {
-    border-top: 0;
-    border-bottom: 10px solid #e1e1e1;
-    background: #fff;
+    border: 0;
+    background: #fff !important;
 }
 #yd-dashboard-root tbody tr:nth-child(even) td,
 #yd-dashboard-root tbody tr:nth-child(even) th {
-    background: #fcfbfd;
+    background: #fff !important;
 }
 #yd-dashboard-root tbody tr:hover td,
 #yd-dashboard-root tbody tr:hover th {
-    background: #f7f2f8;
+    background: #faf8fb !important;
 }
-#yd-dashboard-root tbody tr:last-child td,
-#yd-dashboard-root tbody tr:last-child th {
-    border-bottom: 0;
+#yd-dashboard-root tbody td:first-child,
+#yd-dashboard-root tbody th:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+#yd-dashboard-root tbody td:last-child,
+#yd-dashboard-root tbody th:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
 }
 
 #yd-dashboard-root .ui-select-trigger {
@@ -2145,9 +2163,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             (active ? ' aria-current="page" data-active="true"' : '') +
             (disabled ? ' aria-disabled="true"' : '') +
             ' class="yd-pagination-link' + (active ? ' active' : '') + (disabled ? ' disabled' : '') + '">' + label + '</a></li>';
-        let pages = link('<i class="fa-solid fa-chevron-left"></i>', currentPage - 1, false, currentPage <= 1, 'Previous page');
+        let pages = link('PREV', currentPage - 1, false, currentPage <= 1, 'Previous page');
         for (let page = firstPage; page <= lastPage; page++) pages += link(String(page), page, page === currentPage, false, 'Page ' + page);
-        pages += link('<i class="fa-solid fa-chevron-right"></i>', currentPage + 1, false, currentPage >= totalPages, 'Next page');
+        pages += link('NEXT', currentPage + 1, false, currentPage >= totalPages, 'Next page');
         return '<nav role="navigation" aria-label="pagination" data-slot="pagination" class="yd-pagination"><ul data-slot="pagination-content" class="yd-pagination-content">' + pages + '</ul></nav>';
     };
 
