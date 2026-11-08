@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "requestId": "ANNOUNCEMENT-1794179231623-2ZTOQ7JZP5",
+  "sequence": "1794179231623697663",
+  "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+  "status": "PENDING",
+  "createdAt": "2026-11-08T23:07:11.623Z",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN"
+  },
+  "action": "CREATE_ANNOUNCEMENT",
+  "payload": {
+    "id": "1794179231622-NH238O1CJQ",
+    "body": "test for the  test",
+    "cycle": "February",
+    "action": "CREATE_ANNOUNCEMENT"
+  }
+}
