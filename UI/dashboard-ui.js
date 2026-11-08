@@ -1854,9 +1854,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     padding: 14px;
     background: transparent;
     color: #18181b;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600 !important;
-    line-height: 1.65;
+    line-height: 2;
     text-align: right;
     direction: rtl;
     white-space: pre-wrap;
@@ -2156,7 +2156,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
-                    '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD (' + renderRoleLabel(context.userRole) + ')</div></div>' +
+                    '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
                         '<div class="yd-header-actions"><div class="yd-header-status"><span class="yd-header-dot"></span><span>Connected</span></div>' +
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span><span class="yd-gb-badge"><i class="fa-solid fa-check"></i></span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
