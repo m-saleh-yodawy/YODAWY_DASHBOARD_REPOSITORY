@@ -1460,29 +1460,29 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
+    gap: 12px;
     width: 100%;
-    padding: 14px 18px;
+    padding: 10px 14px;
     border-bottom: 1px solid #f0f0f2;
     background: #fff;
 }
 #yd-dashboard-root .yd-announcement-author-wrap {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     min-width: 0;
 }
 #yd-dashboard-root .yd-announcement-avatar {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    flex: 0 0 38px;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
     border-radius: 50%;
     background: var(--brand);
     color: #fff;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700 !important;
 }
 #yd-dashboard-root .yd-announcement-meta {
@@ -1494,7 +1494,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 }
 #yd-dashboard-root .yd-announcement-author {
     color: #18181b;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700 !important;
 }
 #yd-dashboard-root .yd-announcement-by {
@@ -1504,29 +1504,29 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 #yd-dashboard-root .yd-announcement-date {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     color: #71717a;
-    font-size: 12px;
+    font-size: 11px;
     white-space: nowrap;
 }
-#yd-dashboard-root .yd-announcement-date svg { width: 13px; height: 13px; flex: 0 0 13px; }
+#yd-dashboard-root .yd-announcement-date svg { width: 12px; height: 12px; flex: 0 0 12px; }
 #yd-dashboard-root .yd-announcement-cycle-wrap {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     flex: 0 0 auto;
-    min-width: 120px;
+    min-width: 108px;
 }
-#yd-dashboard-root .yd-announcement-cycle-select { width: 120px; min-width: 120px; }
+#yd-dashboard-root .yd-announcement-cycle-select { width: 108px; min-width: 108px; }
 #yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger {
-    height: 32px;
-    min-height: 32px;
-    padding: 6px 10px;
+    height: 29px;
+    min-height: 29px;
+    padding: 5px 8px;
     border: 1px solid var(--brand);
     border-radius: 8px;
     background: var(--brand);
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600 !important;
 }
 #yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger:hover:not(:disabled) {
@@ -1534,19 +1534,24 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     background: var(--brand-dark);
     color: #fff;
 }
-#yd-dashboard-root .yd-announcement-cycle-select .ui-select-chevron { color: rgba(255, 255, 255, 0.85); }
+#yd-dashboard-root .yd-announcement-cycle-select .ui-select-chevron {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 13px;
+    color: rgba(255, 255, 255, 0.85);
+}
 #yd-dashboard-root .yd-announcement-cycle-box {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 120px;
-    min-height: 32px;
-    padding: 6px 10px;
+    min-width: 108px;
+    min-height: 29px;
+    padding: 5px 8px;
     border: 1px solid var(--brand);
     border-radius: 8px;
     background: var(--brand);
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600 !important;
     text-align: center;
     white-space: nowrap;
