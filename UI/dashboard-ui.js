@@ -867,10 +867,10 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-table-wrap, #yd-dashboard-root .yd-table-card {
     overflow: auto;
     margin-bottom: 12px;
-    border: 1px solid var(--border);
-    border-radius: 11px;
+    border: 0;
+    border-radius: 0;
     background: #fff;
-    box-shadow: 0 2px 5px #29242e08;
+    box-shadow: none;
 }
 #yd-dashboard-root .yd-table-card-head {
     display: flex;
@@ -2023,6 +2023,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     border: 0;
     background: var(--brand) !important;
     color: #fff !important;
+}
+#yd-dashboard-root thead th:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+#yd-dashboard-root thead th:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
 }
 #yd-dashboard-root tbody td,
 #yd-dashboard-root tbody th {
