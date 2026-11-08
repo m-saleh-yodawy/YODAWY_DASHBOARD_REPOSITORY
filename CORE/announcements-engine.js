@@ -206,6 +206,25 @@
         }
     };
 
+    const queuePost = async input => {
+        const actor = getActor();
+        const body = normalizeText(input?.body);
+        if (!body) throw createError('Announcement message is required');
+        if (body.length > CONFIG.MAX_BODY) throw createError('Announcement message is too long');
+        const id = createId();
+        const cycle = normalizeCycle(input?.cycle, new Date());
+        const request = await createRequest('CREATE_ANNOUNCEMENT', { id, body, cycle });
+        return {
+            ...request,
+            requestType: CONFIG.REQUEST_TYPE,
+            id,
+            body,
+            cycle,
+            createdBy: actor.name,
+            createdById: actor.id
+        };
+    };
+
     const createPost = async input => {
         getActor();
         const body = normalizeText(input?.body);
@@ -238,9 +257,10 @@
     };
 
     global.YODAWY_ANNOUNCEMENTS_ENGINE = Object.freeze({
-        version: 3,
+        version: 4,
         load,
         getPosts,
+        queuePost,
         createPost,
         updatePost,
         deletePost,
