@@ -213,21 +213,6 @@
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu' + extraMenuClass + '" role="listbox" aria-multiselectable="' + String(multiple) + '" hidden><div class="ui-select-group">' + header + items + '</div></div></div>';
     };
 
-    const renderAnnouncementCycleDropdown = (cycle, id) => renderDropdown(
-        '',
-        cycle,
-        ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })),
-        {
-            class: 'yd-announcement-cycle-select',
-            'data-menu-class': 'yd-announcement-cycle-menu',
-            'data-placeholder': 'Cycle',
-            'data-label': 'Cycle',
-            'data-announcement-cycle': 'true',
-            'data-id': id,
-            'aria-label': 'Announcement cycle'
-        }
-    );
-
     const showNotice = (message, type = 'success') => {
         notice = { message, type };
         const element = document.querySelector('#' + CONFIG.ID + ' .yd-toast');
@@ -1053,17 +1038,36 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-icon-btn {
     display: inline-grid;
     place-items: center;
+    flex: 0 0 30px;
     width: 30px;
+    min-width: 30px;
     height: 30px;
     padding: 0;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: #fff;
     color: var(--brand);
+    line-height: 1;
     cursor: pointer;
     transition: all .15s;
 }
-#yd-dashboard-root .yd-icon-btn .yd-action-svg { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#yd-dashboard-root .yd-icon-btn > .yd-action-svg {
+    display: block !important;
+    width: 16px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    min-height: 16px !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+#yd-dashboard-root .yd-icon-btn > .yd-action-svg path {
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 2 !important;
+    stroke-linecap: round !important;
+    stroke-linejoin: round !important;
+}
 #yd-dashboard-root .yd-icon-btn:hover { border-color: #d8c7d7; background: var(--brand-soft); color: var(--brand-dark); }
 #yd-dashboard-root .yd-icon-btn.danger { border-color: var(--danger-border); background: #fff; color: var(--danger); }
 #yd-dashboard-root .yd-icon-btn.danger:hover { border-color: #e7bec2; background: var(--danger-bg); color: #a83742; }
@@ -1590,30 +1594,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     align-items: center;
     justify-content: flex-end;
     flex: 0 0 auto;
-    min-width: 100px;
-}
-#yd-dashboard-root .yd-announcement-cycle-select { width: 100px; min-width: 100px; }
-#yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger {
-    height: 26px;
-    min-height: 26px;
-    padding: 4px 7px;
-    border: 1px solid var(--brand);
-    border-radius: 8px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600 !important;
-}
-#yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-announcement-cycle-select .ui-select-chevron {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 13px;
-    color: rgba(255, 255, 255, 0.85);
 }
 #yd-dashboard-root .yd-announcement-cycle-box {
     display: inline-flex;
@@ -1621,7 +1601,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     justify-content: center;
     min-width: 100px;
     min-height: 26px;
-    padding: 4px 7px;
+    padding: 4px 9px;
     border: 1px solid var(--brand);
     border-radius: 8px;
     background: var(--brand);
@@ -1630,6 +1610,47 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     font-weight: 600 !important;
     text-align: center;
     white-space: nowrap;
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 34px;
+    border: 1px solid #d8d0dc;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 500 !important;
+    text-align: center;
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover:not(:disabled) {
+    border-color: #b28aa8;
+    background: #fcf9fc;
+    color: var(--brand-dark);
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value {
+    flex: 1 1 auto;
+    width: 100%;
+    padding: 0;
+    text-align: center !important;
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
+    position: absolute;
+    top: calc(50% - 7px);
+    right: 10px;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
 }
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
@@ -1867,8 +1888,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             '<div class="yd-tool-summary"><span>' + visibleTools.length + ' Tools</span><span>' + permittedCount + ' Permitted</span><span>' + onCount + ' Enabled</span></div>';
     };
 
-    const editActionIcon = '<svg class="yd-action-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>';
-    const deleteActionIcon = '<svg class="yd-action-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>';
+    const editActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" fill="none" stroke="currentColor"></path><path d="m16.5 3.5 4 4L8 20l-5 1 1-5Z" fill="none" stroke="currentColor"></path></svg>';
+    const deleteActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18" fill="none" stroke="currentColor"></path><path d="M8 6V4h8v2" fill="none" stroke="currentColor"></path><path d="m19 6-1 14H6L5 6" fill="none" stroke="currentColor"></path><path d="M10 11v6M14 11v6" fill="none" stroke="currentColor"></path></svg>';
 
     const renderUsers = () => {
         const baseUsers = getUsers();
@@ -2026,9 +2047,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             const id = escapeHTML(post.id);
             const authorName = String(post.createdBy || 'Dashboard Team').toLocaleUpperCase();
             const author = escapeHTML(authorName);
-            const cycleControl = canManage
-                ? renderAnnouncementCycleDropdown(cycle, post.id)
-                : '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
+            const cycleControl = '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
             return '<article class="yd-announcement-card"><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time></div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' +
                 (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>' : '') +
                 '</article>';
@@ -2043,7 +2062,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const cycle = getAnnouncementCycle(post || { createdAt: new Date().toISOString() });
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
+        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', class: 'yd-announcement-cycle-select', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
         const close = () => {
             closeDropdowns(null);
@@ -2719,22 +2738,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         if (multiple) positionDropdownMenu(dropdown);
         else closeDropdowns(null);
         dropdown.dispatchEvent(new CustomEvent('change', { bubbles: true, detail: { values } }));
-        if (!dropdown.hasAttribute('data-announcement-cycle')) return;
-        const post = (context.announcements?.getPosts?.() || []).find(item => String(item.id) === String(dropdown.dataset.id));
-        if (!post || !ANNOUNCEMENT_CYCLES.includes(value) || getAnnouncementCycle(post) === value) return;
-        const trigger = dropdown.querySelector('.ui-select-trigger');
-        setControlLoading(trigger);
-        trackBackground((async () => {
-            try {
-                await context.announcements.updatePost(post.id, { body: post.body, cycle: value });
-                await context.announcements.load();
-                render();
-                showNotice('Announcement cycle updated.');
-            } catch (error) {
-                render();
-                showMessageDialog('Cycle Not Updated', error?.message || 'Unable to update the announcement cycle.');
-            }
-        })());
     };
 
     const bindEvents = root => {
