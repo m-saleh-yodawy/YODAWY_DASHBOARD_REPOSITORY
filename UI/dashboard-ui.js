@@ -1395,21 +1395,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     cursor: pointer;
     transition: all .12s;
 }
-#yd-dashboard-root .yd-pagination-link[aria-label="Previous page"],
-#yd-dashboard-root .yd-pagination-link[aria-label="Next page"] {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 58px;
-    padding: 0 10px;
-    border-color: var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-    font-size: 10px;
-    font-weight: 700 !important;
-}
 #yd-dashboard-root .yd-pagination-link:hover:not(.disabled) { border-color: var(--brand-dark); background: var(--brand-dark); color: #fff; }
-#yd-dashboard-root .yd-pagination-link[aria-label="Previous page"]:hover:not(.disabled),
-#yd-dashboard-root .yd-pagination-link[aria-label="Next page"]:hover:not(.disabled) { border-color: var(--brand-dark) !important; background: var(--brand-dark) !important; color: #fff !important; }
 #yd-dashboard-root .yd-pagination-link.active { border-color: var(--brand) !important; background: var(--brand) !important; color: #fff !important; font-weight: 700 !important; }
 #yd-dashboard-root .yd-pagination-link.disabled { opacity: .38; pointer-events: none; cursor: not-allowed; }
 
@@ -1614,9 +1600,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
     box-sizing: border-box;
     display: block;
+    position: sticky;
+    top: 0;
+    z-index: 5;
     width: 100%;
     height: 30px;
     margin: 0 0 6px;
+    background-color: #e1e1e1 !important;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, .04);
     padding: 0 9px;
     border: 1px solid var(--border);
     border-radius: 7px;
@@ -1678,9 +1669,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-dropdown-se
 #yd-dashboard-root .yd-allowed-users-footer,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer {
     display: flex;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
     justify-content: flex-end;
     gap: 6px;
-    padding: 6px 4px 2px;
+    margin-top: 4px;
+    padding: 8px 4px 4px;
+    border-top: 1px solid #eee9ef;
+    background: #fff;
+    box-shadow: 0 -3px 6px rgba(0, 0, 0, .04);
 }
 #yd-dashboard-root .yd-allowed-users-footer button,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer button {
@@ -2179,9 +2177,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             (active ? ' aria-current="page" data-active="true"' : '') +
             (disabled ? ' aria-disabled="true"' : '') +
             ' class="yd-pagination-link' + (active ? ' active' : '') + (disabled ? ' disabled' : '') + '">' + label + '</a></li>';
-        let pages = link('PREV', currentPage - 1, false, currentPage <= 1, 'Previous page');
+        let pages = '';
         for (let page = firstPage; page <= lastPage; page++) pages += link(String(page), page, page === currentPage, false, 'Page ' + page);
-        pages += link('NEXT', currentPage + 1, false, currentPage >= totalPages, 'Next page');
         return '<nav role="navigation" aria-label="pagination" data-slot="pagination" class="yd-pagination"><ul data-slot="pagination-content" class="yd-pagination-content">' + pages + '</ul></nav>';
     };
 
@@ -2376,7 +2373,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const selectedCount = allSelected ? activeUsers.length : draft.allowedUsers.size;
         const label = allSelected ? 'All Users' : selectedCount ? selectedCount + ' Selected' : 'No Users Selected';
         const isOpen = openVisibilityToolId === toolId && !pending;
-        const allOption = '<button type="button" class="ui-select-option ui-select-item yd-allowed-users-option' + (allSelected ? ' selected' : '') + '" data-selected="' + String(allSelected) + '" data-action="toggle-allowed-all" data-tool="' + escapeHTML(toolId) + '" role="option" aria-selected="' + String(allSelected) + '"' + (pending ? ' disabled' : '') + '><span><i class="fa-solid fa-users"></i>All Users</span></button>';
         const userOptions = users.map(user => {
             const id = String(user.id || '').trim().toUpperCase();
             const active = String(user.status || '').toLowerCase() === 'active';
@@ -2390,7 +2386,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
             '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
-            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users"><div class="ui-select-label">Allowed Users</div>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div>' + footer + '</div></div></div>';
+            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users">' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div>' + footer + '</div></div></div>';
     };
 
     const refreshAllowedUsersDropdown = toolId => {
@@ -3199,17 +3195,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     };
 
     const handleAllowedUsersAction = actionButton => {
-        if (actionButton?.dataset.action === 'toggle-allowed-all') {
-            const toolId = actionButton.dataset.tool;
-            if (!visibilityDraft || visibilityDraft.toolId !== toolId || getPendingVisibility(toolId)) return true;
-            visibilityDraft.allUsers = !visibilityDraft.allUsers;
-            visibilityDraft.allowedUsers = visibilityDraft.allUsers
-                ? new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()))
-                : new Set();
-            openVisibilityToolId = toolId;
-            refreshAllowedUsersDropdown(toolId);
-            return true;
-        }
         if (actionButton?.dataset.action === 'toggle-allowed-user') {
             const toolId = actionButton.dataset.tool;
             const userId = actionButton.dataset.user;
