@@ -1381,6 +1381,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     display: block;
 }
+@supports (position-anchor: --yd-dropdown-anchor) and (top: anchor(bottom)) and (width: anchor-size(width)) {
+    body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
+        position: fixed !important;
+        position-anchor: --yd-active-dropdown-anchor !important;
+        top: anchor(bottom) !important;
+        left: anchor(left) !important;
+        right: auto !important;
+        margin-top: 4px !important;
+        width: anchor-size(width) !important;
+        min-width: max(anchor-size(width), 144px) !important;
+        max-width: min(360px, calc(100vw - 24px)) !important;
+        max-height: min(320px, calc(100vh - 24px)) !important;
+        position-try-fallbacks: flip-block, flip-inline !important;
+    }
+}
 #yd-dashboard-root .ui-select-menu[hidden],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][hidden] {
     display: none !important;
@@ -2642,6 +2657,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const menu = getDropdownMenu(dropdown);
         const trigger = dropdown?.querySelector('.ui-select-trigger');
         if (!menu || !trigger || menu.dataset.portal !== 'true') return;
+        const supportsAnchor = typeof CSS !== 'undefined' &&
+            CSS.supports('position-anchor: --yd-active-dropdown-anchor') &&
+            CSS.supports('top: anchor(bottom)') &&
+            CSS.supports('width: anchor-size(width)');
+        if (supportsAnchor) {
+            trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
+            menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
+            ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
+            return;
+        }
         const rect = trigger.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
@@ -2688,6 +2713,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             if (menu.parentElement !== dropdown) dropdown.appendChild(menu);
             delete menu._ydSelectOwner;
         }
+        dropdown.querySelector('.ui-select-trigger')?.style.removeProperty('anchor-name');
         dropdown.dataset.open = 'false';
         dropdown.classList.remove('open');
         dropdown.querySelector('.ui-select-trigger')?.setAttribute('aria-expanded', 'false');
