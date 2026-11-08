@@ -1342,11 +1342,15 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     white-space: nowrap;
 }
 #yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: var(--muted); }
+#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-value[data-placeholder="true"] { color: #fff !important; }
 #yd-dashboard-root .ui-select-chevron {
+    display: block !important;
     width: 14px;
     height: 14px;
     flex: 0 0 14px;
     color: var(--muted);
+    opacity: 1;
+    visibility: visible;
     pointer-events: none;
     transition: transform .15s;
 }
@@ -2030,7 +2034,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             : '<div class="yd-allowed-users-footer"><button type="button" class="yd-secondary" data-action="cancel-allowed-users" data-tool="' + escapeHTML(toolId) + '">Cancel</button><button type="button" class="yd-primary" data-action="save-allowed-users" data-tool="' + escapeHTML(toolId) + '">Apply</button></div>';
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
-            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>') + '</button>' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><div class="ui-select-label">Allowed Users</div>' + allOption + '<div class="yd-dropdown-separator" role="separator"></div>' + (userOptions || '<div class="yd-empty">No users available.</div>') + footer + '</div></div></div>';
     };
 
@@ -2194,10 +2198,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     const refresh = async () => {
         await Promise.all([
             context.permissions?.load?.(),
-            context.visibility?.load?.()
+            context.visibility?.load?.(),
+            context.settings?.load?.(),
+            context.tools?.loadManifest?.(),
+            context.announcements?.load?.()
         ]);
-        await context.tools?.loadManifest?.();
-        await context.announcements?.load?.();
         const engine = getRoleEngine();
         if (engine?.refresh) await engine.refresh();
         render();
@@ -2494,8 +2499,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                     if (icon) icon.innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
                     if (label) label.textContent = 'Refreshing';
                 }
-                showNotice('Refreshing connection in the background...');
-                trackBackground(refresh().then(() => showNotice('Connection refreshed successfully.')).catch(error => showMessageDialog('Refresh Failed', error?.message || 'Unable to refresh connection.')).finally(() => {
+                showNotice('Refreshing dashboard data and rebuilding the interface...');
+                trackBackground(refresh().then(() => showNotice('Dashboard refreshed successfully.')).catch(error => showMessageDialog('Dashboard Refresh Failed', error?.message || 'Unable to refresh the dashboard.')).finally(() => {
                     if (button?.isConnected) {
                         button.disabled = false;
                         button.removeAttribute('aria-busy');
