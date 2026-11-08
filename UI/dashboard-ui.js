@@ -1450,18 +1450,22 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 }
 
 #yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger {
-    border: 1px solid #d8d0dc;
-    background: #fff;
-    color: var(--ink);
+#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger,
+#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled),
+#yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
+    border: 1px solid var(--brand);
+    background: var(--brand);
+    color: #fff;
 }
 #yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled) {
-    border-color: #b28aa8;
-    background: #fcf9fc;
-    color: var(--brand-dark);
+    border-color: var(--brand-dark);
+    background: var(--brand-dark);
+    color: #fff;
 }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:focus-visible,
-#yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
+#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-chevron {
+    color: rgba(255, 255, 255, .9);
+}
+#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:focus-visible {
     outline: none !important;
     box-shadow: none !important;
 }
@@ -2646,7 +2650,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const roomBelow = viewportHeight - rect.bottom - 12;
         const roomAbove = rect.top - 12;
         const openAbove = roomBelow < Math.min(menuHeight, 180) && roomAbove > roomBelow;
-        const left = Math.max(12, Math.min(rect.left, viewportWidth - width - 12));
+        const alignedLeft = rect.left + (rect.width - width) / 2;
+        const left = Math.max(12, Math.min(alignedLeft, viewportWidth - width - 12));
         const top = openAbove
             ? Math.max(12, rect.top - menuHeight - 4)
             : Math.max(12, Math.min(rect.bottom + 4, viewportHeight - menuHeight - 12));
