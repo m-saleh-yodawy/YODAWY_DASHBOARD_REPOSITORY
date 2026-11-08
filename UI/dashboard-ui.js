@@ -2054,19 +2054,19 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 }
 
 #yd-dashboard-root .yd-pill.yd-role-super-admin {
-    border-color: #d8b4fe !important;
-    background: #f3e8ff !important;
-    color: #6b21a8 !important;
-}
-#yd-dashboard-root .yd-pill.yd-role-admin {
     border-color: #bfdbfe !important;
     background: #dbeafe !important;
     color: #1d4ed8 !important;
 }
+#yd-dashboard-root .yd-pill.yd-role-admin {
+    border-color: #fecaca !important;
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+}
 #yd-dashboard-root .yd-pill.yd-role-user {
-    border-color: #cbd5e1 !important;
-    background: #f1f5f9 !important;
-    color: #475569 !important;
+    border-color: #bbf7d0 !important;
+    background: #dcfce7 !important;
+    color: #15803d !important;
 }
 #yd-dashboard-root .yd-role-label {
     display: inline-block;
@@ -2076,9 +2076,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     font-size: inherit;
     font-weight: 700 !important;
 }
-#yd-dashboard-root .yd-role-label.yd-role-super-admin { border-color: #d8b4fe !important; background: #f3e8ff !important; color: #6b21a8 !important; }
-#yd-dashboard-root .yd-role-label.yd-role-admin { border-color: #bfdbfe !important; background: #dbeafe !important; color: #1d4ed8 !important; }
-#yd-dashboard-root .yd-role-label.yd-role-user { border-color: #cbd5e1 !important; background: #f1f5f9 !important; color: #475569 !important; }
+#yd-dashboard-root .yd-role-label.yd-role-super-admin { border-color: #bfdbfe !important; background: #dbeafe !important; color: #1d4ed8 !important; }
+#yd-dashboard-root .yd-role-label.yd-role-admin { border-color: #fecaca !important; background: #fee2e2 !important; color: #b91c1c !important; }
+#yd-dashboard-root .yd-role-label.yd-role-user { border-color: #bbf7d0 !important; background: #dcfce7 !important; color: #15803d !important; }
 
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
 #yd-dashboard-root select,
