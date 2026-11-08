@@ -7,8 +7,12 @@
     ]
   },
   "TOOL-002": {
-    "visibility": "PRIVATE",
-    "allowedUsers": []
+    "visibility": "SELECTED_USERS",
+    "allowedUsers": [
+      "Q-001",
+      "Q-002",
+      "Q-003"
+    ]
   },
   "TOOL-004": {
     "visibility": "PRIVATE",
