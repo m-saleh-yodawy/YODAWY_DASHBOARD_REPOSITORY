@@ -1450,12 +1450,20 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 }
 
 #yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger,
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled),
+#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger {
+    border: 1px solid #d8d0dc;
+    background: #fff;
+    color: var(--ink);
+}
+#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled) {
+    border-color: #b28aa8;
+    background: #fcf9fc;
+    color: var(--brand-dark);
+}
 #yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:focus-visible,
 #yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
-    border: 0;
-    box-shadow: none;
+    outline: none !important;
+    box-shadow: none !important;
 }
 #yd-dashboard-root .yd-allowed-users-option > span:first-child,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-option > span:first-child {
@@ -2011,16 +2019,37 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const current = [...(root?.querySelectorAll('.yd-allowed-users-dropdown') || [])].find(item => item.dataset.tool === toolId);
         const tool = getTools().find(item => String(item.id) === String(toolId));
         if (!current || !tool) return;
-        const shouldRemainOpen = openVisibilityToolId === toolId && !getPendingVisibility(toolId);
-        closeDropdowns(null);
+        const pending = getPendingVisibility(toolId);
+        const shouldRemainOpen = openVisibilityToolId === toolId && !pending;
         const engine = getRoleEngine();
         const record = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
         const fresh = document.createElement('div');
-        fresh.innerHTML = renderAllowedUsersDropdown(tool, record, engine?.getUsers?.() || [], getPendingVisibility(toolId));
+        fresh.innerHTML = renderAllowedUsersDropdown(tool, record, engine?.getUsers?.() || [], pending);
         const replacement = fresh.firstElementChild;
         if (!replacement) return;
-        current.replaceWith(replacement);
-        if (shouldRemainOpen) openDropdownMenu(replacement);
+        const currentTrigger = current.querySelector('.ui-select-trigger');
+        const nextValue = replacement.querySelector('.ui-select-value');
+        const currentValue = currentTrigger?.querySelector('.ui-select-value');
+        const currentMenu = getDropdownMenu(current);
+        const nextMenu = replacement.querySelector('.ui-select-menu');
+        current.dataset.value = replacement.dataset.value;
+        current.dataset.open = String(shouldRemainOpen);
+        current.classList.toggle('open', shouldRemainOpen);
+        current.classList.toggle('disabled', Boolean(pending));
+        currentTrigger?.setAttribute('aria-expanded', String(shouldRemainOpen));
+        if (currentTrigger) currentTrigger.disabled = Boolean(pending);
+        if (currentValue && nextValue) {
+            currentValue.textContent = nextValue.textContent;
+            currentValue.dataset.placeholder = nextValue.dataset.placeholder;
+        }
+        if (currentMenu && nextMenu) {
+            currentMenu.innerHTML = nextMenu.innerHTML;
+            currentMenu.hidden = !shouldRemainOpen;
+            if (shouldRemainOpen) {
+                if (currentMenu.dataset.portal === 'true') positionDropdownMenu(current);
+                else openDropdownMenu(current);
+            } else closeDropdownMenu(current);
+        }
     };
 
     const renderVisibility = () => {
