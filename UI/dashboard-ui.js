@@ -1597,6 +1597,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     #yd-dashboard-root .yd-nav span:not(.yd-nav-icon), #yd-dashboard-root .yd-nav-label, #yd-dashboard-root .yd-sidebar-bottom { display: none; }
     #yd-dashboard-root .yd-form-grid { grid-template-columns: 1fr; }
 }
+#yd-dashboard-root .ui-select-option:hover,
+#yd-dashboard-root .ui-select-option:focus-visible,
+#yd-dashboard-root .ui-select-item:hover,
+#yd-dashboard-root .ui-select-item:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:focus-visible {
+    background-color: #e9dfea !important;
+    color: #68465f !important;
+    outline: none !important;
+}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
