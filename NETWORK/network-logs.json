@@ -2,6 +2,20 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-08T23:07:40Z",
   "transactions": {
+    "DASH-USERS-1794181781630-6TYBF607ON": {
+      "requestId": "DASH-USERS-1794181781630-6TYBF607ON",
+      "sequence": "1794181781631169945",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "ADD_USER",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T23:50:10Z",
+      "updatedAt": "2026-11-08T23:50:10Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "ADD USER · Mahmoud Saleh",
+      "targetName": "Mahmoud Saleh",
+      "targetRole": "USER"
+    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
@@ -362,10 +376,10 @@
       "action": "CREATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "PUBLISH ANNOUNCEMENT · test for the test",
       "createdAt": "2026-11-08T23:07:40Z",
       "updatedAt": "2026-11-08T23:07:40Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "PUBLISH ANNOUNCEMENT · test for the test",
       "targetId": "1794179231622-NH238O1CJQ"
     }
   }
