@@ -2076,13 +2076,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     color: #4b5563 !important;
 }
 #yd-dashboard-root .yd-role-label {
-    display: inline;
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 5px;
     font-size: inherit;
     font-weight: 700 !important;
 }
-#yd-dashboard-root .yd-role-label.yd-role-super-admin { color: #875a7b !important; }
-#yd-dashboard-root .yd-role-label.yd-role-admin { color: #315b9a !important; }
-#yd-dashboard-root .yd-role-label.yd-role-user { color: #4b5563 !important; }
+#yd-dashboard-root .yd-role-label.yd-role-super-admin { background: #875a7b !important; color: #fff !important; }
+#yd-dashboard-root .yd-role-label.yd-role-admin { background: #eaf2ff !important; color: #315b9a !important; }
+#yd-dashboard-root .yd-role-label.yd-role-user { background: #f1f3f5 !important; color: #4b5563 !important; }
 
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
 #yd-dashboard-root select,
@@ -2302,9 +2304,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 const userBadge = pendingUser ? renderPendingBadge(String(pendingUser.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
                 return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span>' + renderRolePill(user.role) + '</small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body"><div class="yd-permission-search-wrap"><input type="search" class="yd-permission-search" placeholder="ACTIVE SEARCH" aria-label="Search tools by name or ID"></div><div class="yd-permission-search-empty" hidden>No matching tools found.</div>' + (rows || '<div class="yd-empty">No tools are available.</div>') + '</div></details>';
             }).join('');
-            return '<section class="yd-welcome"><div><h1>Shared Tools</h1><p>Expand a user to manage tool access and forced states.</p></div><span class="yd-pill">SUPER ADMIN CONTROL</span></section><div class="yd-accordion-list">' + (items || '<div class="yd-empty">No eligible users found.</div>') + '</div>';
+            return '<section class="yd-welcome"><div><h1>Shared Tools</h1><p>Expand a user to manage tool access and forced states.</p></div><span class="yd-pill yd-role-pill yd-role-super-admin">SUPER ADMIN CONTROL</span></section><div class="yd-accordion-list">' + (items || '<div class="yd-empty">No eligible users found.</div>') + '</div>';
         }
-        return '<section class="yd-welcome"><div><h1>User Permissions</h1><p>Permit or revoke tool access for USER accounts.</p></div><span class="yd-pill">ADMIN CONTROL</span></section>' +
+        return '<section class="yd-welcome"><div><h1>User Permissions</h1><p>Permit or revoke tool access for USER accounts.</p></div><span class="yd-pill yd-role-pill yd-role-admin">ADMIN CONTROL</span></section>' +
             '<div class="yd-table-wrap"><table><thead><tr><th>User</th><th>Tool</th><th>Permitted</th><th>Forced State</th><th>Action</th></tr></thead><tbody>' +
             (users.flatMap(user => tools.map(tool => {
                 const record = permissions[user.id]?.[tool.id] || {};
