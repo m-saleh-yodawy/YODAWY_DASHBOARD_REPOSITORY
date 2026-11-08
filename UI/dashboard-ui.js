@@ -944,7 +944,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 
 #yd-dashboard-root .yd-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 9px; flex-wrap: wrap; margin: 0 0 11px; }
 #yd-dashboard-root .yd-search, #yd-dashboard-root .yd-field input, #yd-dashboard-root .yd-input {
-    width: auto;
+    width: min(340px, 100%);
     min-width: 0;
     height: 36px;
     min-height: 36px;
@@ -957,8 +957,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-size: 12px;
     transition: border-color .15s, box-shadow .15s;
 }
-#yd-dashboard-root .yd-search { width: min(340px, 100%); }
-#yd-dashboard-root .yd-toolbar .yd-search { flex: 1 1 0; width: 100%; max-width: none; }
+#yd-dashboard-root .yd-search { flex: 0 1 340px; max-width: 100%; }
 #yd-dashboard-root .yd-search::placeholder, #yd-dashboard-root input::placeholder { color: #aaa3ad; }
 #yd-dashboard-root .yd-search:focus, #yd-dashboard-root input:focus {
     outline: none !important;
