@@ -1,19 +1,19 @@
 {
   "Q-002": {
     "TOOL-001": {
-      "granted": true,
+      "granted": false,
       "forcedState": true,
       "type": "SUPER_ADMIN"
     },
     "TOOL-002": {
-      "granted": false,
+      "granted": true,
       "forcedState": false,
-      "type": "ADMIN"
+      "type": "SUPER_ADMIN"
     },
     "TOOL-004": {
-      "granted": false,
+      "granted": true,
       "forcedState": false,
-      "type": "ADMIN"
+      "type": "SUPER_ADMIN"
     }
   },
   "Q-003": {
