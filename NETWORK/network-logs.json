@@ -2,6 +2,25 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-08T02:45:51Z",
   "transactions": {
+    "DASH-USERS-1794107332934-RQB24RNBN8": {
+      "requestId": "DASH-USERS-1794107332934-RQB24RNBN8",
+      "sequence": "1794107332934688351",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T03:09:23Z",
+      "updatedAt": "2026-11-08T03:09:23Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-001 · ahmed saleh",
+      "targetId": "Q-004",
+      "targetName": "ahmed saleh",
+      "permissionField": "granted",
+      "permissionValue": true,
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
@@ -286,10 +305,10 @@
       "action": "UPDATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
       "createdAt": "2026-11-08T02:45:51Z",
       "updatedAt": "2026-11-08T02:45:51Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
       "targetId": "1793715257459-CV8YPK1G9P"
     }
   }
