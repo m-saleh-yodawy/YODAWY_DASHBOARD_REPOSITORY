@@ -1,7 +1,8 @@
 (() => {
     'use strict';
 
-    if (window.YODAWY_DASHBOARD_UI?.getContext?.()) return;
+    const page = document.defaultView || window;
+    if (page.YODAWY_DASHBOARD_UI?.getContext?.()) return;
 
     const CONFIG = Object.freeze({
         ID: 'yd-dashboard-root',
@@ -13,15 +14,13 @@
     });
 
     const addWindowEventListener = (type, listener, options) => {
-        const target = document.defaultView;
-        const method = target?.EventTarget?.prototype?.addEventListener;
+        const method = page?.EventTarget?.prototype?.addEventListener;
         if (typeof method !== 'function') throw new Error('Native window event handling is unavailable.');
-        method.call(target, type, listener, options);
+        method.call(page, type, listener, options);
     };
 
     const removeWindowEventListener = (type, listener, options) => {
-        const target = document.defaultView;
-        const method = target?.EventTarget?.prototype?.removeEventListener;
+        const method = page?.EventTarget?.prototype?.removeEventListener;
         if (typeof method !== 'function') throw new Error('Native window event handling is unavailable.');
         method.call(target, type, listener, options);
     };
@@ -2436,21 +2435,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     });
 
     const reloadLatestDashboardUI = async uiState => {
-        const API = window.YODAWY_API_ENGINE;
+        const API = page.YODAWY_API_ENGINE;
         if (!API?.getFileContent) throw new Error('Dashboard API Engine is unavailable.');
         const source = await API.getFileContent('UI/dashboard-ui.js', { timeout: 30000 });
-        if (typeof source !== 'string' || !source.includes('window.YODAWY_DASHBOARD_UI')) {
+        if (typeof source !== 'string' || !source.includes('page.YODAWY_DASHBOARD_UI')) {
             throw new Error('The latest Dashboard UI source is invalid or unavailable.');
         }
-        const registrationGuard = '    if (window.YODAWY_DASHBOARD_UI?.getContext?.()) return;\n';
+        const registrationGuard = '    if (page.YODAWY_DASHBOARD_UI?.getContext?.()) return;\n';
         if (source.split(registrationGuard).length !== 2) {
             throw new Error('The Dashboard UI registration guard could not be safely bypassed.');
         }
         const executableSource = source.replace(registrationGuard, '');
-        const previousUI = window.YODAWY_DASHBOARD_UI;
+        const previousUI = page.YODAWY_DASHBOARD_UI;
         if (typeof previousUI?.destroy !== 'function') throw new Error('The current Dashboard UI cannot be safely replaced.');
         const nextOptions = { ...context, uiState };
-        await previousUI.destroy();
+        let nextUI = null;
         try {
             let executionError = null;
             const captureExecutionError = event => {
@@ -2467,19 +2466,20 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 removeWindowEventListener('error', captureExecutionError, true);
             }
             if (executionError) throw executionError;
-            const nextUI = window.YODAWY_DASHBOARD_UI;
+            nextUI = page.YODAWY_DASHBOARD_UI;
             if (!nextUI || nextUI === previousUI || typeof nextUI.init !== 'function') {
-                throw new Error('The updated Dashboard UI did not register a new interface.');
+                throw new Error('The updated Dashboard UI did not register in the page window.');
             }
+            await previousUI.destroy();
             await nextUI.init(nextOptions);
             return true;
         } catch (error) {
-            const failedUI = window.YODAWY_DASHBOARD_UI;
+            const failedUI = page.YODAWY_DASHBOARD_UI;
             if (failedUI && failedUI !== previousUI) {
                 try { await failedUI.destroy?.(); } catch {}
             }
-            window.YODAWY_DASHBOARD_UI = previousUI;
-            await previousUI.init(nextOptions);
+            page.YODAWY_DASHBOARD_UI = previousUI;
+            if (!previousUI.getContext?.()) await previousUI.init(nextOptions);
             throw new Error('The previous Dashboard interface was restored. ' + (error?.message || 'The update could not be activated.'));
         }
     };
@@ -2644,12 +2644,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     };
 
     const appendNetworkActivity = async ({ action, toolId = '', toolName = '', summary = '' }) => {
-        const api = window.YODAWY_API_ENGINE;
+        const api = page.YODAWY_API_ENGINE;
         const config = api?.getConfig?.();
         if (!api?.getFile || !api?.put || !config?.owner || !config?.repo || !config?.branch) throw new Error('Central NETWORK API is unavailable.');
         const actor = context.user || {};
         const now = new Date().toISOString();
-        const requestId = 'ACTIVITY-' + (window.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2)));
+        const requestId = 'ACTIVITY-' + (page.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2)));
         const record = {
             requestId,
             sequence: String(Date.now()),
@@ -3351,7 +3351,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         return true;
     };
 
-    window.YODAWY_DASHBOARD_UI = Object.freeze({
+    page.YODAWY_DASHBOARD_UI = Object.freeze({
         version: 1,
         init,
         render,
