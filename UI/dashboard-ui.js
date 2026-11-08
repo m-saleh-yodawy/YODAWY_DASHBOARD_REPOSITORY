@@ -12,6 +12,20 @@
         REFRESH_INTERVAL: 30000
     });
 
+    const addWindowEventListener = (type, listener, options) => {
+        const target = document.defaultView;
+        const method = target?.EventTarget?.prototype?.addEventListener;
+        if (typeof method !== 'function') throw new Error('Native window event handling is unavailable.');
+        method.call(target, type, listener, options);
+    };
+
+    const removeWindowEventListener = (type, listener, options) => {
+        const target = document.defaultView;
+        const method = target?.EventTarget?.prototype?.removeEventListener;
+        if (typeof method !== 'function') throw new Error('Native window event handling is unavailable.');
+        method.call(target, type, listener, options);
+    };
+
     const ANNOUNCEMENT_CYCLES = Object.freeze([
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
@@ -2417,7 +2431,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             const captureExecutionError = event => {
                 executionError = event.error || new Error(event.message || 'The updated Dashboard UI script failed to execute.');
             };
-            window.addEventListener('error', captureExecutionError, true);
+            addWindowEventListener('error', captureExecutionError, true);
             const script = document.createElement('script');
             script.type = 'text/javascript';
             script.textContent = executableSource;
@@ -2425,7 +2439,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 (document.head || document.documentElement).appendChild(script);
             } finally {
                 script.remove();
-                window.removeEventListener('error', captureExecutionError, true);
+                removeWindowEventListener('error', captureExecutionError, true);
             }
             if (executionError) throw executionError;
             const nextUI = window.YODAWY_DASHBOARD_UI;
@@ -3244,7 +3258,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         dropdownScrollHandler = () => root.querySelectorAll('.ui-select[data-open="true"]').forEach(positionDropdownMenu);
         dropdownResizeHandler = () => root.querySelectorAll('.ui-select[data-open="true"]').forEach(positionDropdownMenu);
         document.addEventListener('scroll', dropdownScrollHandler, true);
-        document.defaultView?.addEventListener('resize', dropdownResizeHandler);
+        addWindowEventListener('resize', dropdownResizeHandler);
     };
 
     const init = async options => {
@@ -3293,7 +3307,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         if (dropdownOutsideClickHandler) document.removeEventListener('click', dropdownOutsideClickHandler);
         if (dropdownKeydownHandler) document.removeEventListener('keydown', dropdownKeydownHandler);
         if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
-        if (dropdownResizeHandler) document.defaultView?.removeEventListener('resize', dropdownResizeHandler);
+        if (dropdownResizeHandler) removeWindowEventListener('resize', dropdownResizeHandler);
         dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         document.getElementById(CONFIG.ID)?.remove();
         document.getElementById(CONFIG.STYLE_ID)?.remove();
