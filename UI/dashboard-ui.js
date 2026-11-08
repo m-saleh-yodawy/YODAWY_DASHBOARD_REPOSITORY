@@ -2402,7 +2402,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         if (typeof source !== 'string' || !source.includes('window.YODAWY_DASHBOARD_UI')) {
             throw new Error('The latest Dashboard UI source is invalid or unavailable.');
         }
-        const registrationGuard = '    if (window.YODAWY_DASHBOARD_UI?.getContext?.()) return;\\n';
+        const registrationGuard = '    if (window.YODAWY_DASHBOARD_UI?.getContext?.()) return;\n';
         if (source.split(registrationGuard).length !== 2) {
             throw new Error('The Dashboard UI registration guard could not be safely bypassed.');
         }
