@@ -1,134 +1,155 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T01:55:01.001Z",
+  "updatedAt": "2026-11-08T01:57:45Z",
   "transactions": {
-    "ACTIVITY-1794102901001-zzmil9mfboq": {
-      "requestId": "ACTIVITY-1794102901001-zzmil9mfboq",
-      "sequence": "1794102901001",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
+    "DASH-USERS-1794103037035-HK4O1MBKBS": {
+      "requestId": "DASH-USERS-1794103037035-HK4O1MBKBS",
+      "sequence": "1794103037035415353",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
       "actorId": "Q-001",
-      "actorName": "Mohamed Saleh",
-      "targetToolId": "TOOL-004",
-      "targetToolIds": [
-        "TOOL-004"
-      ],
-      "targetToolName": "ODOO >>> LIMITED DRUG ACCORDION",
-      "summary": "DISABLE TOOL · ODOO >>> LIMITED DRUG ACCORDION",
-      "createdAt": "2026-11-08T01:55:01.001Z",
-      "updatedAt": "2026-11-08T01:55:01.001Z"
-    },
-    "ACTIVITY-1794102896898-7uwjgghya5a": {
-      "requestId": "ACTIVITY-1794102896898-7uwjgghya5a",
-      "sequence": "1794102896898",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "actorName": "Mohamed Saleh",
-      "targetToolId": "TOOL-002",
-      "targetToolIds": [
-        "TOOL-002"
-      ],
-      "targetToolName": "PORTAL AUTO LOGIN",
-      "summary": "DISABLE TOOL · PORTAL AUTO LOGIN",
-      "createdAt": "2026-11-08T01:54:56.898Z",
-      "updatedAt": "2026-11-08T01:54:56.898Z"
-    },
-    "ACTIVITY-1794102891561-ntlhfaasq28": {
-      "requestId": "ACTIVITY-1794102891561-ntlhfaasq28",
-      "sequence": "1794102891561",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "actorName": "Mohamed Saleh",
-      "targetToolId": "TOOL-001",
+      "createdAt": "2026-11-08T01:57:45Z",
+      "updatedAt": "2026-11-08T01:57:45Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "MODIFY TOOL PERMISSION · ACCESS REVOKED · TOOL-001 · OMAR SALEH",
+      "targetId": "Q-002",
+      "targetName": "OMAR SALEH",
+      "permissionField": "granted",
+      "permissionValue": false,
       "targetToolIds": [
         "TOOL-001"
-      ],
-      "targetToolName": "CONFIRMATION TYPE BUTTONS",
-      "summary": "DISABLE TOOL · CONFIRMATION TYPE BUTTONS",
-      "createdAt": "2026-11-08T01:54:51.561Z",
-      "updatedAt": "2026-11-08T01:54:51.561Z"
+      ]
     },
-    "ANNOUNCEMENT-1794099512062-1UM6BWHW8E": {
-      "requestId": "ANNOUNCEMENT-1794099512062-1UM6BWHW8E",
-      "sequence": "1794099512062333178",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
-      "createdAt": "2026-11-08T00:58:58Z",
-      "updatedAt": "2026-11-08T00:58:58Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
-    },
-    "ANNOUNCEMENT-1794099496543-BH2E0ON02S": {
-      "requestId": "ANNOUNCEMENT-1794099496543-BH2E0ON02S",
-      "sequence": "1794099496543780170",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
-      "createdAt": "2026-11-08T00:58:43Z",
-      "updatedAt": "2026-11-08T00:58:43Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
-    },
-    "DASH-USERS-1794099334124-LF35JADADQ": {
-      "requestId": "DASH-USERS-1794099334124-LF35JADADQ",
-      "sequence": "1794099334124759980",
+    "DASH-USERS-1793592599398-VMDQX86R9U": {
+      "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
+      "sequence": "1793592599398300655",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "ADD_USER",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:56:01Z",
-      "updatedAt": "2026-11-08T00:57:35Z"
+      "createdAt": "2026-11-02T04:10:23Z",
+      "updatedAt": "2026-11-02T04:11:57Z"
     },
-    "DASH-USERS-1794096506908-4965R3DR3K": {
-      "requestId": "DASH-USERS-1794096506908-4965R3DR3K",
-      "sequence": "1794096506908405571",
+    "DASH-USERS-1793593448344-5DON078NPS": {
+      "requestId": "DASH-USERS-1793593448344-5DON078NPS",
+      "sequence": "1793593448344479954",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "ADD_USER",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T04:24:30Z",
+      "updatedAt": "2026-11-02T04:26:09Z"
+    },
+    "DASH-USERS-1793593643959-UAJWXV0NJY": {
+      "requestId": "DASH-USERS-1793593643959-UAJWXV0NJY",
+      "sequence": "1793593643960306651",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_USER",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T04:27:45Z",
+      "updatedAt": "2026-11-02T04:29:21Z"
+    },
+    "DASH-USERS-1793593698321-RKXNMCSHW5": {
+      "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
+      "sequence": "1793593698321585245",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T04:28:43Z",
+      "updatedAt": "2026-11-02T04:30:29Z"
+    },
+    "DASH-USERS-1793618800778-70W3LKDQ85": {
+      "requestId": "DASH-USERS-1793618800778-70W3LKDQ85",
+      "sequence": "1793618800778573342",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T11:27:06Z",
+      "updatedAt": "2026-11-02T11:28:53Z"
+    },
+    "DASH-USERS-1793653387056-F7IW0WFHSU": {
+      "requestId": "DASH-USERS-1793653387056-F7IW0WFHSU",
+      "sequence": "1793653387056745214",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:08:55Z",
-      "updatedAt": "2026-11-08T00:10:24Z"
+      "createdAt": "2026-11-02T21:03:34Z",
+      "updatedAt": "2026-11-02T21:04:55Z"
     },
-    "ACTIVITY-1794095512952-exf2v9mlzg6": {
-      "requestId": "ACTIVITY-1794095512952-exf2v9mlzg6",
-      "sequence": "1794095512952",
+    "DASH-USERS-1793655277550-LUCBTQKKE7": {
+      "requestId": "DASH-USERS-1793655277550-LUCBTQKKE7",
+      "sequence": "1793655277550281607",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T21:35:02Z",
+      "updatedAt": "2026-11-02T21:36:38Z"
+    },
+    "DASH-USERS-1793655291503-5DCLVVRAHO": {
+      "requestId": "DASH-USERS-1793655291503-5DCLVVRAHO",
+      "sequence": "1793655291503962011",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T21:35:15Z",
+      "updatedAt": "2026-11-02T21:36:48Z"
+    },
+    "DASH-USERS-1793655293868-I5F3GHEVD5": {
+      "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
+      "sequence": "1793655293868348457",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T21:35:20Z",
+      "updatedAt": "2026-11-02T21:37:27Z"
+    },
+    "ACTIVITY-1793657655324-y5uidq6s2ma": {
+      "requestId": "ACTIVITY-1793657655324-y5uidq6s2ma",
+      "sequence": "1793657655324",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-07T23:51:52.952Z",
-      "updatedAt": "2026-11-07T23:51:52.952Z"
+      "createdAt": "2026-11-02T22:14:15.324Z",
+      "updatedAt": "2026-11-02T22:14:15.324Z"
     },
-    "ANNOUNCEMENT-1794088737019-2OVHOLF5L6": {
-      "requestId": "ANNOUNCEMENT-1794088737019-2OVHOLF5L6",
-      "sequence": "1794088737019294938",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-07T21:59:23Z",
-      "updatedAt": "2026-11-07T21:59:23Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
-    },
-    "ACTIVITY-1793798510214-l3iztn3oz7s": {
-      "requestId": "ACTIVITY-1793798510214-l3iztn3oz7s",
-      "sequence": "1793798510214",
+    "ACTIVITY-1793657668487-7623kkj7u5c": {
+      "requestId": "ACTIVITY-1793657668487-7623kkj7u5c",
+      "sequence": "1793657668487",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
+      "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-04T13:21:50.214Z",
-      "updatedAt": "2026-11-04T13:21:50.214Z"
+      "createdAt": "2026-11-02T22:14:28.487Z",
+      "updatedAt": "2026-11-02T22:14:28.487Z"
+    },
+    "ACTIVITY-1793657723476-okoxm5ly13s": {
+      "requestId": "ACTIVITY-1793657723476-okoxm5ly13s",
+      "sequence": "1793657723476",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "ENABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T22:15:23.476Z",
+      "updatedAt": "2026-11-02T22:15:23.476Z"
+    },
+    "ACTIVITY-1793660071614-qpl01c20hs": {
+      "requestId": "ACTIVITY-1793660071614-qpl01c20hs",
+      "sequence": "1793660071614",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "UPDATE_DASHBOARD_SETTINGS",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T22:54:31.613Z",
+      "updatedAt": "2026-11-02T22:54:31.613Z"
     },
     "ANNOUNCEMENT-1793715257459-ENGRR33623": {
       "requestId": "ANNOUNCEMENT-1793715257459-ENGRR33623",
@@ -141,135 +162,130 @@
       "updatedAt": "2026-11-03T14:14:41Z",
       "targetId": "1793715257459-CV8YPK1G9P"
     },
-    "ACTIVITY-1793660071614-qpl01c20hs": {
-      "requestId": "ACTIVITY-1793660071614-qpl01c20hs",
-      "sequence": "1793660071614",
+    "ACTIVITY-1793798510214-l3iztn3oz7s": {
+      "requestId": "ACTIVITY-1793798510214-l3iztn3oz7s",
+      "sequence": "1793798510214",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "UPDATE_DASHBOARD_SETTINGS",
+      "action": "DISABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:54:31.613Z",
-      "updatedAt": "2026-11-02T22:54:31.613Z"
+      "createdAt": "2026-11-04T13:21:50.214Z",
+      "updatedAt": "2026-11-04T13:21:50.214Z"
     },
-    "ACTIVITY-1793657723476-okoxm5ly13s": {
-      "requestId": "ACTIVITY-1793657723476-okoxm5ly13s",
-      "sequence": "1793657723476",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
+    "ANNOUNCEMENT-1794088737019-2OVHOLF5L6": {
+      "requestId": "ANNOUNCEMENT-1794088737019-2OVHOLF5L6",
+      "sequence": "1794088737019294938",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "UPDATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:15:23.476Z",
-      "updatedAt": "2026-11-02T22:15:23.476Z"
+      "createdAt": "2026-11-07T21:59:23Z",
+      "updatedAt": "2026-11-07T21:59:23Z",
+      "targetId": "1793715257459-CV8YPK1G9P"
     },
-    "ACTIVITY-1793657668487-7623kkj7u5c": {
-      "requestId": "ACTIVITY-1793657668487-7623kkj7u5c",
-      "sequence": "1793657668487",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:14:28.487Z",
-      "updatedAt": "2026-11-02T22:14:28.487Z"
-    },
-    "ACTIVITY-1793657655324-y5uidq6s2ma": {
-      "requestId": "ACTIVITY-1793657655324-y5uidq6s2ma",
-      "sequence": "1793657655324",
+    "ACTIVITY-1794095512952-exf2v9mlzg6": {
+      "requestId": "ACTIVITY-1794095512952-exf2v9mlzg6",
+      "sequence": "1794095512952",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:14:15.324Z",
-      "updatedAt": "2026-11-02T22:14:15.324Z"
+      "createdAt": "2026-11-07T23:51:52.952Z",
+      "updatedAt": "2026-11-07T23:51:52.952Z"
     },
-    "DASH-USERS-1793655293868-I5F3GHEVD5": {
-      "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
-      "sequence": "1793655293868348457",
+    "DASH-USERS-1794096506908-4965R3DR3K": {
+      "requestId": "DASH-USERS-1794096506908-4965R3DR3K",
+      "sequence": "1794096506908405571",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:20Z",
-      "updatedAt": "2026-11-02T21:37:27Z"
+      "createdAt": "2026-11-08T00:08:55Z",
+      "updatedAt": "2026-11-08T00:10:24Z"
     },
-    "DASH-USERS-1793655291503-5DCLVVRAHO": {
-      "requestId": "DASH-USERS-1793655291503-5DCLVVRAHO",
-      "sequence": "1793655291503962011",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:15Z",
-      "updatedAt": "2026-11-02T21:36:48Z"
-    },
-    "DASH-USERS-1793655277550-LUCBTQKKE7": {
-      "requestId": "DASH-USERS-1793655277550-LUCBTQKKE7",
-      "sequence": "1793655277550281607",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:02Z",
-      "updatedAt": "2026-11-02T21:36:38Z"
-    },
-    "DASH-USERS-1793653387056-F7IW0WFHSU": {
-      "requestId": "DASH-USERS-1793653387056-F7IW0WFHSU",
-      "sequence": "1793653387056745214",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:03:34Z",
-      "updatedAt": "2026-11-02T21:04:55Z"
-    },
-    "DASH-USERS-1793618800778-70W3LKDQ85": {
-      "requestId": "DASH-USERS-1793618800778-70W3LKDQ85",
-      "sequence": "1793618800778573342",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T11:27:06Z",
-      "updatedAt": "2026-11-02T11:28:53Z"
-    },
-    "DASH-USERS-1793593698321-RKXNMCSHW5": {
-      "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
-      "sequence": "1793593698321585245",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:28:43Z",
-      "updatedAt": "2026-11-02T04:30:29Z"
-    },
-    "DASH-USERS-1793593643959-UAJWXV0NJY": {
-      "requestId": "DASH-USERS-1793593643959-UAJWXV0NJY",
-      "sequence": "1793593643960306651",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_USER",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:27:45Z",
-      "updatedAt": "2026-11-02T04:29:21Z"
-    },
-    "DASH-USERS-1793593448344-5DON078NPS": {
-      "requestId": "DASH-USERS-1793593448344-5DON078NPS",
-      "sequence": "1793593448344479954",
+    "DASH-USERS-1794099334124-LF35JADADQ": {
+      "requestId": "DASH-USERS-1794099334124-LF35JADADQ",
+      "sequence": "1794099334124759980",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "ADD_USER",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:24:30Z",
-      "updatedAt": "2026-11-02T04:26:09Z"
+      "createdAt": "2026-11-08T00:56:01Z",
+      "updatedAt": "2026-11-08T00:57:35Z"
     },
-    "DASH-USERS-1793592599398-VMDQX86R9U": {
-      "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
-      "sequence": "1793592599398300655",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "ADD_USER",
+    "ANNOUNCEMENT-1794099496543-BH2E0ON02S": {
+      "requestId": "ANNOUNCEMENT-1794099496543-BH2E0ON02S",
+      "sequence": "1794099496543780170",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "UPDATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:10:23Z",
-      "updatedAt": "2026-11-02T04:11:57Z"
+      "createdAt": "2026-11-08T00:58:43Z",
+      "updatedAt": "2026-11-08T00:58:43Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
+      "targetId": "1793715257459-CV8YPK1G9P"
+    },
+    "ANNOUNCEMENT-1794099512062-1UM6BWHW8E": {
+      "requestId": "ANNOUNCEMENT-1794099512062-1UM6BWHW8E",
+      "sequence": "1794099512062333178",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "UPDATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T00:58:58Z",
+      "updatedAt": "2026-11-08T00:58:58Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE ANNOUNCEMENT · مستشفي جامعه القاهره سايكل اكتوبر عدوها من غير الأصناف الناقصه ده بس اللي هيعدي بدون كول مستشفى جامع",
+      "targetId": "1793715257459-CV8YPK1G9P"
+    },
+    "ACTIVITY-1794102891561-ntlhfaasq28": {
+      "requestId": "ACTIVITY-1794102891561-ntlhfaasq28",
+      "sequence": "1794102891561",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:54:51.561Z",
+      "updatedAt": "2026-11-08T01:54:51.561Z",
+      "actorName": "Mohamed Saleh",
+      "summary": "DISABLE TOOL · CONFIRMATION TYPE BUTTONS",
+      "targetToolId": "TOOL-001",
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
+    "ACTIVITY-1794102896898-7uwjgghya5a": {
+      "requestId": "ACTIVITY-1794102896898-7uwjgghya5a",
+      "sequence": "1794102896898",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:54:56.898Z",
+      "updatedAt": "2026-11-08T01:54:56.898Z",
+      "actorName": "Mohamed Saleh",
+      "summary": "DISABLE TOOL · PORTAL AUTO LOGIN",
+      "targetToolId": "TOOL-002",
+      "targetToolIds": [
+        "TOOL-002"
+      ]
+    },
+    "ACTIVITY-1794102901001-zzmil9mfboq": {
+      "requestId": "ACTIVITY-1794102901001-zzmil9mfboq",
+      "sequence": "1794102901001",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:55:01.001Z",
+      "updatedAt": "2026-11-08T01:55:01.001Z",
+      "actorName": "Mohamed Saleh",
+      "summary": "DISABLE TOOL · ODOO >>> LIMITED DRUG ACCORDION",
+      "targetToolId": "TOOL-004",
+      "targetToolIds": [
+        "TOOL-004"
+      ]
     }
   }
 }
