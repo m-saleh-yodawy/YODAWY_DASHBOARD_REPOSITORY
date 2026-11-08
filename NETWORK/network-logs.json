@@ -1,21 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-08T00:10:24Z",
+  "updatedAt": "2026-11-08T00:57:35Z",
   "transactions": {
-    "DASH-USERS-1794099334124-LF35JADADQ": {
-      "requestId": "DASH-USERS-1794099334124-LF35JADADQ",
-      "sequence": "1794099334124759980",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "ADD_USER",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:56:01Z",
-      "updatedAt": "2026-11-08T00:56:01Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "ADD USER · ahmed saleh",
-      "targetName": "ahmed saleh",
-      "targetRole": "USER"
-    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
@@ -197,6 +183,16 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-08T00:08:55Z",
       "updatedAt": "2026-11-08T00:10:24Z"
+    },
+    "DASH-USERS-1794099334124-LF35JADADQ": {
+      "requestId": "DASH-USERS-1794099334124-LF35JADADQ",
+      "sequence": "1794099334124759980",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "ADD_USER",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T00:56:01Z",
+      "updatedAt": "2026-11-08T00:57:35Z"
     }
   }
 }
