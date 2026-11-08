@@ -273,6 +273,7 @@
         document.getElementById('yd-nunito-font')?.remove();
         document.getElementById('yd-poppins-font')?.remove();
         ensureExternalStylesheet('yd-nunito-sans-font', 'https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
+        ensureExternalStylesheet('yd-cairo-font', 'https://fonts.googleapis.com/css2?family=Cairo:wght@300..900&display=swap');
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
         style.textContent = String.raw`
@@ -301,13 +302,13 @@
     --danger-bg: #fee2e2;
     --danger-border: #f0d7d9;
     color: var(--ink);
-    font: 400 12px/1.45 'Nunito Sans', system-ui, -apple-system, sans-serif;
+    font: 400 12px/1.45 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
 }
 #yd-dashboard-root *, #yd-dashboard-root *::before, #yd-dashboard-root *::after {
     box-sizing: border-box;
-    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
 }
 #yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
 #yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
@@ -329,6 +330,13 @@
     font-weight: 400 !important;
     font-style: normal !important;
     font-variant: normal !important;
+}
+#yd-dashboard-root :lang(ar):not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
+#yd-dashboard-root [dir="rtl"]:not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
+#yd-dashboard-root [dir="rtl"] :not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
+body > .ui-select-menu.yd-select-portal-menu :lang(ar):not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
+body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab) {
+    font-family: 'Cairo', sans-serif !important;
 }
 #yd-dashboard-root i.fa-solid::before, #yd-dashboard-root i.fas::before,
 #yd-dashboard-root i.fa-regular::before, #yd-dashboard-root i.far::before,
@@ -925,7 +933,7 @@
     border-radius: 7px;
     background: #f7f2f6;
     color: var(--brand-dark);
-    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     font-size: 10px;
     font-weight: 600 !important;
 }
@@ -1055,6 +1063,7 @@
     cursor: pointer;
     transition: all .15s;
 }
+#yd-dashboard-root .yd-icon-btn .yd-action-svg { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #yd-dashboard-root .yd-icon-btn:hover { border-color: #d8c7d7; background: var(--brand-soft); color: var(--brand-dark); }
 #yd-dashboard-root .yd-icon-btn.danger { border-color: var(--danger-border); background: #fff; color: var(--danger); }
 #yd-dashboard-root .yd-icon-btn.danger:hover { border-color: #e7bec2; background: var(--danger-bg); color: #a83742; }
@@ -1064,7 +1073,7 @@
     max-width: 260px;
     overflow: hidden;
     color: var(--muted);
-    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     font-size: 10.5px;
     text-overflow: ellipsis;
     vertical-align: middle;
@@ -1139,7 +1148,7 @@
 #yd-dashboard-root .yd-permission-row.is-pending { border-color: #ead7a9; background: #fffcf5; }
 #yd-dashboard-root .yd-permission-tool { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 #yd-dashboard-root .yd-permission-tool strong { color: var(--ink); font-size: 11.5px; }
-#yd-dashboard-root .yd-permission-tool > span { color: var(--muted); font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important; font-size: 10px; }
+#yd-dashboard-root .yd-permission-tool > span { color: var(--muted); font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important; font-size: 10px; }
 #yd-dashboard-root .yd-permission-controls { display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap; }
 #yd-dashboard-root .yd-permission-control { display: flex; align-items: center; gap: 6px; min-width: 132px; }
 #yd-dashboard-root .yd-permission-label { min-width: 75px; color: var(--muted); font-size: 10px; font-weight: 600 !important; }
@@ -1359,7 +1368,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     color: #18181b;
     box-shadow: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #00000014, 0 0 0 1px #875a7b12;
     box-sizing: border-box;
-    font-family: 'Nunito Sans', system-ui, -apple-system, sans-serif !important;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top left;
     animation: yd-dropdown-enter .12s cubic-bezier(.2, .8, .2, 1) both;
 }
@@ -1528,23 +1537,23 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     justify-content: space-between;
     gap: 12px;
     width: 100%;
-    padding: 10px 14px;
+    padding: 7px 12px;
     border-bottom: 1px solid #f0f0f2;
     background: #fff;
 }
 #yd-dashboard-root .yd-announcement-author-wrap {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
 }
 #yd-dashboard-root .yd-announcement-avatar {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
     border-radius: 50%;
     background: var(--brand);
     color: #fff;
@@ -1560,7 +1569,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 }
 #yd-dashboard-root .yd-announcement-author {
     color: #18181b;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700 !important;
 }
 #yd-dashboard-root .yd-announcement-by {
@@ -1572,7 +1581,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     align-items: center;
     gap: 3px;
     color: #71717a;
-    font-size: 11px;
+    font-size: 10px;
     white-space: nowrap;
 }
 #yd-dashboard-root .yd-announcement-date svg { width: 12px; height: 12px; flex: 0 0 12px; }
@@ -1581,13 +1590,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     align-items: center;
     justify-content: flex-end;
     flex: 0 0 auto;
-    min-width: 108px;
+    min-width: 100px;
 }
-#yd-dashboard-root .yd-announcement-cycle-select { width: 108px; min-width: 108px; }
+#yd-dashboard-root .yd-announcement-cycle-select { width: 100px; min-width: 100px; }
 #yd-dashboard-root .yd-announcement-cycle-select .ui-select-trigger {
-    height: 29px;
-    min-height: 29px;
-    padding: 5px 8px;
+    height: 26px;
+    min-height: 26px;
+    padding: 4px 7px;
     border: 1px solid var(--brand);
     border-radius: 8px;
     background: var(--brand);
@@ -1610,9 +1619,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 108px;
-    min-height: 29px;
-    padding: 5px 8px;
+    min-width: 100px;
+    min-height: 26px;
+    padding: 4px 7px;
     border: 1px solid var(--brand);
     border-radius: 8px;
     background: var(--brand);
@@ -1624,10 +1633,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 }
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
-    padding: 18px;
+    padding: 14px;
     background: #fff;
     color: #18181b;
-    font-size: 14.5px;
+    font-size: 13px;
     font-weight: 600 !important;
     line-height: 1.65;
     text-align: right;
@@ -1640,7 +1649,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
-    padding: 0 18px 14px;
+    padding: 0 14px 12px;
     background: #fff;
 }
 #yd-dashboard-root .yd-announcement-actions { display: flex; align-items: center; gap: 8px; }
@@ -1858,6 +1867,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             '<div class="yd-tool-summary"><span>' + visibleTools.length + ' Tools</span><span>' + permittedCount + ' Permitted</span><span>' + onCount + ' Enabled</span></div>';
     };
 
+    const editActionIcon = '<svg class="yd-action-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>';
+    const deleteActionIcon = '<svg class="yd-action-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 14H6L5 6"></path><path d="M10 11v6M14 11v6"></path></svg>';
+
     const renderUsers = () => {
         const baseUsers = getUsers();
         const pendingAdds = getPendingTransactions().filter(item => String(item.action || '').toUpperCase() === 'ADD_USER' && item.targetName);
@@ -1883,10 +1895,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             const pendingLabel = pendingAction === 'ADD_USER' ? 'Adding' : pendingAction === 'DELETE_USER' ? 'Deleting' : 'Updating';
             const canDelete = !isAdmin && !(context.userRole === 'SUPER_ADMIN' && isSelf) && !user._pending;
             const editButton = !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf)
-                ? '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"' + (pending ? ' disabled' : '') + '><i class="fa-solid fa-pen-to-square"></i></button>'
+                ? '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"' + (pending ? ' disabled' : '') + '>' + editActionIcon + '</button>'
                 : '';
             const deleteButton = canDelete
-                ? '<button type="button" class="yd-icon-btn danger" data-action="delete-user" data-id="' + escapeHTML(id) + '" title="Delete user" aria-label="Delete user"' + (pending ? ' disabled' : '') + '><i class="fa-solid fa-trash-can"></i></button>'
+                ? '<button type="button" class="yd-icon-btn danger" data-action="delete-user" data-id="' + escapeHTML(id) + '" title="Delete user" aria-label="Delete user"' + (pending ? ' disabled' : '') + '>' + deleteActionIcon + '</button>'
                 : '';
             const status = pending ? renderPendingBadge(pendingLabel) : '<span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span>';
             const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
@@ -2018,7 +2030,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 ? renderAnnouncementCycleDropdown(cycle, post.id)
                 : '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
             return '<article class="yd-announcement-card"><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time></div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' +
-                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></div></footer>' : '') +
+                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>' : '') +
                 '</article>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
