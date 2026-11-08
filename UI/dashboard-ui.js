@@ -1395,7 +1395,12 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     cursor: pointer;
     transition: all .12s;
 }
-#yd-dashboard-root .yd-pagination-link:hover:not(.disabled) { border-color: var(--brand-dark); background: var(--brand-dark); color: #fff; }
+#yd-dashboard-root .yd-pagination-link:not(.active):hover:not(.disabled),
+#yd-dashboard-root .yd-pagination-link:not(.active):focus-visible:not(.disabled) {
+    border-color: var(--border);
+    background: #e9dfea;
+    color: #68465f;
+}
 #yd-dashboard-root .yd-pagination-link.active { border-color: var(--brand) !important; background: var(--brand) !important; color: #fff !important; font-weight: 700 !important; }
 #yd-dashboard-root .yd-pagination-link.disabled { opacity: .38; pointer-events: none; cursor: not-allowed; }
 
