@@ -556,8 +556,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-size: 11px;
     cursor: pointer;
     text-align: left;
+    transition: background-color .18s ease, color .18s ease, transform .18s ease;
 }
 #yd-dashboard-root .yd-dropdown-action:hover { background: var(--brand-soft); color: var(--brand-dark); }
+#yd-dashboard-root .yd-action-icon { transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease; }
+#yd-dashboard-root .yd-dropdown-action:hover .yd-action-icon { transform: translateX(2px); }
 #yd-dashboard-root .yd-action-icon {
     display: flex;
     align-items: center;
@@ -662,6 +665,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: #f7f2f7;
     color: var(--brand);
     font-size: 12px;
+    transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
 }
 #yd-dashboard-root .yd-nav.active .yd-nav-icon { border-color: #fff; background: #fff; color: #875a7b; }
 #yd-dashboard-root .yd-sidebar-bottom {
@@ -1030,7 +1034,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 1px 3px #0002;
-    transition: transform .24s cubic-bezier(.2, .8, .2, 1);
+    transition: transform .24s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease;
 }
 #yd-dashboard-root .yd-switch.on .yd-switch-knob { transform: translateX(16px); }
 #yd-dashboard-root .yd-switch:disabled { opacity: .5; cursor: not-allowed; }
@@ -1049,7 +1053,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     color: var(--brand);
     line-height: 1;
     cursor: pointer;
-    transition: all .15s;
+    transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 #yd-dashboard-root .yd-icon-btn > .yd-action-svg {
     display: block !important;
@@ -1106,7 +1110,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     color: var(--ink);
     cursor: pointer;
     list-style: none;
-    transition: background .15s;
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease;
 }
 #yd-dashboard-root .yd-accordion-item > summary { padding-right: 38px; }
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
@@ -1137,6 +1141,28 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 1px 3px #29242e08;
+}
+#yd-dashboard-root .yd-accordion-item[open] > .yd-accordion-body,
+#yd-dashboard-root .yd-tool-accordion-item[open] > .yd-tool-accordion-body {
+    animation: yd-accordion-enter .2s cubic-bezier(.2, .8, .2, 1) both;
+}
+@supports selector(details::details-content) and (interpolate-size: allow-keywords) {
+    #yd-dashboard-root .yd-accordion-item,
+    #yd-dashboard-root .yd-tool-accordion-item {
+        interpolate-size: allow-keywords;
+    }
+    #yd-dashboard-root .yd-accordion-item::details-content,
+    #yd-dashboard-root .yd-tool-accordion-item::details-content {
+        block-size: 0;
+        overflow: clip;
+        content-visibility: hidden;
+        transition: block-size .22s cubic-bezier(.2, .8, .2, 1), content-visibility .22s allow-discrete;
+    }
+    #yd-dashboard-root .yd-accordion-item[open]::details-content,
+    #yd-dashboard-root .yd-tool-accordion-item[open]::details-content {
+        block-size: auto;
+        content-visibility: visible;
+    }
 }
 #yd-dashboard-root .yd-permission-row {
     display: grid;
@@ -1648,7 +1674,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     width: 100%;
     min-width: 0;
 }
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger {
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger,
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
     position: relative;
     display: flex;
     align-items: center;
@@ -1657,18 +1684,25 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     height: 34px;
     min-height: 34px;
     padding: 0 34px;
-    border: 1px solid #d8d0dc;
+    border: 1px solid var(--brand);
     border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
+    background: var(--brand);
+    color: #fff;
     font-size: 12px;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
     text-align: center;
 }
 #yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover:not(:disabled) {
-    border-color: #b28aa8;
-    background: #fcf9fc;
-    color: var(--brand-dark);
+    border-color: var(--brand-dark);
+    background: var(--brand-dark);
+    color: #fff;
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value,
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value[data-placeholder="true"] {
+    color: #fff !important;
+}
+#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
+    color: rgba(255, 255, 255, .92);
 }
 #yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value {
     flex: 1 1 auto;
@@ -1730,6 +1764,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 
 @keyframes yd-dropdown-enter {
     from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes yd-accordion-enter {
+    from { opacity: 0; transform: translateY(-5px); }
     to { opacity: 1; transform: translateY(0); }
 }
 @keyframes yd-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
