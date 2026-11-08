@@ -44,6 +44,7 @@
     const pendingVisibilitySubmissions = new Set();
     const backgroundTransactions = new Set();
     const localTransactions = new Map();
+    const pendingAnnouncements = new Map();
     const pendingLocalTools = new Map();
     const trackedTransactions = new Set();
     let networkPage = 1;
@@ -141,6 +142,25 @@
     };
 
     const getPendingStorageKey = () => 'yd-dashboard-pending-v1:' + String(context?.userId || context?.user?.id || context?.user?.userId || 'UNKNOWN').trim().toUpperCase();
+    const getPendingAnnouncementsStorageKey = () => 'yd-dashboard-pending-announcements-v1:' + String(context?.userId || context?.user?.id || context?.user?.userId || 'UNKNOWN').trim().toUpperCase();
+
+    const persistPendingAnnouncements = () => {
+        try {
+            localStorage.setItem(getPendingAnnouncementsStorageKey(), JSON.stringify([...pendingAnnouncements.values()]));
+        } catch {}
+    };
+
+    const restorePendingAnnouncements = () => {
+        try {
+            const records = JSON.parse(localStorage.getItem(getPendingAnnouncementsStorageKey()) || '[]');
+            pendingAnnouncements.clear();
+            if (Array.isArray(records)) records.forEach(record => {
+                if (record?.requestId && record?.id) pendingAnnouncements.set(record.requestId, record);
+            });
+        } catch {
+            pendingAnnouncements.clear();
+        }
+    };
 
     const persistPendingTransactions = () => {
         try {
@@ -212,6 +232,7 @@
     };
 
     const renderPendingBadge = (label = 'Pending') => '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>' + escapeHTML(label) + '</span></span>';
+    const renderFailedBadge = (label = 'FAILED') => '<span class="yd-pending-badge yd-pending-failed"><i class="fa-solid fa-circle-exclamation"></i><span>' + escapeHTML(label) + '</span></span>';
     const setButtonLoading = (button, label = 'Loading') => {
         if (!button) return;
         button.disabled = true;
@@ -1323,6 +1344,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-weight: 500 !important;
     white-space: nowrap;
 }
+#yd-dashboard-root .yd-pending-badge.yd-pending-failed {
+    border-color: #f0d7d9;
+    background: #fff1f2;
+    color: #b42332;
+}
 #yd-dashboard-root .yd-inline-loading {
     display: inline-flex;
     align-items: center;
@@ -1517,6 +1543,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][hidden] {
 }
 #yd-dashboard-root .ui-select-group,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-group {
+    display: block;
+    width: 100%;
+    min-width: 0;
     padding: 10px;
 }
 #yd-dashboard-root .ui-select-label,
@@ -2122,12 +2151,19 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 #yd-dashboard-root .yd-role-label.yd-role-user { border-color: #bbf7d0 !important; background: #dcfce7 !important; color: #15803d !important; }
 
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
-#yd-dashboard-root select,
-body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
+#yd-dashboard-root select {
     max-width: 340px;
     color: #18181b !important;
     box-shadow: none !important;
     outline: none !important;
+}
+#yd-dashboard-root .yd-allowed-users-menu .yd-allowed-users-search,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-group > .yd-allowed-users-search {
+    display: block !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: none !important;
+    flex: none !important;
 }
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
@@ -2460,17 +2496,24 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const posts = context.announcements?.getPosts?.() || [];
         const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
         const role = String(context.userRole || 'USER').trim().toLowerCase().replace(/_/g, '');
-        const cards = posts.map(post => {
+        const renderCard = (post, pending = false) => {
             const published = formatAnnouncementDate(post.createdAt || post.updatedAt);
             const cycle = getAnnouncementCycle(post);
             const id = escapeHTML(post.id);
             const authorName = String(post.createdBy || 'Dashboard Team').toLocaleUpperCase();
             const author = escapeHTML(authorName);
             const cycleControl = '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
-            return '<article class="yd-announcement-card"><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time></div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' +
-                (canManage ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>' : '') +
-                '</article>';
-        }).join('');
+            const state = String(post.status || '').toUpperCase();
+            const statusBadge = pending ? state === 'FAILED' ? renderFailedBadge('FAILED') : renderPendingBadge('PUBLISHING') : '';
+            const actions = canManage && !pending
+                ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>'
+                : '';
+            return '<article class="yd-announcement-card' + (pending ? ' yd-announcement-pending' + (state === 'FAILED' ? ' is-failed' : '') : '') + '" ' + (pending ? 'aria-busy="' + String(state !== 'FAILED') + '"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
+        };
+        const cards = [
+            ...[...pendingAnnouncements.values()].map(post => renderCard(post, true)),
+            ...posts.map(post => renderCard(post))
+        ].join('');
         return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
             (canManage ? '<button type="button" class="yd-primary" data-action="add-announcement"><i class="fa-solid fa-plus"></i><span>New Announcement</span></button>' : '') +
             '</section><div class="yd-announcement-list" data-role="' + escapeHTML(role) + '">' + (cards || '<div class="yd-card yd-empty">No announcements have been published yet.</div>') + '</div>';
@@ -2497,20 +2540,55 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             const submit = form.querySelector('[type="submit"]');
             const data = new FormData(form);
             const payload = { body: String(data.get('body') || '').trim(), cycle: String(data.get('cycle') || '') };
-            if (!payload.body) return;
-            setButtonLoading(submit, editing ? 'Saving' : 'Publishing');
+            if (!payload.body || submit.disabled) return;
+            setButtonLoading(submit, editing ? 'Saving' : 'Queuing');
             try {
-                if (editing) await context.announcements.updatePost(post.id, payload);
-                else await context.announcements.createPost(payload);
-                await context.announcements.load();
+                if (editing) {
+                    await context.announcements.updatePost(post.id, payload);
+                    await context.announcements.load();
+                    close();
+                    render();
+                    showNotice('Announcement updated.');
+                    return;
+                }
+                const queued = await context.announcements.queuePost(payload);
+                const actor = context.user || {};
+                const pending = {
+                    requestId: queued.requestId,
+                    id: queued.id,
+                    body: queued.body,
+                    cycle: queued.cycle,
+                    createdBy: queued.createdBy || actor.name || context.userId || 'Dashboard Team',
+                    createdById: queued.createdById || context.userId || '',
+                    createdAt: queued.createdAt || new Date().toISOString(),
+                    updatedAt: queued.createdAt || new Date().toISOString(),
+                    status: 'PENDING'
+                };
+                pendingAnnouncements.set(queued.requestId, pending);
+                persistPendingAnnouncements();
+                const transaction = {
+                    requestId: queued.requestId,
+                    sequence: queued.sequence,
+                    requestType: queued.requestType || 'DASHBOARD_ANNOUNCEMENTS_SYNC',
+                    action: 'CREATE_ANNOUNCEMENT',
+                    status: 'SENT',
+                    actorId: String(context.userId || actor.id || actor.userId || '').trim().toUpperCase(),
+                    actorName: formatName(actor.name || context.userId || ''),
+                    targetId: queued.id,
+                    summary: 'PUBLISH ANNOUNCEMENT · ' + payload.body.slice(0, 90),
+                    createdAt: queued.createdAt || new Date().toISOString(),
+                    updatedAt: queued.createdAt || new Date().toISOString()
+                };
+                persistTransaction(transaction);
                 close();
                 render();
-                showNotice(editing ? 'Announcement updated.' : 'Announcement published.');
+                showNotice('Announcement queued for publishing. You can continue working while it processes.');
+                monitorTransaction(transaction);
             } catch (error) {
                 submit.disabled = false;
                 submit.removeAttribute('aria-busy');
                 submit.textContent = editing ? 'Save Changes' : 'Publish';
-                showMessageDialog('Announcement Not Saved', error?.message || 'Unable to save this announcement.');
+                showMessageDialog('Announcement Not Saved', error?.message || 'Unable to submit this announcement.');
             }
         });
     };
@@ -2715,10 +2793,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                     return;
                 }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
+                if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && transaction.action === 'CREATE_ANNOUNCEMENT') {
+                    pendingAnnouncements.delete(requestId);
+                    persistPendingAnnouncements();
+                }
                 removePendingTransaction(transaction);
                 try { await refresh(); } catch {}
                 showNotice((transaction.summary || formatAction(transaction.action)) + ' completed successfully.');
             } catch (error) {
+                if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && transaction.action === 'CREATE_ANNOUNCEMENT') {
+                    const pending = pendingAnnouncements.get(requestId);
+                    if (pending) {
+                        pendingAnnouncements.set(requestId, { ...pending, status: 'FAILED', error: error?.message || 'Publishing failed' });
+                        persistPendingAnnouncements();
+                    }
+                }
                 removePendingTransaction(transaction);
                 try { await refresh(); } catch {}
                 showMessageDialog('Operation Failed', error?.message || 'The background operation failed. No changes were confirmed.');
@@ -3437,6 +3526,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         (Array.isArray(uiState.expandedUsers) ? uiState.expandedUsers : []).forEach(id => expandedUsers.add(String(id)));
         (Array.isArray(uiState.expandedTools) ? uiState.expandedTools : []).forEach(id => expandedTools.add(String(id)));
         restorePendingTransactions();
+        restorePendingAnnouncements();
         isOpen = uiState.isOpen === true;
         profileOpen = uiState.profileOpen === true;
         notice = uiState.notice ? { message: String(uiState.notice), type: uiState.noticeType === 'error' ? 'error' : 'success' } : null;
