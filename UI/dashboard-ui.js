@@ -944,6 +944,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     transition: border-color .15s, box-shadow .15s;
 }
 #yd-dashboard-root .yd-search { width: min(340px, 100%); }
+#yd-dashboard-root .yd-toolbar .yd-search { flex: 1 1 0; width: 100%; max-width: none; }
 #yd-dashboard-root .yd-search::placeholder, #yd-dashboard-root input::placeholder { color: #aaa3ad; }
 #yd-dashboard-root .yd-search:focus, #yd-dashboard-root input:focus {
     outline: none !important;
