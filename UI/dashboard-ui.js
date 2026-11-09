@@ -574,7 +574,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 10px;
     background: #fff;
     color: var(--ink);
-    box-shadow: 0 12px 30px #21132b20, 0 0 0 1px #29242e08;
+    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
     animation: yd-dropdown-enter .13s cubic-bezier(.2, .8, .2, 1) both;
 }
 #yd-dashboard-root .yd-profile-menu[hidden] { display: none !important; }
