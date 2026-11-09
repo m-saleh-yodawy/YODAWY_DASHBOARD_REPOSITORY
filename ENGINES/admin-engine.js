@@ -153,9 +153,7 @@
             throw createError('Tools manifest is unavailable');
         }
 
-        return clone(tools.filter(tool =>
-            YODAWY.visibility?.isVisible?.(tool.id, tool) === true
-        ));
+        return clone(tools);
     };
 
     const createRequest = async (action, payload) => {
