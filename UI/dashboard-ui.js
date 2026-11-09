@@ -1368,6 +1368,21 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     outline: 2px solid var(--brand);
     outline-offset: 2px;
 }
+#yd-dashboard-root .yd-visibility-bulk {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+#yd-dashboard-root .yd-visibility-bulk-label {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800 !important;
+    letter-spacing: .035em;
+}
+#yd-dashboard-root .yd-visibility-bulk-switch { flex: 0 0 38px; }
 #yd-dashboard-root .yd-visibility-accordion-list {
     display: flex;
     flex-direction: column;
@@ -2556,6 +2571,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
 #yd-dashboard-root .ui-select-item::after {
     transition: border-color .2s ease, transform .2s ease, opacity .2s ease;
 }
+@media (max-width: 620px) {
+    #yd-dashboard-root .yd-visibility-bulk { gap: 5px; }
+    #yd-dashboard-root .yd-visibility-bulk-label { font-size: 8px; }
+}
+#yd-dashboard-root button,
+#yd-dashboard-root button:focus,
+#yd-dashboard-root button:focus-visible,
+#yd-dashboard-root button:active {
+    outline: none !important;
+}
 @media (prefers-reduced-motion: reduce) {
     #yd-dashboard-root *,
     body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] * {
@@ -2893,6 +2918,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                 '<button type="button" class="yd-switch yd-visibility-switch' + (allowed ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(userId) + '" data-enabled="' + String(allowed) + '" role="switch" aria-checked="' + String(allowed) + '" aria-label="' + escapeHTML(label) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>' +
                 '</div>';
         };
+        const renderBulkSwitch = (label, mode, targetId, enabled, disabled, targetName) => {
+            const actionLabel = (enabled ? 'Disable ' : 'Enable ') + label.toLowerCase() + ' for ' + targetName;
+            const targetAttribute = mode === 'ALL_TOOLS' ? 'data-user' : 'data-tool';
+            return '<span class="yd-visibility-bulk"><span class="yd-visibility-bulk-label">' + label + '</span><button type="button" class="yd-switch yd-visibility-switch yd-visibility-bulk-switch' + (enabled ? ' on' : '') + '" data-action="toggle-visibility-bulk" data-mode="' + mode + '" ' + targetAttribute + '="' + escapeHTML(targetId) + '" data-enabled="' + String(enabled) + '" role="switch" aria-checked="' + String(enabled) + '" aria-label="' + escapeHTML(actionLabel) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></span>';
+        };
         const modeCards = '<div class="yd-visibility-modes" data-active-mode="' + visibilityMode + '" role="tablist" aria-label="Visibility layout">' +
             '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong></span></button>' +
             '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong></span></button></div>';
@@ -2903,10 +2933,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                 const allowedCount = tools.filter(tool => isAllowed(tool, user)).length;
                 const pendingUser = pendingUsers.get(userId);
                 const expanded = visibilityExpandedUsers.has(userId) ? ' open' : '';
+                const active = String(user.status || '').toLowerCase() === 'active';
+                const pendingTool = tools.some(tool => pendingTools.get(String(tool.id)));
+                const allToolsEnabled = tools.length > 0 && allowedCount === tools.length;
+                const bulkSwitch = renderBulkSwitch('ALL TOOLS', 'ALL_TOOLS', userId, allToolsEnabled, Boolean(!active || pendingUser || pendingTool || !tools.length), formatName(user.name));
                 const rows = tools.map(tool => {
                     return '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(tool.id) + '</small></div>' + renderSwitch(tool, user) + '</div>';
                 }).join('');
-                return '<details class="yd-visibility-accordion-item" data-visibility-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(userId) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + tools.length + ' TOOLS</span>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No tools available.</div>') + '</div></details>';
+                return '<details class="yd-visibility-accordion-item" data-visibility-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(userId) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + tools.length + ' TOOLS</span>' + bulkSwitch + (pendingUser ? renderPendingBadge('Updating') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No tools available.</div>') + '</div></details>';
             }).join('');
             if (!users.length) accordions = '<div class="yd-card yd-empty">No users are available.</div>';
         } else {
@@ -2915,10 +2949,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                 const allowedCount = users.filter(user => isAllowed(tool, user)).length;
                 const pending = pendingTools.get(toolId);
                 const expanded = visibilityExpandedTools.has(toolId) ? ' open' : '';
+                const pendingUser = users.some(user => pendingUsers.get(String(user.id || '').trim().toUpperCase()));
+                const allUsersEnabled = users.length > 0 && allowedCount === users.length;
+                const bulkSwitch = renderBulkSwitch('ALL USERS', 'ALL_USERS', toolId, allUsersEnabled, Boolean(pending || pendingUser || !users.length), tool.name);
                 const rows = users.map(user =>
                     '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(String(user.id || '').trim().toUpperCase()) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></div>' + renderSwitch(tool, user) + '</div>'
                 ).join('');
-                return '<details class="yd-visibility-accordion-item" data-visibility-tool="' + escapeHTML(toolId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(toolId) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + users.length + ' USERS</span>' + (pending ? renderPendingBadge('Saving') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No users are available.</div>') + '</div></details>';
+                return '<details class="yd-visibility-accordion-item" data-visibility-tool="' + escapeHTML(toolId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(toolId) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + users.length + ' USERS</span>' + bulkSwitch + (pending ? renderPendingBadge('Saving') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No users are available.</div>') + '</div></details>';
             }).join('');
             if (!tools.length) accordions = '<div class="yd-card yd-empty">No tools are available.</div>';
         }
@@ -3572,6 +3609,98 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                     const metadata = { action: 'DELETE_USER', targetId: button.dataset.id, targetName: formatName(user?.name || button.dataset.id), summary: 'DELETE USER · ' + formatName(user?.name || button.dataset.id) };
                     return runNetworkOperation('Deleting user', () => getRoleEngine().deleteUser(button.dataset.id), metadata);
                 });
+            } else if (action === 'toggle-visibility-bulk') {
+                const mode = String(button.dataset.mode || '');
+                const engine = getRoleEngine();
+                const users = engine?.getUsers?.() || [];
+                const tools = getTools();
+                const visibility = { ...(engine?.getVisibility?.() || {}), ...Object.fromEntries(optimisticVisibility) };
+                if (mode === 'ALL_USERS') {
+                    const toolId = String(button.dataset.tool || '').trim();
+                    const tool = tools.find(item => String(item.id) === toolId);
+                    if (!tool || button.disabled || getPendingVisibility(toolId) || users.some(user => getPendingUser(user))) return;
+                    const currentRecord = visibility[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
+                    const currentAllowed = users.length > 0 && users.every(user => {
+                        const userId = String(user.id || '').trim().toUpperCase();
+                        return currentRecord.visibility === 'PUBLIC' || (currentRecord.visibility === 'SELECTED_USERS' && (currentRecord.allowedUsers || []).some(id => String(id).trim().toUpperCase() === userId));
+                    });
+                    const nextEnabled = !currentAllowed;
+                    const updatedRecord = nextEnabled
+                        ? { visibility: 'PUBLIC', allowedUsers: [] }
+                        : { visibility: 'SELECTED_USERS', allowedUsers: [] };
+                    optimisticVisibility.set(toolId, updatedRecord);
+                    pendingVisibilitySubmissions.add(toolId);
+                    render();
+                    const metadata = {
+                        action: 'UPDATE_VISIBILITY',
+                        targetToolIds: [toolId],
+                        summary: 'UPDATE VISIBILITY · ALL USERS · ' + tool.name + ' · ' + (nextEnabled ? 'ACCESS ENABLED' : 'ACCESS DISABLED')
+                    };
+                    try {
+                        await runNetworkOperation((nextEnabled ? 'Enabling' : 'Disabling') + ' all users for ' + tool.name, () =>
+                            engine.setToolVisibility(toolId, updatedRecord), metadata
+                        );
+                    } finally {
+                        pendingVisibilitySubmissions.delete(toolId);
+                        render();
+                    }
+                } else if (mode === 'ALL_TOOLS') {
+                    const userId = String(button.dataset.user || '').trim().toUpperCase();
+                    const user = users.find(item => String(item.id || '').trim().toUpperCase() === userId);
+                    if (!user || String(user.status || '').toLowerCase() !== 'active' || button.disabled || getPendingUser(user) || tools.some(tool => getPendingVisibility(String(tool.id)))) return;
+                    const nextEnabled = button.dataset.enabled !== 'true';
+                    const userIds = users.map(item => String(item.id || '').trim().toUpperCase());
+                    const changes = [];
+                    for (const tool of tools) {
+                        const toolId = String(tool.id);
+                        const currentRecord = visibility[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
+                        const currentAllowed = currentRecord.visibility === 'PUBLIC' ||
+                            (currentRecord.visibility === 'SELECTED_USERS' && (currentRecord.allowedUsers || []).some(id => String(id).trim().toUpperCase() === userId));
+                        if (currentAllowed === nextEnabled) continue;
+                        const allowedUsers = new Set(currentRecord.visibility === 'PUBLIC'
+                            ? userIds
+                            : currentRecord.visibility === 'SELECTED_USERS'
+                                ? (currentRecord.allowedUsers || []).map(id => String(id).trim().toUpperCase())
+                                : []);
+                        if (nextEnabled) allowedUsers.add(userId);
+                        else allowedUsers.delete(userId);
+                        changes.push({ tool, toolId, record: { visibility: 'SELECTED_USERS', allowedUsers: [...allowedUsers] } });
+                    }
+                    if (!changes.length) {
+                        showNotice('All tools already have the requested access state for ' + formatName(user.name) + '.');
+                        return;
+                    }
+                    changes.forEach(({ toolId, record }) => {
+                        optimisticVisibility.set(toolId, record);
+                        pendingVisibilitySubmissions.add(toolId);
+                    });
+                    render();
+                    const queued = new Set();
+                    try {
+                        for (const { tool, toolId, record } of changes) {
+                            const metadata = {
+                                action: 'UPDATE_VISIBILITY',
+                                targetId: userId,
+                                targetName: formatName(user.name || userId),
+                                targetToolIds: [toolId],
+                                summary: 'UPDATE VISIBILITY · ALL TOOLS · ' + formatName(user.name || userId) + ' · ' + tool.name + ' · ' + (nextEnabled ? 'ACCESS ENABLED' : 'ACCESS DISABLED')
+                            };
+                            await runNetworkOperation((nextEnabled ? 'Enabling' : 'Disabling') + ' ' + tool.name + ' for ' + formatName(user.name || userId), () =>
+                                engine.setToolVisibility(toolId, record), metadata
+                            );
+                            queued.add(toolId);
+                        }
+                        showNotice('ALL TOOLS access ' + (nextEnabled ? 'enabled' : 'disabled') + ' for ' + formatName(user.name || userId) + '.');
+                    } catch (error) {
+                        changes.forEach(({ toolId }) => {
+                            if (!queued.has(toolId)) optimisticVisibility.delete(toolId);
+                        });
+                        throw error;
+                    } finally {
+                        changes.forEach(({ toolId }) => pendingVisibilitySubmissions.delete(toolId));
+                        render();
+                    }
+                }
             } else if (action === 'toggle-visibility') {
                 const toolId = String(button.dataset.tool || '').trim();
                 const userId = String(button.dataset.user || '').trim().toUpperCase();
@@ -3703,7 +3832,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                 });
             }
         } catch (error) {
-            if (button && action === 'toggle-permission') render();
+            if (button && ['toggle-permission', 'toggle-visibility-bulk'].includes(action)) render();
             showMessageDialog('Operation Not Submitted', error?.message || 'The requested operation could not be submitted.');
         }
     };
@@ -3900,6 +4029,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
             if (handleAllowedUsersAction(actionButton)) return;
+            if (actionButton?.dataset.action === 'toggle-visibility-bulk') {
+                event.preventDefault();
+                event.stopPropagation();
+                runAction(actionButton.dataset.action, actionButton);
+                return;
+            }
             if (actionButton?.dataset.action === 'visibility-mode') {
                 visibilityMode = actionButton.dataset.mode === 'TOOLS' ? 'TOOLS' : 'USERS';
                 render();
