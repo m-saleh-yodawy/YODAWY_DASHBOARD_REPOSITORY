@@ -45,7 +45,7 @@
       "type": "SUPER_ADMIN"
     },
     "TOOL-004": {
-      "granted": false,
+      "granted": true,
       "forcedState": false,
       "type": "SUPER_ADMIN"
     }
