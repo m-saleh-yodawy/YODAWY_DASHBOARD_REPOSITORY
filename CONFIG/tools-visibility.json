@@ -2,6 +2,7 @@
   "TOOL-001": {
     "visibility": "SELECTED_USERS",
     "allowedUsers": [
+      "Q-001",
       "Q-002",
       "Q-003",
       "Q-004"
@@ -10,7 +11,6 @@
   "TOOL-002": {
     "visibility": "SELECTED_USERS",
     "allowedUsers": [
-      "Q-001",
       "Q-002",
       "Q-003"
     ]
