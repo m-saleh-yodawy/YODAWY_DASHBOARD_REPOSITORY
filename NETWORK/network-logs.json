@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T22:43:13Z",
+  "updatedAt": "2026-11-09T22:44:00Z",
   "transactions": {
     "DASH-USERS-1794264075695-51P9CGF8V5": {
       "requestId": "DASH-USERS-1794264075695-51P9CGF8V5",
@@ -24,17 +24,6 @@
       "updatedAt": "2026-11-09T22:41:43Z",
       "targetId": "Q-004"
     },
-    "DASH-USERS-1794264082607-KBTGE2WH42": {
-      "requestId": "DASH-USERS-1794264082607-KBTGE2WH42",
-      "sequence": "1794264082607889492",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T22:41:49Z",
-      "updatedAt": "2026-11-09T22:41:49Z",
-      "targetId": "Q-004"
-    },
     "DASH-USERS-1794264086677-WJWQN542HG": {
       "requestId": "DASH-USERS-1794264086677-WJWQN542HG",
       "sequence": "1794264086677234591",
@@ -56,16 +45,6 @@
       "createdAt": "2026-11-09T22:41:59Z",
       "updatedAt": "2026-11-09T22:41:59Z",
       "targetId": "Q-002"
-    },
-    "ACTIVITY-1794102896898-7uwjgghya5a": {
-      "requestId": "ACTIVITY-1794102896898-7uwjgghya5a",
-      "sequence": "1794102896898",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:54:56.898Z",
-      "updatedAt": "2026-11-08T01:54:56.898Z"
     },
     "ACTIVITY-1794102901001-zzmil9mfboq": {
       "requestId": "ACTIVITY-1794102901001-zzmil9mfboq",
@@ -582,6 +561,17 @@
       "createdAt": "2026-11-09T22:41:24Z",
       "updatedAt": "2026-11-09T22:43:13Z",
       "targetId": "Q-005"
+    },
+    "DASH-USERS-1794264082607-KBTGE2WH42": {
+      "requestId": "DASH-USERS-1794264082607-KBTGE2WH42",
+      "sequence": "1794264082607889492",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T22:41:49Z",
+      "updatedAt": "2026-11-09T22:43:59Z",
+      "targetId": "Q-004"
     }
   }
 }
