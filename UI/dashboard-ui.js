@@ -31,6 +31,7 @@
     ]);
 
     let context = null;
+    let rootElement = null;
     let activePage = 'tools';
     let refreshTimer = null;
     let notice = null;
@@ -128,11 +129,16 @@
     const renderRolePill = value => '<span class="yd-pill yd-role-pill yd-role-' + getRoleTone(value) + '">' + escapeHTML(formatRole(value)) + '</span>';
     const renderRoleLabel = value => '<span class="yd-role-label yd-role-' + getRoleTone(value) + '">' + escapeHTML(formatRole(value)) + '</span>';
 
-    const getRoleEngine = () => context.userRole === 'SUPER_ADMIN'
-        ? context.superAdminEngine || context.superAdmin || null
-        : context.userRole === 'ADMIN'
-            ? context.adminEngine || context.admin || null
-            : context.userEngine || null;
+    const getRoleEngine = (runtimeContext = context) => {
+        if (!runtimeContext) return null;
+        return runtimeContext.userRole === 'SUPER_ADMIN'
+            ? runtimeContext.superAdminEngine || runtimeContext.superAdmin || null
+            : runtimeContext.userRole === 'ADMIN'
+                ? runtimeContext.adminEngine || runtimeContext.admin || null
+                : runtimeContext.userEngine || null;
+    };
+
+    const isCurrentUI = () => Boolean(context && rootElement?.isConnected && document.getElementById(CONFIG.ID) === rootElement);
 
     const ROLE_ACCESS = Object.freeze({
         USER: Object.freeze({
@@ -176,7 +182,7 @@
     const getRoleAccess = () => ROLE_ACCESS[context?.userRole] || ROLE_ACCESS.USER;
 
     const getUsers = () => {
-        try { return getRoleEngine()?.getUsers?.() || [context.user]; }
+        try { return getRoleEngine()?.getUsers?.() || (context?.user ? [context.user] : []); }
         catch { return [context.user]; }
     };
 
@@ -328,6 +334,7 @@
     };
 
     const showNotice = (message, type = 'success') => {
+        if (!isCurrentUI()) return;
         notice = { message, type };
         const element = document.querySelector('#' + CONFIG.ID + ' .yd-toast');
         if (element) {
@@ -354,7 +361,7 @@
         const next = { ...current, ...changes, id };
         if (Object.keys(next).every(key => next[key] === current[key])) return;
         activityItems.set(id, next);
-        if (document.getElementById(CONFIG.ID)) render();
+        if (isCurrentUI()) render();
     };
 
     const beginActivity = (label, location = 'Dashboard', stage = 'Starting operation', id = '') => {
@@ -3396,8 +3403,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const render = () => {
-        const root = document.getElementById(CONFIG.ID);
-        if (!root) return;
+        const root = rootElement;
+        if (!isCurrentUI() || !root) return;
         root.querySelectorAll('details[data-user-accordion]').forEach(item => {
             if (item.open) expandedUsers.add(item.dataset.user);
             else expandedUsers.delete(item.dataset.user);
@@ -3479,20 +3486,23 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const refresh = async () => {
-        const toolsManager = context.tools;
+        const runtimeContext = context;
+        if (!runtimeContext || !isCurrentUI()) throw new Error('Dashboard context is no longer active.');
+        const roleEngine = getRoleEngine(runtimeContext);
+        const toolsManager = runtimeContext.tools;
         let previousManifest = [];
         let loadedTools = [];
         try { previousManifest = toolsManager?.getManifest?.() || []; } catch {}
         try { loadedTools = toolsManager?.getLoadedTools?.() || []; } catch {}
         await Promise.all([
-            context.permissions?.load?.(),
-            context.visibility?.load?.(),
-            context.settings?.load?.(),
+            runtimeContext.permissions?.load?.(),
+            runtimeContext.visibility?.load?.(),
+            runtimeContext.settings?.load?.(),
             toolsManager?.loadManifest?.(),
-            context.announcements?.load?.()
+            runtimeContext.announcements?.load?.()
         ]);
-        const engine = getRoleEngine();
-        if (engine?.refresh) await engine.refresh();
+        if (context !== runtimeContext || !isCurrentUI()) return false;
+        if (roleEngine?.refresh) await roleEngine.refresh();
         const nextManifest = toolsManager?.getManifest?.() || [];
         const previousById = new Map(previousManifest.map(tool => [String(tool.id), tool]));
         const nextById = new Map(nextManifest.map(tool => [String(tool.id), tool]));
@@ -3514,6 +3524,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             }
         }
         await toolsManager?.sync?.();
+        if (context !== runtimeContext || !isCurrentUI()) return false;
         const message = skippedTools.length
             ? 'Dashboard updated. These tools could not be safely restarted: ' + skippedTools.join(', ')
             : 'Dashboard and available tools updated successfully.';
@@ -3549,7 +3560,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         return { status, statusLabel, stage };
     };
 
-    const monitorTransaction = (transaction, existingActivityId = '') => {
+    const monitorTransaction = (transaction, existingActivityId = '', transactionEngine = null) => {
         const requestId = transaction?.requestId;
         if (!requestId || trackedTransactions.has(requestId)) return;
         trackedTransactions.add(requestId);
@@ -3561,7 +3572,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const startedAt = Date.now();
             let keepActivity = false;
             try {
-                const engine = getRoleEngine();
+                const engine = transactionEngine || getRoleEngine();
+                if (!engine?.getTransaction) throw new Error('NETWORK transaction engine is unavailable.');
                 let result = null;
                 while (Date.now() - startedAt < 1800000) {
                     try {
@@ -3625,6 +3637,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const runNetworkOperation = async (message, operation, metadata = {}) => {
+        const runtimeContext = context;
+        if (!runtimeContext || !isCurrentUI()) throw new Error('Dashboard context is no longer active.');
+        const transactionEngine = getRoleEngine(runtimeContext);
+        const actor = runtimeContext.user || {};
+        const actorId = String(runtimeContext.userId || actor.id || actor.userId || '').trim().toUpperCase();
         const activityId = beginActivity(message, getActivityLocation(metadata), 'Creating NETWORK request', 'SUBMIT-' + (++activityCounter));
         let request;
         try {
@@ -3638,15 +3655,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             }
             throw error;
         }
-        const actor = context.user || {};
         const transaction = {
             ...metadata,
             requestId: request.requestId,
             sequence: request.sequence,
             requestType: 'DASHBOARD_USERS_SYNC',
             status: 'SENT',
-            actorId: String(context.userId || actor.id || actor.userId || '').trim().toUpperCase(),
-            actorName: formatName(actor.name || context.userId || ''),
+            actorId,
+            actorName: formatName(actor.name || runtimeContext.userId || ''),
             createdAt: request.createdAt || new Date().toISOString(),
             updatedAt: request.createdAt || new Date().toISOString()
         };
@@ -3660,9 +3676,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             label: transaction.summary || message,
             location: getActivityLocation(transaction)
         });
-        render();
-        showNotice(message + ' queued. You can continue working while it processes.');
-        monitorTransaction(transaction, activityId);
+        if (isCurrentUI()) {
+            render();
+            showNotice(message + ' queued. You can continue working while it processes.');
+        }
+        monitorTransaction(transaction, activityId, transactionEngine);
         return request;
     };
 
@@ -3831,6 +3849,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const showMessageDialog = (title, message, type = 'error') => {
+        if (!isCurrentUI()) return;
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
@@ -4563,6 +4582,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
         root.id = CONFIG.ID;
+        rootElement = root;
         document.body.appendChild(root);
         render();
         bindEvents(root);
@@ -4591,8 +4611,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (activityClickRoot && activityClickHandler) activityClickRoot.removeEventListener('click', activityClickHandler, true);
         activityClickRoot = activityClickHandler = null;
         dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
-        document.getElementById(CONFIG.ID)?.remove();
-        document.getElementById(CONFIG.STYLE_ID)?.remove();
+        rootElement?.remove();
+        if (document.getElementById(CONFIG.STYLE_ID)) document.getElementById(CONFIG.STYLE_ID).remove();
+        rootElement = null;
         context = null;
         notice = null;
         isOpen = false;
