@@ -1,23 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T03:05:44Z",
+  "updatedAt": "2026-11-09T03:10:36Z",
   "transactions": {
-    "DASH-USERS-1794193739921-PFXO3OWJG7": {
-      "requestId": "DASH-USERS-1794193739921-PFXO3OWJG7",
-      "sequence": "1794193739921298004",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T03:09:29Z",
-      "updatedAt": "2026-11-09T03:09:29Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-002, TOOL-004",
-      "targetToolIds": [
-        "TOOL-002",
-        "TOOL-004"
-      ]
-    },
     "DASH-USERS-1794193773337-EDKTJU1AQD": {
       "requestId": "DASH-USERS-1794193773337-EDKTJU1AQD",
       "sequence": "1794193773337196201",
@@ -26,12 +10,7 @@
       "status": "SENT",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:10:09Z",
-      "updatedAt": "2026-11-09T03:10:09Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "updatedAt": "2026-11-09T03:10:09Z"
     },
     "DASH-USERS-1794193791277-CGNO9JOJCE": {
       "requestId": "DASH-USERS-1794193791277-CGNO9JOJCE",
@@ -42,15 +21,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:10:25Z",
       "updatedAt": "2026-11-09T03:10:25Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-001 · OMAR SALEH",
-      "targetId": "Q-002",
-      "targetName": "OMAR SALEH",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "targetId": "Q-002"
     },
     "DASH-USERS-1794193793992-TK0W02MZBO": {
       "requestId": "DASH-USERS-1794193793992-TK0W02MZBO",
@@ -61,25 +32,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:10:33Z",
       "updatedAt": "2026-11-09T03:10:33Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · FORCED STATE ON · TOOL-004 · OMAR SALEH",
-      "targetId": "Q-002",
-      "targetName": "OMAR SALEH",
-      "permissionField": "forcedState",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-004"
-      ]
-    },
-    "DASH-USERS-1793593698321-RKXNMCSHW5": {
-      "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
-      "sequence": "1793593698321585245",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:28:43Z",
-      "updatedAt": "2026-11-02T04:30:29Z"
+      "targetId": "Q-002"
     },
     "DASH-USERS-1793618800778-70W3LKDQ85": {
       "requestId": "DASH-USERS-1793618800778-70W3LKDQ85",
@@ -590,6 +543,16 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:04:33Z",
       "updatedAt": "2026-11-09T03:05:44Z"
+    },
+    "DASH-USERS-1794193739921-PFXO3OWJG7": {
+      "requestId": "DASH-USERS-1794193739921-PFXO3OWJG7",
+      "sequence": "1794193739921298004",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:09:29Z",
+      "updatedAt": "2026-11-09T03:10:33Z"
     }
   }
 }
