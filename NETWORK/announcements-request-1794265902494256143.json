@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "requestId": "ANNOUNCEMENT-1794265902494-I0JMCRKVWN",
+  "sequence": "1794265902494256143",
+  "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+  "status": "PENDING",
+  "createdAt": "2026-11-09T23:11:42.494Z",
+  "actor": {
+    "id": "Q-004",
+    "userId": "Q-004",
+    "name": "Ahmed Saleh",
+    "username": "Ahmed Saleh",
+    "role": "ADMIN"
+  },
+  "action": "CREATE_ANNOUNCEMENT",
+  "payload": {
+    "id": "1794265902494-SAMG5PLAA9",
+    "body": "احنا اتسرقنا",
+    "cycle": "November",
+    "action": "CREATE_ANNOUNCEMENT"
+  }
+}
