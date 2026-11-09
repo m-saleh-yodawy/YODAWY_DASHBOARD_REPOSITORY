@@ -155,11 +155,11 @@
         }),
         ADMIN: Object.freeze({
             pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'account']),
-            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'add-user', 'edit-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
             canEditUsers: true,
-            canDeleteUsers: false,
+            canDeleteUsers: true,
             canManageUserPermissions: true,
             canManageSharedTools: false,
             canManageVisibility: false,
@@ -3030,14 +3030,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const users = [...baseUsers, ...syntheticUsers];
         const isAdmin = context.userRole === 'ADMIN';
         const currentUserId = String(context.userId || context.user?.id || '').trim().toUpperCase();
-        const roleDescription = isAdmin ? 'View all accounts, manage USER accounts, and create USER or ADMIN accounts.' : 'Manage registered accounts and their dashboard roles.';
+        const roleDescription = isAdmin ? 'View all accounts, manage and delete USER accounts, and create USER or ADMIN accounts.' : 'Manage registered accounts and their dashboard roles.';
         const rows = users.map(user => {
             const id = String(user.id || '');
             const isSelf = id.trim().toUpperCase() === currentUserId;
             const pending = user._pending ? user._transaction : getPendingUser(user);
             const pendingAction = String(pending?.action || '').toUpperCase();
             const pendingLabel = pendingAction === 'ADD_USER' ? 'Adding' : pendingAction === 'DELETE_USER' ? 'Deleting' : 'Updating';
-            const canDelete = getRoleAccess().canDeleteUsers && !isSelf && !user._pending;
+            const canDelete = getRoleAccess().canDeleteUsers && !isSelf && !user._pending && (!isAdmin || String(user.role || 'USER').toUpperCase() === 'USER');
             const canEdit = getRoleAccess().canEditUsers && !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf) && (!isAdmin || String(user.role || '').toUpperCase() === 'USER');
             const editButton = canEdit
                 ? '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"' + (pending ? ' disabled' : '') + '>' + editActionIcon + '</button>'
