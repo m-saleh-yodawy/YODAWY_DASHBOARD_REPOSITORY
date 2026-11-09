@@ -1,293 +1,256 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T03:03:48.658Z",
+  "updatedAt": "2026-11-09T03:04:33Z",
   "transactions": {
-    "ACTIVITY-ac3a1211-d60c-4458-84d0-4ffd25da1fb3": {
-      "requestId": "ACTIVITY-ac3a1211-d60c-4458-84d0-4ffd25da1fb3",
-      "sequence": "1794193428658",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "actorName": "Mohamed Saleh",
-      "targetToolId": "TOOL-004",
-      "targetToolIds": [
-        "TOOL-004"
-      ],
-      "targetToolName": "ODOO >>> LIMITED DRUG ACCORDION",
-      "summary": "ENABLE TOOL · ODOO >>> LIMITED DRUG ACCORDION",
-      "createdAt": "2026-11-09T03:03:48.658Z",
-      "updatedAt": "2026-11-09T03:03:48.658Z"
-    },
-    "ACTIVITY-6b2e0930-9262-45a9-9ccd-2c198f8cd84e": {
-      "requestId": "ACTIVITY-6b2e0930-9262-45a9-9ccd-2c198f8cd84e",
-      "sequence": "1794193425346",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "actorName": "Mohamed Saleh",
-      "targetToolId": "TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ],
-      "targetToolName": "CONFIRMATION TYPE BUTTONS",
-      "summary": "ENABLE TOOL · CONFIRMATION TYPE BUTTONS",
-      "createdAt": "2026-11-09T03:03:45.346Z",
-      "updatedAt": "2026-11-09T03:03:45.346Z"
-    },
-    "DASH-USERS-1794192799391-A7K180KI80": {
-      "requestId": "DASH-USERS-1794192799391-A7K180KI80",
-      "sequence": "1794192799391084311",
+    "DASH-USERS-1794193442647-AH1IMQ0ZAH": {
+      "requestId": "DASH-USERS-1794193442647-AH1IMQ0ZAH",
+      "sequence": "1794193442647788356",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:04:33Z",
+      "updatedAt": "2026-11-09T03:04:33Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE VISIBILITY · TOOL-002, TOOL-004",
+      "targetToolIds": [
+        "TOOL-002",
+        "TOOL-004"
+      ]
+    },
+    "DASH-USERS-1793593643959-UAJWXV0NJY": {
+      "requestId": "DASH-USERS-1793593643959-UAJWXV0NJY",
+      "sequence": "1793593643960306651",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_USER",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:53:48Z",
-      "updatedAt": "2026-11-09T02:55:06Z"
+      "createdAt": "2026-11-02T04:27:45Z",
+      "updatedAt": "2026-11-02T04:29:21Z"
     },
-    "DASH-USERS-1794192659302-F6SJ36OMZM": {
-      "requestId": "DASH-USERS-1794192659302-F6SJ36OMZM",
-      "sequence": "1794192659302877323",
+    "DASH-USERS-1793593698321-RKXNMCSHW5": {
+      "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
+      "sequence": "1793593698321585245",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:51:31Z",
-      "updatedAt": "2026-11-09T02:53:19Z",
-      "targetId": "Q-005"
+      "createdAt": "2026-11-02T04:28:43Z",
+      "updatedAt": "2026-11-02T04:30:29Z"
     },
-    "DASH-USERS-1794191245994-9WR0W64QXE": {
-      "requestId": "DASH-USERS-1794191245994-9WR0W64QXE",
-      "sequence": "1794191245994878067",
+    "DASH-USERS-1793618800778-70W3LKDQ85": {
+      "requestId": "DASH-USERS-1793618800778-70W3LKDQ85",
+      "sequence": "1793618800778573342",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T11:27:06Z",
+      "updatedAt": "2026-11-02T11:28:53Z"
+    },
+    "DASH-USERS-1793653387056-F7IW0WFHSU": {
+      "requestId": "DASH-USERS-1793653387056-F7IW0WFHSU",
+      "sequence": "1793653387056745214",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:27:57Z",
-      "updatedAt": "2026-11-09T02:52:41Z"
+      "createdAt": "2026-11-02T21:03:34Z",
+      "updatedAt": "2026-11-02T21:04:55Z"
     },
-    "DASH-USERS-1794191255695-7MVRPYBNBT": {
-      "requestId": "DASH-USERS-1794191255695-7MVRPYBNBT",
-      "sequence": "1794191255695156220",
+    "DASH-USERS-1793655277550-LUCBTQKKE7": {
+      "requestId": "DASH-USERS-1793655277550-LUCBTQKKE7",
+      "sequence": "1793655277550281607",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:28:10Z",
-      "updatedAt": "2026-11-09T02:29:37Z"
+      "createdAt": "2026-11-02T21:35:02Z",
+      "updatedAt": "2026-11-02T21:36:38Z"
     },
-    "DASH-USERS-1794191234833-HZOYMJ03MF": {
-      "requestId": "DASH-USERS-1794191234833-HZOYMJ03MF",
-      "sequence": "1794191234833858448",
+    "DASH-USERS-1793655291503-5DCLVVRAHO": {
+      "requestId": "DASH-USERS-1793655291503-5DCLVVRAHO",
+      "sequence": "1793655291503962011",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:27:45Z",
-      "updatedAt": "2026-11-09T02:29:14Z"
+      "createdAt": "2026-11-02T21:35:15Z",
+      "updatedAt": "2026-11-02T21:36:48Z"
     },
-    "ACTIVITY-93e84e3f-46f2-4b93-96cb-bb9f9c91a027": {
-      "requestId": "ACTIVITY-93e84e3f-46f2-4b93-96cb-bb9f9c91a027",
-      "sequence": "1794190997718",
+    "DASH-USERS-1793655293868-I5F3GHEVD5": {
+      "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
+      "sequence": "1793655293868348457",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T21:35:20Z",
+      "updatedAt": "2026-11-02T21:37:27Z"
+    },
+    "ACTIVITY-1793657655324-y5uidq6s2ma": {
+      "requestId": "ACTIVITY-1793657655324-y5uidq6s2ma",
+      "sequence": "1793657655324",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:23:17.718Z",
-      "updatedAt": "2026-11-09T02:23:17.718Z"
+      "createdAt": "2026-11-02T22:14:15.324Z",
+      "updatedAt": "2026-11-02T22:14:15.324Z"
     },
-    "ACTIVITY-b8b1558b-fea1-489a-b43c-39105a436649": {
-      "requestId": "ACTIVITY-b8b1558b-fea1-489a-b43c-39105a436649",
-      "sequence": "1794190986652",
+    "ACTIVITY-1793657668487-7623kkj7u5c": {
+      "requestId": "ACTIVITY-1793657668487-7623kkj7u5c",
+      "sequence": "1793657668487",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
+      "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:23:06.652Z",
-      "updatedAt": "2026-11-09T02:23:06.652Z"
+      "createdAt": "2026-11-02T22:14:28.487Z",
+      "updatedAt": "2026-11-02T22:14:28.487Z"
     },
-    "ACTIVITY-23adc126-0efd-48d0-b144-4d4dfd2d815f": {
-      "requestId": "ACTIVITY-23adc126-0efd-48d0-b144-4d4dfd2d815f",
-      "sequence": "1794188609339",
+    "ACTIVITY-1793657723476-okoxm5ly13s": {
+      "requestId": "ACTIVITY-1793657723476-okoxm5ly13s",
+      "sequence": "1793657723476",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "ENABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-02T22:15:23.476Z",
+      "updatedAt": "2026-11-02T22:15:23.476Z"
+    },
+    "ACTIVITY-1793660071614-qpl01c20hs": {
+      "requestId": "ACTIVITY-1793660071614-qpl01c20hs",
+      "sequence": "1793660071614",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "UPDATE_DASHBOARD_SETTINGS",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T01:43:29.339Z",
-      "updatedAt": "2026-11-09T01:43:29.339Z"
+      "createdAt": "2026-11-02T22:54:31.613Z",
+      "updatedAt": "2026-11-02T22:54:31.613Z"
     },
-    "DASH-USERS-1794185649448-IWDLMH5BTB": {
-      "requestId": "DASH-USERS-1794185649448-IWDLMH5BTB",
-      "sequence": "1794185649448202317",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T00:54:38Z",
-      "updatedAt": "2026-11-09T00:55:54Z"
-    },
-    "ANNOUNCEMENT-1794185578778-31CDZBTPSA": {
-      "requestId": "ANNOUNCEMENT-1794185578778-31CDZBTPSA",
-      "sequence": "1794185578778185046",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "DELETE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T00:53:26Z",
-      "updatedAt": "2026-11-09T00:53:26Z",
-      "targetId": "1794185558503-SA9X6MP9SU"
-    },
-    "ANNOUNCEMENT-1794185558503-KA5O5V1XEB": {
-      "requestId": "ANNOUNCEMENT-1794185558503-KA5O5V1XEB",
-      "sequence": "1794185558503019371",
+    "ANNOUNCEMENT-1793715257459-ENGRR33623": {
+      "requestId": "ANNOUNCEMENT-1793715257459-ENGRR33623",
+      "sequence": "1793715257459967725",
       "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
       "action": "CREATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-09T00:53:05Z",
-      "updatedAt": "2026-11-09T00:53:05Z",
-      "targetId": "1794185558503-SA9X6MP9SU"
+      "createdAt": "2026-11-03T14:14:41Z",
+      "updatedAt": "2026-11-03T14:14:41Z",
+      "targetId": "1793715257459-CV8YPK1G9P"
     },
-    "ANNOUNCEMENT-1794185520672-FHIFAVEMVF": {
-      "requestId": "ANNOUNCEMENT-1794185520672-FHIFAVEMVF",
-      "sequence": "1794185520672928738",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "DELETE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T00:52:29Z",
-      "updatedAt": "2026-11-09T00:52:29Z",
-      "targetId": "1794179231622-NH238O1CJQ"
-    },
-    "ANNOUNCEMENT-1794182291005-O1W6XZB3R2": {
-      "requestId": "ANNOUNCEMENT-1794182291005-O1W6XZB3R2",
-      "sequence": "1794182291005235146",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "DELETE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T23:58:39Z",
-      "updatedAt": "2026-11-08T23:58:39Z",
-      "targetId": "1794182261143-687DT2P22D"
-    },
-    "ANNOUNCEMENT-1794182261143-HU70BPJGES": {
-      "requestId": "ANNOUNCEMENT-1794182261143-HU70BPJGES",
-      "sequence": "1794182261143017212",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "CREATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T23:58:09Z",
-      "updatedAt": "2026-11-08T23:58:09Z",
-      "targetId": "1794182261143-687DT2P22D"
-    },
-    "DASH-USERS-1794181781630-6TYBF607ON": {
-      "requestId": "DASH-USERS-1794181781630-6TYBF607ON",
-      "sequence": "1794181781631169945",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "ADD_USER",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T23:50:10Z",
-      "updatedAt": "2026-11-08T23:51:40Z"
-    },
-    "ANNOUNCEMENT-1794179231623-2ZTOQ7JZP5": {
-      "requestId": "ANNOUNCEMENT-1794179231623-2ZTOQ7JZP5",
-      "sequence": "1794179231623697663",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "CREATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T23:07:40Z",
-      "updatedAt": "2026-11-08T23:07:40Z",
-      "targetId": "1794179231622-NH238O1CJQ"
-    },
-    "DASH-USERS-1794176078534-A7PKM6SWGH": {
-      "requestId": "DASH-USERS-1794176078534-A7PKM6SWGH",
-      "sequence": "1794176078534691426",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T22:15:07Z",
-      "updatedAt": "2026-11-08T22:17:06Z",
-      "targetId": "Q-004"
-    },
-    "DASH-USERS-1794176072479-H0XYAUN952": {
-      "requestId": "DASH-USERS-1794176072479-H0XYAUN952",
-      "sequence": "1794176072479380314",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T22:15:02Z",
-      "updatedAt": "2026-11-08T22:16:26Z",
-      "targetId": "Q-004"
-    },
-    "DASH-USERS-1794174351416-YXP24969PS": {
-      "requestId": "DASH-USERS-1794174351416-YXP24969PS",
-      "sequence": "1794174351416519425",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T21:46:21Z",
-      "updatedAt": "2026-11-08T21:47:46Z",
-      "targetId": "Q-003"
-    },
-    "DASH-USERS-1794174206040-S0LN0IW04N": {
-      "requestId": "DASH-USERS-1794174206040-S0LN0IW04N",
-      "sequence": "1794174206040800276",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T21:43:56Z",
-      "updatedAt": "2026-11-08T21:45:25Z",
-      "targetId": "Q-003"
-    },
-    "ACTIVITY-1794163498477-qkyymzm7xpk": {
-      "requestId": "ACTIVITY-1794163498477-qkyymzm7xpk",
-      "sequence": "1794163498477",
+    "ACTIVITY-1793798510214-l3iztn3oz7s": {
+      "requestId": "ACTIVITY-1793798510214-l3iztn3oz7s",
+      "sequence": "1793798510214",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
+      "action": "DISABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T18:44:58.477Z",
-      "updatedAt": "2026-11-08T18:44:58.477Z"
+      "createdAt": "2026-11-04T13:21:50.214Z",
+      "updatedAt": "2026-11-04T13:21:50.214Z"
     },
-    "DASH-USERS-1794107332934-RQB24RNBN8": {
-      "requestId": "DASH-USERS-1794107332934-RQB24RNBN8",
-      "sequence": "1794107332934688351",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T03:09:23Z",
-      "updatedAt": "2026-11-08T03:10:56Z",
-      "targetId": "Q-004"
-    },
-    "ANNOUNCEMENT-1794105922648-R643W74MU5": {
-      "requestId": "ANNOUNCEMENT-1794105922648-R643W74MU5",
-      "sequence": "1794105922647358549",
+    "ANNOUNCEMENT-1794088737019-2OVHOLF5L6": {
+      "requestId": "ANNOUNCEMENT-1794088737019-2OVHOLF5L6",
+      "sequence": "1794088737019294938",
       "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
       "action": "UPDATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T02:45:51Z",
-      "updatedAt": "2026-11-08T02:45:51Z",
+      "createdAt": "2026-11-07T21:59:23Z",
+      "updatedAt": "2026-11-07T21:59:23Z",
       "targetId": "1793715257459-CV8YPK1G9P"
     },
-    "DASH-USERS-1794103061212-XHLOK29GKM": {
-      "requestId": "DASH-USERS-1794103061212-XHLOK29GKM",
-      "sequence": "1794103061212881950",
+    "ACTIVITY-1794095512952-exf2v9mlzg6": {
+      "requestId": "ACTIVITY-1794095512952-exf2v9mlzg6",
+      "sequence": "1794095512952",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "ENABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-07T23:51:52.952Z",
+      "updatedAt": "2026-11-07T23:51:52.952Z"
+    },
+    "DASH-USERS-1794096506908-4965R3DR3K": {
+      "requestId": "DASH-USERS-1794096506908-4965R3DR3K",
+      "sequence": "1794096506908405571",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T00:08:55Z",
+      "updatedAt": "2026-11-08T00:10:24Z"
+    },
+    "DASH-USERS-1794099334124-LF35JADADQ": {
+      "requestId": "DASH-USERS-1794099334124-LF35JADADQ",
+      "sequence": "1794099334124759980",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "ADD_USER",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T00:56:01Z",
+      "updatedAt": "2026-11-08T00:57:35Z"
+    },
+    "ANNOUNCEMENT-1794099496543-BH2E0ON02S": {
+      "requestId": "ANNOUNCEMENT-1794099496543-BH2E0ON02S",
+      "sequence": "1794099496543780170",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "UPDATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T00:58:43Z",
+      "updatedAt": "2026-11-08T00:58:43Z",
+      "targetId": "1793715257459-CV8YPK1G9P"
+    },
+    "ANNOUNCEMENT-1794099512062-1UM6BWHW8E": {
+      "requestId": "ANNOUNCEMENT-1794099512062-1UM6BWHW8E",
+      "sequence": "1794099512062333178",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "UPDATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T00:58:58Z",
+      "updatedAt": "2026-11-08T00:58:58Z",
+      "targetId": "1793715257459-CV8YPK1G9P"
+    },
+    "ACTIVITY-1794102891561-ntlhfaasq28": {
+      "requestId": "ACTIVITY-1794102891561-ntlhfaasq28",
+      "sequence": "1794102891561",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:54:51.561Z",
+      "updatedAt": "2026-11-08T01:54:51.561Z"
+    },
+    "ACTIVITY-1794102896898-7uwjgghya5a": {
+      "requestId": "ACTIVITY-1794102896898-7uwjgghya5a",
+      "sequence": "1794102896898",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:54:56.898Z",
+      "updatedAt": "2026-11-08T01:54:56.898Z"
+    },
+    "ACTIVITY-1794102901001-zzmil9mfboq": {
+      "requestId": "ACTIVITY-1794102901001-zzmil9mfboq",
+      "sequence": "1794102901001",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T01:55:01.001Z",
+      "updatedAt": "2026-11-08T01:55:01.001Z"
+    },
+    "DASH-USERS-1794103037035-HK4O1MBKBS": {
+      "requestId": "DASH-USERS-1794103037035-HK4O1MBKBS",
+      "sequence": "1794103037035415353",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:58:12Z",
-      "updatedAt": "2026-11-08T02:00:30Z",
+      "createdAt": "2026-11-08T01:57:45Z",
+      "updatedAt": "2026-11-08T01:59:12Z",
       "targetId": "Q-002"
     },
     "DASH-USERS-1794103059005-XTB0XAKL1Y": {
@@ -301,240 +264,291 @@
       "updatedAt": "2026-11-08T01:59:43Z",
       "targetId": "Q-002"
     },
-    "DASH-USERS-1794103037035-HK4O1MBKBS": {
-      "requestId": "DASH-USERS-1794103037035-HK4O1MBKBS",
-      "sequence": "1794103037035415353",
+    "DASH-USERS-1794103061212-XHLOK29GKM": {
+      "requestId": "DASH-USERS-1794103061212-XHLOK29GKM",
+      "sequence": "1794103061212881950",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:57:45Z",
-      "updatedAt": "2026-11-08T01:59:12Z",
+      "createdAt": "2026-11-08T01:58:12Z",
+      "updatedAt": "2026-11-08T02:00:30Z",
       "targetId": "Q-002"
     },
-    "ACTIVITY-1794102901001-zzmil9mfboq": {
-      "requestId": "ACTIVITY-1794102901001-zzmil9mfboq",
-      "sequence": "1794102901001",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:55:01.001Z",
-      "updatedAt": "2026-11-08T01:55:01.001Z"
-    },
-    "ACTIVITY-1794102896898-7uwjgghya5a": {
-      "requestId": "ACTIVITY-1794102896898-7uwjgghya5a",
-      "sequence": "1794102896898",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:54:56.898Z",
-      "updatedAt": "2026-11-08T01:54:56.898Z"
-    },
-    "ACTIVITY-1794102891561-ntlhfaasq28": {
-      "requestId": "ACTIVITY-1794102891561-ntlhfaasq28",
-      "sequence": "1794102891561",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:54:51.561Z",
-      "updatedAt": "2026-11-08T01:54:51.561Z"
-    },
-    "ANNOUNCEMENT-1794099512062-1UM6BWHW8E": {
-      "requestId": "ANNOUNCEMENT-1794099512062-1UM6BWHW8E",
-      "sequence": "1794099512062333178",
+    "ANNOUNCEMENT-1794105922648-R643W74MU5": {
+      "requestId": "ANNOUNCEMENT-1794105922648-R643W74MU5",
+      "sequence": "1794105922647358549",
       "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
       "action": "UPDATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:58:58Z",
-      "updatedAt": "2026-11-08T00:58:58Z",
+      "createdAt": "2026-11-08T02:45:51Z",
+      "updatedAt": "2026-11-08T02:45:51Z",
       "targetId": "1793715257459-CV8YPK1G9P"
     },
-    "ANNOUNCEMENT-1794099496543-BH2E0ON02S": {
-      "requestId": "ANNOUNCEMENT-1794099496543-BH2E0ON02S",
-      "sequence": "1794099496543780170",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:58:43Z",
-      "updatedAt": "2026-11-08T00:58:43Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
-    },
-    "DASH-USERS-1794099334124-LF35JADADQ": {
-      "requestId": "DASH-USERS-1794099334124-LF35JADADQ",
-      "sequence": "1794099334124759980",
+    "DASH-USERS-1794107332934-RQB24RNBN8": {
+      "requestId": "DASH-USERS-1794107332934-RQB24RNBN8",
+      "sequence": "1794107332934688351",
       "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "ADD_USER",
+      "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:56:01Z",
-      "updatedAt": "2026-11-08T00:57:35Z"
+      "createdAt": "2026-11-08T03:09:23Z",
+      "updatedAt": "2026-11-08T03:10:56Z",
+      "targetId": "Q-004"
     },
-    "DASH-USERS-1794096506908-4965R3DR3K": {
-      "requestId": "DASH-USERS-1794096506908-4965R3DR3K",
-      "sequence": "1794096506908405571",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:08:55Z",
-      "updatedAt": "2026-11-08T00:10:24Z"
-    },
-    "ACTIVITY-1794095512952-exf2v9mlzg6": {
-      "requestId": "ACTIVITY-1794095512952-exf2v9mlzg6",
-      "sequence": "1794095512952",
+    "ACTIVITY-1794163498477-qkyymzm7xpk": {
+      "requestId": "ACTIVITY-1794163498477-qkyymzm7xpk",
+      "sequence": "1794163498477",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-07T23:51:52.952Z",
-      "updatedAt": "2026-11-07T23:51:52.952Z"
+      "createdAt": "2026-11-08T18:44:58.477Z",
+      "updatedAt": "2026-11-08T18:44:58.477Z"
     },
-    "ANNOUNCEMENT-1794088737019-2OVHOLF5L6": {
-      "requestId": "ANNOUNCEMENT-1794088737019-2OVHOLF5L6",
-      "sequence": "1794088737019294938",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
+    "DASH-USERS-1794174206040-S0LN0IW04N": {
+      "requestId": "DASH-USERS-1794174206040-S0LN0IW04N",
+      "sequence": "1794174206040800276",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-07T21:59:23Z",
-      "updatedAt": "2026-11-07T21:59:23Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
+      "createdAt": "2026-11-08T21:43:56Z",
+      "updatedAt": "2026-11-08T21:45:25Z",
+      "targetId": "Q-003"
     },
-    "ACTIVITY-1793798510214-l3iztn3oz7s": {
-      "requestId": "ACTIVITY-1793798510214-l3iztn3oz7s",
-      "sequence": "1793798510214",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "DISABLE_TOOL",
+    "DASH-USERS-1794174351416-YXP24969PS": {
+      "requestId": "DASH-USERS-1794174351416-YXP24969PS",
+      "sequence": "1794174351416519425",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-04T13:21:50.214Z",
-      "updatedAt": "2026-11-04T13:21:50.214Z"
+      "createdAt": "2026-11-08T21:46:21Z",
+      "updatedAt": "2026-11-08T21:47:46Z",
+      "targetId": "Q-003"
     },
-    "ANNOUNCEMENT-1793715257459-ENGRR33623": {
-      "requestId": "ANNOUNCEMENT-1793715257459-ENGRR33623",
-      "sequence": "1793715257459967725",
+    "DASH-USERS-1794176072479-H0XYAUN952": {
+      "requestId": "DASH-USERS-1794176072479-H0XYAUN952",
+      "sequence": "1794176072479380314",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T22:15:02Z",
+      "updatedAt": "2026-11-08T22:16:26Z",
+      "targetId": "Q-004"
+    },
+    "DASH-USERS-1794176078534-A7PKM6SWGH": {
+      "requestId": "DASH-USERS-1794176078534-A7PKM6SWGH",
+      "sequence": "1794176078534691426",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T22:15:07Z",
+      "updatedAt": "2026-11-08T22:17:06Z",
+      "targetId": "Q-004"
+    },
+    "ANNOUNCEMENT-1794179231623-2ZTOQ7JZP5": {
+      "requestId": "ANNOUNCEMENT-1794179231623-2ZTOQ7JZP5",
+      "sequence": "1794179231623697663",
       "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
       "action": "CREATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-03T14:14:41Z",
-      "updatedAt": "2026-11-03T14:14:41Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
+      "createdAt": "2026-11-08T23:07:40Z",
+      "updatedAt": "2026-11-08T23:07:40Z",
+      "targetId": "1794179231622-NH238O1CJQ"
     },
-    "ACTIVITY-1793660071614-qpl01c20hs": {
-      "requestId": "ACTIVITY-1793660071614-qpl01c20hs",
-      "sequence": "1793660071614",
+    "DASH-USERS-1794181781630-6TYBF607ON": {
+      "requestId": "DASH-USERS-1794181781630-6TYBF607ON",
+      "sequence": "1794181781631169945",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "ADD_USER",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T23:50:10Z",
+      "updatedAt": "2026-11-08T23:51:40Z"
+    },
+    "ANNOUNCEMENT-1794182261143-HU70BPJGES": {
+      "requestId": "ANNOUNCEMENT-1794182261143-HU70BPJGES",
+      "sequence": "1794182261143017212",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "CREATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T23:58:09Z",
+      "updatedAt": "2026-11-08T23:58:09Z",
+      "targetId": "1794182261143-687DT2P22D"
+    },
+    "ANNOUNCEMENT-1794182291005-O1W6XZB3R2": {
+      "requestId": "ANNOUNCEMENT-1794182291005-O1W6XZB3R2",
+      "sequence": "1794182291005235146",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "DELETE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-08T23:58:39Z",
+      "updatedAt": "2026-11-08T23:58:39Z",
+      "targetId": "1794182261143-687DT2P22D"
+    },
+    "ANNOUNCEMENT-1794185520672-FHIFAVEMVF": {
+      "requestId": "ANNOUNCEMENT-1794185520672-FHIFAVEMVF",
+      "sequence": "1794185520672928738",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "DELETE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T00:52:29Z",
+      "updatedAt": "2026-11-09T00:52:29Z",
+      "targetId": "1794179231622-NH238O1CJQ"
+    },
+    "ANNOUNCEMENT-1794185558503-KA5O5V1XEB": {
+      "requestId": "ANNOUNCEMENT-1794185558503-KA5O5V1XEB",
+      "sequence": "1794185558503019371",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "CREATE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T00:53:05Z",
+      "updatedAt": "2026-11-09T00:53:05Z",
+      "targetId": "1794185558503-SA9X6MP9SU"
+    },
+    "ANNOUNCEMENT-1794185578778-31CDZBTPSA": {
+      "requestId": "ANNOUNCEMENT-1794185578778-31CDZBTPSA",
+      "sequence": "1794185578778185046",
+      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+      "action": "DELETE_ANNOUNCEMENT",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T00:53:26Z",
+      "updatedAt": "2026-11-09T00:53:26Z",
+      "targetId": "1794185558503-SA9X6MP9SU"
+    },
+    "DASH-USERS-1794185649448-IWDLMH5BTB": {
+      "requestId": "DASH-USERS-1794185649448-IWDLMH5BTB",
+      "sequence": "1794185649448202317",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T00:54:38Z",
+      "updatedAt": "2026-11-09T00:55:54Z"
+    },
+    "ACTIVITY-23adc126-0efd-48d0-b144-4d4dfd2d815f": {
+      "requestId": "ACTIVITY-23adc126-0efd-48d0-b144-4d4dfd2d815f",
+      "sequence": "1794188609339",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "UPDATE_DASHBOARD_SETTINGS",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:54:31.613Z",
-      "updatedAt": "2026-11-02T22:54:31.613Z"
+      "createdAt": "2026-11-09T01:43:29.339Z",
+      "updatedAt": "2026-11-09T01:43:29.339Z"
     },
-    "ACTIVITY-1793657723476-okoxm5ly13s": {
-      "requestId": "ACTIVITY-1793657723476-okoxm5ly13s",
-      "sequence": "1793657723476",
+    "ACTIVITY-b8b1558b-fea1-489a-b43c-39105a436649": {
+      "requestId": "ACTIVITY-b8b1558b-fea1-489a-b43c-39105a436649",
+      "sequence": "1794190986652",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "DISABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T02:23:06.652Z",
+      "updatedAt": "2026-11-09T02:23:06.652Z"
+    },
+    "ACTIVITY-93e84e3f-46f2-4b93-96cb-bb9f9c91a027": {
+      "requestId": "ACTIVITY-93e84e3f-46f2-4b93-96cb-bb9f9c91a027",
+      "sequence": "1794190997718",
       "requestType": "DASHBOARD_ACTIVITY_LOG",
       "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:15:23.476Z",
-      "updatedAt": "2026-11-02T22:15:23.476Z"
+      "createdAt": "2026-11-09T02:23:17.718Z",
+      "updatedAt": "2026-11-09T02:23:17.718Z"
     },
-    "ACTIVITY-1793657668487-7623kkj7u5c": {
-      "requestId": "ACTIVITY-1793657668487-7623kkj7u5c",
-      "sequence": "1793657668487",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:14:28.487Z",
-      "updatedAt": "2026-11-02T22:14:28.487Z"
-    },
-    "ACTIVITY-1793657655324-y5uidq6s2ma": {
-      "requestId": "ACTIVITY-1793657655324-y5uidq6s2ma",
-      "sequence": "1793657655324",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T22:14:15.324Z",
-      "updatedAt": "2026-11-02T22:14:15.324Z"
-    },
-    "DASH-USERS-1793655293868-I5F3GHEVD5": {
-      "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
-      "sequence": "1793655293868348457",
+    "DASH-USERS-1794191234833-HZOYMJ03MF": {
+      "requestId": "DASH-USERS-1794191234833-HZOYMJ03MF",
+      "sequence": "1794191234833858448",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:20Z",
-      "updatedAt": "2026-11-02T21:37:27Z"
+      "createdAt": "2026-11-09T02:27:45Z",
+      "updatedAt": "2026-11-09T02:29:14Z"
     },
-    "DASH-USERS-1793655291503-5DCLVVRAHO": {
-      "requestId": "DASH-USERS-1793655291503-5DCLVVRAHO",
-      "sequence": "1793655291503962011",
+    "DASH-USERS-1794191255695-7MVRPYBNBT": {
+      "requestId": "DASH-USERS-1794191255695-7MVRPYBNBT",
+      "sequence": "1794191255695156220",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:15Z",
-      "updatedAt": "2026-11-02T21:36:48Z"
+      "createdAt": "2026-11-09T02:28:10Z",
+      "updatedAt": "2026-11-09T02:29:37Z"
     },
-    "DASH-USERS-1793655277550-LUCBTQKKE7": {
-      "requestId": "DASH-USERS-1793655277550-LUCBTQKKE7",
-      "sequence": "1793655277550281607",
+    "DASH-USERS-1794191245994-9WR0W64QXE": {
+      "requestId": "DASH-USERS-1794191245994-9WR0W64QXE",
+      "sequence": "1794191245994878067",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:02Z",
-      "updatedAt": "2026-11-02T21:36:38Z"
+      "createdAt": "2026-11-09T02:27:57Z",
+      "updatedAt": "2026-11-09T02:52:41Z"
     },
-    "DASH-USERS-1793653387056-F7IW0WFHSU": {
-      "requestId": "DASH-USERS-1793653387056-F7IW0WFHSU",
-      "sequence": "1793653387056745214",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:03:34Z",
-      "updatedAt": "2026-11-02T21:04:55Z"
-    },
-    "DASH-USERS-1793618800778-70W3LKDQ85": {
-      "requestId": "DASH-USERS-1793618800778-70W3LKDQ85",
-      "sequence": "1793618800778573342",
+    "DASH-USERS-1794192659302-F6SJ36OMZM": {
+      "requestId": "DASH-USERS-1794192659302-F6SJ36OMZM",
+      "sequence": "1794192659302877323",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "MODIFY_TOOL_PERMISSION",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T11:27:06Z",
-      "updatedAt": "2026-11-02T11:28:53Z"
+      "createdAt": "2026-11-09T02:51:31Z",
+      "updatedAt": "2026-11-09T02:53:19Z",
+      "targetId": "Q-005"
     },
-    "DASH-USERS-1793593698321-RKXNMCSHW5": {
-      "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
-      "sequence": "1793593698321585245",
+    "DASH-USERS-1794192799391-A7K180KI80": {
+      "requestId": "DASH-USERS-1794192799391-A7K180KI80",
+      "sequence": "1794192799391084311",
       "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
+      "action": "UPDATE_VISIBILITY",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:28:43Z",
-      "updatedAt": "2026-11-02T04:30:29Z"
+      "createdAt": "2026-11-09T02:53:48Z",
+      "updatedAt": "2026-11-09T02:55:06Z"
     },
-    "DASH-USERS-1793593643959-UAJWXV0NJY": {
-      "requestId": "DASH-USERS-1793593643959-UAJWXV0NJY",
-      "sequence": "1793593643960306651",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_USER",
+    "ACTIVITY-6b2e0930-9262-45a9-9ccd-2c198f8cd84e": {
+      "requestId": "ACTIVITY-6b2e0930-9262-45a9-9ccd-2c198f8cd84e",
+      "sequence": "1794193425346",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "ENABLE_TOOL",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:27:45Z",
-      "updatedAt": "2026-11-02T04:29:21Z"
+      "createdAt": "2026-11-09T03:03:45.346Z",
+      "updatedAt": "2026-11-09T03:03:45.346Z",
+      "actorName": "Mohamed Saleh",
+      "summary": "ENABLE TOOL · CONFIRMATION TYPE BUTTONS",
+      "targetToolId": "TOOL-001",
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
+    "ACTIVITY-ac3a1211-d60c-4458-84d0-4ffd25da1fb3": {
+      "requestId": "ACTIVITY-ac3a1211-d60c-4458-84d0-4ffd25da1fb3",
+      "sequence": "1794193428658",
+      "requestType": "DASHBOARD_ACTIVITY_LOG",
+      "action": "ENABLE_TOOL",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:03:48.658Z",
+      "updatedAt": "2026-11-09T03:03:48.658Z",
+      "actorName": "Mohamed Saleh",
+      "summary": "ENABLE TOOL · ODOO >>> LIMITED DRUG ACCORDION",
+      "targetToolId": "TOOL-004",
+      "targetToolIds": [
+        "TOOL-004"
+      ]
     }
   }
 }
