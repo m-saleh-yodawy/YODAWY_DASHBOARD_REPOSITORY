@@ -2,6 +2,22 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-09T03:05:44Z",
   "transactions": {
+    "DASH-USERS-1794193739921-PFXO3OWJG7": {
+      "requestId": "DASH-USERS-1794193739921-PFXO3OWJG7",
+      "sequence": "1794193739921298004",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:09:29Z",
+      "updatedAt": "2026-11-09T03:09:29Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE VISIBILITY · TOOL-002, TOOL-004",
+      "targetToolIds": [
+        "TOOL-002",
+        "TOOL-004"
+      ]
+    },
     "DASH-USERS-1793593698321-RKXNMCSHW5": {
       "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
       "sequence": "1793593698321585245",
