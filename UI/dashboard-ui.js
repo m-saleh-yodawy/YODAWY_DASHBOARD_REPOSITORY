@@ -3433,7 +3433,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     const status = String(result?.status || transaction.status || 'SENT').toUpperCase();
                     updateActivity(activityId, { ...getTransactionActivity(status), requestId });
                     if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) break;
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    await new Promise(resolve => setTimeout(resolve, 4000));
                 }
                 const status = String(result?.status || '').toUpperCase();
                 if (!result || !['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
@@ -4210,6 +4210,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         root.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
+            if (activityMenuOpen && !event.target.closest('.yd-activity-wrap')) {
+                activityMenuOpen = false;
+                const activityMenu = root.querySelector('.yd-activity-menu');
+                if (activityMenu) activityMenu.hidden = true;
+                root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
+            }
             if (handleAllowedUsersAction(actionButton)) return;
             if (actionButton?.dataset.action === 'toggle-visibility-bulk') {
                 event.preventDefault();
