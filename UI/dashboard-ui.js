@@ -1263,41 +1263,62 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     animation: yd-accordion-enter .2s cubic-bezier(.2, .8, .2, 1) both;
 }
 #yd-dashboard-root .yd-visibility-modes {
-    display: inline-flex;
+    position: relative;
+    display: flex;
     align-items: center;
     gap: 3px;
+    width: 100%;
     max-width: 100%;
+    box-sizing: border-box;
     margin: 0 0 16px;
     padding: 4px;
+    overflow: hidden;
     border: 1px solid #e5dce6;
     border-radius: 10px;
     background: #f4eff4;
     box-shadow: inset 0 1px 2px rgba(41, 36, 46, .04);
 }
+#yd-dashboard-root .yd-visibility-modes::before {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 5px;
+    width: calc(50% - 6.5px);
+    border-radius: 7px;
+    background: var(--brand);
+    box-shadow: 0 2px 5px rgba(104, 70, 95, .2);
+    content: '';
+    pointer-events: none;
+    transform: translateX(0);
+    transition: transform .68s cubic-bezier(.22, .8, .2, 1);
+}
+#yd-dashboard-root .yd-visibility-modes[data-active-mode="TOOLS"]::before {
+    transform: translateX(calc(100% + 3px));
+}
 #yd-dashboard-root .yd-visibility-mode-card {
+    position: relative;
+    z-index: 1;
     display: inline-flex;
+    flex: 1 1 50%;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-width: 132px;
+    width: 50%;
+    min-width: 0;
     min-height: 36px;
     padding: 7px 16px;
     border: 1px solid transparent;
     border-radius: 7px;
-    background: transparent;
+    background: transparent !important;
     color: #756b77;
     cursor: pointer;
-    transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
+    transition: color .48s ease, border-color .48s ease;
 }
-#yd-dashboard-root .yd-visibility-mode-card:hover:not(.active) {
-    background: #e9dfea;
-    color: #68465f;
-}
+#yd-dashboard-root .yd-visibility-mode-card:hover:not(.active) { color: #68465f; }
 #yd-dashboard-root .yd-visibility-mode-card.active {
-    border-color: var(--brand);
-    background: var(--brand);
+    border-color: transparent;
+    background: transparent !important;
     color: #fff;
-    box-shadow: 0 2px 5px rgba(104, 70, 95, .2);
 }
 #yd-dashboard-root .yd-visibility-mode-icon {
     display: inline-grid;
@@ -1403,8 +1424,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     justify-content: space-between;
     gap: 12px;
     min-height: 51px;
-    padding: 8px 3px;
-    border-bottom: 1px solid #f1edf2;
+    margin: 4px 0;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: #e1e1e1;
 }
 #yd-dashboard-root .yd-visibility-row:last-child { border-bottom: 0; }
 #yd-dashboard-root .yd-visibility-row-main {
@@ -2785,7 +2809,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                 '<button type="button" class="yd-switch yd-visibility-switch' + (allowed ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(userId) + '" data-enabled="' + String(allowed) + '" role="switch" aria-checked="' + String(allowed) + '" aria-label="' + escapeHTML(label) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>' +
                 '</div>';
         };
-        const modeCards = '<div class="yd-visibility-modes" role="tablist" aria-label="Visibility layout">' +
+        const modeCards = '<div class="yd-visibility-modes" data-active-mode="' + visibilityMode + '" role="tablist" aria-label="Visibility layout">' +
             '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong></span></button>' +
             '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong></span></button></div>';
         let accordions = '';
@@ -3846,7 +3870,17 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             }
             const nav = event.target.closest('[data-page]');
             if (nav) {
-                activePage = nav.dataset.page;
+                const nextPage = nav.dataset.page;
+                if (nextPage !== activePage) {
+                    expandedUsers.clear();
+                    expandedTools.clear();
+                    visibilityExpandedUsers.clear();
+                    visibilityExpandedTools.clear();
+                    root.querySelectorAll('details[data-user-accordion], details[data-tool-accordion], details[data-visibility-user], details[data-visibility-tool]').forEach(item => {
+                        item.open = false;
+                    });
+                }
+                activePage = nextPage;
                 notice = null;
                 profileOpen = false;
                 if (activePage !== 'visibility') { visibilityDraft = null; openVisibilityToolId = null; }
