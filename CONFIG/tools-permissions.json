@@ -12,7 +12,7 @@
     },
     "TOOL-004": {
       "granted": true,
-      "forcedState": true,
+      "forcedState": false,
       "type": "SUPER_ADMIN"
     }
   },
