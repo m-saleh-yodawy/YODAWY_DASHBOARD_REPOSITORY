@@ -579,11 +579,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin: 0 0 5px;
-    padding: 0;
+    margin: 0 0 8px;
+    padding: 12px 10px 13px;
     border: 0;
     border-bottom: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: 8px;
     background: #faf9fb;
     text-align: center;
 }
@@ -593,7 +593,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     justify-content: center;
     width: 54px;
     height: 54px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     padding: 1px;
     border-radius: 50%;
     background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand));
@@ -611,17 +611,17 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-size: 18px;
     font-weight: 700 !important;
 }
-#yd-dashboard-root .yd-gb-name { color: var(--ink); font-size: 14px; font-weight: 700 !important; }
-#yd-dashboard-root .yd-gb-meta { margin-top: 3px; color: var(--muted); font-size: 11px; }
-#yd-dashboard-root .yd-gb-pills { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+#yd-dashboard-root .yd-gb-name { color: var(--ink); font-size: 14px; font-weight: 700 !important; line-height: 1.4; }
+#yd-dashboard-root .yd-gb-meta { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+#yd-dashboard-root .yd-gb-pills { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
 #yd-dashboard-root .yd-dropdown-action {
     display: flex;
     align-items: center;
     gap: 9px;
     width: 100%;
-    min-height: 36px;
-    margin-top: 2px;
-    padding: 5px 8px;
+    min-height: 38px;
+    margin-top: 0;
+    padding: 6px 8px;
     border: 0;
     border-radius: 7px;
     background: transparent;
@@ -1654,9 +1654,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
     box-sizing: border-box;
     display: block;
-    position: sticky;
-    top: 0;
-    z-index: 5;
+    position: static;
+    top: auto;
+    z-index: auto;
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -1665,7 +1665,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     align-self: stretch;
     flex: 0 0 100%;
     background-color: #e1e1e1 !important;
-    box-shadow: 0 3px 6px rgba(0, 0, 0, .04);
+    box-shadow: none;
     padding: 0 9px;
     border: 1px solid var(--border);
     border-radius: 7px;
@@ -1727,16 +1727,30 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-dropdown-se
 #yd-dashboard-root .yd-allowed-users-footer,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer {
     display: flex;
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
+    position: static;
+    bottom: auto;
+    z-index: auto;
     justify-content: flex-end;
     gap: 6px;
-    margin-top: 4px;
-    padding: 8px 4px 4px;
+    margin-top: 8px;
+    padding: 8px 0 0;
     border-top: 1px solid #eee9ef;
     background: #fff;
-    box-shadow: 0 -3px 6px rgba(0, 0, 0, .04);
+    box-shadow: none;
+}
+#yd-dashboard-root .yd-allowed-users-menu,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"].yd-allowed-users-menu {
+    overflow: hidden !important;
+}
+#yd-dashboard-root .yd-allowed-users-list,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-list {
+    display: block;
+    max-height: min(220px, calc(100vh - 170px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: #bdaabd #f4eff4;
+    scrollbar-width: thin;
 }
 #yd-dashboard-root .yd-allowed-users-footer button,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-footer button {
@@ -2207,6 +2221,48 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     box-shadow: none !important;
     outline: none !important;
 }
+
+#yd-dashboard-root,
+#yd-dashboard-root *,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] * {
+    scrollbar-color: #bdaabd #f4eff4;
+    scrollbar-width: thin;
+}
+#yd-dashboard-root::-webkit-scrollbar,
+#yd-dashboard-root *::-webkit-scrollbar,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+#yd-dashboard-root::-webkit-scrollbar-track,
+#yd-dashboard-root *::-webkit-scrollbar-track,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-track,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-track {
+    border-radius: 8px;
+    background: #f4eff4;
+}
+#yd-dashboard-root::-webkit-scrollbar-thumb,
+#yd-dashboard-root *::-webkit-scrollbar-thumb,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-thumb,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb {
+    border: 2px solid #f4eff4;
+    border-radius: 8px;
+    background: #bdaabd;
+}
+#yd-dashboard-root::-webkit-scrollbar-thumb:hover,
+#yd-dashboard-root *::-webkit-scrollbar-thumb:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-thumb:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb:hover {
+    background: #875a7b;
+}
+#yd-dashboard-root::-webkit-scrollbar-corner,
+#yd-dashboard-root *::-webkit-scrollbar-corner,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-corner,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-corner {
+    background: #f4eff4;
+}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
@@ -2461,7 +2517,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
             '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
-            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users">' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div>' + footer + '</div></div></div>';
+            '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users"><div class="yd-allowed-users-list">' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div></div>' + footer + '</div></div></div>';
     };
 
     const refreshAllowedUsersDropdown = toolId => {
