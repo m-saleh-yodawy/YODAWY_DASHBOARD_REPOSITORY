@@ -308,7 +308,7 @@
             throw createError('An account with this name already exists');
         }
 
-        if (id && getUser(id)) {
+        if (id && snapshot.users.some(user => normalizeId(user.id) === id)) {
             throw createError('User ID already exists');
         }
 
