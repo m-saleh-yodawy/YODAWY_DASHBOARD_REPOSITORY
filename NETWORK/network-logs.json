@@ -2,6 +2,21 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-09T00:53:26Z",
   "transactions": {
+    "DASH-USERS-1794185649448-IWDLMH5BTB": {
+      "requestId": "DASH-USERS-1794185649448-IWDLMH5BTB",
+      "sequence": "1794185649448202317",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T00:54:38Z",
+      "updatedAt": "2026-11-09T00:54:38Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE VISIBILITY · TOOL-001",
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
@@ -383,10 +398,10 @@
       "action": "CREATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "PUBLISH ANNOUNCEMENT · test for test 2",
       "createdAt": "2026-11-08T23:58:09Z",
       "updatedAt": "2026-11-08T23:58:09Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "PUBLISH ANNOUNCEMENT · test for test 2",
       "targetId": "1794182261143-687DT2P22D"
     },
     "ANNOUNCEMENT-1794182291005-O1W6XZB3R2": {
@@ -396,10 +411,10 @@
       "action": "DELETE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "DELETE ANNOUNCEMENT · 1794182261143-687DT2P22D",
       "createdAt": "2026-11-08T23:58:39Z",
       "updatedAt": "2026-11-08T23:58:39Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "DELETE ANNOUNCEMENT · 1794182261143-687DT2P22D",
       "targetId": "1794182261143-687DT2P22D"
     },
     "ANNOUNCEMENT-1794185520672-FHIFAVEMVF": {
@@ -409,10 +424,10 @@
       "action": "DELETE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "DELETE ANNOUNCEMENT · 1794179231622-NH238O1CJQ",
       "createdAt": "2026-11-09T00:52:29Z",
       "updatedAt": "2026-11-09T00:52:29Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "DELETE ANNOUNCEMENT · 1794179231622-NH238O1CJQ",
       "targetId": "1794179231622-NH238O1CJQ"
     },
     "ANNOUNCEMENT-1794185558503-KA5O5V1XEB": {
@@ -422,10 +437,10 @@
       "action": "CREATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "PUBLISH ANNOUNCEMENT · TEST",
       "createdAt": "2026-11-09T00:53:05Z",
       "updatedAt": "2026-11-09T00:53:05Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "PUBLISH ANNOUNCEMENT · TEST",
       "targetId": "1794185558503-SA9X6MP9SU"
     },
     "ANNOUNCEMENT-1794185578778-31CDZBTPSA": {
@@ -435,10 +450,10 @@
       "action": "DELETE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-001",
-      "actorName": "MOHAMED SALEH",
-      "summary": "DELETE ANNOUNCEMENT · 1794185558503-SA9X6MP9SU",
       "createdAt": "2026-11-09T00:53:26Z",
       "updatedAt": "2026-11-09T00:53:26Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "DELETE ANNOUNCEMENT · 1794185558503-SA9X6MP9SU",
       "targetId": "1794185558503-SA9X6MP9SU"
     }
   }
