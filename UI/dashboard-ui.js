@@ -623,35 +623,116 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-activity-menu {
     position: absolute;
-    top: calc(100% + 10px);
+    top: calc(100% + 11px);
     right: 0;
     z-index: 2147483010;
-    width: min(360px, calc(100vw - 28px));
-    max-height: min(430px, calc(100vh - 110px));
-    overflow: auto;
-    padding: 9px;
-    border: 1px solid var(--border);
-    border-radius: 11px;
+    display: flex;
+    flex-direction: column;
+    width: min(410px, calc(100vw - 28px));
+    max-height: min(540px, calc(100vh - 105px));
+    overflow: hidden;
+    border: 1px solid #e6dfe5;
+    border-radius: 14px;
     background: #fff;
     color: var(--ink);
-    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    box-shadow: 0 12px 38px rgba(34, 21, 35, .18), 0 2px 8px rgba(34, 21, 35, .08);
+    transform-origin: top right;
     animation: yd-select-dropdown-drop .24s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .yd-activity-menu[hidden] { display: none !important; }
-#yd-dashboard-root .yd-activity-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 6px 9px; border-bottom: 1px solid var(--border); }
-#yd-dashboard-root .yd-activity-menu-head strong { color: var(--ink); font-size: 11px; font-weight: 800 !important; }
-#yd-dashboard-root .yd-activity-menu-head small { color: var(--muted); font-size: 9px; }
-#yd-dashboard-root .yd-activity-item { display: flex; align-items: flex-start; gap: 9px; padding: 10px 7px; border-bottom: 1px solid #f0ebef; }
+#yd-dashboard-root .yd-activity-menu-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 15px 13px;
+    border-bottom: 1px solid #eee9ed;
+    background: #fff;
+}
+#yd-dashboard-root .yd-activity-menu-heading { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
+#yd-dashboard-root .yd-activity-menu-head strong { color: #25212a; font-size: 13px; font-weight: 750 !important; }
+#yd-dashboard-root .yd-activity-menu-head small { color: #85808a; font-size: 10px; }
+#yd-dashboard-root .yd-activity-menu-total {
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    border: 1px solid #eadfea;
+    border-radius: 999px;
+    background: #faf6fa;
+    color: var(--brand-dark);
+    font-size: 9px;
+    font-weight: 800 !important;
+    white-space: nowrap;
+}
+#yd-dashboard-root .yd-activity-menu-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 27px;
+    height: 27px;
+    flex: 0 0 27px;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #77717b;
+    cursor: pointer;
+}
+#yd-dashboard-root .yd-activity-menu-close:hover { background: #f2edf2; color: var(--brand-dark); }
+#yd-dashboard-root .yd-activity-list { overflow: auto; overscroll-behavior: contain; padding: 3px 12px; }
+#yd-dashboard-root .yd-activity-item { display: flex; align-items: flex-start; gap: 11px; padding: 13px 3px; border-bottom: 1px solid #f0edf0; }
 #yd-dashboard-root .yd-activity-item:last-child { border-bottom: 0; }
-#yd-dashboard-root .yd-activity-item-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
-#yd-dashboard-root .yd-activity-item-copy strong { overflow: hidden; color: var(--ink); font-size: 10px; font-weight: 800 !important; text-overflow: ellipsis; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-item-copy small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-item-stage { color: var(--brand-dark); font-size: 9px; line-height: 1.4; }
-#yd-dashboard-root .yd-activity-item-status { flex: 0 0 auto; padding: 3px 6px; border-radius: 999px; background: #f2eaf1; color: var(--brand-dark); font-size: 8px; font-weight: 800 !important; }
+#yd-dashboard-root .yd-activity-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border: 1px solid #eee5ed;
+    border-radius: 10px;
+    background: #faf6fa;
+    color: var(--brand);
+    font-size: 14px;
+}
+#yd-dashboard-root .yd-activity-item-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 5px; }
+#yd-dashboard-root .yd-activity-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#yd-dashboard-root .yd-activity-item-copy strong { overflow: hidden; color: #29252d; font-size: 11px; font-weight: 750 !important; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-item-copy small { overflow: hidden; color: #817b85; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-item-stage { color: #62596a; font-size: 9px; line-height: 1.45; }
+#yd-dashboard-root .yd-activity-item-status { flex: 0 0 auto; padding: 3px 6px; border-radius: 999px; background: #f3edf4; color: var(--brand-dark); font-size: 8px; font-weight: 800 !important; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-progress {
+    position: relative;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #eee9ef;
+}
+#yd-dashboard-root .yd-activity-progress span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 36%;
+    border-radius: inherit;
+    background: var(--brand);
+    animation: yd-activity-progress 1.7s ease-in-out infinite;
+}
+@keyframes yd-activity-progress {
+    0% { transform: translateX(-110%); }
+    100% { transform: translateX(310%); }
+}
+#yd-dashboard-root .yd-activity-menu-foot {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 14px;
+    border-top: 1px solid #eee9ed;
+    background: #fbfafb;
+    color: #817b85;
+    font-size: 9px;
+}
+#yd-dashboard-root .yd-activity-menu-foot i { color: var(--brand); }
 @media (max-width: 620px) {
     #yd-dashboard-root .yd-activity-trigger { min-width: 35px; justify-content: center; padding: 4px 6px; }
     #yd-dashboard-root .yd-activity-trigger-copy { display: none; }
-    #yd-dashboard-root .yd-activity-menu { right: -48px; }
+    #yd-dashboard-root .yd-activity-menu { right: -48px; width: min(390px, calc(100vw - 20px)); max-height: calc(100vh - 95px); }
 }
 
 #yd-dashboard-root .yd-profile-wrap { position: relative; display: inline-flex; align-items: center; }
@@ -2752,10 +2833,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (!items.length) return '';
         const count = items.length;
         const first = items[0];
-        const rows = items.map(item =>
-            '<div class="yd-activity-item"><span class="yd-activity-item-spinner"></span><span class="yd-activity-item-copy"><strong>' + escapeHTML(item.label || 'Background operation') + '</strong><small>' + escapeHTML(item.location || 'Dashboard') + '</small><span class="yd-activity-item-stage">' + escapeHTML(item.stage || 'In progress') + '</span></span><span class="yd-activity-item-status">' + escapeHTML(item.statusLabel || 'ACTIVE') + '</span></div>'
-        ).join('');
-        return '<div class="yd-activity-wrap"><button type="button" class="yd-activity-trigger" data-action="activity-toggle" aria-expanded="' + String(activityMenuOpen) + '" aria-label="View ' + count + ' active operations"><span class="yd-activity-spinner"></span><span class="yd-activity-trigger-copy"><strong>' + count + ' ACTIVE</strong><small>' + escapeHTML(first.label || 'Background operation') + '</small></span><span class="yd-activity-count">' + count + '</span></button><div class="yd-activity-menu"' + (activityMenuOpen ? '' : ' hidden') + '><div class="yd-activity-menu-head"><strong>Queued Actions</strong><small>' + count + ' operation' + (count === 1 ? '' : 's') + '</small></div>' + rows + '</div></div>';
+        const rows = items.map(item => {
+            const label = String(item.label || 'Background operation');
+            const icon = /user|permission|visibility|access/i.test(label) ? 'fa-user-shield'
+                : /announcement/i.test(label) ? 'fa-bullhorn'
+                : /tool|module|refresh|sync/i.test(label) ? 'fa-arrows-rotate'
+                : /setting/i.test(label) ? 'fa-sliders'
+                : 'fa-cloud-arrow-up';
+            return '<div class="yd-activity-item"><span class="yd-activity-item-icon"><i class="fa-solid ' + icon + '"></i></span><span class="yd-activity-item-copy"><span class="yd-activity-item-top"><strong>' + escapeHTML(label) + '</strong><span class="yd-activity-item-status">' + escapeHTML(item.statusLabel || 'ACTIVE') + '</span></span><small>' + escapeHTML(item.location || 'Dashboard') + '</small><span class="yd-activity-progress"><span></span></span><span class="yd-activity-item-stage">' + escapeHTML(item.stage || 'In progress') + '</span></span></div>';
+        }).join('');
+        return '<div class="yd-activity-wrap"><button type="button" class="yd-activity-trigger" data-action="activity-toggle" aria-haspopup="dialog" aria-expanded="' + String(activityMenuOpen) + '" aria-label="View ' + count + ' active operations"><span class="yd-activity-spinner"></span><span class="yd-activity-trigger-copy"><strong>' + count + ' ACTIVE</strong><small>' + escapeHTML(first.label || 'Background operation') + '</small></span><span class="yd-activity-count">' + count + '</span></button><section class="yd-activity-menu" role="dialog" aria-label="Running operations"' + (activityMenuOpen ? '' : ' hidden') + '><div class="yd-activity-menu-head"><span class="yd-activity-menu-heading"><strong>Running operations</strong><small>These actions continue in the background</small></span><span class="yd-activity-menu-total">' + count + ' ACTIVE</span><button type="button" class="yd-activity-menu-close" data-action="activity-close" aria-label="Close activity list"><i class="fa-solid fa-xmark"></i></button></div><div class="yd-activity-list">' + rows + '</div><div class="yd-activity-menu-foot"><i class="fa-solid fa-circle-info"></i><span>You can keep working while these actions finish.</span></div></section></div>';
     };
 
     const renderShell = body => {
@@ -4267,6 +4354,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             if (actionButton?.dataset.action === 'toggle-dashboard') { isOpen = !isOpen; render(); return; }
             if (actionButton?.dataset.action === 'close-dashboard') { isOpen = false; profileOpen = false; render(); return; }
             if (actionButton?.dataset.action === 'activity-toggle') { activityMenuOpen = !activityMenuOpen; render(); return; }
+            if (actionButton?.dataset.action === 'activity-close') { activityMenuOpen = false; render(); return; }
             if (actionButton?.dataset.action === 'profile-toggle') { profileOpen = !profileOpen; render(); return; }
             if (actionButton?.dataset.action === 'network-page') {
                 event.preventDefault();
