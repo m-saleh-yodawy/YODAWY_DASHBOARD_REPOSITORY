@@ -501,6 +501,8 @@ jobs:
                       return True, ""
                   if canon_action == "UPDATE_USER" and target_id and existing_target_role == "USER" and target_role == "USER":
                       return True, ""
+                  if canon_action == "DELETE_USER" and target_id and target_id in auth_users_by_id and existing_target_role == "USER":
+                      return True, ""
                   return False, "ADMIN can create USER or ADMIN accounts and manage USER accounts only."
               if canon_action in {"ADD_USER", "UPDATE_USER"}:
                   return True, ""
