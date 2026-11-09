@@ -1,18 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T22:44:44Z",
+  "updatedAt": "2026-11-09T23:10:50Z",
   "transactions": {
-    "DASH-USERS-1794264075695-51P9CGF8V5": {
-      "requestId": "DASH-USERS-1794264075695-51P9CGF8V5",
-      "sequence": "1794264075695675709",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T22:41:29Z",
-      "updatedAt": "2026-11-09T22:41:29Z",
-      "targetId": "Q-004"
-    },
     "DASH-USERS-1794264079787-IKLBHZN4VO": {
       "requestId": "DASH-USERS-1794264079787-IKLBHZN4VO",
       "sequence": "1794264079787469307",
@@ -43,25 +32,7 @@
       "status": "SENT",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T23:09:17Z",
-      "updatedAt": "2026-11-09T23:09:17Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-001, TOOL-002, TOOL-004",
-      "targetToolIds": [
-        "TOOL-001",
-        "TOOL-002",
-        "TOOL-004"
-      ]
-    },
-    "DASH-USERS-1794103037035-HK4O1MBKBS": {
-      "requestId": "DASH-USERS-1794103037035-HK4O1MBKBS",
-      "sequence": "1794103037035415353",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:57:45Z",
-      "updatedAt": "2026-11-08T01:59:12Z",
-      "targetId": "Q-002"
+      "updatedAt": "2026-11-09T23:09:17Z"
     },
     "DASH-USERS-1794103059005-XTB0XAKL1Y": {
       "requestId": "DASH-USERS-1794103059005-XTB0XAKL1Y",
@@ -579,6 +550,17 @@
       "createdAt": "2026-11-09T22:41:59Z",
       "updatedAt": "2026-11-09T22:44:44Z",
       "targetId": "Q-002"
+    },
+    "DASH-USERS-1794264075695-51P9CGF8V5": {
+      "requestId": "DASH-USERS-1794264075695-51P9CGF8V5",
+      "sequence": "1794264075695675709",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T22:41:29Z",
+      "updatedAt": "2026-11-09T23:10:49Z",
+      "targetId": "Q-004"
     }
   }
 }
