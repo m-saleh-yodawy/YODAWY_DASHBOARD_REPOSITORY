@@ -1,22 +1,25 @@
 {
   "TOOL-001": {
-    "visibility": "PUBLIC",
-    "allowedUsers": []
+    "visibility": "SELECTED_USERS",
+    "allowedUsers": [
+      "Q-001",
+      "Q-003",
+      "Q-004",
+      "Q-005"
+    ]
   },
   "TOOL-002": {
     "visibility": "SELECTED_USERS",
     "allowedUsers": [
       "Q-002",
       "Q-003",
-      "Q-001",
-      "Q-005"
+      "Q-001"
     ]
   },
   "TOOL-004": {
     "visibility": "SELECTED_USERS",
     "allowedUsers": [
-      "Q-001",
-      "Q-005"
+      "Q-001"
     ]
   }
 }
