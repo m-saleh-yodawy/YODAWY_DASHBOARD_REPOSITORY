@@ -2,7 +2,7 @@
   "Q-002": {
     "TOOL-001": {
       "granted": true,
-      "forcedState": true,
+      "forcedState": false,
       "type": "SUPER_ADMIN"
     },
     "TOOL-002": {
@@ -36,24 +36,24 @@
   "Q-004": {
     "TOOL-001": {
       "granted": true,
-      "forcedState": true,
+      "forcedState": false,
       "type": "SUPER_ADMIN"
     },
     "TOOL-002": {
       "granted": true,
-      "forcedState": true,
+      "forcedState": false,
       "type": "SUPER_ADMIN"
     },
     "TOOL-004": {
       "granted": false,
-      "forcedState": true,
+      "forcedState": false,
       "type": "SUPER_ADMIN"
     }
   },
   "Q-005": {
     "TOOL-001": {
       "granted": true,
-      "forcedState": true,
+      "forcedState": false,
       "type": "SUPER_ADMIN"
     },
     "TOOL-002": {
