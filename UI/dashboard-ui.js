@@ -1783,13 +1783,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
-    transform-origin: top left;
+    transform-origin: top center;
     box-sizing: border-box !important;
-    animation: yd-dropdown-enter .12s cubic-bezier(.2, .8, .2, 1) both;
+    animation: yd-select-dropdown-drop .34s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .ui-select[data-open="true"] .ui-select-menu,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     display: block;
+}
+#yd-dashboard-root .ui-select-menu[data-open-direction="up"],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][data-open-direction="up"] {
+    transform-origin: bottom center;
+    animation-name: yd-select-dropdown-rise;
 }
 @supports (position-anchor: --yd-dropdown-anchor) and (top: anchor(bottom)) and (width: anchor-size(width)) {
     body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
@@ -2226,6 +2231,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 @keyframes yd-dropdown-enter {
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
+}
+@keyframes yd-select-dropdown-drop {
+    from { opacity: 0; transform: translateY(-11px) scaleY(.94); }
+    72% { opacity: 1; transform: translateY(1px) scaleY(1.005); }
+    to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+@keyframes yd-select-dropdown-rise {
+    from { opacity: 0; transform: translateY(11px) scaleY(.94); }
+    72% { opacity: 1; transform: translateY(-1px) scaleY(1.005); }
+    to { opacity: 1; transform: translateY(0) scaleY(1); }
 }
 @keyframes yd-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes yd-modal-enter {
@@ -3699,21 +3714,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
         const menu = getDropdownMenu(dropdown);
         const trigger = dropdown?.querySelector('.ui-select-trigger');
         if (!menu || !trigger || menu.dataset.portal !== 'true') return;
-        const supportsAnchor = typeof CSS !== 'undefined' &&
-            CSS.supports('position-anchor: --yd-active-dropdown-anchor') &&
-            CSS.supports('top: anchor(bottom)') &&
-            CSS.supports('width: anchor-size(width)');
-        if (supportsAnchor) {
-            trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
-            menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
-            if (dropdown.classList.contains('yd-allowed-users-dropdown')) {
-                menu.style.setProperty('--yd-select-menu-width', dropdown.getBoundingClientRect().width + 'px');
-            } else {
-                menu.style.removeProperty('--yd-select-menu-width');
-            }
-            ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
-            return;
-        }
         const rect = trigger.getBoundingClientRect();
         const dropdownRect = dropdown.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
@@ -3725,6 +3725,19 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
         const roomBelow = viewportHeight - rect.bottom - 12;
         const roomAbove = rect.top - 12;
         const openAbove = roomBelow < Math.min(menuHeight, 180) && roomAbove > roomBelow;
+        menu.dataset.openDirection = openAbove ? 'up' : 'down';
+        const supportsAnchor = typeof CSS !== 'undefined' &&
+            CSS.supports('position-anchor: --yd-active-dropdown-anchor') &&
+            CSS.supports('top: anchor(bottom)') &&
+            CSS.supports('width: anchor-size(width)');
+        if (supportsAnchor) {
+            trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
+            menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
+            if (isAllowedUsers) menu.style.setProperty('--yd-select-menu-width', dropdownRect.width + 'px');
+            else menu.style.removeProperty('--yd-select-menu-width');
+            ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
+            return;
+        }
         const left = Math.max(12, Math.min(rect.left, viewportWidth - width - 12));
         const top = openAbove
             ? Math.max(12, rect.top - menuHeight - 4)
