@@ -61,6 +61,8 @@
     let dropdownKeydownHandler = null;
     let dropdownScrollHandler = null;
     let dropdownResizeHandler = null;
+    let activityClickHandler = null;
+    let activityClickRoot = null;
 
     const syncInputSurfaceBackgrounds = scope => {
         const selector = 'input:not([type="hidden"]), textarea, select, .yd-allowed-users-search';
@@ -524,6 +526,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 
 #yd-dashboard-root #yd-header {
+    position: relative;
+    z-index: 50;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -4294,6 +4298,20 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             }
         }, true);
 
+        activityClickHandler = event => {
+            const actionButton = event.target.closest?.('[data-action="activity-toggle"], [data-action="activity-close"]');
+            if (!actionButton || !root.contains(actionButton)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            activityMenuOpen = actionButton.dataset.action === 'activity-toggle' ? !activityMenuOpen : false;
+            const menu = root.querySelector('.yd-activity-dropdown');
+            const trigger = root.querySelector('[data-action="activity-toggle"]');
+            if (menu) menu.hidden = !activityMenuOpen;
+            trigger?.setAttribute('aria-expanded', String(activityMenuOpen));
+        };
+        activityClickRoot = root;
+        root.addEventListener('click', activityClickHandler, true);
+
         root.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
@@ -4514,6 +4532,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (dropdownKeydownHandler) document.removeEventListener('keydown', dropdownKeydownHandler);
         if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
         if (dropdownResizeHandler) removeWindowEventListener('resize', dropdownResizeHandler);
+        if (activityClickRoot && activityClickHandler) activityClickRoot.removeEventListener('click', activityClickHandler, true);
+        activityClickRoot = activityClickHandler = null;
         dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         document.getElementById(CONFIG.ID)?.remove();
         document.getElementById(CONFIG.STYLE_ID)?.remove();
