@@ -40,6 +40,9 @@
     const expandedTools = new Set();
     let visibilityDraft = null;
     let openVisibilityToolId = null;
+    let visibilityMode = 'USERS';
+    const visibilityExpandedUsers = new Set();
+    const visibilityExpandedTools = new Set();
     const optimisticVisibility = new Map();
     const pendingVisibilitySubmissions = new Set();
     const backgroundTransactions = new Set();
@@ -1258,6 +1261,195 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-accordion-item[open] > .yd-accordion-body,
 #yd-dashboard-root .yd-tool-accordion-item[open] > .yd-tool-accordion-body {
     animation: yd-accordion-enter .2s cubic-bezier(.2, .8, .2, 1) both;
+}
+#yd-dashboard-root .yd-visibility-modes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0 0 16px;
+}
+#yd-dashboard-root .yd-visibility-mode-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 76px;
+    padding: 13px 15px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: #fff;
+    color: var(--ink);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+#yd-dashboard-root .yd-visibility-mode-card:hover {
+    border-color: #c7afc4;
+    background: #fcf9fc;
+}
+#yd-dashboard-root .yd-visibility-mode-card.active {
+    border-color: var(--brand);
+    background: #f8f5f7;
+    box-shadow: 0 0 0 2px rgba(135, 90, 123, .12);
+}
+#yd-dashboard-root .yd-visibility-mode-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border: 1px solid var(--brand);
+    border-radius: 10px;
+    background: var(--brand);
+    color: #fff;
+    font-size: 15px;
+}
+#yd-dashboard-root .yd-visibility-mode-copy {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+#yd-dashboard-root .yd-visibility-mode-copy strong {
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 800 !important;
+    letter-spacing: .035em;
+}
+#yd-dashboard-root .yd-visibility-mode-copy small {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+#yd-dashboard-root .yd-visibility-mode-check {
+    color: var(--brand);
+    font-size: 14px;
+    opacity: 0;
+    transition: opacity .18s ease;
+}
+#yd-dashboard-root .yd-visibility-mode-card.active .yd-visibility-mode-check { opacity: 1; }
+#yd-dashboard-root .yd-visibility-accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#yd-dashboard-root .yd-visibility-accordion-item {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: #fff;
+    box-shadow: 0 2px 5px #29242e08;
+}
+#yd-dashboard-root .yd-visibility-accordion-item > summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 58px;
+    padding: 9px 42px 9px 13px;
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    list-style: none;
+    transition: background-color .18s ease;
+}
+#yd-dashboard-root .yd-visibility-accordion-item > summary::-webkit-details-marker { display: none; }
+#yd-dashboard-root .yd-visibility-accordion-item > summary:hover,
+#yd-dashboard-root .yd-visibility-accordion-item[open] > summary { background: #f8f5f7; }
+#yd-dashboard-root .yd-visibility-accordion-item > summary::after {
+    position: absolute;
+    right: 17px;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    content: '';
+    transform: rotate(45deg);
+    transition: transform .18s ease, border-color .18s ease;
+}
+#yd-dashboard-root .yd-visibility-accordion-item[open] > summary::after {
+    border-color: var(--brand);
+    transform: rotate(225deg);
+}
+#yd-dashboard-root .yd-visibility-accordion-item > summary:hover::after { border-color: var(--brand); }
+#yd-dashboard-root .yd-visibility-accordion-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+#yd-dashboard-root .yd-visibility-accordion-heading strong {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#yd-dashboard-root .yd-visibility-accordion-heading small {
+    color: var(--muted);
+    font-size: 10px;
+}
+#yd-dashboard-root .yd-visibility-accordion-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    flex: 0 0 auto;
+}
+#yd-dashboard-root .yd-visibility-rows {
+    margin: 0 10px 10px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-soft);
+    border-radius: 9px;
+    background: #fff;
+}
+#yd-dashboard-root .yd-visibility-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 51px;
+    padding: 8px 3px;
+    border-bottom: 1px solid #f1edf2;
+}
+#yd-dashboard-root .yd-visibility-row:last-child { border-bottom: 0; }
+#yd-dashboard-root .yd-visibility-row-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+#yd-dashboard-root .yd-visibility-row-main strong {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#yd-dashboard-root .yd-visibility-row-main small {
+    color: var(--muted);
+    font-size: 9.5px;
+}
+#yd-dashboard-root .yd-visibility-row-control {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+#yd-dashboard-root .yd-visibility-switch.is-loading { cursor: wait; }
+#yd-dashboard-root .yd-visibility-switch:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+}
+@media (max-width: 620px) {
+    #yd-dashboard-root .yd-visibility-modes { grid-template-columns: 1fr; gap: 8px; }
+    #yd-dashboard-root .yd-visibility-mode-card { min-height: 66px; padding: 10px 12px; }
+    #yd-dashboard-root .yd-visibility-row { align-items: flex-start; }
+    #yd-dashboard-root .yd-visibility-row-control { padding-top: 4px; }
+    #yd-dashboard-root .yd-visibility-accordion-meta { flex-wrap: wrap; }
 }
 
 #yd-dashboard-root .yd-permission-search-wrap {
@@ -2579,13 +2771,60 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
         const engine = getRoleEngine();
         const visibility = { ...(engine?.getVisibility?.() || {}), ...Object.fromEntries(optimisticVisibility) };
         const users = engine?.getUsers?.() || [];
-        const rows = tools.map((tool, index) => {
-            const record = visibility[tool.id] || { visibility: 'PRIVATE', allowedUsers: [] };
-            const pending = getPendingVisibility(tool.id);
-            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><th>' + (index + 1) + '</th><td><span class="yd-id-badge">' + escapeHTML(tool.id) + '</span></td><td><div class="yd-tool-name">' + escapeHTML(tool.name) + '</div></td><td>' + renderAllowedUsersDropdown(tool, record, users, pending) + '</td></tr>';
-        }).join('');
-        return '<section class="yd-welcome"><div><h1>Allowed Users</h1><p>Choose All Users or manage access for individual accounts.</p></div><span class="yd-pill blue">SUPER ADMIN CONTROL</span></section>' +
-            '<div class="yd-table-card yd-visibility-table-card"><div class="yd-table-responsive"><table><thead><tr><th style="width:70px">#</th><th style="width:120px">Tool ID</th><th>Tool</th><th>Allowed Users</th></tr></thead><tbody>' + (rows || '<tr><td colspan="4" class="yd-empty">No tools available.</td></tr>') + '</tbody></table></div></div>';
+        const isAllowed = (tool, user) => {
+            const record = visibility[String(tool.id)] || { visibility: 'PRIVATE', allowedUsers: [] };
+            const userId = String(user.id || '').trim().toUpperCase();
+            return record.visibility === 'PUBLIC' || (record.allowedUsers || []).some(id => String(id).trim().toUpperCase() === userId);
+        };
+        const renderSwitch = (tool, user) => {
+            const toolId = String(tool.id);
+            const userId = String(user.id || '').trim().toUpperCase();
+            const allowed = isAllowed(tool, user);
+            const pending = getPendingVisibility(toolId);
+            const pendingUser = getPendingUser(user);
+            const active = String(user.status || '').toLowerCase() === 'active';
+            const disabled = Boolean(pending || pendingUser || !active);
+            const loading = Boolean(pending || pendingUser);
+            const label = (allowed ? 'Remove access for ' : 'Allow access for ') + formatName(user.name) + ' to ' + tool.name;
+            return '<div class="yd-visibility-row-control">' +
+                (pending ? renderPendingBadge('Saving') : pendingUser ? renderPendingBadge('Updating') : !active ? '<span class="yd-pill red">Inactive</span>' : '') +
+                '<button type="button" class="yd-switch yd-visibility-switch' + (allowed ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(userId) + '" data-enabled="' + String(allowed) + '" role="switch" aria-checked="' + String(allowed) + '" aria-label="' + escapeHTML(label) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>' +
+                '</div>';
+        };
+        const modeCards = '<div class="yd-visibility-modes" role="tablist" aria-label="Visibility layout">' +
+            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '">' +
+                '<span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong><small>Manage the tools each user can access</small></span><i class="fa-solid fa-check yd-visibility-mode-check" aria-hidden="true"></i></button>' +
+            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '">' +
+                '<span class="yd-visibility-mode-icon"><i class="fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong><small>Manage the users who can access each tool</small></span><i class="fa-solid fa-check yd-visibility-mode-check" aria-hidden="true"></i></button></div>';
+        let accordions = '';
+        if (visibilityMode === 'USERS') {
+            accordions = users.map(user => {
+                const userId = String(user.id || '').trim().toUpperCase();
+                const allowedCount = tools.filter(tool => isAllowed(tool, user)).length;
+                const pendingUser = getPendingUser(user);
+                const expanded = visibilityExpandedUsers.has(userId) ? ' open' : '';
+                const rows = tools.map(tool => {
+                    const recordPending = getPendingVisibility(String(tool.id));
+                    return '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(tool.id) + '</small></div>' + renderSwitch(tool, user) + '</div>';
+                }).join('');
+                return '<details class="yd-visibility-accordion-item" data-visibility-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(userId) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + tools.length + ' TOOLS</span>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No tools available.</div>') + '</div></details>';
+            }).join('');
+            if (!users.length) accordions = '<div class="yd-card yd-empty">No users are available.</div>';
+        } else {
+            accordions = tools.map(tool => {
+                const toolId = String(tool.id);
+                const allowedCount = users.filter(user => isAllowed(tool, user)).length;
+                const pending = getPendingVisibility(toolId);
+                const expanded = visibilityExpandedTools.has(toolId) ? ' open' : '';
+                const rows = users.map(user =>
+                    '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(String(user.id || '').trim().toUpperCase()) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></div>' + renderSwitch(tool, user) + '</div>'
+                ).join('');
+                return '<details class="yd-visibility-accordion-item" data-visibility-tool="' + escapeHTML(toolId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(toolId) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + users.length + ' USERS</span>' + (pending ? renderPendingBadge('Saving') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No users are available.</div>') + '</div></details>';
+            }).join('');
+            if (!tools.length) accordions = '<div class="yd-card yd-empty">No tools are available.</div>';
+        }
+        return '<section class="yd-welcome"><div><h1>Visibility</h1><p>Control which users can access each shared tool.</p></div><span class="yd-pill blue">SUPER ADMIN CONTROL</span></section>' +
+            modeCards + '<div class="yd-visibility-accordion-list">' + accordions + '</div>';
     };
 
     const renderAnnouncements = () => {
@@ -3234,6 +3473,40 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                     const metadata = { action: 'DELETE_USER', targetId: button.dataset.id, targetName: formatName(user?.name || button.dataset.id), summary: 'DELETE USER · ' + formatName(user?.name || button.dataset.id) };
                     return runNetworkOperation('Deleting user', () => getRoleEngine().deleteUser(button.dataset.id), metadata);
                 });
+            } else if (action === 'toggle-visibility') {
+                const toolId = String(button.dataset.tool || '').trim();
+                const userId = String(button.dataset.user || '').trim().toUpperCase();
+                const engine = getRoleEngine();
+                const user = (engine?.getUsers?.() || []).find(item => String(item.id || '').trim().toUpperCase() === userId);
+                const tool = getTools().find(item => String(item.id || '').trim() === toolId);
+                if (!tool || !user || button.disabled || getPendingVisibility(toolId) || getPendingUser(user)) return;
+                const currentRecord = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
+                const allowedUsers = new Set(currentRecord.visibility === 'PUBLIC'
+                    ? (engine?.getUsers?.() || []).map(item => String(item.id || '').trim().toUpperCase())
+                    : (currentRecord.allowedUsers || []).map(id => String(id).trim().toUpperCase()));
+                const currentAllowed = currentRecord.visibility === 'PUBLIC' || allowedUsers.has(userId);
+                const nextAllowed = !currentAllowed;
+                if (nextAllowed) allowedUsers.add(userId);
+                else allowedUsers.delete(userId);
+                const updatedRecord = { visibility: 'SELECTED_USERS', allowedUsers: [...allowedUsers] };
+                optimisticVisibility.set(toolId, updatedRecord);
+                pendingVisibilitySubmissions.add(toolId);
+                render();
+                const metadata = {
+                    action: 'UPDATE_VISIBILITY',
+                    targetId: userId,
+                    targetName: formatName(user.name || userId),
+                    targetToolIds: [toolId],
+                    summary: 'UPDATE VISIBILITY · ' + tool.name + ' · ' + formatName(user.name || userId) + ' · ' + (nextAllowed ? 'ACCESS ENABLED' : 'ACCESS DISABLED')
+                };
+                try {
+                    await runNetworkOperation('Updating visibility for ' + formatName(user.name || userId), () =>
+                        engine.setToolVisibility(toolId, updatedRecord), metadata
+                    );
+                } finally {
+                    pendingVisibilitySubmissions.delete(toolId);
+                    render();
+                }
             } else if (action === 'toggle-permission') {
                 const field = button.dataset.field || 'granted';
                 const userId = button.dataset.user;
@@ -3486,6 +3759,26 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
         root.addEventListener('toggle', event => {
             const userItem = event.target.closest?.('details[data-user-accordion]');
             const toolItem = event.target.closest?.('details[data-tool-accordion]');
+            const visibilityUserItem = event.target.closest?.('details[data-visibility-user]');
+            const visibilityToolItem = event.target.closest?.('details[data-visibility-tool]');
+            if (visibilityUserItem) {
+                if (visibilityUserItem.open) {
+                    root.querySelectorAll('details[data-visibility-user]').forEach(other => {
+                        if (other !== visibilityUserItem && other.open) other.open = false;
+                    });
+                    visibilityExpandedUsers.clear();
+                    visibilityExpandedUsers.add(visibilityUserItem.dataset.visibilityUser);
+                } else visibilityExpandedUsers.delete(visibilityUserItem.dataset.visibilityUser);
+            }
+            if (visibilityToolItem) {
+                if (visibilityToolItem.open) {
+                    root.querySelectorAll('details[data-visibility-tool]').forEach(other => {
+                        if (other !== visibilityToolItem && other.open) other.open = false;
+                    });
+                    visibilityExpandedTools.clear();
+                    visibilityExpandedTools.add(visibilityToolItem.dataset.visibilityTool);
+                } else visibilityExpandedTools.delete(visibilityToolItem.dataset.visibilityTool);
+            }
             if (userItem) {
                 if (userItem.open) {
                     root.querySelectorAll('details[data-user-accordion]').forEach(other => {
@@ -3510,6 +3803,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
             if (handleAllowedUsersAction(actionButton)) return;
+            if (actionButton?.dataset.action === 'visibility-mode') {
+                visibilityMode = actionButton.dataset.mode === 'TOOLS' ? 'TOOLS' : 'USERS';
+                render();
+                return;
+            }
             if (actionButton?.dataset.action === 'toggle-dropdown') {
                 const opening = dropdown.dataset.open !== 'true';
                 if (!opening) {
@@ -3695,6 +3993,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
         profileOpen = false;
         expandedUsers.clear();
         expandedTools.clear();
+        visibilityExpandedUsers.clear();
+        visibilityExpandedTools.clear();
+        visibilityMode = 'USERS';
         openVisibilityToolId = null;
         visibilityDraft = null;
         optimisticVisibility.clear();
