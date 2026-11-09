@@ -2771,6 +2771,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
         const engine = getRoleEngine();
         const visibility = { ...(engine?.getVisibility?.() || {}), ...Object.fromEntries(optimisticVisibility) };
         const users = engine?.getUsers?.() || [];
+        const pendingTools = new Map(tools.map(tool => [String(tool.id), getPendingVisibility(String(tool.id))]));
+        const pendingUsers = new Map(users.map(user => [String(user.id || '').trim().toUpperCase(), getPendingUser(user)]));
         const isAllowed = (tool, user) => {
             const record = visibility[String(tool.id)] || { visibility: 'PRIVATE', allowedUsers: [] };
             const userId = String(user.id || '').trim().toUpperCase();
@@ -2780,8 +2782,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             const toolId = String(tool.id);
             const userId = String(user.id || '').trim().toUpperCase();
             const allowed = isAllowed(tool, user);
-            const pending = getPendingVisibility(toolId);
-            const pendingUser = getPendingUser(user);
+            const pending = pendingTools.get(toolId);
+            const pendingUser = pendingUsers.get(userId);
             const active = String(user.status || '').toLowerCase() === 'active';
             const disabled = Boolean(pending || pendingUser || !active);
             const loading = Boolean(pending || pendingUser);
@@ -2801,10 +2803,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             accordions = users.map(user => {
                 const userId = String(user.id || '').trim().toUpperCase();
                 const allowedCount = tools.filter(tool => isAllowed(tool, user)).length;
-                const pendingUser = getPendingUser(user);
+                const pendingUser = pendingUsers.get(userId);
                 const expanded = visibilityExpandedUsers.has(userId) ? ' open' : '';
                 const rows = tools.map(tool => {
-                    const recordPending = getPendingVisibility(String(tool.id));
                     return '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(tool.id) + '</small></div>' + renderSwitch(tool, user) + '</div>';
                 }).join('');
                 return '<details class="yd-visibility-accordion-item" data-visibility-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(userId) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + tools.length + ' TOOLS</span>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No tools available.</div>') + '</div></details>';
@@ -2814,7 +2815,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             accordions = tools.map(tool => {
                 const toolId = String(tool.id);
                 const allowedCount = users.filter(user => isAllowed(tool, user)).length;
-                const pending = getPendingVisibility(toolId);
+                const pending = pendingTools.get(toolId);
                 const expanded = visibilityExpandedTools.has(toolId) ? ' open' : '';
                 const rows = users.map(user =>
                     '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(String(user.id || '').trim().toUpperCase()) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></div>' + renderSwitch(tool, user) + '</div>'
