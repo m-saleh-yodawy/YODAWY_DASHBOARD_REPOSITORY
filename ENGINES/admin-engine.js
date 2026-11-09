@@ -357,8 +357,18 @@
         return submit('EDIT_USER', { id, ...update });
     };
 
-    const deleteUser = async () => {
-        throw createError('ADMIN cannot delete users');
+    const deleteUser = async userId => {
+        ensureLoaded();
+
+        const id = normalizeId(userId);
+        const current = getUser(id);
+        const { AUTH } = getDependencies();
+        const actor = AUTH.getUser();
+
+        if (!id || !current) throw createError('Target USER was not found');
+        if (id === normalizeId(actor?.userId || actor?.id)) throw createError('You cannot delete your own account');
+
+        return submit('DELETE_USER', { id });
     };
 
     const setToolPermission = async (userId, toolId, changes) => {
