@@ -1,22 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T02:53:20Z",
+  "updatedAt": "2026-11-09T02:55:06Z",
   "transactions": {
-    "DASH-USERS-1794192799391-A7K180KI80": {
-      "requestId": "DASH-USERS-1794192799391-A7K180KI80",
-      "sequence": "1794192799391084311",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:53:48Z",
-      "updatedAt": "2026-11-09T02:53:48Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ]
-    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
@@ -526,6 +511,16 @@
       "createdAt": "2026-11-09T02:51:31Z",
       "updatedAt": "2026-11-09T02:53:19Z",
       "targetId": "Q-005"
+    },
+    "DASH-USERS-1794192799391-A7K180KI80": {
+      "requestId": "DASH-USERS-1794192799391-A7K180KI80",
+      "sequence": "1794192799391084311",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T02:53:48Z",
+      "updatedAt": "2026-11-09T02:55:06Z"
     }
   }
 }
