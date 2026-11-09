@@ -134,6 +134,47 @@
             ? context.adminEngine || context.admin || null
             : context.userEngine || null;
 
+    const ROLE_ACCESS = Object.freeze({
+        USER: Object.freeze({
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'account']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool']),
+            canManageAnnouncements: false,
+            canManageUsers: false,
+            canEditUsers: false,
+            canDeleteUsers: false,
+            canManageUserPermissions: false,
+            canManageSharedTools: false,
+            canManageVisibility: false,
+            canViewNetwork: false
+        }),
+        ADMIN: Object.freeze({
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'account']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'add-user', 'edit-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            canManageAnnouncements: true,
+            canManageUsers: true,
+            canEditUsers: true,
+            canDeleteUsers: false,
+            canManageUserPermissions: true,
+            canManageSharedTools: false,
+            canManageVisibility: false,
+            canViewNetwork: false
+        }),
+        SUPER_ADMIN: Object.freeze({
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'account']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            canManageAnnouncements: true,
+            canManageUsers: true,
+            canEditUsers: true,
+            canDeleteUsers: true,
+            canManageUserPermissions: false,
+            canManageSharedTools: true,
+            canManageVisibility: true,
+            canViewNetwork: true
+        })
+    });
+
+    const getRoleAccess = () => ROLE_ACCESS[context?.userRole] || ROLE_ACCESS.USER;
+
     const getUsers = () => {
         try { return getRoleEngine()?.getUsers?.() || [context.user]; }
         catch { return [context.user]; }
@@ -2824,10 +2865,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const navItems = () => {
+        const access = getRoleAccess();
         const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements']];
-        if (['ADMIN', 'SUPER_ADMIN'].includes(context.userRole)) items.push(['users', 'fa-solid fa-users', 'Users']);
-        if (context.userRole === 'ADMIN') items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
-        if (context.userRole === 'SUPER_ADMIN') items.push(['permissions', 'fa-solid fa-share-nodes', 'Shared Tools'], ['visibility', 'fa-solid fa-eye', 'Visibility'], ['transactions', 'fa-solid fa-right-left', 'NETWORK']);
+        if (access.canManageUsers) items.push(['users', 'fa-solid fa-users', 'Users']);
+        if (access.canManageUserPermissions) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
+        if (access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-share-nodes', 'Shared Tools']);
+        if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
+        if (access.canViewNetwork) items.push(['transactions', 'fa-solid fa-right-left', 'NETWORK']);
         items.push(['account', 'fa-solid fa-gear', 'Settings']);
         return items;
     };
@@ -2986,8 +3030,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const pending = user._pending ? user._transaction : getPendingUser(user);
             const pendingAction = String(pending?.action || '').toUpperCase();
             const pendingLabel = pendingAction === 'ADD_USER' ? 'Adding' : pendingAction === 'DELETE_USER' ? 'Deleting' : 'Updating';
-            const canDelete = !isAdmin && !(context.userRole === 'SUPER_ADMIN' && isSelf) && !user._pending;
-            const editButton = !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf)
+            const canDelete = getRoleAccess().canDeleteUsers && !isSelf && !user._pending;
+            const editButton = getRoleAccess().canEditUsers && !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf)
                 ? '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"' + (pending ? ' disabled' : '') + '>' + editActionIcon + '</button>'
                 : '';
             const deleteButton = canDelete
@@ -2997,7 +3041,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
             return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + renderRolePill(user.role) + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
         }).join('');
-        return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div><button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button></section>' +
+        return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div>' + (getRoleAccess().canManageUsers ? '<button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button>' : '') + '</section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
             '<div class="yd-table-wrap"><table><thead><tr><th>User</th><th>User ID</th><th>Role</th><th>Status</th><th>Personal Repository</th><th>Actions</th></tr></thead><tbody>' +
             (rows || '<tr><td colspan="6" class="yd-empty">No users found.</td></tr>') + '</tbody></table></div>';
@@ -3042,10 +3086,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const pending = getPendingPermission(user.id, tool.id);
                 const pendingUser = getPendingUser(user);
                 const blocked = pending || pendingUser;
+                const protectedState = record.forcedState === true;
                 const permissionAction = blocked
                     ? '<span class="yd-inline-loading"><span class="yd-control-spinner" aria-hidden="true"></span><span>' + (pendingUser ? 'Updating' : 'Saving') + '</span></span>'
-                    : record.granted ? 'Revoke' : 'Permit';
-                return '<tr' + (blocked ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (record.forcedState ? 'Protected' : 'Normal') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (blocked ? ' disabled' : '') + '>' + permissionAction + '</button></td></tr>';
+                    : protectedState ? 'Protected' : record.granted ? 'Revoke' : 'Permit';
+                return '<tr' + (blocked ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong>' + (pendingUser ? renderPendingBadge('Updating') : '') + '</td><td>' + escapeHTML(tool.name) + (pending ? renderPendingBadge('Queued') : '') + '</td><td><span class="yd-pill ' + (record.granted ? 'green' : 'red') + '">' + (record.granted ? 'Permitted' : 'Denied') + '</span></td><td>' + (protectedState ? '<span class="yd-pill yellow">Protected</span>' : '<span class="yd-pill">Normal</span>') + '</td><td><button class="yd-secondary" data-action="toggle-permission" data-user="' + escapeHTML(user.id) + '" data-tool="' + escapeHTML(tool.id) + '" data-granted="' + String(record.granted === true) + '"' + (blocked || protectedState ? ' disabled' : '') + (protectedState ? ' title="Protected by SUPER ADMIN Forced State"' : '') + '>' + permissionAction + '</button></td></tr>';
             })).join('') || '<tr><td colspan="5" class="yd-empty">No eligible users or visible tools.</td></tr>') + '</tbody></table></div>';
     };
 
@@ -3211,7 +3256,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const renderAnnouncements = () => {
         const posts = context.announcements?.getPosts?.() || [];
-        const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
+        const canManage = getRoleAccess().canManageAnnouncements;
         const role = String(context.userRole || 'USER').trim().toLowerCase().replace(/_/g, '');
         const renderCard = (post, pending = null) => {
             const published = formatAnnouncementDate(post.createdAt || post.updatedAt);
@@ -3334,16 +3379,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '</div></div>';
     };
 
-    const renderPage = () => ({
-        overview: renderOverview,
-        tools: renderTools,
-        announcements: renderAnnouncements,
-        users: renderUsers,
-        permissions: renderPermissions,
-        visibility: renderVisibility,
-        transactions: renderTransactions,
-        account: renderAccount
-    }[activePage] || renderOverview)();
+    const renderPage = () => {
+        const access = getRoleAccess();
+        if (!access.pages.includes(activePage)) activePage = 'tools';
+        const pages = {
+            overview: renderOverview,
+            tools: renderTools,
+            announcements: renderAnnouncements,
+            users: renderUsers,
+            permissions: renderPermissions,
+            visibility: renderVisibility,
+            transactions: renderTransactions,
+            account: renderAccount
+        };
+        return (pages[activePage] || renderOverview)();
+    };
 
     const render = () => {
         const root = document.getElementById(CONFIG.ID);
@@ -3794,6 +3844,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const runAction = async (action, button) => {
         try {
+            const access = getRoleAccess();
+            if (!access.actions.includes(action)) throw new Error('This action is not available for your role.');
+            if (action === 'toggle-permission' && button?.dataset.field === 'forcedState' && context.userRole !== 'SUPER_ADMIN') {
+                throw new Error('Forced State can only be managed by SUPER ADMIN.');
+            }
             if (action === 'refresh-connection') {
                 if (button?.disabled) return;
                 if (button) {
@@ -4192,6 +4247,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const handleAllowedUsersAction = actionButton => {
+        if (!getRoleAccess().canManageVisibility) return false;
         if (actionButton?.dataset.action === 'toggle-allowed-user') {
             const toolId = actionButton.dataset.tool;
             const userId = actionButton.dataset.user;
