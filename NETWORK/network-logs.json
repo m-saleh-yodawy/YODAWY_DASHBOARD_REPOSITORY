@@ -1,22 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T02:27:45Z",
+  "updatedAt": "2026-11-09T02:29:14Z",
   "transactions": {
-    "DASH-USERS-1794191234833-HZOYMJ03MF": {
-      "requestId": "DASH-USERS-1794191234833-HZOYMJ03MF",
-      "sequence": "1794191234833858448",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T02:27:45Z",
-      "updatedAt": "2026-11-09T02:27:45Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-004",
-      "targetToolIds": [
-        "TOOL-004"
-      ]
-    },
     "DASH-USERS-1794191245994-9WR0W64QXE": {
       "requestId": "DASH-USERS-1794191245994-9WR0W64QXE",
       "sequence": "1794191245994878067",
@@ -25,12 +10,7 @@
       "status": "SENT",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T02:27:57Z",
-      "updatedAt": "2026-11-09T02:27:57Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-002",
-      "targetToolIds": [
-        "TOOL-002"
-      ]
+      "updatedAt": "2026-11-09T02:27:57Z"
     },
     "DASH-USERS-1794191255695-7MVRPYBNBT": {
       "requestId": "DASH-USERS-1794191255695-7MVRPYBNBT",
@@ -40,12 +20,7 @@
       "status": "SENT",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T02:28:10Z",
-      "updatedAt": "2026-11-09T02:28:10Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "updatedAt": "2026-11-09T02:28:10Z"
     },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
@@ -494,9 +469,7 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T01:43:29.339Z",
-      "updatedAt": "2026-11-09T01:43:29.339Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "UPDATE DASHBOARD SETTINGS"
+      "updatedAt": "2026-11-09T01:43:29.339Z"
     },
     "ACTIVITY-b8b1558b-fea1-489a-b43c-39105a436649": {
       "requestId": "ACTIVITY-b8b1558b-fea1-489a-b43c-39105a436649",
@@ -506,13 +479,7 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T02:23:06.652Z",
-      "updatedAt": "2026-11-09T02:23:06.652Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "DISABLE TOOL · CONFIRMATION TYPE BUTTONS",
-      "targetToolId": "TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "updatedAt": "2026-11-09T02:23:06.652Z"
     },
     "ACTIVITY-93e84e3f-46f2-4b93-96cb-bb9f9c91a027": {
       "requestId": "ACTIVITY-93e84e3f-46f2-4b93-96cb-bb9f9c91a027",
@@ -522,13 +489,17 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T02:23:17.718Z",
-      "updatedAt": "2026-11-09T02:23:17.718Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "ENABLE TOOL · PORTAL AUTO LOGIN",
-      "targetToolId": "TOOL-002",
-      "targetToolIds": [
-        "TOOL-002"
-      ]
+      "updatedAt": "2026-11-09T02:23:17.718Z"
+    },
+    "DASH-USERS-1794191234833-HZOYMJ03MF": {
+      "requestId": "DASH-USERS-1794191234833-HZOYMJ03MF",
+      "sequence": "1794191234833858448",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T02:27:45Z",
+      "updatedAt": "2026-11-09T02:29:14Z"
     }
   }
 }
