@@ -1511,7 +1511,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     border-radius: 8px;
     background: #fff;
     color: #18181b;
-    box-shadow: 0 14px 32px rgba(0, 0, 0, .24), 0 5px 12px rgba(0, 0, 0, .14), 0 0 0 1px rgba(135, 90, 123, .16);
+    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top left;
@@ -1759,6 +1759,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     border-radius: 12px;
     background: #ffffff !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+#yd-dashboard-root article.yd-announcement-card.yd-announcement-pending {
+    opacity: .62;
+    filter: saturate(.72);
+    pointer-events: none;
+    cursor: wait;
+    user-select: none;
+}
+#yd-dashboard-root article.yd-announcement-card.yd-announcement-pending .yd-announcement-footer {
+    visibility: hidden;
 }
 #yd-dashboard-root .yd-announcement-header {
     display: flex;
@@ -2496,23 +2506,26 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
         const posts = context.announcements?.getPosts?.() || [];
         const canManage = ['ADMIN', 'SUPER_ADMIN'].includes(context.userRole);
         const role = String(context.userRole || 'USER').trim().toLowerCase().replace(/_/g, '');
-        const renderCard = (post, pending = false) => {
+        const renderCard = (post, pending = null) => {
             const published = formatAnnouncementDate(post.createdAt || post.updatedAt);
             const cycle = getAnnouncementCycle(post);
             const id = escapeHTML(post.id);
             const authorName = String(post.createdBy || 'Dashboard Team').toLocaleUpperCase();
             const author = escapeHTML(authorName);
             const cycleControl = '<span class="yd-announcement-cycle-box">' + escapeHTML(cycle) + '</span>';
-            const state = String(post.status || '').toUpperCase();
-            const statusBadge = pending ? state === 'FAILED' ? renderFailedBadge('FAILED') : renderPendingBadge('PUBLISHING') : '';
-            const actions = canManage && !pending
+            const state = String(pending?.status || '').toUpperCase();
+            const busy = Boolean(pending && state !== 'FAILED');
+            const statusBadge = pending ? state === 'FAILED' ? renderFailedBadge('FAILED') : renderPendingBadge(state === 'DELETING' ? 'DELETING' : 'PUBLISHING') : '';
+            const actions = canManage && !busy
                 ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>'
                 : '';
-            return '<article class="yd-announcement-card' + (pending ? ' yd-announcement-pending' + (state === 'FAILED' ? ' is-failed' : '') : '') + '" ' + (pending ? 'aria-busy="' + String(state !== 'FAILED') + '"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
+            return '<article class="yd-announcement-card' + (busy ? ' yd-announcement-pending' : state === 'FAILED' ? ' is-failed' : '') + '" ' + (busy ? 'aria-busy="true" aria-disabled="true"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
         };
+        const pendingCreates = [...pendingAnnouncements.values()].filter(item => item.action !== 'DELETE_ANNOUNCEMENT');
+        const pendingDeletes = new Map([...pendingAnnouncements.values()].filter(item => item.action === 'DELETE_ANNOUNCEMENT').map(item => [String(item.id), item]));
         const cards = [
-            ...[...pendingAnnouncements.values()].map(post => renderCard(post, true)),
-            ...posts.map(post => renderCard(post))
+            ...pendingCreates.map(post => renderCard(post, post)),
+            ...posts.map(post => renderCard(post, pendingDeletes.get(String(post.id)) || null))
         ].join('');
         return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
             (canManage ? '<button type="button" class="yd-primary" data-action="add-announcement"><i class="fa-solid fa-plus"></i><span>New Announcement</span></button>' : '') +
@@ -2562,7 +2575,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                     createdById: queued.createdById || context.userId || '',
                     createdAt: queued.createdAt || new Date().toISOString(),
                     updatedAt: queued.createdAt || new Date().toISOString(),
-                    status: 'PENDING'
+                    status: 'PENDING',
+                    action: 'CREATE_ANNOUNCEMENT'
                 };
                 pendingAnnouncements.set(queued.requestId, pending);
                 persistPendingAnnouncements();
@@ -2793,7 +2807,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                     return;
                 }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
-                if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && transaction.action === 'CREATE_ANNOUNCEMENT') {
+                if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && ['CREATE_ANNOUNCEMENT', 'DELETE_ANNOUNCEMENT'].includes(transaction.action)) {
                     pendingAnnouncements.delete(requestId);
                     persistPendingAnnouncements();
                 }
@@ -2801,12 +2815,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
                 try { await refresh(); } catch {}
                 showNotice((transaction.summary || formatAction(transaction.action)) + ' completed successfully.');
             } catch (error) {
-                if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && transaction.action === 'CREATE_ANNOUNCEMENT') {
-                    const pending = pendingAnnouncements.get(requestId);
-                    if (pending) {
-                        pendingAnnouncements.set(requestId, { ...pending, status: 'FAILED', error: error?.message || 'Publishing failed' });
-                        persistPendingAnnouncements();
-                    }
+                if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && ['CREATE_ANNOUNCEMENT', 'DELETE_ANNOUNCEMENT'].includes(transaction.action)) {
+                    pendingAnnouncements.delete(requestId);
+                    persistPendingAnnouncements();
                 }
                 removePendingTransaction(transaction);
                 try { await refresh(); } catch {}
@@ -3196,11 +3207,41 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
             } else if (action === 'delete-announcement') {
                 const post = (context.announcements?.getPosts?.() || []).find(item => item.id === button.dataset.id);
                 if (!post) throw new Error('Announcement was not found.');
+                if ([...pendingAnnouncements.values()].some(item => item.id === post.id)) return;
                 openConfirmDialog('Delete Announcement', 'Delete this announcement?', 'Delete', async () => {
-                    await context.announcements.deletePost(post.id);
-                    await context.announcements.load();
+                    const queued = await context.announcements.queueDelete(post.id);
+                    const actor = context.user || {};
+                    const pending = {
+                        requestId: queued.requestId,
+                        id: post.id,
+                        body: post.body,
+                        cycle: post.cycle,
+                        createdBy: post.createdBy || actor.name || context.userId || 'Dashboard Team',
+                        createdById: post.createdById || context.userId || '',
+                        createdAt: post.createdAt || queued.createdAt || new Date().toISOString(),
+                        updatedAt: queued.createdAt || new Date().toISOString(),
+                        status: 'DELETING',
+                        action: 'DELETE_ANNOUNCEMENT'
+                    };
+                    pendingAnnouncements.set(queued.requestId, pending);
+                    persistPendingAnnouncements();
+                    const transaction = {
+                        requestId: queued.requestId,
+                        sequence: queued.sequence,
+                        requestType: queued.requestType || 'DASHBOARD_ANNOUNCEMENTS_SYNC',
+                        action: 'DELETE_ANNOUNCEMENT',
+                        status: 'SENT',
+                        actorId: String(context.userId || actor.id || actor.userId || '').trim().toUpperCase(),
+                        actorName: formatName(actor.name || context.userId || ''),
+                        targetId: post.id,
+                        summary: 'DELETE ANNOUNCEMENT · ' + String(post.body || '').slice(0, 90),
+                        createdAt: queued.createdAt || new Date().toISOString(),
+                        updatedAt: queued.createdAt || new Date().toISOString()
+                    };
+                    persistTransaction(transaction);
                     render();
-                    showNotice('Announcement deleted.');
+                    showNotice('Announcement queued for deletion. The card is disabled while it processes.');
+                    monitorTransaction(transaction);
                 });
             }
         } catch (error) {
