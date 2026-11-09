@@ -3030,7 +3030,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const users = [...baseUsers, ...syntheticUsers];
         const isAdmin = context.userRole === 'ADMIN';
         const currentUserId = String(context.userId || context.user?.id || '').trim().toUpperCase();
-        const roleDescription = isAdmin ? 'Manage USER accounts and their basic account details.' : 'Manage registered accounts and their dashboard roles.';
+        const roleDescription = isAdmin ? 'View all accounts, manage USER accounts, and create USER or ADMIN accounts.' : 'Manage registered accounts and their dashboard roles.';
         const rows = users.map(user => {
             const id = String(user.id || '');
             const isSelf = id.trim().toUpperCase() === currentUserId;
@@ -3038,7 +3038,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const pendingAction = String(pending?.action || '').toUpperCase();
             const pendingLabel = pendingAction === 'ADD_USER' ? 'Adding' : pendingAction === 'DELETE_USER' ? 'Deleting' : 'Updating';
             const canDelete = getRoleAccess().canDeleteUsers && !isSelf && !user._pending;
-            const editButton = getRoleAccess().canEditUsers && !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf)
+            const canEdit = getRoleAccess().canEditUsers && !user._pending && !(context.userRole === 'SUPER_ADMIN' && isSelf) && (!isAdmin || String(user.role || '').toUpperCase() === 'USER');
+            const editButton = canEdit
                 ? '<button type="button" class="yd-icon-btn" data-action="edit-user" data-id="' + escapeHTML(id) + '" title="Edit user" aria-label="Edit user"' + (pending ? ' disabled' : '') + '>' + editActionIcon + '</button>'
                 : '';
             const deleteButton = canDelete
@@ -3046,7 +3047,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 : '';
             const status = pending ? renderPendingBadge(pendingLabel) : '<span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span>';
             const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
-            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + renderRolePill(user.role) + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
+            const roleMarkup = isAdmin && String(user.role || '').toUpperCase() === 'SUPER_ADMIN' ? '' : renderRolePill(user.role);
+            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + roleMarkup + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div>' + (getRoleAccess().canManageUsers ? '<button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button>' : '') + '</section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
@@ -3788,8 +3790,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const editing = Boolean(user);
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        const roleDropdown = context.userRole === 'SUPER_ADMIN'
-            ? '<div class="yd-field"><label>Role</label>' + renderDropdown('role', user?.role || 'USER', [{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }, { value: 'SUPER_ADMIN', label: 'SUPER ADMIN' }], { 'data-label': 'Roles' }) + '</div>'
+        const roleOptions = context.userRole === 'SUPER_ADMIN'
+            ? [{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }, { value: 'SUPER_ADMIN', label: 'SUPER ADMIN' }]
+            : context.userRole === 'ADMIN' && !editing
+                ? [{ value: 'USER', label: 'USER' }, { value: 'ADMIN', label: 'ADMIN' }]
+                : [];
+        const roleDropdown = roleOptions.length
+            ? '<div class="yd-field"><label>Role</label>' + renderDropdown('role', user?.role || 'USER', roleOptions, { 'data-label': 'Roles' }) + '</div>'
             : '';
         const statusDropdown = '<div class="yd-field"><label>Status</label>' + renderDropdown('status', user?.status || 'Active', [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }], { 'data-label': 'Status' }) + '</div>';
         overlay.innerHTML = '<form class="yd-modal" id="yd-user-form">' +
@@ -3813,7 +3820,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const payload = {
                 name: String(form.get('name') || '').trim(),
                 status: form.get('status') || 'Active',
-                ...(context.userRole === 'SUPER_ADMIN' ? { role: form.get('role') || 'USER' } : {})
+                ...((context.userRole === 'SUPER_ADMIN' || (!editing && context.userRole === 'ADMIN')) ? { role: form.get('role') || 'USER' } : {})
             };
             const normalizedName = payload.name.replace(/\s+/g, ' ').toLocaleLowerCase();
             const duplicatePending = !editing && getPendingTransactions().find(item =>
