@@ -100,16 +100,15 @@
             throw createError('Invalid permissions registry');
         }
 
-        const eligibleUsers = users.users.filter(user =>
-            normalizeText(user.role).toUpperCase() === 'USER'
-        );
+        const allUsers = users.users.filter(user => user && typeof user === 'object');
+        const eligibleUsers = allUsers.filter(user => normalizeText(user.role).toUpperCase() === 'USER');
         const eligibleIds = new Set(eligibleUsers.map(user => normalizeId(user.id)));
         const eligiblePermissions = Object.fromEntries(
             Object.entries(permissions).filter(([userId]) => eligibleIds.has(normalizeId(userId)))
         );
 
         snapshot = {
-            users: clone(eligibleUsers),
+            users: clone(allUsers),
             permissions: clone(eligiblePermissions),
             transactions: clone(logs.transactions || {}),
             updatedAt: logs.updatedAt || null
@@ -138,9 +137,8 @@
         ensureLoaded();
         const id = normalizeId(userId);
 
-        return clone(
-            snapshot.users.find(user => normalizeId(user.id) === id) || null
-        );
+        const user = snapshot.users.find(user => normalizeId(user.id) === id && normalizeText(user.role).toUpperCase() === 'USER');
+        return clone(user || null);
     };
 
     const getPermissions = () => {
@@ -295,17 +293,19 @@
         ensureLoaded();
 
         const name = normalizeText(data?.name);
+        const role = normalizeText(data?.role || 'USER').toUpperCase();
         const status = normalizeText(data?.status || 'Active');
         const id = normalizeId(data?.id);
 
         if (!name) throw createError('User name is required');
+        if (!['USER', 'ADMIN'].includes(role)) throw createError('ADMIN can only create USER or ADMIN accounts.');
 
         if (!['ACTIVE', 'INACTIVE'].includes(status.toUpperCase())) {
             throw createError('Invalid user status');
         }
 
         if (snapshot.users.some(user => normalizeText(user.name).toLowerCase() === name.toLowerCase())) {
-            throw createError('A USER with this name already exists');
+            throw createError('An account with this name already exists');
         }
 
         if (id && getUser(id)) {
@@ -314,7 +314,7 @@
 
         return submit('ADD_USER', {
             name,
-            role: 'USER',
+            role,
             status,
             ...(id ? { id } : {})
         });
