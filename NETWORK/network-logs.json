@@ -17,6 +17,21 @@
         "TOOL-004"
       ]
     },
+    "DASH-USERS-1794191245994-9WR0W64QXE": {
+      "requestId": "DASH-USERS-1794191245994-9WR0W64QXE",
+      "sequence": "1794191245994878067",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T02:27:57Z",
+      "updatedAt": "2026-11-09T02:27:57Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE VISIBILITY · TOOL-002",
+      "targetToolIds": [
+        "TOOL-002"
+      ]
+    },
     "DASH-USERS-1793592599398-VMDQX86R9U": {
       "requestId": "DASH-USERS-1793592599398-VMDQX86R9U",
       "sequence": "1793592599398300655",
