@@ -1,18 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T21:17:23Z",
+  "updatedAt": "2026-11-09T21:40:39Z",
   "transactions": {
-    "DASH-USERS-1794194153886-HF7PUHBK6W": {
-      "requestId": "DASH-USERS-1794194153886-HF7PUHBK6W",
-      "sequence": "1794194153886602762",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T03:16:26Z",
-      "updatedAt": "2026-11-09T03:16:26Z",
-      "targetId": "Q-005"
-    },
     "DASH-USERS-1794260308765-M4FP89QN84": {
       "requestId": "DASH-USERS-1794260308765-M4FP89QN84",
       "sequence": "1794260308765913556",
@@ -22,21 +11,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T21:38:40Z",
       "updatedAt": "2026-11-09T21:38:40Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE USER · OMAR SALEH",
-      "targetId": "Q-002",
-      "targetName": "OMAR SALEH"
-    },
-    "ANNOUNCEMENT-1794099496543-BH2E0ON02S": {
-      "requestId": "ANNOUNCEMENT-1794099496543-BH2E0ON02S",
-      "sequence": "1794099496543780170",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T00:58:43Z",
-      "updatedAt": "2026-11-08T00:58:43Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
+      "targetId": "Q-002"
     },
     "ANNOUNCEMENT-1794099512062-1UM6BWHW8E": {
       "requestId": "ANNOUNCEMENT-1794099512062-1UM6BWHW8E",
@@ -551,6 +526,17 @@
       "createdAt": "2026-11-09T21:15:38Z",
       "updatedAt": "2026-11-09T21:17:23Z",
       "targetId": "Q-004"
+    },
+    "DASH-USERS-1794194153886-HF7PUHBK6W": {
+      "requestId": "DASH-USERS-1794194153886-HF7PUHBK6W",
+      "sequence": "1794194153886602762",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:16:26Z",
+      "updatedAt": "2026-11-09T21:40:39Z",
+      "targetId": "Q-005"
     }
   }
 }
