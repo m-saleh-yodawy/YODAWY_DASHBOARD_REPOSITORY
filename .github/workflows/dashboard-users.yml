@@ -495,9 +495,13 @@ jobs:
               target_id = norm_id(payload.get("id") or payload.get("userId"))
               existing_target_role = norm_role(auth_users_by_id.get(target_id, {}).get("role") or "USER")
               if target_role == "SUPER_ADMIN" or existing_target_role == "SUPER_ADMIN":
-                  return False, "ADMIN cannot create, modify, or delete a SUPER_ADMIN user."
-              if actor_role == "ADMIN" and (target_role != "USER" or (target_id and existing_target_role != "USER")):
-                  return False, "ADMIN can manage USER accounts only."
+                  return False, "ADMIN cannot create, modify, or delete a protected account."
+              if actor_role == "ADMIN":
+                  if canon_action == "ADD_USER" and target_role in {"USER", "ADMIN"} and not target_id:
+                      return True, ""
+                  if canon_action == "UPDATE_USER" and target_id and existing_target_role == "USER" and target_role == "USER":
+                      return True, ""
+                  return False, "ADMIN can create USER or ADMIN accounts and manage USER accounts only."
               if canon_action in {"ADD_USER", "UPDATE_USER"}:
                   return True, ""
               return False, f"ADMIN is not authorized to perform {canon_action}."
