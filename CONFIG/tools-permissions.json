@@ -36,7 +36,7 @@
   "Q-004": {
     "TOOL-001": {
       "granted": true,
-      "forcedState": false,
+      "forcedState": true,
       "type": "SUPER_ADMIN"
     },
     "TOOL-002": {
