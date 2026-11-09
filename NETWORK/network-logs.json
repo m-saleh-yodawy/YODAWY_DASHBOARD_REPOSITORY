@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T23:13:36Z",
+  "updatedAt": "2026-11-09T23:14:59Z",
   "transactions": {
     "DASH-USERS-1794264079787-IKLBHZN4VO": {
       "requestId": "DASH-USERS-1794264079787-IKLBHZN4VO",
@@ -23,36 +23,6 @@
       "createdAt": "2026-11-09T22:41:54Z",
       "updatedAt": "2026-11-09T22:41:54Z",
       "targetId": "Q-002"
-    },
-    "DASH-USERS-1794266003170-EQPQD3IKA3": {
-      "requestId": "DASH-USERS-1794266003170-EQPQD3IKA3",
-      "sequence": "1794266003170135600",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T23:13:36Z",
-      "updatedAt": "2026-11-09T23:13:36Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-004 · Ahmed Saleh",
-      "targetId": "Q-004",
-      "targetName": "Ahmed Saleh",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-004"
-      ]
-    },
-    "ANNOUNCEMENT-1794105922648-R643W74MU5": {
-      "requestId": "ANNOUNCEMENT-1794105922648-R643W74MU5",
-      "sequence": "1794105922647358549",
-      "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
-      "action": "UPDATE_ANNOUNCEMENT",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T02:45:51Z",
-      "updatedAt": "2026-11-08T02:45:51Z",
-      "targetId": "1793715257459-CV8YPK1G9P"
     },
     "DASH-USERS-1794107332934-RQB24RNBN8": {
       "requestId": "DASH-USERS-1794107332934-RQB24RNBN8",
@@ -568,9 +538,18 @@
       "actorId": "Q-004",
       "createdAt": "2026-11-09T23:11:52Z",
       "updatedAt": "2026-11-09T23:11:52Z",
-      "actorName": "Ahmed Saleh",
-      "summary": "PUBLISH ANNOUNCEMENT · احنا اتسرقنا",
       "targetId": "1794265902494-SAMG5PLAA9"
+    },
+    "DASH-USERS-1794266003170-EQPQD3IKA3": {
+      "requestId": "DASH-USERS-1794266003170-EQPQD3IKA3",
+      "sequence": "1794266003170135600",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T23:13:36Z",
+      "updatedAt": "2026-11-09T23:14:58Z",
+      "targetId": "Q-004"
     }
   }
 }
