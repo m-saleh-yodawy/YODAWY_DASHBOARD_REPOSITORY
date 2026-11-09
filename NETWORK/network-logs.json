@@ -1,26 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T03:12:55Z",
+  "updatedAt": "2026-11-09T03:18:01Z",
   "transactions": {
-    "DASH-USERS-1794194141427-9NLQ0EOLAM": {
-      "requestId": "DASH-USERS-1794194141427-9NLQ0EOLAM",
-      "sequence": "1794194141427764704",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T03:16:10Z",
-      "updatedAt": "2026-11-09T03:16:10Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-002 · Mahmoud Saleh",
-      "targetId": "Q-005",
-      "targetName": "Mahmoud Saleh",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-002"
-      ]
-    },
     "DASH-USERS-1794194144389-7D69SDQ4VJ": {
       "requestId": "DASH-USERS-1794194144389-7D69SDQ4VJ",
       "sequence": "1794194144389813697",
@@ -30,15 +11,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:16:14Z",
       "updatedAt": "2026-11-09T03:16:14Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · FORCED STATE ON · TOOL-001 · Mahmoud Saleh",
-      "targetId": "Q-005",
-      "targetName": "Mahmoud Saleh",
-      "permissionField": "forcedState",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "targetId": "Q-005"
     },
     "DASH-USERS-1794194153886-HF7PUHBK6W": {
       "requestId": "DASH-USERS-1794194153886-HF7PUHBK6W",
@@ -49,15 +22,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:16:26Z",
       "updatedAt": "2026-11-09T03:16:26Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-004 · Mahmoud Saleh",
-      "targetId": "Q-005",
-      "targetName": "Mahmoud Saleh",
-      "permissionField": "granted",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-004"
-      ]
+      "targetId": "Q-005"
     },
     "DASH-USERS-1794194158294-4O3PUDDLFW": {
       "requestId": "DASH-USERS-1794194158294-4O3PUDDLFW",
@@ -68,15 +33,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:16:30Z",
       "updatedAt": "2026-11-09T03:16:30Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · FORCED STATE ON · TOOL-001 · ahmed saleh",
-      "targetId": "Q-004",
-      "targetName": "ahmed saleh",
-      "permissionField": "forcedState",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "targetId": "Q-004"
     },
     "DASH-USERS-1794194161463-FBAXO2AHC3": {
       "requestId": "DASH-USERS-1794194161463-FBAXO2AHC3",
@@ -87,25 +44,7 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:16:44Z",
       "updatedAt": "2026-11-09T03:16:44Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "MODIFY TOOL PERMISSION · FORCED STATE ON · TOOL-002 · ahmed saleh",
-      "targetId": "Q-004",
-      "targetName": "ahmed saleh",
-      "permissionField": "forcedState",
-      "permissionValue": true,
-      "targetToolIds": [
-        "TOOL-002"
-      ]
-    },
-    "DASH-USERS-1793655291503-5DCLVVRAHO": {
-      "requestId": "DASH-USERS-1793655291503-5DCLVVRAHO",
-      "sequence": "1793655291503962011",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T21:35:15Z",
-      "updatedAt": "2026-11-02T21:36:48Z"
+      "targetId": "Q-004"
     },
     "DASH-USERS-1793655293868-I5F3GHEVD5": {
       "requestId": "DASH-USERS-1793655293868-I5F3GHEVD5",
@@ -618,6 +557,17 @@
       "createdAt": "2026-11-09T03:10:33Z",
       "updatedAt": "2026-11-09T03:12:55Z",
       "targetId": "Q-002"
+    },
+    "DASH-USERS-1794194141427-9NLQ0EOLAM": {
+      "requestId": "DASH-USERS-1794194141427-9NLQ0EOLAM",
+      "sequence": "1794194141427764704",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:16:10Z",
+      "updatedAt": "2026-11-09T03:18:01Z",
+      "targetId": "Q-005"
     }
   }
 }
