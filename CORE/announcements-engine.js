@@ -248,6 +248,24 @@
         return clone(posts.find(post => post.id === id) || null);
     };
 
+    const queueDelete = async postId => {
+        const actor = getActor();
+        const id = normalizeText(postId);
+        if (!id) throw createError('Invalid announcement ID');
+        const existing = posts.find(post => post.id === id);
+        if (!existing) throw createError('Announcement was not found');
+        const request = await createRequest('DELETE_ANNOUNCEMENT', { id });
+        return {
+            ...request,
+            requestType: CONFIG.REQUEST_TYPE,
+            id,
+            body: existing.body,
+            cycle: existing.cycle,
+            createdBy: existing.createdBy || actor.name,
+            createdById: existing.createdById || actor.id
+        };
+    };
+
     const deletePost = async postId => {
         getActor();
         const id = normalizeText(postId);
@@ -257,10 +275,11 @@
     };
 
     global.YODAWY_ANNOUNCEMENTS_ENGINE = Object.freeze({
-        version: 4,
+        version: 5,
         load,
         getPosts,
         queuePost,
+        queueDelete,
         createPost,
         updatePost,
         deletePost,
