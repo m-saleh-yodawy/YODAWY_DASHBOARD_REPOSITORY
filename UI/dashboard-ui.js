@@ -525,6 +525,14 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand));
     cursor: pointer;
 }
+#yd-dashboard-root #yd-profile-trigger:focus,
+#yd-dashboard-root #yd-profile-trigger:focus-visible,
+#yd-dashboard-root #yd-profile-trigger:active {
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
 #yd-dashboard-root .yd-gb-avatar {
     display: flex;
     align-items: center;
@@ -558,7 +566,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     right: 0;
     z-index: 2147483005;
     width: 304px;
-    padding: 6px;
+    padding: 10px;
     border: 1px solid var(--border);
     border-radius: 10px;
     background: #fff;
@@ -572,7 +580,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     flex-direction: column;
     align-items: center;
     margin: 0 0 5px;
-    padding: 12px;
+    padding: 0;
     border: 0;
     border-bottom: 1px solid var(--border);
     border-radius: 7px;
@@ -624,6 +632,18 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     transition: background-color .18s ease, color .18s ease, transform .18s ease;
 }
 #yd-dashboard-root .yd-dropdown-action:hover { background: var(--brand-soft); color: var(--brand-dark); }
+#yd-dashboard-root .yd-profile-menu .yd-dropdown-action:hover,
+#yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible {
+    background: #e9dfea !important;
+    color: #68465f !important;
+    outline: none !important;
+}
+#yd-dashboard-root .yd-profile-menu .yd-dropdown-action:hover .yd-action-icon,
+#yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible .yd-action-icon {
+    border-color: #875a7b;
+    background: #875a7b;
+    color: #fff;
+}
 #yd-dashboard-root .yd-action-icon { transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease; }
 #yd-dashboard-root .yd-dropdown-action:hover .yd-action-icon { transform: translateX(2px); }
 #yd-dashboard-root .yd-action-icon {
