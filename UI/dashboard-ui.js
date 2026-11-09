@@ -3679,34 +3679,22 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         pendingVisibilitySubmissions.add(toolId);
                     });
                     render();
-                    const queued = new Set();
+                    const visibilityChanges = Object.fromEntries(changes.map(({ toolId, record }) => [toolId, record]));
+                    const targetToolIds = changes.map(({ toolId }) => toolId);
+                    const metadata = {
+                        action: 'UPDATE_VISIBILITY',
+                        targetId: userId,
+                        targetName: formatName(user.name || userId),
+                        targetToolIds,
+                        summary: 'UPDATE VISIBILITY · ALL TOOLS · ' + formatName(user.name || userId) + ' · ' + targetToolIds.length + ' TOOLS · ' + (nextEnabled ? 'ACCESS ENABLED' : 'ACCESS DISABLED')
+                    };
                     try {
-                        for (const { tool, toolId, record } of changes) {
-                            const metadata = {
-                                action: 'UPDATE_VISIBILITY',
-                                targetId: userId,
-                                targetName: formatName(user.name || userId),
-                                targetToolIds: [toolId],
-                                summary: 'UPDATE VISIBILITY · ALL TOOLS · ' + formatName(user.name || userId) + ' · ' + tool.name + ' · ' + (nextEnabled ? 'ACCESS ENABLED' : 'ACCESS DISABLED')
-                            };
-                            await runNetworkOperation((nextEnabled ? 'Enabling' : 'Disabling') + ' ' + tool.name + ' for ' + formatName(user.name || userId), () =>
-                                engine.setToolVisibility(toolId, record), metadata
-                            );
-                            queued.add(toolId);
-                        }
+                        await runNetworkOperation((nextEnabled ? 'Enabling' : 'Disabling') + ' all ' + targetToolIds.length + ' tools for ' + formatName(user.name || userId), () =>
+                            engine.updateVisibility(visibilityChanges, { targetToolIds }), metadata
+                        );
                         showNotice('ALL TOOLS access ' + (nextEnabled ? 'enabled' : 'disabled') + ' for ' + formatName(user.name || userId) + '.');
-                    } catch (error) {
-                        changes.forEach(({ toolId }) => {
-                            if (!queued.has(toolId)) optimisticVisibility.delete(toolId);
-                        });
-                        if (queued.size) {
-                            const partialError = new Error('Some tool updates were queued successfully before the next update failed. ' + (error?.message || 'Please check NETWORK for their status.'));
-                            partialError.partial = true;
-                            throw partialError;
-                        }
-                        throw error;
                     } finally {
-                        changes.forEach(({ toolId }) => pendingVisibilitySubmissions.delete(toolId));
+                        targetToolIds.forEach(toolId => pendingVisibilitySubmissions.delete(toolId));
                         render();
                     }
                 }
