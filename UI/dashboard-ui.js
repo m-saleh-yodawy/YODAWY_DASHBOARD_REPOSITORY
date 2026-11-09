@@ -50,6 +50,9 @@
     const pendingAnnouncements = new Map();
     const pendingLocalTools = new Map();
     const trackedTransactions = new Set();
+    const activityItems = new Map();
+    let activityMenuOpen = false;
+    let activityCounter = 0;
     let networkPage = 1;
     const NETWORK_PAGE_SIZE = 10;
     let dropdownMenuClickHandler = null;
@@ -296,9 +299,72 @@
         } else render();
     };
 
-    const trackBackground = task => {
+    const updateActivity = (id, changes = {}) => {
+        if (!id) return;
+        const current = activityItems.get(id) || {
+            id,
+            startedAt: Date.now(),
+            status: 'RUNNING',
+            statusLabel: 'ACTIVE',
+            stage: 'Starting operation'
+        };
+        const next = { ...current, ...changes, id };
+        if (Object.keys(next).every(key => next[key] === current[key])) return;
+        activityItems.set(id, next);
+        if (document.getElementById(CONFIG.ID)) render();
+    };
+
+    const beginActivity = (label, location = 'Dashboard', stage = 'Starting operation', id = '') => {
+        const activityId = id || 'LOCAL-' + (++activityCounter);
+        updateActivity(activityId, {
+            label: String(label || 'Background operation'),
+            location: String(location || 'Dashboard'),
+            status: 'RUNNING',
+            statusLabel: 'ACTIVE',
+            stage,
+            startedAt: activityItems.get(activityId)?.startedAt || Date.now()
+        });
+        return activityId;
+    };
+
+    const finishActivity = id => {
+        if (!id || !activityItems.delete(id)) return;
+        if (!activityItems.size) activityMenuOpen = false;
+        if (document.getElementById(CONFIG.ID)) render();
+    };
+
+    const getActivityLocation = metadata => {
+        const pageNames = {
+            tools: 'Tools',
+            overview: 'Overview',
+            announcements: 'Announcements',
+            users: 'Users',
+            permissions: 'Permissions',
+            visibility: 'Visibility',
+            transactions: 'NETWORK',
+            account: 'Settings'
+        };
+        const parts = [pageNames[activePage] || 'Dashboard'];
+        const target = metadata?.targetName || metadata?.targetId;
+        if (target) parts.push(String(target));
+        if (metadata?.targetToolId) parts.push(String(metadata.targetToolId));
+        else if (Array.isArray(metadata?.targetToolIds) && metadata.targetToolIds.length) {
+            parts.push(metadata.targetToolIds.length === 1 ? String(metadata.targetToolIds[0]) : metadata.targetToolIds.length + ' tools');
+        }
+        return parts.join(' · ');
+    };
+
+    const trackBackground = (task, details = {}) => {
+        const activityId = beginActivity(
+            details.label || 'Background operation',
+            details.location || 'Dashboard',
+            details.stage || 'Working in the background'
+        );
         backgroundTransactions.add(task);
-        task.finally(() => backgroundTransactions.delete(task)).catch(() => {});
+        task.finally(() => {
+            backgroundTransactions.delete(task);
+            finishActivity(activityId);
+        }).catch(() => {});
         return task;
     };
 
@@ -512,6 +578,80 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 50%;
     background: #2e9464;
     box-shadow: 0 0 0 3px #2e94641a;
+}
+#yd-dashboard-root .yd-activity-wrap { position: relative; display: inline-flex; align-items: center; }
+#yd-dashboard-root .yd-activity-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 92px;
+    min-height: 34px;
+    padding: 4px 8px;
+    border: 1px solid #e6dbe3;
+    border-radius: 9px;
+    background: #faf7fa;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+}
+#yd-dashboard-root .yd-activity-spinner,
+#yd-dashboard-root .yd-activity-item-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    border: 2px solid var(--brand);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: yd-control-spin .72s linear infinite;
+}
+#yd-dashboard-root .yd-activity-trigger-copy { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+#yd-dashboard-root .yd-activity-trigger-copy strong { color: var(--brand-dark); font-size: 9px; font-weight: 800 !important; line-height: 1.2; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-trigger-copy small { max-width: 132px; overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--brand);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800 !important;
+}
+#yd-dashboard-root .yd-activity-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 2147483010;
+    width: min(360px, calc(100vw - 28px));
+    max-height: min(430px, calc(100vh - 110px));
+    overflow: auto;
+    padding: 9px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    animation: yd-select-dropdown-drop .24s cubic-bezier(.16, 1, .3, 1) both;
+}
+#yd-dashboard-root .yd-activity-menu[hidden] { display: none !important; }
+#yd-dashboard-root .yd-activity-menu-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 6px 9px; border-bottom: 1px solid var(--border); }
+#yd-dashboard-root .yd-activity-menu-head strong { color: var(--ink); font-size: 11px; font-weight: 800 !important; }
+#yd-dashboard-root .yd-activity-menu-head small { color: var(--muted); font-size: 9px; }
+#yd-dashboard-root .yd-activity-item { display: flex; align-items: flex-start; gap: 9px; padding: 10px 7px; border-bottom: 1px solid #f0ebef; }
+#yd-dashboard-root .yd-activity-item:last-child { border-bottom: 0; }
+#yd-dashboard-root .yd-activity-item-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
+#yd-dashboard-root .yd-activity-item-copy strong { overflow: hidden; color: var(--ink); font-size: 10px; font-weight: 800 !important; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-item-copy small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-activity-item-stage { color: var(--brand-dark); font-size: 9px; line-height: 1.4; }
+#yd-dashboard-root .yd-activity-item-status { flex: 0 0 auto; padding: 3px 6px; border-radius: 999px; background: #f2eaf1; color: var(--brand-dark); font-size: 8px; font-weight: 800 !important; }
+@media (max-width: 620px) {
+    #yd-dashboard-root .yd-activity-trigger { min-width: 35px; justify-content: center; padding: 4px 6px; }
+    #yd-dashboard-root .yd-activity-trigger-copy { display: none; }
+    #yd-dashboard-root .yd-activity-menu { right: -48px; }
 }
 
 #yd-dashboard-root .yd-profile-wrap { position: relative; display: inline-flex; align-items: center; }
@@ -2607,6 +2747,17 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         return items;
     };
 
+    const renderActivityIndicator = () => {
+        const items = [...activityItems.values()].sort((a, b) => a.startedAt - b.startedAt);
+        if (!items.length) return '';
+        const count = items.length;
+        const first = items[0];
+        const rows = items.map(item =>
+            '<div class="yd-activity-item"><span class="yd-activity-item-spinner"></span><span class="yd-activity-item-copy"><strong>' + escapeHTML(item.label || 'Background operation') + '</strong><small>' + escapeHTML(item.location || 'Dashboard') + '</small><span class="yd-activity-item-stage">' + escapeHTML(item.stage || 'In progress') + '</span></span><span class="yd-activity-item-status">' + escapeHTML(item.statusLabel || 'ACTIVE') + '</span></div>'
+        ).join('');
+        return '<div class="yd-activity-wrap"><button type="button" class="yd-activity-trigger" data-action="activity-toggle" aria-expanded="' + String(activityMenuOpen) + '" aria-label="View ' + count + ' active operations"><span class="yd-activity-spinner"></span><span class="yd-activity-trigger-copy"><strong>' + count + ' ACTIVE</strong><small>' + escapeHTML(first.label || 'Background operation') + '</small></span><span class="yd-activity-count">' + count + '</span></button><div class="yd-activity-menu"' + (activityMenuOpen ? '' : ' hidden') + '><div class="yd-activity-menu-head"><strong>Queued Actions</strong><small>' + count + ' operation' + (count === 1 ? '' : 's') + '</small></div>' + rows + '</div></div>';
+    };
+
     const renderShell = body => {
         const user = context.user || {};
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
@@ -2617,7 +2768,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
-                        '<div class="yd-header-actions"><div class="yd-header-status"><span class="yd-header-dot"></span><span>Connected</span></div>' +
+                        '<div class="yd-header-actions">' + renderActivityIndicator() + '<div class="yd-header-status"><span class="yd-header-dot"></span><span>Connected</span></div>' +
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span><span class="yd-gb-badge"><i class="fa-solid fa-check"></i></span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
@@ -3242,36 +3393,58 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         persistPendingTransactions();
     };
 
-    const monitorTransaction = transaction => {
+    const getTransactionActivity = status => {
+        const states = {
+            SENT: ['QUEUED', 'Submitted to NETWORK · waiting for processing'],
+            RECEIVED: ['RECEIVED', 'Request received by the destination workflow'],
+            PROCESSING: ['PROCESSING', 'Applying the requested changes'],
+            PROCESSED: ['PROCESSED', 'Changes applied · preparing the response'],
+            RESPONSE_SENT: ['SYNCING', 'Returning the result to Dashboard'],
+            COMPLETED: ['FINALIZING', 'Applying the confirmed result'],
+            FAILED: ['FAILED', 'The workflow reported a failure'],
+            REJECTED: ['REJECTED', 'The request was rejected']
+        };
+        const [statusLabel, stage] = states[status] || ['QUEUED', 'Waiting for NETWORK status'];
+        return { status, statusLabel, stage };
+    };
+
+    const monitorTransaction = (transaction, existingActivityId = '') => {
         const requestId = transaction?.requestId;
         if (!requestId || trackedTransactions.has(requestId)) return;
         trackedTransactions.add(requestId);
+        const activityId = existingActivityId || 'NETWORK-' + requestId;
+        const initial = getTransactionActivity(String(transaction.status || 'SENT').toUpperCase());
+        beginActivity(transaction.summary || formatAction(transaction.action), getActivityLocation(transaction), initial.stage, activityId);
+        updateActivity(activityId, { ...initial, requestId });
         const task = (async () => {
             const startedAt = Date.now();
+            let keepActivity = false;
             try {
                 const engine = getRoleEngine();
                 let result = null;
                 while (Date.now() - startedAt < 1800000) {
                     try {
-                        result = await engine.waitForTransaction(requestId, {
-                            timeout: 120000,
-                            interval: 4000,
-                            refresh: false
-                        });
+                        result = await engine.getTransaction(requestId);
                     } catch {
-                        await new Promise(resolve => setTimeout(resolve, 4000));
+                        updateActivity(activityId, { status: 'WAITING', statusLabel: 'RETRYING', stage: 'Checking NETWORK status again' });
+                        await new Promise(resolve => setTimeout(resolve, 3500));
                         continue;
                     }
-                    const status = String(result?.status || '').toUpperCase();
-                    if (status !== 'TIMEOUT') break;
+                    const status = String(result?.status || transaction.status || 'SENT').toUpperCase();
+                    updateActivity(activityId, { ...getTransactionActivity(status), requestId });
+                    if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) break;
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
                 const status = String(result?.status || '').toUpperCase();
-                if (!result || status === 'TIMEOUT') {
+                if (!result || !['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
+                    keepActivity = Boolean(context && localTransactions.has(requestId));
+                    updateActivity(activityId, { status: 'QUEUED', statusLabel: 'WAITING', stage: 'Still processing · next status check scheduled' });
                     showMessageDialog('Still Processing', 'This request is taking longer than expected. It remains queued and locked. The dashboard will keep checking its status.');
-                    if (context && localTransactions.has(requestId)) setTimeout(() => monitorTransaction(transaction), 15000);
+                    if (keepActivity) setTimeout(() => monitorTransaction(transaction, activityId), 15000);
                     return;
                 }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
+                updateActivity(activityId, { status: 'FINALIZING', statusLabel: 'SYNCING', stage: 'Refreshing Dashboard data and confirming the update' });
                 if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && ['CREATE_ANNOUNCEMENT', 'DELETE_ANNOUNCEMENT'].includes(transaction.action)) {
                     pendingAnnouncements.delete(requestId);
                     persistPendingAnnouncements();
@@ -3289,9 +3462,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 showMessageDialog('Operation Failed', error?.message || 'The background operation failed. No changes were confirmed.');
             } finally {
                 trackedTransactions.delete(requestId);
+                if (!keepActivity) finishActivity(activityId);
             }
         })();
-        trackBackground(task);
+        backgroundTransactions.add(task);
+        task.finally(() => backgroundTransactions.delete(task)).catch(() => {});
     };
 
     const resumePendingTransactions = () => {
@@ -3309,11 +3484,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const runNetworkOperation = async (message, operation, metadata = {}) => {
+        const activityId = beginActivity(message, getActivityLocation(metadata), 'Creating NETWORK request', 'SUBMIT-' + (++activityCounter));
         let request;
         try {
             request = await operation();
             if (!request?.requestId) throw new Error('GitHub did not confirm the request.');
         } catch (error) {
+            finishActivity(activityId);
             if (Array.isArray(metadata.targetToolIds) && metadata.targetToolIds.length) {
                 metadata.targetToolIds.forEach(toolId => optimisticVisibility.delete(toolId));
                 render();
@@ -3334,9 +3511,17 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         };
         if (!transaction.summary) transaction.summary = formatAction(transaction.action || message);
         persistTransaction(transaction);
+        updateActivity(activityId, {
+            status: 'QUEUED',
+            statusLabel: 'QUEUED',
+            stage: 'Submitted · waiting for NETWORK workflow',
+            requestId: request.requestId,
+            label: transaction.summary || message,
+            location: getActivityLocation(transaction)
+        });
         render();
         showNotice(message + ' queued. You can continue working while it processes.');
-        monitorTransaction(transaction);
+        monitorTransaction(transaction, activityId);
         return request;
     };
 
@@ -3538,7 +3723,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         if (icon) icon.innerHTML = '<i class="fa-solid fa-arrow-rotate-right"></i>';
                         if (label) label.textContent = 'Refresh';
                     }
-                }));
+                }), { label: 'Refreshing Dashboard', location: 'Dashboard', stage: 'Refreshing files, data and tools' });
             } else if (action === 'save-settings') {
                 const updated = context.settings.getSettings();
                 delete updated.displayName;
@@ -3563,7 +3748,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         render();
                         showMessageDialog('Settings Not Saved', error?.message || 'Unable to save personal settings.');
                     }
-                })());
+                })(), { label: 'Saving Personal Settings', location: 'Settings', stage: 'Saving preferences and recording NETWORK activity' });
             } else if (action === 'toggle-my-tool') {
                 const toolId = button.dataset.tool;
                 const nextEnabled = button.dataset.enabled !== 'true';
@@ -3600,7 +3785,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         render();
                         showMessageDialog('Tool Update Failed', error?.message || 'Unable to update this tool.');
                     }
-                })());
+                })(), { label: (nextEnabled ? 'Enabling ' : 'Disabling ') + (getTools().find(tool => String(tool.id) === String(toolId))?.name || toolId), location: 'Tools · ' + toolId, stage: 'Updating personal tool settings and synchronizing the module' });
             } else if (action === 'add-user') {
                 openUserModal();
             } else if (action === 'edit-user') {
@@ -4075,6 +4260,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             }
             if (actionButton?.dataset.action === 'toggle-dashboard') { isOpen = !isOpen; render(); return; }
             if (actionButton?.dataset.action === 'close-dashboard') { isOpen = false; profileOpen = false; render(); return; }
+            if (actionButton?.dataset.action === 'activity-toggle') { activityMenuOpen = !activityMenuOpen; render(); return; }
             if (actionButton?.dataset.action === 'profile-toggle') { profileOpen = !profileOpen; render(); return; }
             if (actionButton?.dataset.action === 'network-page') {
                 event.preventDefault();
@@ -4151,12 +4337,23 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
         dropdownOutsideClickHandler = event => {
             if (event._ydSelectHandled || event.target.closest?.('.ui-select-menu.yd-select-portal-menu[data-portal="true"]')) return;
-            if (!root.contains(event.target)) closeDropdowns(null);
+            if (!root.contains(event.target)) {
+                closeDropdowns(null);
+                if (activityMenuOpen) {
+                    activityMenuOpen = false;
+                    render();
+                }
+            }
         };
         document.addEventListener('click', dropdownOutsideClickHandler);
 
         dropdownKeydownHandler = event => {
             if (event.key !== 'Escape') return;
+            if (activityMenuOpen) {
+                activityMenuOpen = false;
+                render();
+                return;
+            }
             if (root.querySelector('.ui-select[data-open="true"]')) {
                 closeDropdowns(null);
                 return;
@@ -4241,6 +4438,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         pendingVisibilitySubmissions.clear();
         pendingLocalTools.clear();
         trackedTransactions.clear();
+        activityItems.clear();
+        activityMenuOpen = false;
         return true;
     };
 
