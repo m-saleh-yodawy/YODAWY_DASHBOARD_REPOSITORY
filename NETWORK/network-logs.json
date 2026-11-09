@@ -2,6 +2,25 @@
   "protocolVersion": 1,
   "updatedAt": "2026-11-09T21:41:24Z",
   "transactions": {
+    "DASH-USERS-1794264072642-KZ6T8MCNZL": {
+      "requestId": "DASH-USERS-1794264072642-KZ6T8MCNZL",
+      "sequence": "1794264072642414391",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T22:41:24Z",
+      "updatedAt": "2026-11-09T22:41:24Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "MODIFY TOOL PERMISSION · FORCED STATE OFF · TOOL-001 · Mahmoud Saleh",
+      "targetId": "Q-005",
+      "targetName": "Mahmoud Saleh",
+      "permissionField": "forcedState",
+      "permissionValue": false,
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
     "ACTIVITY-1794102891561-ntlhfaasq28": {
       "requestId": "ACTIVITY-1794102891561-ntlhfaasq28",
       "sequence": "1794102891561",
