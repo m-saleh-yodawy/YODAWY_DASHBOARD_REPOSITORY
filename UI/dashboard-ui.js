@@ -1263,72 +1263,64 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     animation: yd-accordion-enter .2s cubic-bezier(.2, .8, .2, 1) both;
 }
 #yd-dashboard-root .yd-visibility-modes {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
     margin: 0 0 16px;
+    padding: 4px;
+    border: 1px solid #e5dce6;
+    border-radius: 10px;
+    background: #f4eff4;
+    box-shadow: inset 0 1px 2px rgba(41, 36, 46, .04);
 }
 #yd-dashboard-root .yd-visibility-mode-card {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    min-width: 0;
-    min-height: 76px;
-    padding: 13px 15px;
-    border: 1px solid var(--border);
-    border-radius: 11px;
-    background: #fff;
-    color: var(--ink);
-    text-align: left;
+    justify-content: center;
+    gap: 8px;
+    min-width: 132px;
+    min-height: 36px;
+    padding: 7px 16px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #756b77;
     cursor: pointer;
-    transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease;
 }
-#yd-dashboard-root .yd-visibility-mode-card:hover {
-    border-color: #c7afc4;
-    background: #fcf9fc;
+#yd-dashboard-root .yd-visibility-mode-card:hover:not(.active) {
+    background: #e9dfea;
+    color: #68465f;
 }
 #yd-dashboard-root .yd-visibility-mode-card.active {
     border-color: var(--brand);
-    background: #f8f5f7;
-    box-shadow: 0 0 0 2px rgba(135, 90, 123, .12);
-}
-#yd-dashboard-root .yd-visibility-mode-icon {
-    display: grid;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
-    border: 1px solid var(--brand);
-    border-radius: 10px;
     background: var(--brand);
     color: #fff;
-    font-size: 15px;
+    box-shadow: 0 2px 5px rgba(104, 70, 95, .2);
+}
+#yd-dashboard-root .yd-visibility-mode-icon {
+    display: inline-grid;
+    place-items: center;
+    color: inherit;
+    font-size: 13px;
 }
 #yd-dashboard-root .yd-visibility-mode-copy {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 3px;
+    display: inline-flex;
+    align-items: center;
     min-width: 0;
 }
 #yd-dashboard-root .yd-visibility-mode-copy strong {
-    color: var(--ink);
-    font-size: 12px;
+    color: inherit;
+    font-size: 11px;
     font-weight: 800 !important;
-    letter-spacing: .035em;
+    letter-spacing: .045em;
 }
-#yd-dashboard-root .yd-visibility-mode-copy small {
-    color: var(--muted);
-    font-size: 10px;
-    line-height: 1.5;
+#yd-dashboard-root .yd-visibility-mode-check { display: none; }
+#yd-dashboard-root .yd-visibility-mode-card:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
 }
-#yd-dashboard-root .yd-visibility-mode-check {
-    color: var(--brand);
-    font-size: 14px;
-    opacity: 0;
-    transition: opacity .18s ease;
-}
-#yd-dashboard-root .yd-visibility-mode-card.active .yd-visibility-mode-check { opacity: 1; }
 #yd-dashboard-root .yd-visibility-accordion-list {
     display: flex;
     flex-direction: column;
@@ -1445,8 +1437,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     outline-offset: 3px;
 }
 @media (max-width: 620px) {
-    #yd-dashboard-root .yd-visibility-modes { grid-template-columns: 1fr; gap: 8px; }
-    #yd-dashboard-root .yd-visibility-mode-card { min-height: 66px; padding: 10px 12px; }
+    #yd-dashboard-root .yd-visibility-modes { display: flex; width: 100%; }
+    #yd-dashboard-root .yd-visibility-mode-card { flex: 1; min-width: 0; min-height: 36px; padding: 7px 10px; }
     #yd-dashboard-root .yd-visibility-row { align-items: flex-start; }
     #yd-dashboard-root .yd-visibility-row-control { padding-top: 4px; }
     #yd-dashboard-root .yd-visibility-accordion-meta { flex-wrap: wrap; }
@@ -2794,10 +2786,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                 '</div>';
         };
         const modeCards = '<div class="yd-visibility-modes" role="tablist" aria-label="Visibility layout">' +
-            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '">' +
-                '<span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong><small>Manage the tools each user can access</small></span><i class="fa-solid fa-check yd-visibility-mode-check" aria-hidden="true"></i></button>' +
-            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '">' +
-                '<span class="yd-visibility-mode-icon"><i class="fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong><small>Manage the users who can access each tool</small></span><i class="fa-solid fa-check yd-visibility-mode-check" aria-hidden="true"></i></button></div>';
+            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong></span></button>' +
+            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong></span></button></div>';
         let accordions = '';
         if (visibilityMode === 'USERS') {
             accordions = users.map(user => {
