@@ -1,33 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T03:04:33Z",
+  "updatedAt": "2026-11-09T03:05:44Z",
   "transactions": {
-    "DASH-USERS-1794193442647-AH1IMQ0ZAH": {
-      "requestId": "DASH-USERS-1794193442647-AH1IMQ0ZAH",
-      "sequence": "1794193442647788356",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_VISIBILITY",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T03:04:33Z",
-      "updatedAt": "2026-11-09T03:04:33Z",
-      "actorName": "MOHAMED SALEH",
-      "summary": "UPDATE VISIBILITY · TOOL-002, TOOL-004",
-      "targetToolIds": [
-        "TOOL-002",
-        "TOOL-004"
-      ]
-    },
-    "DASH-USERS-1793593643959-UAJWXV0NJY": {
-      "requestId": "DASH-USERS-1793593643959-UAJWXV0NJY",
-      "sequence": "1793593643960306651",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "UPDATE_USER",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-02T04:27:45Z",
-      "updatedAt": "2026-11-02T04:29:21Z"
-    },
     "DASH-USERS-1793593698321-RKXNMCSHW5": {
       "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
       "sequence": "1793593698321585245",
@@ -526,13 +500,7 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:03:45.346Z",
-      "updatedAt": "2026-11-09T03:03:45.346Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "ENABLE TOOL · CONFIRMATION TYPE BUTTONS",
-      "targetToolId": "TOOL-001",
-      "targetToolIds": [
-        "TOOL-001"
-      ]
+      "updatedAt": "2026-11-09T03:03:45.346Z"
     },
     "ACTIVITY-ac3a1211-d60c-4458-84d0-4ffd25da1fb3": {
       "requestId": "ACTIVITY-ac3a1211-d60c-4458-84d0-4ffd25da1fb3",
@@ -542,13 +510,17 @@
       "status": "COMPLETED",
       "actorId": "Q-001",
       "createdAt": "2026-11-09T03:03:48.658Z",
-      "updatedAt": "2026-11-09T03:03:48.658Z",
-      "actorName": "Mohamed Saleh",
-      "summary": "ENABLE TOOL · ODOO >>> LIMITED DRUG ACCORDION",
-      "targetToolId": "TOOL-004",
-      "targetToolIds": [
-        "TOOL-004"
-      ]
+      "updatedAt": "2026-11-09T03:03:48.658Z"
+    },
+    "DASH-USERS-1794193442647-AH1IMQ0ZAH": {
+      "requestId": "DASH-USERS-1794193442647-AH1IMQ0ZAH",
+      "sequence": "1794193442647788356",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:04:33Z",
+      "updatedAt": "2026-11-09T03:05:44Z"
     }
   }
 }
