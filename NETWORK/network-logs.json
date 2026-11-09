@@ -78,6 +78,25 @@
         "TOOL-004"
       ]
     },
+    "DASH-USERS-1794264086677-WJWQN542HG": {
+      "requestId": "DASH-USERS-1794264086677-WJWQN542HG",
+      "sequence": "1794264086677234591",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T22:41:54Z",
+      "updatedAt": "2026-11-09T22:41:54Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "MODIFY TOOL PERMISSION · FORCED STATE OFF · TOOL-001 · Omar Saleh",
+      "targetId": "Q-002",
+      "targetName": "Omar Saleh",
+      "permissionField": "forcedState",
+      "permissionValue": false,
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
     "ACTIVITY-1794102891561-ntlhfaasq28": {
       "requestId": "ACTIVITY-1794102891561-ntlhfaasq28",
       "sequence": "1794102891561",
