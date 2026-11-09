@@ -1258,10 +1258,6 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: #fff;
     box-shadow: 0 1px 3px #29242e08;
 }
-#yd-dashboard-root .yd-accordion-item[open] > .yd-accordion-body,
-#yd-dashboard-root .yd-tool-accordion-item[open] > .yd-tool-accordion-body {
-    animation: yd-accordion-enter .78s cubic-bezier(.22, .8, .2, 1) both;
-}
 #yd-dashboard-root details.yd-accordion-item,
 #yd-dashboard-root details.yd-tool-accordion-item,
 #yd-dashboard-root details.yd-visibility-accordion-item {
@@ -1271,9 +1267,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     #yd-dashboard-root details.yd-accordion-item::details-content,
     #yd-dashboard-root details.yd-tool-accordion-item::details-content,
     #yd-dashboard-root details.yd-visibility-accordion-item::details-content {
+        display: block;
         block-size: 0;
-        overflow: clip;
-        transition: block-size .82s cubic-bezier(.22, .8, .2, 1), content-visibility .82s allow-discrete;
+        min-block-size: 0;
+        overflow: hidden;
+        transition: block-size .95s cubic-bezier(.25, .1, .25, 1), content-visibility .95s allow-discrete;
     }
     #yd-dashboard-root details.yd-accordion-item[open]::details-content,
     #yd-dashboard-root details.yd-tool-accordion-item[open]::details-content,
@@ -1487,6 +1485,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-visibility-switch:focus-visible {
     outline: 2px solid var(--brand);
     outline-offset: 3px;
+}
+#yd-dashboard-root .yd-accordion-item > summary::after,
+#yd-dashboard-root .yd-tool-accordion-item > summary::after,
+#yd-dashboard-root .yd-visibility-accordion-item > summary::after {
+    transition: transform .32s cubic-bezier(.22, .8, .2, 1), border-color .32s ease;
 }
 @media (max-width: 620px) {
     #yd-dashboard-root .yd-visibility-modes { display: flex; width: 100%; }
@@ -2224,10 +2227,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     from { opacity: 0; transform: translateY(-4px); }
     to { opacity: 1; transform: translateY(0); }
 }
-@keyframes yd-accordion-enter {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
-}
 @keyframes yd-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes yd-modal-enter {
     from { opacity: 0; transform: translateY(7px) scale(.985); }
@@ -2508,6 +2507,48 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-corner,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-corner {
     background: #f4eff4;
+}
+
+#yd-dashboard-root button,
+#yd-dashboard-root a,
+#yd-dashboard-root summary,
+#yd-dashboard-root input,
+#yd-dashboard-root select,
+#yd-dashboard-root textarea {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity, filter;
+    transition-duration: .22s;
+    transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+#yd-dashboard-root .yd-card,
+#yd-dashboard-root .yd-kpi-card,
+#yd-dashboard-root .yd-pill,
+#yd-dashboard-root .yd-id-badge,
+#yd-dashboard-root .yd-role-label,
+#yd-dashboard-root .yd-title-icon,
+#yd-dashboard-root .yd-kpi-icon,
+#yd-dashboard-root .yd-accordion-index,
+#yd-dashboard-root .yd-visibility-row,
+#yd-dashboard-root .yd-visibility-accordion-item,
+#yd-dashboard-root .yd-announcement-card,
+#yd-dashboard-root .yd-announcement-avatar,
+#yd-dashboard-root .yd-brand-logo,
+#yd-dashboard-root .yd-gb-avatar,
+#yd-dashboard-root .yd-gb-badge {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity, filter;
+    transition-duration: .24s;
+    transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+#yd-dashboard-root .ui-select-item::after {
+    transition: border-color .2s ease, transform .2s ease, opacity .2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+    #yd-dashboard-root *,
+    body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] * {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 `;
         (document.head || document.documentElement).appendChild(style);
