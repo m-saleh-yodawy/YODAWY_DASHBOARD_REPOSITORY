@@ -13,6 +13,20 @@
       "updatedAt": "2026-11-09T03:16:26Z",
       "targetId": "Q-005"
     },
+    "DASH-USERS-1794260308765-M4FP89QN84": {
+      "requestId": "DASH-USERS-1794260308765-M4FP89QN84",
+      "sequence": "1794260308765913556",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_USER",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T21:38:40Z",
+      "updatedAt": "2026-11-09T21:38:40Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE USER · OMAR SALEH",
+      "targetId": "Q-002",
+      "targetName": "OMAR SALEH"
+    },
     "ANNOUNCEMENT-1794099496543-BH2E0ON02S": {
       "requestId": "ANNOUNCEMENT-1794099496543-BH2E0ON02S",
       "sequence": "1794099496543780170",
