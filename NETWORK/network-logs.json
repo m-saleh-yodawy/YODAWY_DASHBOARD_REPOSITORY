@@ -1,6 +1,6 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T23:11:52Z",
+  "updatedAt": "2026-11-09T23:13:36Z",
   "transactions": {
     "DASH-USERS-1794264079787-IKLBHZN4VO": {
       "requestId": "DASH-USERS-1794264079787-IKLBHZN4VO",
@@ -24,16 +24,24 @@
       "updatedAt": "2026-11-09T22:41:54Z",
       "targetId": "Q-002"
     },
-    "DASH-USERS-1794103061212-XHLOK29GKM": {
-      "requestId": "DASH-USERS-1794103061212-XHLOK29GKM",
-      "sequence": "1794103061212881950",
+    "DASH-USERS-1794266003170-EQPQD3IKA3": {
+      "requestId": "DASH-USERS-1794266003170-EQPQD3IKA3",
+      "sequence": "1794266003170135600",
       "requestType": "DASHBOARD_USERS_SYNC",
       "action": "MODIFY_TOOL_PERMISSION",
-      "status": "COMPLETED",
+      "status": "SENT",
       "actorId": "Q-001",
-      "createdAt": "2026-11-08T01:58:12Z",
-      "updatedAt": "2026-11-08T02:00:30Z",
-      "targetId": "Q-002"
+      "createdAt": "2026-11-09T23:13:36Z",
+      "updatedAt": "2026-11-09T23:13:36Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-004 · Ahmed Saleh",
+      "targetId": "Q-004",
+      "targetName": "Ahmed Saleh",
+      "permissionField": "granted",
+      "permissionValue": true,
+      "targetToolIds": [
+        "TOOL-004"
+      ]
     },
     "ANNOUNCEMENT-1794105922648-R643W74MU5": {
       "requestId": "ANNOUNCEMENT-1794105922648-R643W74MU5",
@@ -558,10 +566,10 @@
       "action": "CREATE_ANNOUNCEMENT",
       "status": "COMPLETED",
       "actorId": "Q-004",
-      "actorName": "Ahmed Saleh",
-      "summary": "PUBLISH ANNOUNCEMENT · احنا اتسرقنا",
       "createdAt": "2026-11-09T23:11:52Z",
       "updatedAt": "2026-11-09T23:11:52Z",
+      "actorName": "Ahmed Saleh",
+      "summary": "PUBLISH ANNOUNCEMENT · احنا اتسرقنا",
       "targetId": "1794265902494-SAMG5PLAA9"
     }
   }
