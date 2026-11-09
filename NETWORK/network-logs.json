@@ -33,6 +33,25 @@
         "TOOL-001"
       ]
     },
+    "DASH-USERS-1794193791277-CGNO9JOJCE": {
+      "requestId": "DASH-USERS-1794193791277-CGNO9JOJCE",
+      "sequence": "1794193791277382368",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T03:10:25Z",
+      "updatedAt": "2026-11-09T03:10:25Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "MODIFY TOOL PERMISSION · PERMITTED · TOOL-001 · OMAR SALEH",
+      "targetId": "Q-002",
+      "targetName": "OMAR SALEH",
+      "permissionField": "granted",
+      "permissionValue": true,
+      "targetToolIds": [
+        "TOOL-001"
+      ]
+    },
     "DASH-USERS-1793593698321-RKXNMCSHW5": {
       "requestId": "DASH-USERS-1793593698321-RKXNMCSHW5",
       "sequence": "1793593698321585245",
