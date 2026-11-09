@@ -579,7 +579,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: #2e9464;
     box-shadow: 0 0 0 3px #2e94641a;
 }
-#yd-dashboard-root .yd-activity-wrap { position: relative; display: inline-flex; align-items: center; }
+#yd-dashboard-root .yd-activity-wrap { position: relative; z-index: 20; display: inline-flex; align-items: center; }
 #yd-dashboard-root .yd-activity-trigger {
     display: inline-flex;
     align-items: center;
@@ -621,7 +621,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-size: 9px;
     font-weight: 800 !important;
 }
-#yd-dashboard-root .yd-activity-menu {
+#yd-dashboard-root .yd-activity-dropdown {
     position: absolute;
     top: calc(100% + 11px);
     right: 0;
@@ -639,7 +639,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     transform-origin: top right;
     animation: yd-select-dropdown-drop .24s cubic-bezier(.16, 1, .3, 1) both;
 }
-#yd-dashboard-root .yd-activity-menu[hidden] { display: none !important; }
+#yd-dashboard-root .yd-activity-dropdown[hidden] { display: none !important; }
 #yd-dashboard-root .yd-activity-menu-head {
     display: flex;
     align-items: center;
@@ -732,7 +732,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 @media (max-width: 620px) {
     #yd-dashboard-root .yd-activity-trigger { min-width: 35px; justify-content: center; padding: 4px 6px; }
     #yd-dashboard-root .yd-activity-trigger-copy { display: none; }
-    #yd-dashboard-root .yd-activity-menu { right: -48px; width: min(390px, calc(100vw - 20px)); max-height: calc(100vh - 95px); }
+    #yd-dashboard-root .yd-activity-dropdown { right: 0; width: min(390px, calc(100vw - 20px)); max-height: calc(100vh - 95px); }
 }
 
 #yd-dashboard-root .yd-profile-wrap { position: relative; display: inline-flex; align-items: center; }
@@ -2842,7 +2842,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 : 'fa-cloud-arrow-up';
             return '<div class="yd-activity-item"><span class="yd-activity-item-icon"><i class="fa-solid ' + icon + '"></i></span><span class="yd-activity-item-copy"><span class="yd-activity-item-top"><strong>' + escapeHTML(label) + '</strong><span class="yd-activity-item-status">' + escapeHTML(item.statusLabel || 'ACTIVE') + '</span></span><small>' + escapeHTML(item.location || 'Dashboard') + '</small><span class="yd-activity-progress"><span></span></span><span class="yd-activity-item-stage">' + escapeHTML(item.stage || 'In progress') + '</span></span></div>';
         }).join('');
-        return '<div class="yd-activity-wrap"><button type="button" class="yd-activity-trigger" data-action="activity-toggle" aria-haspopup="dialog" aria-expanded="' + String(activityMenuOpen) + '" aria-label="View ' + count + ' active operations"><span class="yd-activity-spinner"></span><span class="yd-activity-trigger-copy"><strong>' + count + ' ACTIVE</strong><small>' + escapeHTML(first.label || 'Background operation') + '</small></span><span class="yd-activity-count">' + count + '</span></button><section class="yd-activity-menu" role="dialog" aria-label="Running operations"' + (activityMenuOpen ? '' : ' hidden') + '><div class="yd-activity-menu-head"><span class="yd-activity-menu-heading"><strong>Running operations</strong><small>These actions continue in the background</small></span><span class="yd-activity-menu-total">' + count + ' ACTIVE</span><button type="button" class="yd-activity-menu-close" data-action="activity-close" aria-label="Close activity list"><i class="fa-solid fa-xmark"></i></button></div><div class="yd-activity-list">' + rows + '</div><div class="yd-activity-menu-foot"><i class="fa-solid fa-circle-info"></i><span>You can keep working while these actions finish.</span></div></section></div>';
+        return '<div class="yd-activity-wrap"><button type="button" class="yd-activity-trigger" data-action="activity-toggle" aria-controls="yd-activity-dropdown" aria-expanded="' + String(activityMenuOpen) + '" aria-label="View ' + count + ' active operations"><span class="yd-activity-spinner"></span><span class="yd-activity-trigger-copy"><strong>' + count + ' ACTIVE</strong><small>' + escapeHTML(first.label || 'Background operation') + '</small></span><span class="yd-activity-count">' + count + '</span></button><div id="yd-activity-dropdown" class="yd-activity-dropdown" role="region" aria-label="Active operations"' + (activityMenuOpen ? '' : ' hidden') + '><div class="yd-activity-menu-head"><span class="yd-activity-menu-heading"><strong>Running operations</strong><small>These actions continue in the background</small></span><span class="yd-activity-menu-total">' + count + ' ACTIVE</span><button type="button" class="yd-activity-menu-close" data-action="activity-close" aria-label="Close activity list"><i class="fa-solid fa-xmark"></i></button></div><div class="yd-activity-list">' + rows + '</div><div class="yd-activity-menu-foot"><i class="fa-solid fa-circle-info"></i><span>You can keep working while these actions finish.</span></div></div>';
     };
 
     const renderShell = body => {
@@ -4299,7 +4299,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const dropdown = event.target.closest('.yd-dropdown');
             if (activityMenuOpen && !event.target.closest('.yd-activity-wrap')) {
                 activityMenuOpen = false;
-                const activityMenu = root.querySelector('.yd-activity-menu');
+                const activityMenu = root.querySelector('.yd-activity-dropdown');
                 if (activityMenu) activityMenu.hidden = true;
                 root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
             }
