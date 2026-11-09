@@ -866,16 +866,21 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 36px;
     height: 36px;
     flex: 0 0 36px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--brand);
     border-radius: 9px;
-    background: var(--brand-soft);
-    color: var(--brand);
+    background: var(--brand);
+    color: #fff;
     font-size: 14px;
 }
-#yd-dashboard-root .yd-kpi-icon.blue { background: var(--info-bg); color: var(--info); }
-#yd-dashboard-root .yd-kpi-icon.green { background: var(--success-bg); color: var(--success); }
-#yd-dashboard-root .yd-kpi-icon.purple { background: var(--brand-soft); color: var(--brand); }
-#yd-dashboard-root .yd-kpi-icon.amber { background: var(--warning-bg); color: var(--warning); }
+#yd-dashboard-root .yd-kpi-icon.blue { border-color: var(--info); background: var(--info); color: #fff; }
+#yd-dashboard-root .yd-kpi-icon.green { border-color: var(--success); background: var(--success); color: #fff; }
+#yd-dashboard-root .yd-kpi-icon.purple { border-color: var(--brand); background: var(--brand); color: #fff; }
+#yd-dashboard-root .yd-kpi-icon.amber { border-color: var(--warning); background: var(--warning); color: #fff; }
+#yd-dashboard-root .yd-info-grid .yd-title-icon {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: #fff;
+}
 #yd-dashboard-root .yd-kpi-info { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 #yd-dashboard-root .yd-kpi-label { overflow: hidden; color: var(--muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 #yd-dashboard-root .yd-kpi-value { margin-top: 3px; color: var(--ink); font-size: 18px; font-weight: 700 !important; letter-spacing: -.025em; line-height: 1.25; }
@@ -1214,7 +1219,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-accordion-list .yd-accordion-item[open] > summary {
     background: #fff !important;
 }
-#yd-dashboard-root .yd-accordion-item > summary { padding-right: 38px; }
+#yd-dashboard-root .yd-accordion-item > summary,
+#yd-dashboard-root .yd-tool-accordion-item > summary { padding-right: 38px; }
 #yd-dashboard-root .yd-accordion-item > summary::-webkit-details-marker,
 #yd-dashboard-root .yd-tool-accordion-item > summary::-webkit-details-marker { display: none; }
 #yd-dashboard-root .yd-accordion-item > summary:hover { background: #ebe3ed !important; }
@@ -1222,7 +1228,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-tool-accordion-item > summary,
 #yd-dashboard-root .yd-tool-accordion-item > summary:hover,
 #yd-dashboard-root .yd-tool-accordion-item[open] > summary { background: #fff !important; }
-#yd-dashboard-root .yd-accordion-item > summary::after {
+#yd-dashboard-root .yd-accordion-item > summary::after,
+#yd-dashboard-root .yd-tool-accordion-item > summary::after {
     position: absolute;
     right: 16px;
     width: 7px;
@@ -1231,9 +1238,12 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-bottom: 2px solid var(--muted);
     content: '';
     transform: rotate(45deg);
-    transition: transform .15s;
+    transition: transform .18s ease, border-color .18s ease;
 }
-#yd-dashboard-root .yd-accordion-item[open] > summary::after { transform: rotate(225deg); }
+#yd-dashboard-root .yd-accordion-item[open] > summary::after,
+#yd-dashboard-root .yd-tool-accordion-item[open] > summary::after { transform: rotate(225deg); }
+#yd-dashboard-root .yd-accordion-item > summary:hover::after,
+#yd-dashboard-root .yd-tool-accordion-item > summary:hover::after { border-color: var(--brand); }
 #yd-dashboard-root .yd-accordion-user { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 #yd-dashboard-root .yd-accordion-user > strong { color: var(--ink); font-size: 12px; }
 #yd-dashboard-root .yd-accordion-user > small, #yd-dashboard-root .yd-accordion-summary-meta { display: flex; align-items: center; gap: 7px; }
@@ -1311,10 +1321,10 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 28px;
     height: 28px;
     flex: 0 0 28px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--brand);
     border-radius: 8px;
-    background: #f6f0f6;
-    color: var(--brand-dark);
+    background: var(--brand);
+    color: #fff;
     font-size: 10px;
     font-weight: 700 !important;
 }
