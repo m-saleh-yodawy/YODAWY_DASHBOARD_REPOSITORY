@@ -2578,7 +2578,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
 #yd-dashboard-root button,
 #yd-dashboard-root button:focus,
 #yd-dashboard-root button:focus-visible,
-#yd-dashboard-root button:active {
+#yd-dashboard-root button:active,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:focus,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     outline: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -3695,6 +3699,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
                         changes.forEach(({ toolId }) => {
                             if (!queued.has(toolId)) optimisticVisibility.delete(toolId);
                         });
+                        if (queued.size) {
+                            const partialError = new Error('Some tool updates were queued successfully before the next update failed. ' + (error?.message || 'Please check NETWORK for their status.'));
+                            partialError.partial = true;
+                            throw partialError;
+                        }
                         throw error;
                     } finally {
                         changes.forEach(({ toolId }) => pendingVisibilitySubmissions.delete(toolId));
@@ -3833,7 +3842,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
             }
         } catch (error) {
             if (button && ['toggle-permission', 'toggle-visibility-bulk'].includes(action)) render();
-            showMessageDialog('Operation Not Submitted', error?.message || 'The requested operation could not be submitted.');
+            showMessageDialog(error?.partial ? 'Bulk Update Partially Submitted' : 'Operation Not Submitted', error?.message || 'The requested operation could not be submitted.');
         }
     };
 
