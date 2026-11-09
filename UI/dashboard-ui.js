@@ -380,7 +380,7 @@
     const finishActivity = id => {
         if (!id || !activityItems.delete(id)) return;
         if (!activityItems.size) activityMenuOpen = false;
-        if (document.getElementById(CONFIG.ID)) render();
+        if (isCurrentUI()) render();
     };
 
     const getActivityLocation = metadata => {
@@ -3593,7 +3593,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     keepActivity = Boolean(context && localTransactions.has(requestId));
                     updateActivity(activityId, { status: 'QUEUED', statusLabel: 'WAITING', stage: 'Still processing · next status check scheduled' });
                     showMessageDialog('Still Processing', 'This request is taking longer than expected. It remains queued and locked. The dashboard will keep checking its status.');
-                    if (keepActivity) setTimeout(() => monitorTransaction(transaction, activityId), 15000);
+                    if (keepActivity) setTimeout(() => monitorTransaction(transaction, activityId, engine), 15000);
                     return;
                 }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
