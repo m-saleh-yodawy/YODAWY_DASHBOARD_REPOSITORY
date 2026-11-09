@@ -24,6 +24,21 @@
       "updatedAt": "2026-11-09T03:16:26Z",
       "targetId": "Q-005"
     },
+    "DASH-USERS-1794258061856-W3KNFQ940W": {
+      "requestId": "DASH-USERS-1794258061856-W3KNFQ940W",
+      "sequence": "1794258061856537148",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "UPDATE_VISIBILITY",
+      "status": "SENT",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T21:01:14Z",
+      "updatedAt": "2026-11-09T21:01:14Z",
+      "actorName": "MOHAMED SALEH",
+      "summary": "UPDATE VISIBILITY · TOOL-002",
+      "targetToolIds": [
+        "TOOL-002"
+      ]
+    },
     "ACTIVITY-1793657668487-7623kkj7u5c": {
       "requestId": "ACTIVITY-1793657668487-7623kkj7u5c",
       "sequence": "1793657668487",
