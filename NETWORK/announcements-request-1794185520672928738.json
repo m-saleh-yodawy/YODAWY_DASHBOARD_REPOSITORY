@@ -1,0 +1,20 @@
+{
+  "protocolVersion": 1,
+  "requestId": "ANNOUNCEMENT-1794185520672-FHIFAVEMVF",
+  "sequence": "1794185520672928738",
+  "requestType": "DASHBOARD_ANNOUNCEMENTS_SYNC",
+  "status": "PENDING",
+  "createdAt": "2026-11-09T00:52:00.672Z",
+  "actor": {
+    "id": "Q-001",
+    "userId": "Q-001",
+    "name": "MOHAMED SALEH",
+    "username": "MOHAMED SALEH",
+    "role": "SUPER_ADMIN"
+  },
+  "action": "DELETE_ANNOUNCEMENT",
+  "payload": {
+    "id": "1794179231622-NH238O1CJQ",
+    "action": "DELETE_ANNOUNCEMENT"
+  }
+}
