@@ -1260,7 +1260,26 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-accordion-item[open] > .yd-accordion-body,
 #yd-dashboard-root .yd-tool-accordion-item[open] > .yd-tool-accordion-body {
-    animation: yd-accordion-enter .2s cubic-bezier(.2, .8, .2, 1) both;
+    animation: yd-accordion-enter .78s cubic-bezier(.22, .8, .2, 1) both;
+}
+#yd-dashboard-root details.yd-accordion-item,
+#yd-dashboard-root details.yd-tool-accordion-item,
+#yd-dashboard-root details.yd-visibility-accordion-item {
+    interpolate-size: allow-keywords;
+}
+@supports selector(details::details-content) {
+    #yd-dashboard-root details.yd-accordion-item::details-content,
+    #yd-dashboard-root details.yd-tool-accordion-item::details-content,
+    #yd-dashboard-root details.yd-visibility-accordion-item::details-content {
+        block-size: 0;
+        overflow: clip;
+        transition: block-size .82s cubic-bezier(.22, .8, .2, 1), content-visibility .82s allow-discrete;
+    }
+    #yd-dashboard-root details.yd-accordion-item[open]::details-content,
+    #yd-dashboard-root details.yd-tool-accordion-item[open]::details-content,
+    #yd-dashboard-root details.yd-visibility-accordion-item[open]::details-content {
+        block-size: auto;
+    }
 }
 #yd-dashboard-root .yd-visibility-modes {
     position: relative;
@@ -1319,6 +1338,15 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-color: transparent;
     background: transparent !important;
     color: #fff;
+}
+#yd-dashboard-root .yd-visibility-mode-card:focus,
+#yd-dashboard-root .yd-visibility-mode-card:focus-visible,
+#yd-dashboard-root .yd-visibility-mode-card:active {
+    border-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    -webkit-tap-highlight-color: transparent;
 }
 #yd-dashboard-root .yd-visibility-mode-icon {
     display: inline-grid;
