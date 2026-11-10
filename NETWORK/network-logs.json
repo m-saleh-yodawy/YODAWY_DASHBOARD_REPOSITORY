@@ -1,18 +1,7 @@
 {
   "protocolVersion": 1,
-  "updatedAt": "2026-11-09T23:17:43Z",
+  "updatedAt": "2026-11-10T11:12:51Z",
   "transactions": {
-    "DASH-USERS-1794264079787-IKLBHZN4VO": {
-      "requestId": "DASH-USERS-1794264079787-IKLBHZN4VO",
-      "sequence": "1794264079787469307",
-      "requestType": "DASHBOARD_USERS_SYNC",
-      "action": "MODIFY_TOOL_PERMISSION",
-      "status": "SENT",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-09T22:41:43Z",
-      "updatedAt": "2026-11-09T22:41:43Z",
-      "targetId": "Q-004"
-    },
     "DASH-USERS-1794264086677-WJWQN542HG": {
       "requestId": "DASH-USERS-1794264086677-WJWQN542HG",
       "sequence": "1794264086677234591",
@@ -23,16 +12,6 @@
       "createdAt": "2026-11-09T22:41:54Z",
       "updatedAt": "2026-11-09T22:41:54Z",
       "targetId": "Q-002"
-    },
-    "ACTIVITY-1794163498477-qkyymzm7xpk": {
-      "requestId": "ACTIVITY-1794163498477-qkyymzm7xpk",
-      "sequence": "1794163498477",
-      "requestType": "DASHBOARD_ACTIVITY_LOG",
-      "action": "ENABLE_TOOL",
-      "status": "COMPLETED",
-      "actorId": "Q-001",
-      "createdAt": "2026-11-08T18:44:58.477Z",
-      "updatedAt": "2026-11-08T18:44:58.477Z"
     },
     "DASH-USERS-1794174206040-S0LN0IW04N": {
       "requestId": "DASH-USERS-1794174206040-S0LN0IW04N",
@@ -549,6 +528,17 @@
       "actorId": "Q-001",
       "createdAt": "2026-11-09T23:16:06Z",
       "updatedAt": "2026-11-09T23:17:43Z",
+      "targetId": "Q-004"
+    },
+    "DASH-USERS-1794264079787-IKLBHZN4VO": {
+      "requestId": "DASH-USERS-1794264079787-IKLBHZN4VO",
+      "sequence": "1794264079787469307",
+      "requestType": "DASHBOARD_USERS_SYNC",
+      "action": "MODIFY_TOOL_PERMISSION",
+      "status": "COMPLETED",
+      "actorId": "Q-001",
+      "createdAt": "2026-11-09T22:41:43Z",
+      "updatedAt": "2026-11-10T11:12:51Z",
       "targetId": "Q-004"
     }
   }
