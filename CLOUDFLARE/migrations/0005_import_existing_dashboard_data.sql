@@ -1,9 +1,9 @@
 PRAGMA foreign_keys = ON;
-INSERT OR IGNORE INTO tools (tool_id,name,description,version,asset_path,sha256,enabled) VALUES ('TOOL-001','CONFIRMATION TYPE BUTTONS','Adds confirmation type shortcuts to Odoo support tickets.','1','TOOLS_CACHE/TOOLS/confirmation-type-buttons.js','05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a','1');
+INSERT OR IGNORE INTO tools (tool_id,name,description,version,asset_path,sha256,enabled) VALUES ('TOOL-001','CONFIRMATION TYPE BUTTONS','Adds confirmation type shortcuts to Odoo support tickets.','1','/tools/confirmation-type-buttons.js','05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a','1');
 INSERT OR IGNORE INTO tool_visibility (tool_id,mode) VALUES ('TOOL-001','PRIVATE');
-INSERT OR IGNORE INTO tools (tool_id,name,description,version,asset_path,sha256,enabled) VALUES ('TOOL-002','PORTAL AUTO LOGIN','Automates the Odoo-to-Portal prescription lookup and login flow.','1','TOOLS_CACHE/TOOLS/portal-auto-login.js','11569a0f0e36491d8f6c974d60a4d7c9e6bf21e7ab19d8e25b7d581516330595','1');
+INSERT OR IGNORE INTO tools (tool_id,name,description,version,asset_path,sha256,enabled) VALUES ('TOOL-002','PORTAL AUTO LOGIN','Automates the Odoo-to-Portal prescription lookup and login flow.','1','/tools/portal-auto-login.js','11569a0f0e36491d8f6c974d60a4d7c9e6bf21e7ab19d8e25b7d581516330595','1');
 INSERT OR IGNORE INTO tool_visibility (tool_id,mode) VALUES ('TOOL-002','PRIVATE');
-INSERT OR IGNORE INTO tools (tool_id,name,description,version,asset_path,sha256,enabled) VALUES ('TOOL-004','ODOO >>> LIMITED DRUG ACCORDION','Displays limited-drug alternatives, pricing actions, and log-note shortcuts in Odoo.','1','TOOLS_CACHE/TOOLS/limited-drug-accordion.js','8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23','1');
+INSERT OR IGNORE INTO tools (tool_id,name,description,version,asset_path,sha256,enabled) VALUES ('TOOL-004','ODOO >>> LIMITED DRUG ACCORDION','Displays limited-drug alternatives, pricing actions, and log-note shortcuts in Odoo.','1','/tools/limited-drug-accordion.js','8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23','1');
 INSERT OR IGNORE INTO tool_visibility (tool_id,mode) VALUES ('TOOL-004','PRIVATE');
 INSERT OR IGNORE INTO tool_permissions (user_id,tool_id,can_use,forced_state,permission_type) VALUES ('Q-002','TOOL-001','1','0','SUPER_ADMIN');
 INSERT OR IGNORE INTO tool_permissions (user_id,tool_id,can_use,forced_state,permission_type) VALUES ('Q-002','TOOL-002','1','0','SUPER_ADMIN');
