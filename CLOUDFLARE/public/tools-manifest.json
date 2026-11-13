@@ -6,22 +6,25 @@
       "id": "TOOL-001",
       "name": "CONFIRMATION TYPE BUTTONS",
       "version": "1",
-      "url": "/tools/confirmation-type-buttons.js",
-      "sha256": "05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a"
+      "url": "/tools/confirmation-type-buttons.js?v=05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a",
+      "sha256": "05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a",
+      "cache": "immutable"
     },
     {
       "id": "TOOL-002",
       "name": "PORTAL AUTO LOGIN",
       "version": "1",
-      "url": "/tools/portal-auto-login.js",
-      "sha256": "11569a0f0e36491d8f6c974d60a4d7c9e6bf21e7ab19d8e25b7d581516330595"
+      "url": "/tools/portal-auto-login.js?v=11569a0f0e36491d8f6c974d60a4d7c9e6bf21e7ab19d8e25b7d581516330595",
+      "sha256": "11569a0f0e36491d8f6c974d60a4d7c9e6bf21e7ab19d8e25b7d581516330595",
+      "cache": "immutable"
     },
     {
       "id": "TOOL-004",
       "name": "ODOO >>> LIMITED DRUG ACCORDION",
       "version": "1",
-      "url": "/tools/limited-drug-accordion.js",
-      "sha256": "8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23"
+      "url": "/tools/limited-drug-accordion.js?v=8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23",
+      "sha256": "8e00aac7fb835392c9094b1e161a0313d03ecdf7d948b16634a78daa50579b23",
+      "cache": "immutable"
     }
   ]
 }
