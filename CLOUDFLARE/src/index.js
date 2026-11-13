@@ -144,7 +144,7 @@ const dashboardRoutes = async (request, env, path) => {
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
       env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
       isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] }),
-      env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id ORDER BY a.id DESC LIMIT 500").all()
+      isAdmin ? env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id ORDER BY a.id DESC LIMIT 500").all() : env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id WHERE a.actor_id = ? ORDER BY a.id DESC LIMIT 200").bind(actor.user_id).all()
     ]);
     const permissionMap = {};
     for (const item of permissions.results || []) {
