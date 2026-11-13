@@ -227,6 +227,21 @@ const dashboardRoutes = async (request, env, path) => {
     await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, created_at, updated_at) VALUES (?, ?, ?, 'Active', ?, ?, ?)").bind(userId, name, newRole, repository, now, now).run();
     return respond(request, env, { success: true, user: { id: userId, name, role: newRole, status: "Active", repository } }, 201);
   }
+  if (path.startsWith("/api/dashboard/users/") && path.endsWith("/password") && request.method === "POST") {
+    if (!isAdmin) return forbidden();
+    const userId = decodeURIComponent(path.split("/").slice(-2, -1)[0]).trim().toUpperCase();
+    const target = await env.DB.prepare("SELECT role, status FROM users WHERE user_id = ?").bind(userId).first();
+    const password = String(body.password || "");
+    if (!target || target.status !== "Active" || (role === "ADMIN" && target.role !== "USER")) return forbidden();
+    if (password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "PASSWORD_REQUIREMENTS" }, 400);
+    const hash = await createPasswordHash(password);
+    const timestamp = Math.floor(Date.now() / 1000);
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET password_hash = ?, password_changed_at = ?, failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(hash, timestamp, userId),
+      env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(timestamp, userId)
+    ]);
+    return respond(request, env, { success: true, userId });
+  }
   if (path.startsWith("/api/dashboard/users/") && request.method === "PATCH") {
     if (!isAdmin) return forbidden();
     const userId = decodeURIComponent(path.split("/").pop()).trim().toUpperCase();
