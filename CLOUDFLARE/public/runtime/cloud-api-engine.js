@@ -30,7 +30,7 @@
         const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
         return new TextDecoder().decode(bytes);
     };
-    const encode = value => btoa(unescape(encodeURIComponent(JSON.stringify(value))));
+    const encode = value => btoa(unescape(encodeURIComponent(String(value))));
     const snapshot = () => context()?.data || {};
     const remember = (requestId, requestType, payload, result, status = 'COMPLETED') => {
         const transaction = { requestId, request_id: requestId, requestType, request_type: requestType, status, payload, result, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...(status === 'FAILED' ? { error: result?.error || 'REQUEST_FAILED' } : {}) };
@@ -73,8 +73,9 @@
             } else {
                 throw fail('Unsupported dashboard action: ' + action, 400);
             }
-            await refresh();
-            return remember(requestId, type, payload, result);
+            const transaction = remember(requestId, type, payload, result);
+            try { await refresh(); } catch {}
+            return transaction;
         } catch (error) {
             remember(requestId, type, payload, { error: error.message, status: error.status || 0 }, 'FAILED');
             throw error;
