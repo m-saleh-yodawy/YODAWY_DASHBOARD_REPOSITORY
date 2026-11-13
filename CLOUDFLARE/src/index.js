@@ -213,21 +213,22 @@ const dashboardRoutes = async (request, env, path) => {
   }
   if (path.startsWith("/api/dashboard/users/") && request.method === "PATCH") {
     if (!isAdmin) return forbidden();
-    const userId = decodeURIComponent(path.split("/").pop()).toUpperCase();
+    const userId = decodeURIComponent(path.split("/").pop()).trim().toUpperCase();
     const target = await env.DB.prepare("SELECT user_id, role, status FROM users WHERE user_id = ?").bind(userId).first();
     if (!target || (role === "ADMIN" && target.role !== "USER") || userId === actor.user_id) return forbidden();
+    if (Object.prototype.hasOwnProperty.call(body, "id") || Object.prototype.hasOwnProperty.call(body, "userId") || Object.prototype.hasOwnProperty.call(body, "username")) return respond(request, env, { success: false, error: "USER_ID_IMMUTABLE" }, 400);
     const nextRole = body.role === undefined ? target.role : String(body.role).toUpperCase();
     const nextStatus = body.status === undefined ? target.status : String(body.status);
     const nextName = body.name === undefined ? null : String(body.name).trim().replace(/\\s+/g, " ");
     if (nextName !== null && (!nextName || nextName.length > 100)) return respond(request, env, { success: false, error: "INVALID_NAME" }, 400);
-    if (!["USER", "ADMIN", "SUPER_ADMIN"].includes(nextRole) || !["Active", "Inactive"].includes(nextStatus) || (role === "ADMIN" && nextRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER_UPDATE" }, 400);
+    if (![ "USER", "ADMIN", "SUPER_ADMIN" ].includes(nextRole) || ![ "Active", "Inactive" ].includes(nextStatus) || (role === "ADMIN" && nextRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER_UPDATE" }, 400);
     if (target.role === "SUPER_ADMIN" && (nextRole !== "SUPER_ADMIN" || nextStatus !== "Active")) {
       const count = await env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE role = 'SUPER_ADMIN' AND status = 'Active'").first();
-      if (Number(count?.total || 0) <= 1) return respond(request, env, { success: false, error: "LAST_SUPER_ADMIN" }, 409);
+      if (Number(count?.total || 0) <= 1) return respond(request, env, { success: false, error: "LAST_SUPER_ADMIN" }, 400);
     }
     await env.DB.prepare("UPDATE users SET name = COALESCE(?, name), role = ?, status = ?, updated_at = ? WHERE user_id = ?").bind(nextName, nextRole, nextStatus, now, userId).run();
     if (nextStatus !== "Active") await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(Math.floor(Date.now() / 1000), userId).run();
-    return respond(request, env, { success: true });
+    return respond(request, env, { success: true, user: { id: userId, role: nextRole, status: nextStatus } });
   }
   if (path.startsWith("/api/dashboard/users/") && request.method === "DELETE") {
     if (!isAdmin) return forbidden();
