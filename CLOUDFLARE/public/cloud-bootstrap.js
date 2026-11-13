@@ -69,6 +69,14 @@ return (async function (PAGE, STORE) {
             throw error;
         }
     };
+    const authorizedRequest = async (path, options = {}) => {
+        try {
+            return await request(path, { ...options, token: accessToken });
+        } catch (error) {
+            if (error.status !== 401 || !await refresh()) throw error;
+            return request(path, { ...options, token: accessToken });
+        }
+    };
     const mountLogin = () => new Promise(resolve => {
         const root = PAGE.document.createElement('div');
         root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#17131acc;font:14px Arial,sans-serif';
@@ -117,7 +125,7 @@ return (async function (PAGE, STORE) {
         context = Object.freeze({
             user,
             data,
-            request: (path, options = {}) => request(path, { ...options, token: accessToken }),
+            request: authorizedRequest,
             logout: async () => {
                 try { await request('/api/auth/logout', { method: 'POST', token: accessToken }); }
                 finally { accessToken = ''; user = null; await save(''); PAGE.location.reload(); }
