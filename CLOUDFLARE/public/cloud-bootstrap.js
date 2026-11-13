@@ -1,4 +1,4 @@
-(async function (PAGE, STORE) {
+return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => {
