@@ -154,10 +154,7 @@ return (async function (PAGE, STORE) {
             'core-tools-manager.js',
             'core-settings-engine.js',
             'core-announcements-engine.js',
-            'dashboard-ui.js',
-            'super-admin-engine.js',
-            'admin-engine.js',
-            'user-engine.js'
+            'dashboard-ui.js'
         ];
         for (const asset of assets) await loadScript(asset);
         const YODAWY = {
@@ -182,6 +179,8 @@ return (async function (PAGE, STORE) {
             YODAWY.tools.loadManifest(),
             YODAWY.announcements.load()
         ]);
+        const roleAsset = user.role === 'SUPER_ADMIN' ? 'super-admin-engine.js' : user.role === 'ADMIN' ? 'admin-engine.js' : 'user-engine.js';
+        await loadScript(roleAsset);
         const engine = user.role === 'SUPER_ADMIN' ? PAGE.YODAWY_SUPER_ADMIN_ENGINE : user.role === 'ADMIN' ? PAGE.YODAWY_ADMIN_ENGINE : PAGE.YODAWY_USER_ENGINE;
         if (!engine || typeof YODAWY.init !== 'function') throw new Error('ROLE_ENGINE_UNAVAILABLE');
         await YODAWY.init();
