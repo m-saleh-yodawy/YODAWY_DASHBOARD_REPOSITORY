@@ -192,20 +192,23 @@ const dashboardRoutes = async (request, env, path) => {
       if (!target || !["USER", "ADMIN"].includes(target.role) || (role === "ADMIN" && target.role !== "USER")) return forbidden();
       for (const [toolId, state] of Object.entries(tools)) {
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(toolId)) return respond(request, env, { success: false, error: "INVALID_TOOL_ID" }, 400);
-        const objectState = state && typeof state === "object" && !Array.isArray(state);
+        const objectState = state !== null && typeof state === "object" && !Array.isArray(state);
         if (state !== null && typeof state === "object" && !objectState) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
+        const current = await env.DB.prepare("SELECT can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ? AND tool_id = ?").bind(userId, toolId).first();
         if (role === "ADMIN") {
           if (objectState && (Object.prototype.hasOwnProperty.call(state, "forcedState") || Object.prototype.hasOwnProperty.call(state, "forced") || Object.keys(state).some(key => !["granted", "enabled"].includes(key)))) return forbidden();
           const enabled = objectState ? state.granted ?? state.enabled : state;
           if (typeof enabled !== "boolean") return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
-          const current = await env.DB.prepare("SELECT forced_state FROM tool_permissions WHERE user_id = ? AND tool_id = ?").bind(userId, toolId).first();
           if (current?.forced_state) return respond(request, env, { success: false, error: "PERMISSION_FORCED" }, 409);
           statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, 0, 'USER', ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, updated_at = excluded.updated_at WHERE tool_permissions.forced_state = 0").bind(userId, toolId, enabled ? 1 : 0, now));
         } else {
-          const enabled = objectState ? state.granted ?? state.enabled : state;
-          const forcedValue = objectState ? state.forcedState ?? state.forced ?? false : false;
-          const type = objectState && ["USER", "ADMIN"].includes(state.type) ? state.type : "USER";
-          if (typeof enabled !== "boolean" || typeof forcedValue !== "boolean" || (objectState && Object.keys(state).some(key => !["granted", "enabled", "forcedState", "forced", "type"].includes(key)))) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
+          if (objectState && Object.keys(state).some(key => !["granted", "enabled", "forcedState", "forced", "type"].includes(key))) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
+          const hasGranted = objectState && (Object.prototype.hasOwnProperty.call(state, "granted") || Object.prototype.hasOwnProperty.call(state, "enabled"));
+          const hasForced = objectState && (Object.prototype.hasOwnProperty.call(state, "forcedState") || Object.prototype.hasOwnProperty.call(state, "forced"));
+          const enabled = hasGranted ? state.granted ?? state.enabled : current ? Boolean(current.can_use) : typeof state === "boolean" ? state : false;
+          const forcedValue = hasForced ? state.forcedState ?? state.forced : Boolean(current?.forced_state);
+          const type = objectState && Object.prototype.hasOwnProperty.call(state, "type") ? state.type : current?.permission_type || "USER";
+          if (typeof enabled !== "boolean" || typeof forcedValue !== "boolean" || !["USER", "ADMIN"].includes(type)) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
           statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, forced_state = excluded.forced_state, permission_type = excluded.permission_type, updated_at = excluded.updated_at").bind(userId, toolId, enabled ? 1 : 0, forcedValue ? 1 : 0, type, now));
         }
       }
