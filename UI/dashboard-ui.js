@@ -3937,6 +3937,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 await context.cloudAuth.changePassword(currentPassword, newPassword);
                 showMessageDialog('Password Updated', 'Your password has been changed. Sign in again with your new password.');
                 context.auth?.logout?.();
+                setTimeout(() => page.location.reload(), 1200);
                 return;
             } else if (action === 'toggle-my-tool') {
                 const toolId = button.dataset.tool;
