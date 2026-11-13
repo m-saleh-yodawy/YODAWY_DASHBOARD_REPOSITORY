@@ -13,9 +13,3 @@ CREATE TABLE IF NOT EXISTS auth_events (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_auth_events_user_time ON auth_events(user_id, created_at DESC);
-INSERT OR IGNORE INTO users (user_id, name, role, status, personal_repository) VALUES
-('Q-001', 'MOHAMED SALEH', 'SUPER_ADMIN', 'Active', 'Q-001_MOHAMED_SALEH'),
-('Q-002', 'Omar Saleh', 'USER', 'Active', 'Q-002_OMAR_SALEH'),
-('Q-003', 'MOAAZ SALEH', 'ADMIN', 'Active', 'Q-003_MOAAZ_SALEH'),
-('Q-004', 'Ahmed Saleh', 'ADMIN', 'Active', 'Q-004_AHMED_SALEH'),
-('Q-005', 'Mahmoud Saleh', 'USER', 'Active', 'Q-005_MAHMOUD_SALEH');
