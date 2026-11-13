@@ -48,7 +48,7 @@
         try {
             let result;
             if (action === 'ADD_USER') {
-                result = await post('/api/dashboard/users', { name: payload.name, role: payload.role, status: payload.status });
+                result = await post('/api/dashboard/users', { name: payload.name, role: payload.role, status: payload.status, password: payload.password });
             } else if (action === 'EDIT_USER') {
                 const { id, ...changes } = payload;
                 result = await patch('/api/dashboard/users/' + encodeURIComponent(id), changes);
