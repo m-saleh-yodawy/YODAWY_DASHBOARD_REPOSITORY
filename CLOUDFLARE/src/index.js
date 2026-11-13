@@ -347,8 +347,14 @@ export default {
       }
       if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });
       if (url.pathname === "/api/ready" && request.method === "GET") {
-        try { const result = await env.DB.prepare("SELECT 1 AS ready").first(); return respond(request, env, { success: result?.ready === 1, database: result?.ready === 1 ? "connected" : "unavailable" }, result?.ready === 1 ? 200 : 503); }
-        catch { return respond(request, env, { success: false, database: "unavailable" }, 503); }
+        try {
+          const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs"];
+          const result = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (" + required.map(() => "?").join(",") + ")").bind(...required).all();
+          const existing = new Set((result.results || []).map(item => item.name));
+          const missing = required.filter(name => !existing.has(name));
+          const ready = missing.length === 0;
+          return respond(request, env, { success: ready, database: ready ? "connected" : "schema_incomplete", missingTables: missing }, ready ? 200 : 503);
+        } catch { return respond(request, env, { success: false, database: "unavailable" }, 503); }
       }
       const auth = await authRoutes(request, env, url.pathname);
       if (auth) return auth;
