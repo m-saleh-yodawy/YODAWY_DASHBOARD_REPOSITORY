@@ -33,7 +33,9 @@
     const encode = value => btoa(unescape(encodeURIComponent(String(value))));
     const snapshot = () => context()?.data || {};
     const remember = (requestId, requestType, payload, result, status = 'COMPLETED') => {
-        const transaction = { requestId, request_id: requestId, requestType, request_type: requestType, status, payload, result, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...(status === 'FAILED' ? { error: result?.error || 'REQUEST_FAILED' } : {}) };
+        const actor = context()?.user || {};
+        const timestamp = new Date().toISOString();
+        const transaction = { requestId, request_id: requestId, requestType, request_type: requestType, status, actorId: actor.id || '', actorName: actor.name || '', actorRole: actor.role || '', actor: { id: actor.id || '', userId: actor.id || '', name: actor.name || '', role: actor.role || '' }, payload, result, createdAt: timestamp, updatedAt: timestamp, ...(status === 'FAILED' ? { error: result?.error || 'REQUEST_FAILED' } : {}) };
         transactions.set(requestId, transaction);
         return transaction;
     };
