@@ -3846,11 +3846,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 body.appendChild(entry);
                 heading.textContent = 'Multiple Dashboard Messages';
             }
-            clearTimeout(messageDialogTimer);
-            messageDialogTimer = setTimeout(() => {
-                activeMessageDialog?.remove();
-                activeMessageDialog = null;
-            }, 10000);
             return;
         }
         const overlay = document.createElement('div');
@@ -3860,13 +3855,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
         document.body.appendChild(overlay);
         activeMessageDialog = overlay;
-        const close = () => {
-            clearTimeout(messageDialogTimer);
+        const closeButton = overlay.querySelector('[data-message-close]');
+        if (closeButton) {
+            closeButton.disabled = true;
+            closeButton.textContent = 'Please wait 10 seconds';
+        }
+        messageDialogTimer = setTimeout(() => {
             overlay.remove();
             if (activeMessageDialog === overlay) activeMessageDialog = null;
-        };
-        overlay.querySelector('[data-message-close]')?.addEventListener('click', close);
-        messageDialogTimer = setTimeout(close, 10000);
+        }, 10000);
     };
 
     const runAction = async (action, button) => {
