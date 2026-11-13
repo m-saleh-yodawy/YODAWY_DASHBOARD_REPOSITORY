@@ -135,13 +135,14 @@ const dashboardRoutes = async (request, env, path) => {
   const body = request.method === "GET" ? {} : await readBody(request);
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
-    const [users, tools, permissions, visibility, visibleUsers, settings, announcements, transactions, activity] = await Promise.all([
+    const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
       env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all(),
       env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
       env.DB.prepare("SELECT tool_id, user_id FROM tool_visibility_users").all(),
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
+      isSuper ? env.DB.prepare("SELECT user_id, settings_json FROM user_settings").all() : Promise.resolve({ results: [] }),
       env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
       isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] }),
       isAdmin ? env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id ORDER BY a.id DESC LIMIT 500").all() : env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id WHERE a.actor_id = ? ORDER BY a.id DESC LIMIT 200").bind(actor.user_id).all()
@@ -151,10 +152,12 @@ const dashboardRoutes = async (request, env, path) => {
       const key = item.user_id;
       (permissionMap[key] ||= {})[item.tool_id] = { enabled: Boolean(item.can_use), forced: Boolean(item.forced_state), type: item.permission_type };
     }
+    const userSettingsMap = {};
+    if (isSuper) for (const item of userSettings.results || []) { try { userSettingsMap[item.user_id] = JSON.parse(item.settings_json || "{}").tools || {}; } catch { userSettingsMap[item.user_id] = {}; } }
     const visibilityMap = {};
     for (const item of visibility.results || []) visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
     for (const item of visibleUsers.results || []) (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
-    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role, repository: actor.personal_repository || "" }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
+    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role, repository: actor.personal_repository || "" }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, userSettings: isSuper ? userSettingsMap : {}, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
   }
   if (path === "/api/dashboard/activity" && request.method === "POST") {
     const action = String(body.action || "").trim().toUpperCase();
