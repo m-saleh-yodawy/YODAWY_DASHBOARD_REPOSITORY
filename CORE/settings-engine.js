@@ -82,8 +82,9 @@
         saving = true;
         try {
             const response = await API.put('/api/dashboard/settings', { settings: updated });
-            if (response?.success !== true || !response.settings) throw createError(response?.error || 'Settings update was not confirmed');
-            settings = validateSettings(response.settings);
+            const result = response?.data || response;
+            if (result?.success !== true || !result.settings) throw createError(result?.error || 'Settings update was not confirmed');
+            settings = validateSettings(result.settings);
             return getSettings();
         } finally {
             saving = false;
