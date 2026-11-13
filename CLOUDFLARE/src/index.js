@@ -185,17 +185,29 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/permissions" && request.method === "PUT") {
     if (!isAdmin || !body.permissions || typeof body.permissions !== "object" || Array.isArray(body.permissions)) return forbidden();
     const statements = [];
-    for (const [userId, tools] of Object.entries(body.permissions)) {
-      if (!tools || typeof tools !== "object" || Array.isArray(tools)) continue;
-      if (role === "ADMIN") {
-        const target = await env.DB.prepare("SELECT role FROM users WHERE user_id = ?").bind(userId).first();
-        if (!target || target.role !== "USER") continue;
-      }
+    for (const [rawUserId, tools] of Object.entries(body.permissions)) {
+      const userId = String(rawUserId).trim().toUpperCase();
+      if (!/^Q-[0-9]{3,}$/.test(userId) || !tools || typeof tools !== "object" || Array.isArray(tools)) return respond(request, env, { success: false, error: "INVALID_PERMISSION_TARGET" }, 400);
+      const target = await env.DB.prepare("SELECT role FROM users WHERE user_id = ?").bind(userId).first();
+      if (!target || !["USER", "ADMIN"].includes(target.role) || (role === "ADMIN" && target.role !== "USER")) return forbidden();
       for (const [toolId, state] of Object.entries(tools)) {
-        const enabled = typeof state === "object" ? Boolean(state.granted ?? state.enabled) : Boolean(state);
-        const forced = typeof state === "object" && Boolean(state.forcedState ?? state.forced);
-        const type = typeof state === "object" && ["USER", "ADMIN", "SUPER_ADMIN"].includes(state.type) ? state.type : "USER";
-        statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, forced_state = excluded.forced_state, permission_type = excluded.permission_type, updated_at = excluded.updated_at").bind(userId, toolId, enabled ? 1 : 0, forced ? 1 : 0, type, now));
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(toolId)) return respond(request, env, { success: false, error: "INVALID_TOOL_ID" }, 400);
+        const objectState = state && typeof state === "object" && !Array.isArray(state);
+        if (state !== null && typeof state === "object" && !objectState) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
+        if (role === "ADMIN") {
+          if (objectState && (Object.prototype.hasOwnProperty.call(state, "forcedState") || Object.prototype.hasOwnProperty.call(state, "forced") || Object.keys(state).some(key => !["granted", "enabled"].includes(key)))) return forbidden();
+          const enabled = objectState ? state.granted ?? state.enabled : state;
+          if (typeof enabled !== "boolean") return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
+          const current = await env.DB.prepare("SELECT forced_state FROM tool_permissions WHERE user_id = ? AND tool_id = ?").bind(userId, toolId).first();
+          if (current?.forced_state) return respond(request, env, { success: false, error: "PERMISSION_FORCED" }, 409);
+          statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, 0, 'USER', ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, updated_at = excluded.updated_at WHERE tool_permissions.forced_state = 0").bind(userId, toolId, enabled ? 1 : 0, now));
+        } else {
+          const enabled = objectState ? state.granted ?? state.enabled : state;
+          const forcedValue = objectState ? state.forcedState ?? state.forced ?? false : false;
+          const type = objectState && ["USER", "ADMIN"].includes(state.type) ? state.type : "USER";
+          if (typeof enabled !== "boolean" || typeof forcedValue !== "boolean" || (objectState && Object.keys(state).some(key => !["granted", "enabled", "forcedState", "forced", "type"].includes(key)))) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
+          statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, forced_state = excluded.forced_state, permission_type = excluded.permission_type, updated_at = excluded.updated_at").bind(userId, toolId, enabled ? 1 : 0, forcedValue ? 1 : 0, type, now));
+        }
       }
     }
     if (statements.length) await env.DB.batch(statements);
