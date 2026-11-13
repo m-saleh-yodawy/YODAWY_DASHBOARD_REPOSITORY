@@ -222,7 +222,7 @@ const dashboardRoutes = async (request, env, path) => {
     const newRole = String(body.role || "USER").trim().toUpperCase();
     const status = String(body.status || "Active").trim();
     const password = String(body.password || "");
-    if (!name || name.length > 100 || !["USER", "ADMIN"].includes(newRole) || !["Active", "Inactive"].includes(status) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
+    if (!name || name.length > 100 || (role === "ADMIN" ? !["USER", "ADMIN"].includes(newRole) : !["USER", "ADMIN", "SUPER_ADMIN"].includes(newRole)) || !["Active", "Inactive"].includes(status) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
     const sequence = await env.DB.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(user_id, 3) AS INTEGER)), 0) + 1 AS next_id FROM users WHERE user_id GLOB 'Q-[0-9]*'").first();
     const userId = "Q-" + String(sequence?.next_id || 1).padStart(3, "0");
     const repository = userId + "_" + name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
