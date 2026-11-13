@@ -3806,6 +3806,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '<h3>' + (editing ? 'Edit User' : 'Add User') + '</h3>' +
             '<div class="yd-form-grid">' +
                 '<div class="yd-field"><label>Full Name</label><input name="name" required value="' + escapeHTML(formatName(user?.name || '')) + '" placeholder="Employee full name"></div>' +
+                (!editing ? '<div class="yd-field"><label>Initial Password</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="At least 10 characters"></div>' : '') +
                 roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
@@ -3823,6 +3824,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const payload = {
                 name: String(form.get('name') || '').trim(),
                 status: form.get('status') || 'Active',
+                ...(!editing ? { password: String(form.get('password') || '') } : {}),
                 ...((context.userRole === 'SUPER_ADMIN' || (!editing && context.userRole === 'ADMIN')) ? { role: form.get('role') || 'USER' } : {})
             };
             const normalizedName = payload.name.replace(/\s+/g, ' ').toLocaleLowerCase();
