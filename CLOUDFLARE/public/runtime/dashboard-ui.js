@@ -1400,7 +1400,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 1px 3px #0002;
-    transition: transform .24s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease;
+    transition: transform .18s cubic-bezier(.2, .8, .2, 1), box-shadow .16s ease;
 }
 #yd-dashboard-root .yd-switch.on .yd-switch-knob { transform: translateX(16px); }
 #yd-dashboard-root .yd-switch:disabled { opacity: .5; cursor: not-allowed; }
@@ -1544,7 +1544,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
         block-size: 0;
         min-block-size: 0;
         overflow: hidden;
-        transition: block-size .95s cubic-bezier(.25, .1, .25, 1), content-visibility .95s allow-discrete;
+        transition: block-size .32s cubic-bezier(.2, .8, .2, 1), content-visibility .32s allow-discrete;
     }
     #yd-dashboard-root details.yd-accordion-item[open]::details-content,
     #yd-dashboard-root details.yd-tool-accordion-item[open]::details-content,
@@ -1580,7 +1580,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     content: '';
     pointer-events: none;
     transform: translateX(0);
-    transition: transform .68s cubic-bezier(.22, .8, .2, 1);
+    transition: transform .28s cubic-bezier(.2, .8, .2, 1);
 }
 #yd-dashboard-root .yd-visibility-modes[data-active-mode="TOOLS"]::before {
     transform: translateX(calc(100% + 3px));
@@ -1602,7 +1602,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: transparent !important;
     color: #756b77;
     cursor: pointer;
-    transition: color .48s ease, border-color .48s ease;
+    transition: color .24s ease, border-color .24s ease;
 }
 #yd-dashboard-root .yd-visibility-mode-card:hover:not(.active) { color: #68465f; }
 #yd-dashboard-root .yd-visibility-mode-card.active {
@@ -3079,12 +3079,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const blocked = !active || Boolean(pending || pendingUser);
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
                 const pendingBadge = pending ? renderPendingBadge('Queued') : '';
-                const statusDot = !forced || isSuperAdmin ? '<span class="yd-permission-status-dot ' + (granted ? 'on' : '') + '" title="' + (granted ? 'Enabled' : 'Disabled') + '" aria-label="' + (granted ? 'Enabled' : 'Disabled') + '"></span>' : '';
-                const permittedControl = '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + statusDot + (!isSuperAdmin && forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>') + '</div>';
+                const userEnabled = isSuperAdmin && context.data?.userSettings?.[userId]?.[tool.id] === 'ENABLED';
+                const userEnabledControl = isSuperAdmin ? '<div class="yd-permission-control"><span class="yd-permission-label">User Enabled</span><span class="yd-permission-status-dot ' + (userEnabled ? 'on' : '') + '" title="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '" aria-label="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '"></span></div>' : '';
+                const permittedControl = '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + (!isSuperAdmin && forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>') + '</div>';
                 const forcedControl = isSuperAdmin
                     ? '<div class="yd-permission-control"><span class="yd-permission-label">Forced State</span><button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + (blocked ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>'
                     : forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '';
-                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + forcedControl + '</div></div>';
+                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + userEnabledControl + forcedControl + '</div></div>';
             }).join('');
             const expanded = expandedUsers.has(userId) ? ' open' : '';
             const userBadge = pendingUser ? renderPendingBadge(String(pendingUser.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
