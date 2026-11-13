@@ -15,7 +15,6 @@
 
     let snapshot = null;
     let initialized = false;
-    let submitting = false;
 
     const createError = message => {
         const error = new Error(message);
@@ -261,10 +260,6 @@
     const createRequest = async (action, payload) => {
         const { API, AUTH } = getDependencies();
 
-        if (submitting) {
-            throw createError('Another NETWORK transaction is being submitted');
-        }
-
         const user = AUTH.getUser();
 
         if (!user?.userId && !user?.id) {
@@ -315,29 +310,23 @@
             }
         };
 
-        submitting = true;
+        const response = await API.put(endpoint, {
+        message: `Submit ${action} transaction ${requestId}`,
+        content: encodeContent(request),
+        branch: config.branch
+    });
 
-        try {
-            const response = await API.put(endpoint, {
-                message: `Submit ${action} transaction ${requestId}`,
-                content: encodeContent(request),
-                branch: config.branch
-            });
+    if (!response.data?.content?.sha) {
+        throw createError('NETWORK request creation was not confirmed');
+    }
 
-            if (!response.data?.content?.sha) {
-                throw createError('NETWORK request creation was not confirmed');
-            }
-
-            return {
-                requestId,
-                sequence,
-                path,
-                status: 'PENDING',
-                createdAt: request.createdAt
-            };
-        } finally {
-            submitting = false;
-        }
+    return {
+        requestId,
+        sequence,
+        path,
+        status: 'PENDING',
+        createdAt: request.createdAt
+    };
     };
 
     const getTransaction = async requestId => {
