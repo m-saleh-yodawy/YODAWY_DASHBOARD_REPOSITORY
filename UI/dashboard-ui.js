@@ -143,7 +143,7 @@
     const ROLE_ACCESS = Object.freeze({
         USER: Object.freeze({
             pages: Object.freeze(['tools', 'overview', 'announcements', 'account']),
-            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password']),
             canManageAnnouncements: false,
             canManageUsers: false,
             canEditUsers: false,
@@ -155,7 +155,7 @@
         }),
         ADMIN: Object.freeze({
             pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'account']),
-            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
             canEditUsers: true,
@@ -167,7 +167,7 @@
         }),
         SUPER_ADMIN: Object.freeze({
             pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'account']),
-            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
             canEditUsers: true,
@@ -3382,6 +3382,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 '<div class="yd-info-row"><span>Personal Repository</span><strong>' + escapeHTML(context.personalRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Dashboard Repository</span><strong>' + escapeHTML(context.dashboardRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Branch</span><strong>' + escapeHTML(context.branch || 'main') + '</strong></div>' +
+            '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-lock"></i></span><span>Change Password</span></div>' +
+                '<div class="yd-field"><label for="yd-current-password">Current Password</label><input id="yd-current-password" type="password" autocomplete="current-password" maxlength="128"></div>' +
+                '<div class="yd-field"><label for="yd-new-password">New Password</label><input id="yd-new-password" type="password" autocomplete="new-password" minlength="10" maxlength="128"></div>' +
+                '<div class="yd-field"><label for="yd-confirm-password">Confirm New Password</label><input id="yd-confirm-password" type="password" autocomplete="new-password" minlength="10" maxlength="128"></div>' +
+                '<button type="button" class="yd-primary" data-action="change-password"><i class="fa-solid fa-key"></i><span>Update Password</span></button>' +
             '</div></div>';
     };
 
@@ -3698,6 +3703,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const appendNetworkActivity = async ({ action, toolId = '', toolName = '', summary = '' }) => {
         const api = context?.api || window.YODAWY_API_ENGINE || page.YODAWY_API_ENGINE;
+        if (typeof api?.recordActivity === 'function') return api.recordActivity({ action, toolId, toolName, summary });
         const config = api?.getConfig?.();
         if (!api?.getFile || !api?.put || !config?.owner || !config?.repo || !config?.branch) throw new Error('Central NETWORK API is unavailable.');
         const actor = context.user || {};
@@ -3800,6 +3806,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '<h3>' + (editing ? 'Edit User' : 'Add User') + '</h3>' +
             '<div class="yd-form-grid">' +
                 '<div class="yd-field"><label>Full Name</label><input name="name" required value="' + escapeHTML(formatName(user?.name || '')) + '" placeholder="Employee full name"></div>' +
+                (editing ? '<div class="yd-field"><label>Reset Password (Optional)</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Leave blank to keep current password"></div>' : '<div class="yd-field"><label>Initial Password</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="At least 10 characters"></div>') +
                 roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
@@ -3817,6 +3824,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const payload = {
                 name: String(form.get('name') || '').trim(),
                 status: form.get('status') || 'Active',
+                ...(String(form.get('password') || '') ? { password: String(form.get('password') || '') } : {}),
                 ...((context.userRole === 'SUPER_ADMIN' || (!editing && context.userRole === 'ADMIN')) ? { role: form.get('role') || 'USER' } : {})
             };
             const normalizedName = payload.name.replace(/\s+/g, ' ').toLocaleLowerCase();
@@ -3839,9 +3847,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const submitButton = event.currentTarget.querySelector('[type="submit"]');
             setButtonLoading(submitButton, 'Submitting');
             try {
-                await runNetworkOperation(editing ? 'Updating user' : 'Creating user', () =>
-                    editing ? engine.editUser(user.id, payload) : engine.addUser(payload), metadata
-                );
+                await runNetworkOperation(editing ? 'Updating user' : 'Creating user', async () => {
+                    if (!editing) return engine.addUser(payload);
+                    const result = await engine.editUser(user.id, payload);
+                    if (payload.password) await context.api.setUserPassword(user.id, payload.password);
+                    return result;
+                }, metadata);
                 close();
             } catch (error) {
                 submitButton.disabled = false;
@@ -3918,6 +3929,19 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         showMessageDialog('Settings Not Saved', error?.message || 'Unable to save personal settings.');
                     }
                 })(), { label: 'Saving Personal Settings', location: 'Settings', stage: 'Saving preferences and recording NETWORK activity' });
+            } else if (action === 'change-password') {
+                const currentPassword = document.getElementById('yd-current-password')?.value || '';
+                const newPassword = document.getElementById('yd-new-password')?.value || '';
+                const confirmPassword = document.getElementById('yd-confirm-password')?.value || '';
+                if (!context.cloudAuth?.changePassword) throw new Error('Cloud password service is not connected yet.');
+                if (newPassword.length < 10 || newPassword.length > 128) throw new Error('New password must contain 10 to 128 characters.');
+                if (newPassword !== confirmPassword) throw new Error('New password confirmation does not match.');
+                setButtonLoading(button, 'Updating');
+                await context.cloudAuth.changePassword(currentPassword, newPassword);
+                showMessageDialog('Password Updated', 'Your password has been changed. Sign in again with your new password.');
+                context.auth?.logout?.();
+                setTimeout(() => page.location.reload(), 1200);
+                return;
             } else if (action === 'toggle-my-tool') {
                 const toolId = button.dataset.tool;
                 const nextEnabled = button.dataset.enabled !== 'true';

@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "messages": {
+    "INVALID_CREDENTIALS": {
+      "title": "LOGIN FAILED",
+      "message": "INVALID USER ID OR PASSWORD."
+    },
+    "USER_INACTIVE": {
+      "title": "ACCOUNT INACTIVE",
+      "message": "YOUR ACCOUNT IS INACTIVE. CONTACT YOUR ADMINISTRATOR."
+    },
+    "SESSION_INVALID": {
+      "title": "SESSION EXPIRED",
+      "message": "YOUR SESSION HAS EXPIRED. PLEASE SIGN IN AGAIN."
+    },
+    "UNAUTHORIZED": {
+      "title": "AUTHENTICATION REQUIRED",
+      "message": "YOUR SESSION IS NO LONGER VALID. PLEASE SIGN IN AGAIN."
+    },
+    "FORBIDDEN": {
+      "title": "ACCESS DENIED",
+      "message": "YOU DO NOT HAVE PERMISSION TO PERFORM THIS ACTION."
+    },
+    "PASSWORD_REQUIREMENTS": {
+      "title": "INVALID PASSWORD",
+      "message": "PASSWORD MUST CONTAIN BETWEEN 10 AND 128 CHARACTERS."
+    },
+    "CURRENT_PASSWORD_INVALID": {
+      "title": "PASSWORD CHANGE FAILED",
+      "message": "THE CURRENT PASSWORD IS INCORRECT."
+    },
+    "USER_ID_IMMUTABLE": {
+      "title": "USER ID IS IMMUTABLE",
+      "message": "USER IDENTITY CANNOT BE CHANGED."
+    },
+    "LAST_SUPER_ADMIN": {
+      "title": "ACTION NOT ALLOWED",
+      "message": "THE LAST ACTIVE SUPER ADMINISTRATOR CANNOT BE REMOVED OR DEACTIVATED."
+    },
+    "INVALID_USER": {
+      "title": "INVALID USER",
+      "message": "THE USER INFORMATION IS INVALID."
+    },
+    "INVALID_USER_UPDATE": {
+      "title": "INVALID USER UPDATE",
+      "message": "THE REQUESTED USER CHANGES ARE NOT VALID."
+    },
+    "INVALID_NAME": {
+      "title": "INVALID NAME",
+      "message": "ENTER A VALID DISPLAY NAME."
+    },
+    "INVALID_SETTINGS": {
+      "title": "SETTINGS ERROR",
+      "message": "THE SETTINGS DATA IS INVALID."
+    },
+    "NOT_FOUND": {
+      "title": "NOT FOUND",
+      "message": "THE REQUESTED RESOURCE COULD NOT BE FOUND."
+    },
+    "REQUEST_FAILED": {
+      "title": "REQUEST FAILED",
+      "message": "THE REQUEST COULD NOT BE COMPLETED. PLEASE TRY AGAIN."
+    },
+    "AUTH_NOT_CONFIGURED": {
+      "title": "SYSTEM CONFIGURATION ERROR",
+      "message": "AUTHENTICATION SERVICE IS NOT CONFIGURED."
+    },
+    "UNKNOWN_ERROR": {
+      "title": "SYSTEM ERROR",
+      "message": "AN UNEXPECTED ERROR OCCURRED. PLEASE TRY AGAIN."
+    },
+    "DATABASE_UNAVAILABLE": {
+      "title": "DATABASE UNAVAILABLE",
+      "message": "THE DASHBOARD DATABASE IS NOT READY OR ITS REQUIRED TABLES ARE MISSING. PLEASE CONTACT THE SYSTEM ADMINISTRATOR."
+    },
+    "PERMISSION_FORCED": {
+      "title": "PERMISSION PROTECTED",
+      "message": "THIS TOOL PERMISSION IS CONTROLLED BY SUPER ADMIN AND CANNOT BE CHANGED HERE."
+    }
+  }
+}
