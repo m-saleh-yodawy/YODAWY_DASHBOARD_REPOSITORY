@@ -254,10 +254,18 @@
         (item.targetToolIds || [item.targetToolId]).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
     ) || null;
 
-    const getPendingVisibility = toolId => getPendingTransactions().find(item =>
-        String(item.action || '').toUpperCase() === 'UPDATE_VISIBILITY' &&
-        (item.targetToolIds || []).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
-    ) || (pendingVisibilitySubmissions.has(String(toolId || '').trim()) ? { action: 'SUBMITTING' } : null);
+    const getPendingVisibility = (toolId, userId = '') => {
+        const tool = String(toolId || '').trim();
+        const user = String(userId || '').trim().toUpperCase();
+        const transaction = getPendingTransactions().find(item => {
+            if (String(item.action || '').toUpperCase() !== 'UPDATE_VISIBILITY') return false;
+            if (!(item.targetToolIds || []).map(value => String(value || '').trim()).includes(tool)) return false;
+            const target = String(item.targetId || item.targetUserId || '').trim().toUpperCase();
+            return target ? Boolean(user) && target === user : !user;
+        });
+        const key = user ? tool + ':' + user : tool + ':*';
+        return transaction || (pendingVisibilitySubmissions.has(key) ? { action: 'SUBMITTING' } : null);
+    };
 
     const getPendingUser = user => {
         const id = String(user?.id || '').trim().toUpperCase();
@@ -3169,7 +3177,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const toolId = String(tool.id);
             const userId = String(user.id || '').trim().toUpperCase();
             const allowed = isAllowed(tool, user);
-            const pending = pendingTools.get(toolId);
+            const pending = getPendingVisibility(toolId, userId);
             const pendingUser = pendingUsers.get(userId);
             const active = String(user.status || '').toLowerCase() === 'active';
             const disabled = Boolean(pending || pendingUser || !active);
@@ -3196,7 +3204,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const pendingUser = pendingUsers.get(userId);
                 const expanded = visibilityExpandedUsers.has(userId) ? ' open' : '';
                 const active = String(user.status || '').toLowerCase() === 'active';
-                const pendingTool = tools.some(tool => pendingTools.get(String(tool.id)));
+                const pendingTool = tools.some(tool => getPendingVisibility(String(tool.id), userId));
                 const allToolsEnabled = tools.length > 0 && allowedCount === tools.length;
                 const bulkSwitch = renderBulkSwitch('ALL TOOLS', 'ALL_TOOLS', userId, allToolsEnabled, Boolean(!active || pendingUser || pendingTool || !tools.length), formatName(user.name));
                 const rows = tools.map(tool => {
@@ -4001,7 +4009,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         ? { visibility: 'PUBLIC', allowedUsers: [] }
                         : { visibility: 'SELECTED_USERS', allowedUsers: [] };
                     optimisticVisibility.set(toolId, updatedRecord);
-                    pendingVisibilitySubmissions.add(toolId);
+                    pendingVisibilitySubmissions.add(toolId + ':*');
                     render();
                     const metadata = {
                         action: 'UPDATE_VISIBILITY',
@@ -4013,13 +4021,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                             engine.setToolVisibility(toolId, updatedRecord), metadata
                         );
                     } finally {
-                        pendingVisibilitySubmissions.delete(toolId);
+                        pendingVisibilitySubmissions.delete(toolId + ':*');
                         render();
                     }
                 } else if (mode === 'ALL_TOOLS') {
                     const userId = String(button.dataset.user || '').trim().toUpperCase();
                     const user = users.find(item => String(item.id || '').trim().toUpperCase() === userId);
-                    if (!user || String(user.status || '').toLowerCase() !== 'active' || button.disabled || getPendingUser(user) || tools.some(tool => getPendingVisibility(String(tool.id)))) return;
+                    if (!user || String(user.status || '').toLowerCase() !== 'active' || button.disabled || getPendingUser(user) || tools.some(tool => getPendingVisibility(String(tool.id), userId))) return;
                     const nextEnabled = button.dataset.enabled !== 'true';
                     const userIds = users.map(item => String(item.id || '').trim().toUpperCase());
                     const changes = [];
@@ -4044,7 +4052,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     }
                     changes.forEach(({ toolId, record }) => {
                         optimisticVisibility.set(toolId, record);
-                        pendingVisibilitySubmissions.add(toolId);
+                        pendingVisibilitySubmissions.add(toolId + ':' + userId);
                     });
                     render();
                     const visibilityChanges = Object.fromEntries(changes.map(({ toolId, record }) => [toolId, record]));
@@ -4062,7 +4070,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         );
                         showNotice('ALL TOOLS access ' + (nextEnabled ? 'enabled' : 'disabled') + ' for ' + formatName(user.name || userId) + '.');
                     } finally {
-                        targetToolIds.forEach(toolId => pendingVisibilitySubmissions.delete(toolId));
+                        targetToolIds.forEach(toolId => pendingVisibilitySubmissions.delete(toolId + ':' + userId));
                         render();
                     }
                 }
@@ -4072,7 +4080,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const engine = getRoleEngine();
                 const user = (engine?.getUsers?.() || []).find(item => String(item.id || '').trim().toUpperCase() === userId);
                 const tool = getTools().find(item => String(item.id || '').trim() === toolId);
-                if (!tool || !user || button.disabled || getPendingVisibility(toolId) || getPendingUser(user)) return;
+                if (!tool || !user || button.disabled || getPendingVisibility(toolId, userId) || getPendingUser(user)) return;
                 const currentRecord = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
                 const allowedUsers = new Set(currentRecord.visibility === 'PUBLIC'
                     ? (engine?.getUsers?.() || []).map(item => String(item.id || '').trim().toUpperCase())
@@ -4083,7 +4091,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 else allowedUsers.delete(userId);
                 const updatedRecord = { visibility: 'SELECTED_USERS', allowedUsers: [...allowedUsers] };
                 optimisticVisibility.set(toolId, updatedRecord);
-                pendingVisibilitySubmissions.add(toolId);
+                pendingVisibilitySubmissions.add(toolId + ':' + userId);
                 render();
                 const metadata = {
                     action: 'UPDATE_VISIBILITY',
@@ -4097,7 +4105,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         engine.setToolVisibility(toolId, updatedRecord), metadata
                     );
                 } finally {
-                    pendingVisibilitySubmissions.delete(toolId);
+                    pendingVisibilitySubmissions.delete(toolId + ':' + userId);
                     render();
                 }
             } else if (action === 'toggle-permission') {
@@ -4138,7 +4146,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     ? { visibility: 'PUBLIC', allowedUsers: [] }
                     : { visibility: 'SELECTED_USERS', allowedUsers: [...draft.allowedUsers] };
                 optimisticVisibility.set(toolId, record);
-                pendingVisibilitySubmissions.add(toolId);
+                pendingVisibilitySubmissions.add(toolId + ':*');
                 visibilityDraft = null;
                 openVisibilityToolId = null;
                 closeDropdowns(null);
@@ -4147,7 +4155,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 try {
                     await runNetworkOperation('Saving allowed users', () => getRoleEngine().setToolVisibility(toolId, record), metadata);
                 } finally {
-                    pendingVisibilitySubmissions.delete(toolId);
+                    pendingVisibilitySubmissions.delete(toolId + ':*');
                     render();
                 }
             } else if (action === 'add-announcement') {
