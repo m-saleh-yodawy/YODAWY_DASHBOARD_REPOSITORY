@@ -438,7 +438,7 @@
         waitForTransaction,
         getTransactionHistory,
         isInitialized: () => initialized,
-        isSubmitting: () => submitting
+        isSubmitting: () => false
     });
 
     global.YODAWY_ADMIN_ENGINE = API;
