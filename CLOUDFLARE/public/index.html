@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#875A7B">
+<title>YODAWY Dashboard</title>
+<style>
+:root{color-scheme:dark;font-family:Arial,sans-serif;background:#17131a;color:#f8f5f7}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+main{width:min(100%,560px);padding:32px;border:1px solid #68465f;border-radius:18px;background:#211b24;box-shadow:0 18px 60px #0005}
+h1{margin:0 0 8px;font-size:26px}
+p{color:#c9bdc8;line-height:1.6}
+ul{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:12px}
+li{display:flex;justify-content:space-between;gap:16px;padding:14px;border-radius:10px;background:#2b2330}
+strong{font-size:13px}
+.status{color:#e5b8dd}
+small{display:block;margin-top:24px;color:#998b99}
+</style>
+</head>
+<body>
+<main>
+<h1>YODAWY Dashboard</h1>
+<p>Cloudflare runtime foundation is deployed. Application modules will be connected in the next phase.</p>
+<ul>
+<li><strong>Worker API</strong><span class="status" id="api">Checking…</span></li>
+<li><strong>D1 Database</strong><span class="status" id="database">Checking…</span></li>
+</ul>
+<small>YODAWY Cloudflare Foundation · Version 1</small>
+</main>
+<script>
+(async()=>{
+try{
+const [api,db]=await Promise.all([
+fetch("/api/health").then(r=>r.json()),
+fetch("/api/ready").then(r=>r.json())
+]);
+document.getElementById("api").textContent=api.status==="online"?"Online":"Unavailable";
+document.getElementById("database").textContent=db.database==="connected"?"Connected":"Unavailable";
+}catch{
+document.getElementById("api").textContent="Unavailable";
+document.getElementById("database").textContent="Unavailable";
+}
+})();
+</script>
+</body>
+</html>
