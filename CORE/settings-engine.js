@@ -3,22 +3,10 @@
 
     if (global.YODAWY_SETTINGS_ENGINE) return;
 
-    const CONFIG = {
-        PATH: 'DASHBOARD/dashboard-settings.json'
-    };
-
     let settings = null;
-    let fileSha = null;
     let loaded = false;
     let saving = false;
-
-    let connection = {
-        owner: '',
-        repository: '',
-        branch: 'main',
-        userId: '',
-        token: ''
-    };
+    let userId = '';
 
     const createError = message => {
         const error = new Error(message);
@@ -29,138 +17,48 @@
     const getDependencies = () => {
         const API = global.YODAWY_API_ENGINE;
         const AUTH = global.YODAWY_AUTH_ENGINE;
-
-        if (!API || !AUTH) {
-            throw createError('Required engines are unavailable');
-        }
-
+        if (!API || !AUTH) throw createError('Required engines are unavailable');
         return { API, AUTH };
     };
 
-    const configure = options => {
-        if (!options || typeof options !== 'object') {
-            throw createError('Invalid settings configuration');
+    const configure = () => {
+        const { AUTH } = getDependencies();
+        const currentUserId = String(AUTH.getUserId() || '').trim();
+        if (!currentUserId) throw createError('Authenticated user is unavailable');
+        if (userId !== currentUserId) {
+            userId = currentUserId;
+            settings = null;
+            loaded = false;
         }
-
-        const AUTH = global.YODAWY_AUTH_ENGINE;
-        const user = AUTH?.getUser();
-
-        connection = {
-            owner: String(options.owner || '').trim(),
-            repository: String(options.repository || user?.repository || '').trim(),
-            branch: String(options.branch || 'main').trim(),
-            userId: String(options.userId || AUTH?.getUserId() || '').trim(),
-            token: String(options.token || '').trim()
-        };
-
-        if (
-            !connection.owner ||
-            !connection.repository ||
-            !connection.branch ||
-            !connection.userId ||
-            !connection.token
-        ) {
-            throw createError('Personal repository configuration is incomplete');
-        }
-
-        if (connection.userId !== AUTH?.getUserId()) {
-            throw createError('Settings user does not match authenticated user');
-        }
-
-        loaded = false;
-        settings = null;
-        fileSha = null;
-
         return true;
     };
 
-    const getEndpoint = () =>
-        `/repos/${encodeURIComponent(connection.owner)}/${encodeURIComponent(connection.repository)}/contents/${CONFIG.PATH}`;
-
-    const decodeContent = content => {
-        const binary = atob(content.replace(/\s/g, ''));
-        const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-        return new TextDecoder('utf-8').decode(bytes);
-    };
-
-    const encodeContent = value => {
-        const bytes = new TextEncoder().encode(
-            JSON.stringify(value, null, 2)
-        );
-
-        let binary = '';
-
-        for (let i = 0; i < bytes.length; i += 0x8000) {
-            binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-        }
-
-        return btoa(binary);
-    };
-
-    const validateSettings = data => {
-        if (
-            !data ||
-            typeof data !== 'object' ||
-            Array.isArray(data) ||
-            typeof data.tools !== 'object' ||
-            !data.tools ||
-            Array.isArray(data.tools)
-        ) {
+    const validateSettings = value => {
+        if (!value || typeof value !== 'object' || Array.isArray(value) || !value.tools || typeof value.tools !== 'object' || Array.isArray(value.tools)) {
             throw createError('Invalid personal settings structure');
         }
-
-        if (
-            data.userId &&
-            String(data.userId) !== connection.userId
-        ) {
-            throw createError('Settings belong to another user');
+        if (value.userId && String(value.userId) !== userId) throw createError('Settings belong to another user');
+        const tools = {};
+        for (const [toolId, state] of Object.entries(value.tools)) {
+            if (!toolId.trim() || !['ENABLED', 'DISABLED'].includes(state)) throw createError('Invalid tool setting: ' + toolId);
+            tools[toolId] = state;
         }
-
-        for (const [toolId, state] of Object.entries(data.tools)) {
-            if (
-                !toolId.trim() ||
-                !['ENABLED', 'DISABLED'].includes(state)
-            ) {
-                throw createError(`Invalid tool setting: ${toolId}`);
-            }
-        }
-
-        if (!['overview', 'tools'].includes(String(data.startPage || '').toLowerCase())) data.startPage = 'tools';
-
-        return data;
+        return { ...value, userId, tools, startPage: ['overview', 'tools'].includes(String(value.startPage || '').toLowerCase()) ? String(value.startPage).toLowerCase() : 'tools' };
     };
 
     const load = async () => {
         const { API } = getDependencies();
-
-        if (!connection.repository || !connection.token) {
-            throw createError('Settings engine is not configured');
-        }
-
-        const response = await API.get(
-            `${getEndpoint()}?ref=${encodeURIComponent(connection.branch)}`,
-            { token: connection.token }
-        );
-
-        const file = response.data;
-
-        if (!file?.content || !file?.sha) {
-            throw createError('Personal settings file is unavailable');
-        }
-
-        const parsed = JSON.parse(decodeContent(file.content));
-
-        settings = validateSettings(parsed);
-        fileSha = file.sha;
+        configure();
+        const response = await API.get('/api/dashboard/settings');
+        if (response?.success !== true) throw createError(response?.error || 'Personal settings could not be loaded');
+        settings = validateSettings(response.settings || { userId, tools: {}, startPage: 'tools' });
         loaded = true;
-
         return getSettings();
     };
 
     const ensureLoaded = () => {
-        if (!loaded || !settings || !fileSha) {
-            throw createError('Personal settings have not been loaded');
-        }
+        configure();
+        if (!loaded || !settings) throw createError('Personal settings have not been loaded');
     };
 
     const getSettings = () => {
@@ -169,52 +67,23 @@
     };
 
     const getToolState = toolId => {
-        if (typeof toolId !== 'string' || !toolId.trim()) {
-            throw createError('Invalid tool ID');
-        }
-
+        if (typeof toolId !== 'string' || !toolId.trim()) throw createError('Invalid tool ID');
         ensureLoaded();
-
         return settings.tools[toolId] || 'DISABLED';
     };
 
-    const isEnabled = toolId =>
-        getToolState(toolId) === 'ENABLED';
+    const isEnabled = toolId => getToolState(toolId) === 'ENABLED';
 
-    const save = async updatedSettings => {
+    const save = async value => {
         const { API } = getDependencies();
-
         ensureLoaded();
-
-        if (saving) {
-            throw createError('Another settings update is in progress');
-        }
-
-        const updated = validateSettings(updatedSettings);
-
-        if (String(updated.userId || '') !== connection.userId) {
-            throw createError('Cannot modify another user settings');
-        }
-
+        if (saving) throw createError('Another settings update is in progress');
+        const updated = validateSettings(value);
         saving = true;
-
         try {
-            const response = await API.put(getEndpoint(), {
-                message: 'Update personal dashboard settings',
-                content: encodeContent(updated),
-                sha: fileSha,
-                branch: connection.branch
-            }, {
-                token: connection.token
-            });
-
-            if (!response.data?.content?.sha) {
-                throw createError('Settings update was not confirmed');
-            }
-
-            settings = updated;
-            fileSha = response.data.content.sha;
-
+            const response = await API.put('/api/dashboard/settings', { settings: updated });
+            if (response?.success !== true || !response.settings) throw createError(response?.error || 'Settings update was not confirmed');
+            settings = validateSettings(response.settings);
             return getSettings();
         } finally {
             saving = false;
@@ -222,62 +91,30 @@
     };
 
     const setToolState = async (toolId, state) => {
-        if (typeof toolId !== 'string' || !toolId.trim()) {
-            throw createError('Invalid tool ID');
-        }
-
-        if (!['ENABLED', 'DISABLED'].includes(state)) {
-            throw createError('Invalid tool state');
-        }
-
+        if (typeof toolId !== 'string' || !toolId.trim() || !['ENABLED', 'DISABLED'].includes(state)) throw createError('Invalid tool setting');
         ensureLoaded();
-
         const { AUTH } = getDependencies();
-        const userId = AUTH.getUserId();
         const permissions = global.YODAWY_PERMISSIONS_ENGINE;
-
-        if (!permissions?.isLoaded()) {
-            throw createError('Permissions have not been loaded');
-        }
-
-        if (!permissions.canUse(userId, toolId)) {
-            throw createError('Tool permission is not granted');
-        }
-
+        if (!permissions?.isLoaded()) throw createError('Permissions have not been loaded');
+        if (!permissions.canUse(AUTH.getUserId(), toolId)) throw createError('Tool permission is not granted');
         const updated = getSettings();
         updated.tools[toolId] = state;
-
         await save(updated);
-
         return getToolState(toolId);
     };
 
-    const enableTool = toolId =>
-        setToolState(toolId, 'ENABLED');
-
-    const disableTool = toolId =>
-        setToolState(toolId, 'DISABLED');
-
-    const getAllToolStates = () => {
-        ensureLoaded();
-        return { ...settings.tools };
-    };
-
-    const API = Object.freeze({
-        version: 1,
+    global.YODAWY_SETTINGS_ENGINE = Object.freeze({
+        version: 2,
         configure,
         load,
         save,
         getSettings,
         getToolState,
-        getAllToolStates,
+        getAllToolStates: () => { ensureLoaded(); return { ...settings.tools }; },
         isEnabled,
         setToolState,
-        enableTool,
-        disableTool,
-        isLoaded: () => loaded
+        enableTool: toolId => setToolState(toolId, 'ENABLED'),
+        disableTool: toolId => setToolState(toolId, 'DISABLED'),
+        isLoaded: () => loaded && userId === String(global.YODAWY_AUTH_ENGINE?.getUserId() || '')
     });
-
-    global.YODAWY_SETTINGS_ENGINE = API;
-
 })(window);
