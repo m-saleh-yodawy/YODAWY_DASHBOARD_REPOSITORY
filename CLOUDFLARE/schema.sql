@@ -1,71 +1,79 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
+  user_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT UNIQUE,
-  password_hash TEXT,
-  role TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN', 'ADMIN', 'USER')),
-  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED')),
+  role TEXT NOT NULL CHECK (role IN ('USER', 'ADMIN', 'SUPER_ADMIN')),
+  status TEXT NOT NULL DEFAULT 'Active',
+  personal_repository TEXT NOT NULL,
+  source_updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  last_login_at TEXT
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash TEXT NOT NULL UNIQUE,
-  expires_at TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  session_id_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
 CREATE TABLE IF NOT EXISTS tools (
-  id TEXT PRIMARY KEY,
+  tool_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
-  source_repo TEXT NOT NULL,
-  source_path TEXT NOT NULL,
-  version TEXT NOT NULL DEFAULT '1',
-  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'DISABLED')),
-  content_hash TEXT,
+  version TEXT NOT NULL,
+  asset_path TEXT NOT NULL,
+  sha256 TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS tool_permissions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  tool_id TEXT NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  tool_id TEXT NOT NULL REFERENCES tools(tool_id) ON DELETE CASCADE,
   can_use INTEGER NOT NULL DEFAULT 0 CHECK (can_use IN (0, 1)),
-  UNIQUE(user_id, tool_id)
+  forced_state INTEGER NOT NULL DEFAULT 0 CHECK (forced_state IN (0, 1)),
+  permission_type TEXT NOT NULL DEFAULT 'USER' CHECK (permission_type IN ('USER', 'ADMIN', 'SUPER_ADMIN')),
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, tool_id)
 );
 
 CREATE TABLE IF NOT EXISTS tool_visibility (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  tool_id TEXT NOT NULL REFERENCES tools(id) ON DELETE CASCADE,
-  mode TEXT NOT NULL DEFAULT 'PRIVATE' CHECK (mode IN ('PRIVATE', 'PUBLIC', 'SELECTED_USERS')),
+  tool_id TEXT NOT NULL REFERENCES tools(tool_id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('USER', 'ADMIN', 'SUPER_ADMIN')),
+  is_visible INTEGER NOT NULL DEFAULT 1 CHECK (is_visible IN (0, 1)),
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(tool_id)
+  PRIMARY KEY (tool_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS tool_visibility_users (
+  tool_id TEXT NOT NULL REFERENCES tools(tool_id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (tool_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS user_settings (
-  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
   settings_json TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS announcements (
-  id TEXT PRIMARY KEY,
-  author_id TEXT NOT NULL REFERENCES users(id),
-  title TEXT NOT NULL,
+  announcement_id TEXT PRIMARY KEY,
+  author_id TEXT NOT NULL REFERENCES users(user_id),
+  author_name TEXT NOT NULL,
   body TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at DESC);
 
 CREATE TABLE IF NOT EXISTS network_transactions (
   request_id TEXT PRIMARY KEY,
