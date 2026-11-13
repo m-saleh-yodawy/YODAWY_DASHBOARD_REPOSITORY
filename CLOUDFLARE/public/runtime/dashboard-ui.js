@@ -440,6 +440,12 @@
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
         style.textContent = String.raw`
+.o_web_client .fa:not(.fa-solid):not(.fa-regular):not(.fa-brands),
+.o_web_client .fa:not(.fa-solid):not(.fa-regular):not(.fa-brands)::before {
+    font-family: "FontAwesome" !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+}
 #yd-dashboard-root {
     --brand: #875a7b;
     --brand-dark: #68465f;
