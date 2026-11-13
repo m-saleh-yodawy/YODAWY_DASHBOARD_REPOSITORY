@@ -142,7 +142,7 @@ const dashboardRoutes = async (request, env, path) => {
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
       env.DB.prepare("SELECT tool_id, user_id FROM tool_visibility_users").all(),
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
-      env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, created_at, updated_at FROM announcements ORDER BY created_at DESC").all(),
+      env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
       isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] })
     ]);
     const permissionMap = {};
@@ -253,8 +253,16 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/announcements" && request.method === "POST") {
     if (!isAdmin || typeof body.body !== "string" || !body.body.trim() || body.body.length > 10000) return forbidden();
     const id = "ANN-" + randomToken().slice(0, 20).toUpperCase();
-    await env.DB.prepare("INSERT INTO announcements (announcement_id, author_id, author_name, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)").bind(id, actor.user_id, actor.name, body.body.trim(), now, now).run();
+    await env.DB.prepare("INSERT INTO announcements (announcement_id, author_id, author_name, body, cycle, created_at, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, actor.user_id, actor.name, body.body.trim(), String(body.cycle || ""), now, now, actor.user_id).run();
     return respond(request, env, { success: true, id });
+  }
+  if (path.startsWith("/api/dashboard/announcements/") && request.method === "PATCH") {
+    if (!isAdmin) return forbidden();
+    const id = decodeURIComponent(path.split("/").pop());
+    const text = String(body.body || "").trim();
+    if (!text || text.length > 10000) return respond(request, env, { success: false, error: "INVALID_ANNOUNCEMENT" }, 400);
+    const result = await env.DB.prepare("UPDATE announcements SET body = ?, cycle = ?, updated_at = ?, updated_by = ? WHERE announcement_id = ?").bind(text, String(body.cycle || ""), now, actor.user_id, id).run();
+    return result.meta?.changes ? respond(request, env, { success: true, id }) : respond(request, env, { success: false, error: "NOT_FOUND" }, 404);
   }
   if (path.startsWith("/api/dashboard/announcements/") && request.method === "DELETE") {
     if (!isAdmin) return forbidden();
