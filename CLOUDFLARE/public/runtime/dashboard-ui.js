@@ -3703,6 +3703,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const appendNetworkActivity = async ({ action, toolId = '', toolName = '', summary = '' }) => {
         const api = context?.api || window.YODAWY_API_ENGINE || page.YODAWY_API_ENGINE;
+        if (typeof api?.recordActivity === 'function') return api.recordActivity({ action, toolId, toolName, summary });
         const config = api?.getConfig?.();
         if (!api?.getFile || !api?.put || !config?.owner || !config?.repo || !config?.branch) throw new Error('Central NETWORK API is unavailable.');
         const actor = context.user || {};
