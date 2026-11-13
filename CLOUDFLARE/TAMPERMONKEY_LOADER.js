@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         YODAWY CLOUD LOADER
+// @name         YODAWY CLOUD DASHBOARD LOADER
 // @namespace    https://github.com/m-saleh-yodawy
 // @version      1
-// @description  Yodawy Cloudflare Dashboard Loader
+// @description  Authenticated Yodawy Cloudflare Dashboard Loader
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/*
 // @match        https://portal.yodawy.com/*
@@ -17,8 +17,12 @@
 
 (async () => {
     'use strict';
-    if (window.__YD_CLOUD_LOADER__) return;
+
+    const PAGE = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+    if (window.__YD_CLOUD_LOADER__ || PAGE.__YD_CLOUD_LOADER__) return;
     window.__YD_CLOUD_LOADER__ = true;
+    PAGE.__YD_CLOUD_LOADER__ = true;
+
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const fail = () => {
         if (document.getElementById('yd-cloud-unavailable')) return;
@@ -28,6 +32,7 @@
         node.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#17131a;color:#fff;font:700 16px Arial,sans-serif;letter-spacing:1px';
         document.documentElement.append(node);
     };
+
     try {
         const source = await new Promise((resolve, reject) => GM_xmlhttpRequest({
             method: 'GET',
@@ -38,12 +43,17 @@
             ontimeout: () => reject(new Error('UNAVAILABLE')),
             timeout: 12000
         }));
-        await new Function('PAGE', 'STORE', source)(typeof unsafeWindow === 'undefined' ? window : unsafeWindow, {
+
+        if (typeof source !== 'string' || !source.trim()) throw new Error('BOOTSTRAP_UNAVAILABLE');
+
+        await new Function('PAGE', 'STORE', source)(PAGE, {
             get: key => GM_getValue(key, ''),
             set: (key, value) => GM_setValue(key, value),
             remove: key => GM_deleteValue(key)
         });
     } catch {
+        delete window.__YD_CLOUD_LOADER__;
+        delete PAGE.__YD_CLOUD_LOADER__;
         fail();
     }
 })();
