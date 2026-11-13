@@ -45,6 +45,8 @@
         const requestId = String(input.requestId || input.transactionId || '');
         const type = String(input.requestType || (action.includes('ANNOUNCEMENT') ? 'DASHBOARD_ANNOUNCEMENTS_SYNC' : 'DASHBOARD_USERS_SYNC'));
         if (!requestId || !action) throw fail('Invalid legacy transaction request', 400);
+        const safePayload = { ...payload };
+        delete safePayload.password;
         try {
             let result;
             if (action === 'ADD_USER') {
@@ -75,11 +77,11 @@
             } else {
                 throw fail('Unsupported dashboard action: ' + action, 400);
             }
-            const transaction = remember(requestId, type, payload, result);
+            const transaction = remember(requestId, type, safePayload, result);
             try { await refresh(); } catch {}
             return transaction;
         } catch (error) {
-            remember(requestId, type, payload, { error: error.message, status: error.status || 0 }, 'FAILED');
+            remember(requestId, type, safePayload, { error: error.message, status: error.status || 0 }, 'FAILED');
             throw error;
         }
     };
