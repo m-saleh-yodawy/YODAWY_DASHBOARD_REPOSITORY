@@ -432,7 +432,6 @@
     };
 
     const injectStyles = () => {
-        ensureExternalStylesheet('yd-fontawesome-css', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css', 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css');
         document.getElementById('yd-nunito-font')?.remove();
         document.getElementById('yd-poppins-font')?.remove();
         ensureExternalStylesheet('yd-nunito-sans-font', 'https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
@@ -440,12 +439,6 @@
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
         style.textContent = String.raw`
-.o_web_client .fa:not(.fa-solid):not(.fa-regular):not(.fa-brands),
-.o_web_client .fa:not(.fa-solid):not(.fa-regular):not(.fa-brands)::before {
-    font-family: "FontAwesome" !important;
-    font-weight: normal !important;
-    font-style: normal !important;
-}
 #yd-dashboard-root {
     --brand: #875a7b;
     --brand-dark: #68465f;
@@ -479,6 +472,54 @@
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
 }
+@font-face {
+    font-family: 'YD Font Awesome';
+    src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 900;
+    font-display: block;
+}
+#yd-dashboard-root .fa-solid,
+#yd-dashboard-root .fas,
+#yd-dashboard-root .fa-regular,
+#yd-dashboard-root .far,
+#yd-dashboard-root .fa-brands,
+#yd-dashboard-root .fab {
+    font-family: 'YD Font Awesome' !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+}
+#yd-dashboard-root .fa-spinner::before { content: '\\f110'; }
+#yd-dashboard-root .fa-circle-exclamation::before { content: '\\f06a'; }
+#yd-dashboard-root .fa-toolbox::before { content: '\\f552'; }
+#yd-dashboard-root .fa-chart-pie::before { content: '\\f200'; }
+#yd-dashboard-root .fa-bullhorn::before { content: '\\f0a1'; }
+#yd-dashboard-root .fa-users::before { content: '\\f0c0'; }
+#yd-dashboard-root .fa-sliders::before { content: '\\f1de'; }
+#yd-dashboard-root .fa-eye::before { content: '\\f06e'; }
+#yd-dashboard-root .fa-right-left::before { content: '\\f362'; }
+#yd-dashboard-root .fa-gear::before { content: '\\f013'; }
+#yd-dashboard-root .fa-user-shield::before { content: '\\f505'; }
+#yd-dashboard-root .fa-arrows-rotate::before { content: '\\f021'; }
+#yd-dashboard-root .fa-cloud-arrow-up::before { content: '\\f0ee'; }
+#yd-dashboard-root .fa-xmark::before { content: '\\f00d'; }
+#yd-dashboard-root .fa-circle-info::before { content: '\\f05a'; }
+#yd-dashboard-root .fa-check::before { content: '\\f00c'; }
+#yd-dashboard-root .fa-arrow-rotate-right::before { content: '\\f01e'; }
+#yd-dashboard-root .fa-shield-halved::before { content: '\\f3ed'; }
+#yd-dashboard-root .fa-bolt::before { content: '\\f0e7'; }
+#yd-dashboard-root .fa-cloud::before { content: '\\f0c2'; }
+#yd-dashboard-root .fa-user::before { content: '\\f007'; }
+#yd-dashboard-root .fa-plug-circle-check::before { content: '\\e55c'; }
+#yd-dashboard-root .fa-plus::before { content: '\\f067'; }
+#yd-dashboard-root .fa-square-check::before { content: '\\f14a'; }
+#yd-dashboard-root .fa-square::before { content: '\\f0c8'; }
+#yd-dashboard-root .fa-database::before { content: '\\f1c0'; }
+#yd-dashboard-root .fa-lock::before { content: '\\f023'; }
+#yd-dashboard-root .fa-key::before { content: '\\f084'; }
+#yd-dashboard-root .fa-circle-check::before { content: '\\f058'; }
+#yd-dashboard-root .fa-spin { animation: yd-fa-spin 2s linear infinite; }
+@keyframes yd-fa-spin { to { transform: rotate(360deg); } }
 #yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
 #yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
     font-family: "Font Awesome 6 Free" !important;
