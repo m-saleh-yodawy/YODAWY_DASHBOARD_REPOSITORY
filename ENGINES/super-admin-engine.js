@@ -415,10 +415,12 @@
         const name = normalizeText(data?.name);
         const role = normalizeText(data?.role || 'USER').toUpperCase();
         const status = normalizeText(data?.status || 'Active');
+        const password = String(data?.password || '');
 
         if (!name) {
             throw createError('User name is required');
         }
+        if (password.length < 10 || password.length > 128) throw createError('Initial password must be between 10 and 128 characters');
 
         if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
             throw createError('Invalid user role');
@@ -432,6 +434,7 @@
             name,
             role,
             status,
+            password,
             ...(data?.id ? { id: normalizeId(data.id) } : {})
         });
     };
