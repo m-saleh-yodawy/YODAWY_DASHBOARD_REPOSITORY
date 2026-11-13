@@ -166,6 +166,79 @@ const dashboardRoutes = async (request, env, path) => {
     await env.DB.prepare("INSERT INTO user_settings (user_id, settings_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET settings_json = excluded.settings_json, updated_at = excluded.updated_at").bind(actor.user_id, JSON.stringify(settings), now).run();
     return respond(request, env, { success: true, settings });
   }
+  if (path === "/api/dashboard/permissions" && request.method === "PUT") {
+    if (!isAdmin || !body.permissions || typeof body.permissions !== "object" || Array.isArray(body.permissions)) return forbidden();
+    const statements = [];
+    for (const [userId, tools] of Object.entries(body.permissions)) {
+      if (!tools || typeof tools !== "object" || Array.isArray(tools)) continue;
+      if (role === "ADMIN") {
+        const target = await env.DB.prepare("SELECT role FROM users WHERE user_id = ?").bind(userId).first();
+        if (!target || target.role !== "USER") continue;
+      }
+      for (const [toolId, state] of Object.entries(tools)) {
+        const enabled = typeof state === "object" ? Boolean(state.enabled) : Boolean(state);
+        const forced = typeof state === "object" && Boolean(state.forced);
+        const type = typeof state === "object" && ["USER", "ADMIN", "SUPER_ADMIN"].includes(state.type) ? state.type : "USER";
+        statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, forced_state = excluded.forced_state, permission_type = excluded.permission_type, updated_at = excluded.updated_at").bind(userId, toolId, enabled ? 1 : 0, forced ? 1 : 0, type, now));
+      }
+    }
+    if (statements.length) await env.DB.batch(statements);
+    return respond(request, env, { success: true, updated: statements.length });
+  }
+  if (path === "/api/dashboard/visibility" && request.method === "PUT") {
+    if (!isSuper || !body.visibility || typeof body.visibility !== "object" || Array.isArray(body.visibility)) return forbidden();
+    const statements = [];
+    for (const [toolId, record] of Object.entries(body.visibility)) {
+      const mode = String(record?.visibility || "PRIVATE").toUpperCase();
+      if (!["PRIVATE", "PUBLIC", "SELECTED_USERS"].includes(mode) || !Array.isArray(record.allowedUsers)) continue;
+      statements.push(env.DB.prepare("INSERT INTO tool_visibility (tool_id, mode, updated_at) VALUES (?, ?, ?) ON CONFLICT(tool_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at").bind(toolId, mode, now));
+      statements.push(env.DB.prepare("DELETE FROM tool_visibility_users WHERE tool_id = ?").bind(toolId));
+      for (const userId of [...new Set(record.allowedUsers.map(value => String(value).trim().toUpperCase()).filter(Boolean))]) {
+        statements.push(env.DB.prepare("INSERT OR IGNORE INTO tool_visibility_users (tool_id, user_id) VALUES (?, ?)").bind(toolId, userId));
+      }
+    }
+    if (statements.length) await env.DB.batch(statements);
+    return respond(request, env, { success: true });
+  }
+  if (path === "/api/dashboard/users" && request.method === "POST") {
+    if (!isAdmin) return forbidden();
+    const name = String(body.name || "").trim().replace(/\\s+/g, " ");
+    const newRole = String(body.role || "USER").trim().toUpperCase();
+    if (!name || name.length > 100 || !["USER", "ADMIN"].includes(newRole) || (role === "ADMIN" && newRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
+    const sequence = await env.DB.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(user_id, 3) AS INTEGER)), 0) + 1 AS next_id FROM users WHERE user_id GLOB 'Q-[0-9]*'").first();
+    const userId = "Q-" + String(sequence?.next_id || 1).padStart(3, "0");
+    const repository = userId + "_" + name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, created_at, updated_at) VALUES (?, ?, ?, 'Active', ?, ?, ?)").bind(userId, name, newRole, repository, now, now).run();
+    return respond(request, env, { success: true, user: { id: userId, name, role: newRole, status: "Active", repository } }, 201);
+  }
+  if (path.startsWith("/api/dashboard/users/") && request.method === "PATCH") {
+    if (!isAdmin) return forbidden();
+    const userId = decodeURIComponent(path.split("/").pop()).toUpperCase();
+    const target = await env.DB.prepare("SELECT user_id, role, status FROM users WHERE user_id = ?").bind(userId).first();
+    if (!target || (role === "ADMIN" && target.role !== "USER") || userId === actor.user_id) return forbidden();
+    const nextRole = body.role === undefined ? target.role : String(body.role).toUpperCase();
+    const nextStatus = body.status === undefined ? target.status : String(body.status);
+    if (!["USER", "ADMIN", "SUPER_ADMIN"].includes(nextRole) || !["Active", "Inactive"].includes(nextStatus) || (role === "ADMIN" && nextRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER_UPDATE" }, 400);
+    if (target.role === "SUPER_ADMIN" && (nextRole !== "SUPER_ADMIN" || nextStatus !== "Active")) {
+      const count = await env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE role = 'SUPER_ADMIN' AND status = 'Active'").first();
+      if (Number(count?.total || 0) <= 1) return respond(request, env, { success: false, error: "LAST_SUPER_ADMIN" }, 409);
+    }
+    await env.DB.prepare("UPDATE users SET role = ?, status = ?, updated_at = ? WHERE user_id = ?").bind(nextRole, nextStatus, now, userId).run();
+    if (nextStatus !== "Active") await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(Math.floor(Date.now() / 1000), userId).run();
+    return respond(request, env, { success: true });
+  }
+  if (path.startsWith("/api/dashboard/users/") && request.method === "DELETE") {
+    if (!isAdmin) return forbidden();
+    const userId = decodeURIComponent(path.split("/").pop()).toUpperCase();
+    const target = await env.DB.prepare("SELECT role FROM users WHERE user_id = ?").bind(userId).first();
+    if (!target || userId === actor.user_id || (role === "ADMIN" && target.role !== "USER")) return forbidden();
+    if (target.role === "SUPER_ADMIN") {
+      const count = await env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE role = 'SUPER_ADMIN' AND status = 'Active'").first();
+      if (Number(count?.total || 0) <= 1) return respond(request, env, { success: false, error: "LAST_SUPER_ADMIN" }, 409);
+    }
+    await env.DB.prepare("DELETE FROM users WHERE user_id = ?").bind(userId).run();
+    return respond(request, env, { success: true });
+  }
   if (path === "/api/dashboard/users" && request.method === "GET") {
     if (!isAdmin) return forbidden();
     const result = await env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all();
