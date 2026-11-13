@@ -135,7 +135,7 @@ const dashboardRoutes = async (request, env, path) => {
   const body = request.method === "GET" ? {} : await readBody(request);
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
-    const [users, tools, permissions, visibility, visibleUsers, settings, announcements, transactions] = await Promise.all([
+    const [users, tools, permissions, visibility, visibleUsers, settings, announcements, transactions, activity] = await Promise.all([
       env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all(),
       env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
@@ -143,7 +143,8 @@ const dashboardRoutes = async (request, env, path) => {
       env.DB.prepare("SELECT tool_id, user_id FROM tool_visibility_users").all(),
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
       env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
-      isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] })
+      isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] }),
+      env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id ORDER BY a.id DESC LIMIT 500").all()
     ]);
     const permissionMap = {};
     for (const item of permissions.results || []) {
@@ -153,7 +154,18 @@ const dashboardRoutes = async (request, env, path) => {
     const visibilityMap = {};
     for (const item of visibility.results || []) visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
     for (const item of visibleUsers.results || []) (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
-    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })) });
+    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
+  }
+  if (path === "/api/dashboard/activity" && request.method === "POST") {
+    const action = String(body.action || "").trim().toUpperCase();
+    const toolId = String(body.toolId || "").trim();
+    const toolName = String(body.toolName || "").trim();
+    const summary = String(body.summary || "").trim();
+    if (!/^[A-Z0-9_-]{2,80}$/.test(action) || toolId.length > 128 || toolName.length > 160 || !summary || summary.length > 500) return respond(request, env, { success: false, error: "INVALID_ACTIVITY" }, 400);
+    const entityType = toolId ? "TOOL" : "DASHBOARD";
+    const entityId = toolId || null;
+    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(actor.user_id, action, entityType, entityId, JSON.stringify({ summary, toolName }), now).run();
+    return respond(request, env, { success: true });
   }
   if (path === "/api/dashboard/settings" && request.method === "GET") {
     const row = await env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first();
