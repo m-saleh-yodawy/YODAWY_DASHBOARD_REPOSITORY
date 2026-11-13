@@ -1069,7 +1069,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-welcome p { margin: 4px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 
-#yd-dashboard-root .yd-primary, #yd-dashboard-root .yd-secondary, #yd-dashboard-root .yd-danger {
+body > .yd-modal-backdrop .yd-primary, #yd-dashboard-root .yd-primary, #yd-dashboard-root .yd-secondary, #yd-dashboard-root .yd-danger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1083,13 +1083,13 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     white-space: nowrap;
     transition: all .15s;
 }
-#yd-dashboard-root .yd-primary {
+body > .yd-modal-backdrop .yd-primary, #yd-dashboard-root .yd-primary {
     border: 1px solid var(--brand);
     background: var(--brand);
     color: #fff;
     box-shadow: 0 2px 5px #875a7b1a;
 }
-#yd-dashboard-root .yd-primary:hover {
+body > .yd-modal-backdrop .yd-primary:hover, #yd-dashboard-root .yd-primary:hover {
     border-color: var(--brand-dark);
     background: var(--brand-dark);
     box-shadow: 0 3px 8px #68465f24;
@@ -1343,7 +1343,7 @@ body > .yd-modal-backdrop .yd-message-icon {
     color: var(--danger);
     font-size: 19px;
 }
-#yd-dashboard-root .yd-message-icon.success { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-message-icon.success { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
 
 #yd-dashboard-root .yd-switch {
     position: relative;
