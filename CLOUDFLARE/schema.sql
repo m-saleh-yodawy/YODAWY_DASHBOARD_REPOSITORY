@@ -71,7 +71,9 @@ CREATE TABLE IF NOT EXISTS announcements (
   author_name TEXT NOT NULL,
   body TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  cycle TEXT NOT NULL DEFAULT '',
+  updated_by TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at DESC);
