@@ -107,6 +107,13 @@
     const getFileContent = async path => {
         const clean = String(path || '').replace(/^\/+/, '');
         const data = snapshot();
+        if (clean.startsWith('TOOLS_CACHE/TOOLS/') || clean.startsWith('TOOLS/')) {
+            const name = clean.split('/').pop();
+            if (!/^[a-z0-9-]+\\.js$/i.test(name)) throw fail('Invalid tool asset path', 400);
+            const response = await fetch('https://yodawy-dashboard.m-saleh-yodawy.workers.dev/tools/' + encodeURIComponent(name), { cache: 'no-store', credentials: 'omit' });
+            if (!response.ok) throw fail('Tool asset unavailable: ' + name, response.status);
+            return response.text();
+        }
         if (clean === 'CONFIG/users.json') return JSON.stringify({ users: data.users || [] });
         if (clean === 'CONFIG/tools-permissions.json') {
             const output = {};
