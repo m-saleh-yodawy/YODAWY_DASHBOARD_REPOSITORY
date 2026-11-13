@@ -1307,7 +1307,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-field label { color: var(--text); font-size: 11px; font-weight: 600 !important; }
 #yd-dashboard-root .yd-field input { width: 100%; }
 
-#yd-dashboard-root .yd-modal-backdrop {
+body > .yd-modal-backdrop {
     position: fixed;
     inset: 0;
     z-index: 2147483005;
@@ -1318,7 +1318,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     backdrop-filter: blur(3px);
     animation: yd-backdrop-enter .16s ease-out both;
 }
-#yd-dashboard-root .yd-modal {
+body > .yd-modal-backdrop .yd-modal {
     width: min(560px, 100%);
     padding: 22px;
     border: 1px solid var(--border);
@@ -1327,11 +1327,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     box-shadow: 0 24px 70px #17131c38;
     animation: yd-modal-enter .18s cubic-bezier(.2, .8, .2, 1) both;
 }
-#yd-dashboard-root .yd-modal h3 { margin: 0 0 14px; color: var(--ink); font-size: 16px; font-weight: 700 !important; letter-spacing: -.02em; }
-#yd-dashboard-root .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
-#yd-dashboard-root .yd-confirm-modal { width: min(430px, 100%); padding: 22px; }
-#yd-dashboard-root .yd-confirm-modal p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
-#yd-dashboard-root .yd-message-icon {
+body > .yd-modal-backdrop .yd-modal h3 { margin: 0 0 14px; color: var(--ink); font-size: 16px; font-weight: 700 !important; letter-spacing: -.02em; }
+body > .yd-modal-backdrop .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+body > .yd-modal-backdrop .yd-confirm-modal { width: min(430px, 100%); padding: 22px; }
+body > .yd-modal-backdrop .yd-confirm-modal p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+body > .yd-modal-backdrop .yd-message-icon {
     display: grid;
     place-items: center;
     width: 42px;
@@ -3828,17 +3828,45 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         });
     };
 
+    let activeMessageDialog = null;
+    let messageDialogTimer = null;
     const showMessageDialog = (title, message, type = 'error') => {
         if (!isCurrentUI()) return;
+        const root = document.getElementById(CONFIG.ID);
+        if (!root) return;
+        const computed = getComputedStyle(root);
+        const variables = [...computed].filter(name => name.startsWith('--'));
+        if (activeMessageDialog?.isConnected) {
+            const section = activeMessageDialog.querySelector('.yd-message-modal');
+            const heading = section?.querySelector('h3');
+            const body = section?.querySelector('[data-message-details]');
+            if (heading && body) {
+                const entry = document.createElement('p');
+                entry.textContent = title + ': ' + message;
+                body.appendChild(entry);
+                heading.textContent = 'Multiple Dashboard Messages';
+            }
+            clearTimeout(messageDialogTimer);
+            messageDialogTimer = setTimeout(() => {
+                activeMessageDialog?.remove();
+                activeMessageDialog = null;
+            }, 10000);
+            return;
+        }
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
+        variables.forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
-        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><p>' + escapeHTML(message) + '</p><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
-        document.getElementById(CONFIG.ID)?.appendChild(overlay);
-        const close = () => overlay.remove();
-        overlay.addEventListener('click', event => {
-            if (event.target === overlay || event.target.closest('[data-message-close]')) close();
-        });
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
+        document.body.appendChild(overlay);
+        activeMessageDialog = overlay;
+        const close = () => {
+            clearTimeout(messageDialogTimer);
+            overlay.remove();
+            if (activeMessageDialog === overlay) activeMessageDialog = null;
+        };
+        overlay.querySelector('[data-message-close]')?.addEventListener('click', close);
+        messageDialogTimer = setTimeout(close, 10000);
     };
 
     const runAction = async (action, button) => {
