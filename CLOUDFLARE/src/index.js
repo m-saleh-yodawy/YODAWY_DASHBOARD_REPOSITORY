@@ -176,8 +176,8 @@ const dashboardRoutes = async (request, env, path) => {
         if (!target || target.role !== "USER") continue;
       }
       for (const [toolId, state] of Object.entries(tools)) {
-        const enabled = typeof state === "object" ? Boolean(state.enabled) : Boolean(state);
-        const forced = typeof state === "object" && Boolean(state.forced);
+        const enabled = typeof state === "object" ? Boolean(state.granted ?? state.enabled) : Boolean(state);
+        const forced = typeof state === "object" && Boolean(state.forcedState ?? state.forced);
         const type = typeof state === "object" && ["USER", "ADMIN", "SUPER_ADMIN"].includes(state.type) ? state.type : "USER";
         statements.push(env.DB.prepare("INSERT INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, tool_id) DO UPDATE SET can_use = excluded.can_use, forced_state = excluded.forced_state, permission_type = excluded.permission_type, updated_at = excluded.updated_at").bind(userId, toolId, enabled ? 1 : 0, forced ? 1 : 0, type, now));
       }
@@ -218,12 +218,14 @@ const dashboardRoutes = async (request, env, path) => {
     if (!target || (role === "ADMIN" && target.role !== "USER") || userId === actor.user_id) return forbidden();
     const nextRole = body.role === undefined ? target.role : String(body.role).toUpperCase();
     const nextStatus = body.status === undefined ? target.status : String(body.status);
+    const nextName = body.name === undefined ? null : String(body.name).trim().replace(/\\s+/g, " ");
+    if (nextName !== null && (!nextName || nextName.length > 100)) return respond(request, env, { success: false, error: "INVALID_NAME" }, 400);
     if (!["USER", "ADMIN", "SUPER_ADMIN"].includes(nextRole) || !["Active", "Inactive"].includes(nextStatus) || (role === "ADMIN" && nextRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER_UPDATE" }, 400);
     if (target.role === "SUPER_ADMIN" && (nextRole !== "SUPER_ADMIN" || nextStatus !== "Active")) {
       const count = await env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE role = 'SUPER_ADMIN' AND status = 'Active'").first();
       if (Number(count?.total || 0) <= 1) return respond(request, env, { success: false, error: "LAST_SUPER_ADMIN" }, 409);
     }
-    await env.DB.prepare("UPDATE users SET role = ?, status = ?, updated_at = ? WHERE user_id = ?").bind(nextRole, nextStatus, now, userId).run();
+    await env.DB.prepare("UPDATE users SET name = COALESCE(?, name), role = ?, status = ?, updated_at = ? WHERE user_id = ?").bind(nextName, nextRole, nextStatus, now, userId).run();
     if (nextStatus !== "Active") await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(Math.floor(Date.now() / 1000), userId).run();
     return respond(request, env, { success: true });
   }
