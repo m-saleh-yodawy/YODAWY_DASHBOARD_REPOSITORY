@@ -162,7 +162,11 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/settings" && request.method === "PUT") {
     const value = body.settings;
     if (!value || typeof value !== "object" || Array.isArray(value) || (value.userId && value.userId !== actor.user_id) || !value.tools || typeof value.tools !== "object" || Array.isArray(value.tools)) return respond(request, env, { success: false, error: "INVALID_SETTINGS" }, 400);
-    const settings = { ...value, userId: actor.user_id };
+    const entries = Object.entries(value.tools);
+    if (entries.length > 500 || entries.some(([id, state]) => !/^[A-Za-z0-9_-]{1,128}$/.test(id) || !["ENABLED", "DISABLED"].includes(state))) return respond(request, env, { success: false, error: "INVALID_TOOL_SETTINGS" }, 400);
+    const startPage = String(value.startPage || "tools").toLowerCase();
+    if (!["overview", "tools"].includes(startPage)) return respond(request, env, { success: false, error: "INVALID_START_PAGE" }, 400);
+    const settings = { userId: actor.user_id, tools: Object.fromEntries(entries), startPage };
     await env.DB.prepare("INSERT INTO user_settings (user_id, settings_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET settings_json = excluded.settings_json, updated_at = excluded.updated_at").bind(actor.user_id, JSON.stringify(settings), now).run();
     return respond(request, env, { success: true, settings });
   }
