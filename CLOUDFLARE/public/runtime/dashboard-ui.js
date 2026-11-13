@@ -1840,6 +1840,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-permission-controls { display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap; }
 #yd-dashboard-root .yd-permission-control { display: flex; align-items: center; gap: 6px; min-width: 132px; }
 #yd-dashboard-root .yd-permission-label { min-width: 75px; color: var(--muted); font-size: 10px; font-weight: 600 !important; }
+#yd-dashboard-root .yd-permission-status-dot { display: inline-block; width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: #d04452; box-shadow: 0 0 0 2px #d044521a; }
+#yd-dashboard-root .yd-permission-status-dot.on { background: #24945f; box-shadow: 0 0 0 2px #24945f1a; }
 
 #yd-dashboard-root .yd-tool-accordion-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
 #yd-dashboard-root .yd-accordion-index {
@@ -3077,9 +3079,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const blocked = !active || Boolean(pending || pendingUser);
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
                 const pendingBadge = pending ? renderPendingBadge('Queued') : '';
-                const permittedControl = !isSuperAdmin && forced
-                    ? '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span><span class="yd-pill yellow" title="Protected by Forced State">Protected</span></div>'
-                    : '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span><button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>';
+                const statusDot = !forced || isSuperAdmin ? '<span class="yd-permission-status-dot ' + (granted ? 'on' : '') + '" title="' + (granted ? 'Enabled' : 'Disabled') + '" aria-label="' + (granted ? 'Enabled' : 'Disabled') + '"></span>' : '';
+                const permittedControl = '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + statusDot + (!isSuperAdmin && forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>') + '</div>';
                 const forcedControl = isSuperAdmin
                     ? '<div class="yd-permission-control"><span class="yd-permission-label">Forced State</span><button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + (blocked ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>'
                     : forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '';
