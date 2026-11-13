@@ -66,6 +66,17 @@ const authenticate = async (request, env) => {
 };
 const authRoutes = async (request, env, path) => {
   if (!env.AUTH_SECRET) return respond(request, env, { success: false, error: "AUTH_NOT_CONFIGURED" }, 503);
+  if (path === "/api/auth/setup-password" && request.method === "POST") {
+    const body = await readBody(request);
+    const setupSecret = String(request.headers.get("x-setup-secret") || "");
+    const userId = String(body.username || "").trim().toUpperCase();
+    const password = String(body.password || "");
+    if (!env.SETUP_SECRET || setupSecret !== env.SETUP_SECRET) return respond(request, env, { success: false, error: "SETUP_FORBIDDEN" }, 403);
+    if (!/^Q-[0-9]{3,}$/.test(userId) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_SETUP_DATA" }, 400);
+    const hash = await createPasswordHash(password);
+    const result = await env.DB.prepare("UPDATE users SET password_hash = ?, password_changed_at = ? WHERE user_id = ? AND status = 'Active' AND password_hash IS NULL").bind(hash, Math.floor(Date.now() / 1000), userId).run();
+    return result.meta?.changes === 1 ? respond(request, env, { success: true, userId }) : respond(request, env, { success: false, error: "USER_ALREADY_INITIALIZED_OR_NOT_FOUND" }, 409);
+  }
   if (path === "/api/auth/login" && request.method === "POST") {
     const body = await readBody(request);
     const userId = String(body.username || "").trim().toUpperCase();
