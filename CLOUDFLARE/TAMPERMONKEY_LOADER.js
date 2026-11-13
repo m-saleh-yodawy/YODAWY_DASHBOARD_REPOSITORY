@@ -37,7 +37,7 @@
             ontimeout: () => reject(new Error('UNAVAILABLE')),
             timeout: 12000
         }));
-        new Function('PAGE', 'STORE', source)(typeof unsafeWindow === 'undefined' ? window : unsafeWindow, {
+        await new Function('PAGE', 'STORE', source)(typeof unsafeWindow === 'undefined' ? window : unsafeWindow, {
             get: key => GM_getValue(key, ''),
             set: (key, value) => GM_setValue(key, value),
             remove: key => GM_deleteValue(key)
