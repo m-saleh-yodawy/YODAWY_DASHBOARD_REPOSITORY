@@ -57,12 +57,13 @@
             } else if (action === 'DELETE_USER') {
                 result = await remove('/api/dashboard/users/' + encodeURIComponent(payload.id));
             } else if (action === 'MODIFY_TOOL_PERMISSION') {
+                const permissionState = {};
+                if (typeof payload.granted === 'boolean') permissionState.granted = payload.granted;
+                if (typeof payload.forcedState === 'boolean') permissionState.forcedState = payload.forcedState;
+                if (!payload.permissions && !Object.keys(permissionState).length) throw fail('Invalid permission update', 400);
                 const permissions = payload.permissions || {
                     [payload.targetUserId]: {
-                        [payload.targetToolId]: {
-                            granted: Boolean(payload.granted),
-                            forcedState: Boolean(payload.forcedState)
-                        }
+                        [payload.targetToolId]: permissionState
                     }
                 };
                 result = await call('/api/dashboard/permissions', 'PUT', { permissions });
