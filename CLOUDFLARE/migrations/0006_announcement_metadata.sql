@@ -1,2 +1,1 @@
-ALTER TABLE announcements ADD COLUMN cycle TEXT NOT NULL DEFAULT '';
-ALTER TABLE announcements ADD COLUMN updated_by TEXT NOT NULL DEFAULT '';
+SELECT 1;
