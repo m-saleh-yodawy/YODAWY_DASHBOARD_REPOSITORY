@@ -168,6 +168,8 @@ return (async function (PAGE, STORE) {
             announcements: PAGE.YODAWY_ANNOUNCEMENTS_ENGINE,
             ui: PAGE.YODAWY_DASHBOARD_UI,
             user,
+            userId: user.id,
+            userRole: user.role,
             authenticated: false
         };
         Object.defineProperty(PAGE, 'YODAWY', { value: YODAWY, configurable: true });
