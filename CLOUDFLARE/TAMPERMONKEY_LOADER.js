@@ -10,6 +10,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
+// @grant        unsafeWindow
 // @connect      yodawy-dashboard.m-saleh-yodawy.workers.dev
 // @run-at       document-end
 // ==/UserScript==
