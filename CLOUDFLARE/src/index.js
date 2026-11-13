@@ -220,11 +220,14 @@ const dashboardRoutes = async (request, env, path) => {
     if (!isAdmin) return forbidden();
     const name = String(body.name || "").trim().replace(/\\s+/g, " ");
     const newRole = String(body.role || "USER").trim().toUpperCase();
-    if (!name || name.length > 100 || !["USER", "ADMIN"].includes(newRole) || (role === "ADMIN" && newRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
+    const password = String(body.password || "");
+    if (!name || name.length > 100 || !["USER", "ADMIN"].includes(newRole) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
     const sequence = await env.DB.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(user_id, 3) AS INTEGER)), 0) + 1 AS next_id FROM users WHERE user_id GLOB 'Q-[0-9]*'").first();
     const userId = "Q-" + String(sequence?.next_id || 1).padStart(3, "0");
     const repository = userId + "_" + name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
-    await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, created_at, updated_at) VALUES (?, ?, ?, 'Active', ?, ?, ?)").bind(userId, name, newRole, repository, now, now).run();
+    const passwordHash = await createPasswordHash(password);
+    const passwordChangedAt = Math.floor(Date.now() / 1000);
+    await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, password_hash, password_changed_at, created_at, updated_at) VALUES (?, ?, ?, 'Active', ?, ?, ?, ?, ?)").bind(userId, name, newRole, repository, passwordHash, passwordChangedAt, now, now).run();
     return respond(request, env, { success: true, user: { id: userId, name, role: newRole, status: "Active", repository } }, 201);
   }
   if (path.startsWith("/api/dashboard/users/") && path.endsWith("/password") && request.method === "POST") {
