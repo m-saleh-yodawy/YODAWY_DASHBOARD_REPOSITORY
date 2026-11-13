@@ -163,6 +163,7 @@ return (async function (PAGE, STORE) {
             permissions: PAGE.YODAWY_PERMISSIONS_ENGINE,
             visibility: PAGE.YODAWY_VISIBILITY_ENGINE,
             settings: PAGE.YODAWY_SETTINGS_ENGINE,
+            cloudAuth: { changePassword: context.changePassword, logout: context.logout },
             tools: PAGE.YODAWY_TOOLS_MANAGER,
             announcements: PAGE.YODAWY_ANNOUNCEMENTS_ENGINE,
             ui: PAGE.YODAWY_DASHBOARD_UI,
