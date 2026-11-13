@@ -1,17 +1,21 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   user_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('USER', 'ADMIN', 'SUPER_ADMIN')),
   status TEXT NOT NULL DEFAULT 'Active',
   personal_repository TEXT NOT NULL,
+  password_hash TEXT,
+  password_changed_at INTEGER,
+  failed_login_count INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER NOT NULL DEFAULT 0,
   source_updated_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE sessions (
   session_id_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   expires_at INTEGER NOT NULL,
@@ -22,10 +26,11 @@ CREATE TABLE IF NOT EXISTS sessions (
   device_label TEXT NOT NULL DEFAULT ''
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+CREATE UNIQUE INDEX idx_sessions_refresh_hash ON sessions(refresh_token_hash);
 
-CREATE TABLE IF NOT EXISTS tools (
+CREATE TABLE tools (
   tool_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
@@ -36,7 +41,7 @@ CREATE TABLE IF NOT EXISTS tools (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS tool_permissions (
+CREATE TABLE tool_permissions (
   user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   tool_id TEXT NOT NULL REFERENCES tools(tool_id) ON DELETE CASCADE,
   can_use INTEGER NOT NULL DEFAULT 0 CHECK (can_use IN (0, 1)),
@@ -46,26 +51,26 @@ CREATE TABLE IF NOT EXISTS tool_permissions (
   PRIMARY KEY (user_id, tool_id)
 );
 
-CREATE TABLE IF NOT EXISTS tool_visibility (
+CREATE TABLE tool_visibility (
   tool_id TEXT PRIMARY KEY REFERENCES tools(tool_id) ON DELETE CASCADE,
   mode TEXT NOT NULL DEFAULT 'PRIVATE' CHECK (mode IN ('PRIVATE', 'PUBLIC', 'SELECTED_USERS')),
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS tool_visibility_users (
+CREATE TABLE tool_visibility_users (
   tool_id TEXT NOT NULL REFERENCES tools(tool_id) ON DELETE CASCADE,
   user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (tool_id, user_id)
 );
 
-CREATE TABLE IF NOT EXISTS user_settings (
+CREATE TABLE user_settings (
   user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
   settings_json TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS announcements (
+CREATE TABLE announcements (
   announcement_id TEXT PRIMARY KEY,
   author_id TEXT NOT NULL REFERENCES users(user_id),
   author_name TEXT NOT NULL,
@@ -76,9 +81,9 @@ CREATE TABLE IF NOT EXISTS announcements (
   updated_by TEXT NOT NULL DEFAULT ''
 );
 
-CREATE INDEX IF NOT EXISTS idx_announcements_created_at ON announcements(created_at DESC);
+CREATE INDEX idx_announcements_created_at ON announcements(created_at DESC);
 
-CREATE TABLE IF NOT EXISTS network_transactions (
+CREATE TABLE network_transactions (
   request_id TEXT PRIMARY KEY,
   request_type TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -88,10 +93,10 @@ CREATE TABLE IF NOT EXISTS network_transactions (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_network_transactions_status ON network_transactions(status);
-CREATE INDEX IF NOT EXISTS idx_network_transactions_created_at ON network_transactions(created_at);
+CREATE INDEX idx_network_transactions_status ON network_transactions(status);
+CREATE INDEX idx_network_transactions_created_at ON network_transactions(created_at);
 
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE audit_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   actor_id TEXT,
   action TEXT NOT NULL,
@@ -101,15 +106,13 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_refresh_hash ON sessions(refresh_token_hash);
-
-CREATE TABLE IF NOT EXISTS auth_events (
+CREATE TABLE auth_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT,
   event_type TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_auth_events_user_time ON auth_events(user_id, created_at DESC);
+CREATE INDEX idx_auth_events_user_time ON auth_events(user_id, created_at DESC);
