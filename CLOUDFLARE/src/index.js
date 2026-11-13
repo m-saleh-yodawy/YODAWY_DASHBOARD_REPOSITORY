@@ -252,8 +252,9 @@ const dashboardRoutes = async (request, env, path) => {
     return respond(request, env, { success: true, announcements: result.results || [] });
   }
   if (path === "/api/dashboard/announcements" && request.method === "POST") {
-    if (!isAdmin || typeof body.body !== "string" || !body.body.trim() || body.body.length > 10000) return forbidden();
-    const id = "ANN-" + randomToken().slice(0, 20).toUpperCase();
+    if (!isAdmin || typeof body.body !== "string" || !body.body.trim() || body.body.length > 6000) return respond(request, env, { success: false, error: "INVALID_ANNOUNCEMENT" }, 400);
+    const requestedId = String(body.id || "").trim();
+    const id = requestedId && /^[A-Za-z0-9_-]{1,100}$/.test(requestedId) ? requestedId : "ANN-" + randomToken().slice(0, 20).toUpperCase();
     await env.DB.prepare("INSERT INTO announcements (announcement_id, author_id, author_name, body, cycle, created_at, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(id, actor.user_id, actor.name, body.body.trim(), String(body.cycle || ""), now, now, actor.user_id).run();
     return respond(request, env, { success: true, id });
   }
