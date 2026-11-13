@@ -19,9 +19,9 @@ const verifyPassword = async (password, stored) => {
 };
 const sign = async (payload, secret) => {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const body = btoa(String.fromCharCode(...encoder.encode(JSON.stringify(payload)))).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  const body = btoa(String.fromCharCode(...encoder.encode(JSON.stringify(payload)))).replace(/=/g, "").replaceAll("+", "-").replaceAll("/", "_");
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  return body + "." + btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\\+/g, "-").replace(/\\//g, "_");
+  return body + "." + btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replaceAll("+", "-").replaceAll("/", "_");
 };
 const verifyAccess = async (token, secret) => {
   try {
@@ -57,7 +57,7 @@ const issueSession = async (env, user, request) => {
   return { accessToken: await sign({ sub: user.user_id, role: user.role, exp: now + ACCESS_TTL, sid: sessionId }, env.AUTH_SECRET), refreshToken: refresh, expiresIn: ACCESS_TTL, user: { id: user.user_id, name: user.name, role: user.role } };
 };
 const authenticate = async (request, env) => {
-  const token = (request.headers.get("authorization") || "").replace(/^Bearer\\s+/i, "");
+  const token = (request.headers.get("authorization") || "").replace("Bearer ", "").trim();
   if (!token) return null;
   const payload = await verifyAccess(token, env.AUTH_SECRET);
   if (!payload) return null;
