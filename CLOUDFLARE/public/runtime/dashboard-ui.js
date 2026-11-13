@@ -333,21 +333,7 @@
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu' + extraMenuClass + '" role="listbox" aria-multiselectable="' + String(multiple) + '" hidden><div class="ui-select-group">' + header + items + '</div></div></div>';
     };
 
-    const showNotice = (message, type = 'success') => {
-        if (!isCurrentUI()) return;
-        notice = { message, type };
-        const element = document.querySelector('#' + CONFIG.ID + ' .yd-toast');
-        if (element) {
-            element.className = 'yd-toast ' + type;
-            element.textContent = message;
-            element.hidden = false;
-            clearTimeout(element._ydTimer);
-            element._ydTimer = setTimeout(() => {
-                element.hidden = true;
-                notice = null;
-            }, 4500);
-        } else render();
-    };
+    const showNotice = () => {};
 
     const updateActivity = (id, changes = {}) => {
         if (!id) return;
@@ -1358,24 +1344,6 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-size: 19px;
 }
 #yd-dashboard-root .yd-message-icon.success { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
-
-#yd-dashboard-root .yd-toast {
-    position: fixed;
-    right: 26px;
-    bottom: 26px;
-    z-index: 2147483006;
-    max-width: min(440px, calc(100vw - 32px));
-    padding: 12px 16px;
-    border: 1px solid #3b3442;
-    border-radius: 10px;
-    background: #302a35;
-    color: #fff;
-    box-shadow: 0 12px 32px #17131c24;
-    font-size: 12px;
-    font-weight: 600 !important;
-    animation: yd-toast-enter .18s cubic-bezier(.2, .8, .2, 1) both;
-}
-#yd-dashboard-root .yd-toast.error { border-color: #a8414a; background: #a8414a; }
 
 #yd-dashboard-root .yd-switch {
     position: relative;
@@ -2537,10 +2505,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     from { opacity: 0; transform: translateY(7px) scale(.985); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes yd-toast-enter {
-    from { opacity: 0; transform: translateY(7px); }
-    to { opacity: 1; transform: translateY(0); }
-}
 
 @media (max-width: 1120px) {
     #yd-dashboard-root .yd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2906,7 +2870,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
         const avatar = escapeHTML(initials(user.name || user.id));
         const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="' + icon + '"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
-        const toast = notice ? '<div class="yd-toast ' + escapeHTML(notice.type) + '">' + escapeHTML(notice.message) + '</div>' : '';
         return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
@@ -2918,7 +2881,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                                     '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
-                '</div></div>' + toast;
+                '</div></div>';
     };
 
     const statCard = (label, value, icon, colorClass = 'purple') =>
@@ -4607,7 +4570,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         restorePendingAnnouncements();
         isOpen = uiState.isOpen === true;
         profileOpen = uiState.profileOpen === true;
-        notice = uiState.notice ? { message: String(uiState.notice), type: uiState.noticeType === 'error' ? 'error' : 'success' } : null;
+        notice = null;
         injectStyles();
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
@@ -4616,13 +4579,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         document.body.appendChild(root);
         render();
         bindEvents(root);
-        if (notice) {
-            const toast = root.querySelector('.yd-toast');
-            if (toast) toast._ydTimer = setTimeout(() => {
-                toast.hidden = true;
-                notice = null;
-            }, 4500);
-        }
         resumePendingTransactions();
         refreshTimer = null;
         return true;
