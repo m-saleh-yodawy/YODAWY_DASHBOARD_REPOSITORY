@@ -160,7 +160,7 @@ const dashboardRoutes = async (request, env, path) => {
     const action = String(body.action || "").trim().toUpperCase();
     const toolId = String(body.toolId || "").trim();
     const toolName = String(body.toolName || "").trim();
-    const summary = String(body.summary || "").trim();
+    const summary = String(body.summary || action).trim();
     if (!/^[A-Z0-9_-]{2,80}$/.test(action) || toolId.length > 128 || toolName.length > 160 || !summary || summary.length > 500) return respond(request, env, { success: false, error: "INVALID_ACTIVITY" }, 400);
     const entityType = toolId ? "TOOL" : "DASHBOARD";
     const entityId = toolId || null;
