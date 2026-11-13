@@ -699,7 +699,7 @@
         waitForTransaction,
         getTransactionHistory,
         isInitialized: () => initialized,
-        isSubmitting: () => submitting
+        isSubmitting: () => false
     });
 
     global.YODAWY_SUPER_ADMIN_ENGINE = API;
