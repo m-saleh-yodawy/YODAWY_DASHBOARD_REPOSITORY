@@ -293,9 +293,11 @@
         const name = normalizeText(data?.name);
         const role = normalizeText(data?.role || 'USER').toUpperCase();
         const status = normalizeText(data?.status || 'Active');
+        const password = String(data?.password || '');
         const id = normalizeId(data?.id);
 
         if (!name) throw createError('User name is required');
+        if (password.length < 10 || password.length > 128) throw createError('Initial password must be between 10 and 128 characters');
         if (!['USER', 'ADMIN'].includes(role)) throw createError('ADMIN can only create USER or ADMIN accounts.');
 
         if (!['ACTIVE', 'INACTIVE'].includes(status.toUpperCase())) {
@@ -314,6 +316,7 @@
             name,
             role,
             status,
+            password,
             ...(id ? { id } : {})
         });
     };
