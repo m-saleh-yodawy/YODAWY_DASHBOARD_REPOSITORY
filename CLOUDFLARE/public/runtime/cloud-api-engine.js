@@ -123,7 +123,7 @@
         if (clean === 'CONFIG/tools-visibility.json') return JSON.stringify(data.visibility || {});
         if (clean === 'CONFIG/announcements.json') return JSON.stringify({ posts: (data.announcements || []).map(item => ({ id: item.id, body: item.body, createdBy: item.author_name, createdById: item.author_id, createdAt: item.created_at, updatedAt: item.updated_at, cycle: item.cycle || '' })) });
         if (clean === 'NETWORK/network-logs.json') {
-            const records = [...(data.transactions || []).map(item => [item.request_id || item.requestId, { ...item, requestId: item.request_id || item.requestId, requestType: item.request_type || item.requestType, createdAt: item.created_at || item.createdAt, updatedAt: item.updated_at || item.updatedAt, payload: item.payload || {}, result: item.result || {} }]), ...transactions.entries()];
+            const records = [...(data.transactions || []).map(item => [item.request_id || item.requestId, { ...item, requestId: item.request_id || item.requestId, requestType: item.request_type || item.requestType, createdAt: item.created_at || item.createdAt, updatedAt: item.updated_at || item.updatedAt, payload: item.payload || {}, result: item.result || {} }]), ...(data.auditLogs || []).map(item => ['ACTIVITY-' + item.id, { requestId: 'ACTIVITY-' + item.id, requestType: 'DASHBOARD_ACTIVITY_LOG', status: 'COMPLETED', actorId: item.actor_id || '', actorName: item.actor_name || '', actorRole: '', action: item.action, targetToolId: item.entity_id || '', targetToolName: item.details?.toolName || '', summary: item.details?.summary || '', createdAt: item.created_at, updatedAt: item.created_at, payload: item.details || {}, result: { success: true } }]), ...transactions.entries()];
             return JSON.stringify({ transactions: Object.fromEntries(records.filter(([id]) => id)) });
         }
         if (clean === 'TOOLS_CACHE/tools-manifest.json') return JSON.stringify({ tools: (data.tools || []).map(tool => ({ ...tool })) });
@@ -131,7 +131,8 @@
         throw fail('Cloud virtual file not found: ' + clean, 404);
     };
     const getFile = async path => ({ content: encode(await getFileContent(path)), sha: 'cloud-managed' });
+    const recordActivity = async activity => call('/api/dashboard/activity', 'POST', activity);
     const getRepository = async () => ({ default_branch: 'cloudflare' });
     const getConfig = () => Object.freeze({ owner: 'cloudflare', repo: 'yodawy-dashboard', branch: 'cloudflare', configured: true });
-    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, clearToken: () => true, getConfig });
+    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, clearToken: () => true, getConfig });
 })(window);
