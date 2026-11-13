@@ -43,7 +43,7 @@ const respond = (request, env, data, status = 200) => {
   if (origin) {
     headers.set("access-control-allow-origin", origin);
     headers.set("access-control-allow-headers", "content-type, authorization, x-setup-secret");
-    headers.set("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS");
+    headers.set("access-control-allow-methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     headers.set("vary", "Origin");
   }
   return new Response(JSON.stringify(data), { status, headers });
