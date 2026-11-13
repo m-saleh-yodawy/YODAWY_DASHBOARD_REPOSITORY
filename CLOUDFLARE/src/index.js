@@ -328,7 +328,7 @@ export default {
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") {
         const origin = allowedOrigin(request, env);
-        return new Response(null, { status: 204, headers: origin ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS", "access-control-allow-headers": "content-type, authorization", "access-control-max-age": "86400", "vary": "Origin" } : {} });
+        return new Response(null, { status: 204, headers: origin ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS", "access-control-allow-headers": "content-type, authorization, x-setup-secret", "access-control-max-age": "86400", "vary": "Origin" } : {} });
       }
       if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });
       if (url.pathname === "/api/ready" && request.method === "GET") {
