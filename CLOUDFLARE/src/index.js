@@ -124,6 +124,82 @@ const authRoutes = async (request, env, path) => {
   }
   return null;
 };
+
+const dashboardRoutes = async (request, env, path) => {
+  const actor = await authenticate(request, env);
+  if (!actor) return respond(request, env, { success: false, error: "UNAUTHORIZED" }, 401);
+  const role = actor.role;
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+  const isSuper = role === "SUPER_ADMIN";
+  const now = new Date().toISOString();
+  const body = request.method === "GET" ? {} : await readBody(request);
+  const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
+  if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
+    const [users, tools, permissions, visibility, visibleUsers, settings, announcements, transactions] = await Promise.all([
+      env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all(),
+      env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
+      isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
+      env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
+      env.DB.prepare("SELECT tool_id, user_id FROM tool_visibility_users").all(),
+      env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
+      env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, created_at, updated_at FROM announcements ORDER BY created_at DESC").all(),
+      isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] })
+    ]);
+    const permissionMap = {};
+    for (const item of permissions.results || []) {
+      const key = item.user_id;
+      (permissionMap[key] ||= {})[item.tool_id] = { enabled: Boolean(item.can_use), forced: Boolean(item.forced_state), type: item.permission_type };
+    }
+    const visibilityMap = {};
+    for (const item of visibility.results || []) visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
+    for (const item of visibleUsers.results || []) (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
+    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })) });
+  }
+  if (path === "/api/dashboard/settings" && request.method === "GET") {
+    const row = await env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first();
+    return respond(request, env, { success: true, settings: row ? JSON.parse(row.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" } });
+  }
+  if (path === "/api/dashboard/settings" && request.method === "PUT") {
+    const value = body.settings;
+    if (!value || typeof value !== "object" || Array.isArray(value) || (value.userId && value.userId !== actor.user_id) || !value.tools || typeof value.tools !== "object" || Array.isArray(value.tools)) return respond(request, env, { success: false, error: "INVALID_SETTINGS" }, 400);
+    const settings = { ...value, userId: actor.user_id };
+    await env.DB.prepare("INSERT INTO user_settings (user_id, settings_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET settings_json = excluded.settings_json, updated_at = excluded.updated_at").bind(actor.user_id, JSON.stringify(settings), now).run();
+    return respond(request, env, { success: true, settings });
+  }
+  if (path === "/api/dashboard/users" && request.method === "GET") {
+    if (!isAdmin) return forbidden();
+    const result = await env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all();
+    return respond(request, env, { success: true, users: result.results || [] });
+  }
+  if (path === "/api/dashboard/announcements" && request.method === "GET") {
+    const result = await env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, created_at, updated_at FROM announcements ORDER BY created_at DESC").all();
+    return respond(request, env, { success: true, announcements: result.results || [] });
+  }
+  if (path === "/api/dashboard/announcements" && request.method === "POST") {
+    if (!isAdmin || typeof body.body !== "string" || !body.body.trim() || body.body.length > 10000) return forbidden();
+    const id = "ANN-" + randomToken().slice(0, 20).toUpperCase();
+    await env.DB.prepare("INSERT INTO announcements (announcement_id, author_id, author_name, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)").bind(id, actor.user_id, actor.name, body.body.trim(), now, now).run();
+    return respond(request, env, { success: true, id });
+  }
+  if (path.startsWith("/api/dashboard/announcements/") && request.method === "DELETE") {
+    if (!isAdmin) return forbidden();
+    const id = decodeURIComponent(path.split("/").pop());
+    await env.DB.prepare("DELETE FROM announcements WHERE announcement_id = ?").bind(id).run();
+    return respond(request, env, { success: true });
+  }
+  if (path === "/api/dashboard/transactions" && request.method === "GET") {
+    if (!isSuper) return forbidden();
+    const result = await env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all();
+    return respond(request, env, { success: true, transactions: (result.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })) });
+  }
+  if (path === "/api/dashboard/transactions" && request.method === "POST") {
+    if (!isAdmin || !body.requestId || !body.requestType || !body.payload || typeof body.payload !== "object") return forbidden();
+    await env.DB.prepare("INSERT INTO network_transactions (request_id, request_type, status, payload_json, result_json, created_at, updated_at) VALUES (?, ?, 'PENDING', ?, '{}', ?, ?)").bind(String(body.requestId), String(body.requestType), JSON.stringify(body.payload), now, now).run();
+    return respond(request, env, { success: true, requestId: body.requestId });
+  }
+  return null;
+};
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -139,6 +215,10 @@ export default {
       }
       const auth = await authRoutes(request, env, url.pathname);
       if (auth) return auth;
+      if (url.pathname.startsWith("/api/dashboard/")) {
+        const dashboard = await dashboardRoutes(request, env, url.pathname);
+        if (dashboard) return dashboard;
+      }
       return respond(request, env, { success: false, error: "NOT_FOUND" }, 404);
     }
     return env.ASSETS.fetch(request);
