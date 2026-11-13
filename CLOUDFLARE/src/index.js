@@ -95,7 +95,7 @@ const authRoutes = async (request, env, path) => {
     const token = String((await readBody(request)).refreshToken || "");
     if (!/^[a-f0-9]{64}$/.test(token)) return respond(request, env, { success: false, error: "SESSION_INVALID" }, 401);
     const now = Math.floor(Date.now() / 1000);
-    const session = await env.DB.prepare("SELECT s.session_id_hash, s.user_id, u.name, u.role, u.status FROM sessions s JOIN users u ON u.user_id = s.user_id WHERE s.refresh_token_hash = ? AND s.expires_at > ? AND s.revoked_at IS NULL").bind(await digest(token), now).first();
+    const session = await env.DB.prepare("SELECT s.session_id_hash, s.user_id, u.name, u.role, u.status, u.personal_repository FROM sessions s JOIN users u ON u.user_id = s.user_id WHERE s.refresh_token_hash = ? AND s.expires_at > ? AND s.revoked_at IS NULL").bind(await digest(token), now).first();
     if (!session || session.status !== "Active") return respond(request, env, { success: false, error: "SESSION_INVALID" }, 401);
     await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE session_id_hash = ?").bind(now, session.session_id_hash).run();
     return respond(request, env, { success: true, ...(await issueSession(env, session, request)) });
