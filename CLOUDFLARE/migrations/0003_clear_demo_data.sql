@@ -1,0 +1,10 @@
+DELETE FROM sessions;
+DELETE FROM user_settings;
+DELETE FROM tool_permissions;
+DELETE FROM tool_visibility_users;
+DELETE FROM tool_visibility;
+DELETE FROM announcements;
+DELETE FROM audit_logs;
+DELETE FROM network_transactions;
+DELETE FROM tools;
+DELETE FROM users;
