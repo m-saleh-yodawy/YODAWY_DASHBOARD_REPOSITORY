@@ -57,17 +57,23 @@ return (async function (PAGE, STORE) {
         user = Object.freeze(data.user);
         await save(data.refreshToken);
     };
+    let refreshTask = null;
     const refresh = async () => {
-        const token = await STORE.get('yd-cloud-refresh-v1');
-        if (!token) return false;
-        try {
-            await apply(await request('/api/auth/refresh', { method: 'POST', body: { refreshToken: token } }));
-            return true;
-        } catch (error) {
-            await save('');
-            if (error.status === 401) return false;
-            throw error;
-        }
+        if (refreshTask) return refreshTask;
+        refreshTask = (async () => {
+            const token = await STORE.get('yd-cloud-refresh-v1');
+            if (!token) return false;
+            try {
+                await apply(await request('/api/auth/refresh', { method: 'POST', body: { refreshToken: token } }));
+                return true;
+            } catch (error) {
+                await save('');
+                if (error.status === 401) return false;
+                throw error;
+            }
+        })();
+        try { return await refreshTask; }
+        finally { refreshTask = null; }
     };
     const authorizedRequest = async (path, options = {}) => {
         try {
