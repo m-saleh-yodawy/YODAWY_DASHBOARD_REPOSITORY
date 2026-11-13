@@ -172,6 +172,7 @@ return (async function (PAGE, STORE) {
             user,
             userId: user.id,
             userRole: user.role,
+            get userSettings() { return data.userSettings || {}; },
             authenticated: false
         };
         Object.defineProperty(PAGE, 'YODAWY', { value: YODAWY, configurable: true });
