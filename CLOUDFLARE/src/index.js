@@ -54,14 +54,14 @@ const issueSession = async (env, user, request) => {
   const refresh = randomToken();
   const sessionId = randomToken();
   await env.DB.prepare("INSERT INTO sessions (session_id_hash, user_id, expires_at, created_at, last_seen_at, refresh_token_hash, device_label) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(await digest(sessionId), user.user_id, now + REFRESH_TTL, now, now, await digest(refresh), (request.headers.get("user-agent") || "").slice(0, 160)).run();
-  return { accessToken: await sign({ sub: user.user_id, role: user.role, exp: now + ACCESS_TTL, sid: sessionId }, env.AUTH_SECRET), refreshToken: refresh, expiresIn: ACCESS_TTL, user: { id: user.user_id, name: user.name, role: user.role } };
+  return { accessToken: await sign({ sub: user.user_id, role: user.role, exp: now + ACCESS_TTL, sid: sessionId }, env.AUTH_SECRET), refreshToken: refresh, expiresIn: ACCESS_TTL, user: { id: user.user_id, name: user.name, role: user.role, repository: user.personal_repository || "" } };
 };
 const authenticate = async (request, env) => {
   const token = (request.headers.get("authorization") || "").replace("Bearer ", "").trim();
   if (!token) return null;
   const payload = await verifyAccess(token, env.AUTH_SECRET);
   if (!payload) return null;
-  const session = await env.DB.prepare("SELECT s.session_id_hash, u.user_id, u.name, u.role, u.status FROM sessions s JOIN users u ON u.user_id = s.user_id WHERE s.session_id_hash = ? AND s.user_id = ? AND s.expires_at > ? AND s.revoked_at IS NULL").bind(await digest(payload.sid), payload.sub, Math.floor(Date.now() / 1000)).first();
+  const session = await env.DB.prepare("SELECT s.session_id_hash, u.user_id, u.name, u.role, u.status, u.personal_repository FROM sessions s JOIN users u ON u.user_id = s.user_id WHERE s.session_id_hash = ? AND s.user_id = ? AND s.expires_at > ? AND s.revoked_at IS NULL").bind(await digest(payload.sid), payload.sub, Math.floor(Date.now() / 1000)).first();
   return session && session.status === "Active" ? session : null;
 };
 const authRoutes = async (request, env, path) => {
@@ -154,7 +154,7 @@ const dashboardRoutes = async (request, env, path) => {
     const visibilityMap = {};
     for (const item of visibility.results || []) visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
     for (const item of visibleUsers.results || []) (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
-    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
+    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role, repository: actor.personal_repository || "" }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
   }
   if (path === "/api/dashboard/activity" && request.method === "POST") {
     const action = String(body.action || "").trim().toUpperCase();
