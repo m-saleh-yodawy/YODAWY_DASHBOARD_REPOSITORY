@@ -1,13 +1,13 @@
 return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
-    const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => {
-        if (!response.ok) throw new Error('MESSAGE_SOURCE_UNAVAILABLE');
-        return response.json();
-    }).then(data => data.messages || {});
+    const runtime = API + '/runtime/';
+    const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = code => {
+        if (PAGE.document.getElementById('yd-cloud-error')) return;
         const item = messages[code] || messages.UNKNOWN_ERROR || { title: 'SYSTEM ERROR', message: 'AN UNEXPECTED ERROR OCCURRED.' };
         const root = PAGE.document.createElement('div');
+        root.id = 'yd-cloud-error';
         root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#17131acc;font:14px Arial,sans-serif';
         const card = PAGE.document.createElement('section');
         card.style.cssText = 'width:min(420px,calc(100% - 32px));padding:26px;border-radius:14px;background:#fff;color:#302833;border-top:5px solid #875A7B;box-shadow:0 18px 60px #0005';
@@ -40,8 +40,17 @@ return (async function (PAGE, STORE) {
         }
         return data;
     };
+    const loadScript = path => new Promise((resolve, reject) => {
+        const script = PAGE.document.createElement('script');
+        script.src = runtime + path;
+        script.async = false;
+        script.onload = () => { script.remove(); resolve(true); };
+        script.onerror = () => { script.remove(); reject(new Error('RUNTIME_ASSET_FAILED: ' + path)); };
+        (PAGE.document.head || PAGE.document.documentElement).append(script);
+    });
     let accessToken = '';
     let user = null;
+    let context = null;
     const save = async token => token ? STORE.set('yd-cloud-refresh-v1', token) : STORE.remove('yd-cloud-refresh-v1');
     const apply = async data => {
         accessToken = data.accessToken;
@@ -60,7 +69,6 @@ return (async function (PAGE, STORE) {
             throw error;
         }
     };
-    const getDashboard = async () => request('/api/dashboard/bootstrap', { token: accessToken });
     const mountLogin = () => new Promise(resolve => {
         const root = PAGE.document.createElement('div');
         root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#17131acc;font:14px Arial,sans-serif';
@@ -105,12 +113,15 @@ return (async function (PAGE, STORE) {
         const health = await request('/api/health');
         if (health.status !== 'online') throw new Error('SYSTEM_UNAVAILABLE');
         if (!await refresh()) await mountLogin();
-        const data = await getDashboard();
-        const context = Object.freeze({
+        const data = await request('/api/dashboard/bootstrap', { token: accessToken });
+        context = Object.freeze({
             user,
             data,
             request: (path, options = {}) => request(path, { ...options, token: accessToken }),
-            logout: async () => { try { await request('/api/auth/logout', { method: 'POST', token: accessToken }); } finally { accessToken = ''; user = null; await save(''); PAGE.location.reload(); } },
+            logout: async () => {
+                try { await request('/api/auth/logout', { method: 'POST', token: accessToken }); }
+                finally { accessToken = ''; user = null; await save(''); PAGE.location.reload(); }
+            },
             changePassword: async (currentPassword, newPassword) => {
                 const result = await request('/api/auth/change-password', { method: 'POST', token: accessToken, body: { currentPassword, newPassword } });
                 accessToken = '';
@@ -120,8 +131,48 @@ return (async function (PAGE, STORE) {
             }
         });
         Object.defineProperty(PAGE, 'YODAWY_CLOUD_CONTEXT', { value: context, configurable: true });
+        const assets = [
+            'cloud-api-engine.js',
+            'core-auth-engine.js',
+            'core-permissions-engine.js',
+            'core-visibility-engine.js',
+            'core-module-loader.js',
+            'core-tools-manager.js',
+            'core-settings-engine.js',
+            'core-announcements-engine.js',
+            'dashboard-ui.js',
+            'super-admin-engine.js',
+            'admin-engine.js',
+            'user-engine.js'
+        ];
+        for (const asset of assets) await loadScript(asset);
+        const YODAWY = {
+            api: PAGE.YODAWY_API_ENGINE,
+            auth: PAGE.YODAWY_AUTH_ENGINE,
+            permissions: PAGE.YODAWY_PERMISSIONS_ENGINE,
+            visibility: PAGE.YODAWY_VISIBILITY_ENGINE,
+            settings: PAGE.YODAWY_SETTINGS_ENGINE,
+            tools: PAGE.YODAWY_TOOLS_MANAGER,
+            announcements: PAGE.YODAWY_ANNOUNCEMENTS_ENGINE,
+            ui: PAGE.YODAWY_DASHBOARD_UI,
+            user,
+            authenticated: false
+        };
+        Object.defineProperty(PAGE, 'YODAWY', { value: YODAWY, configurable: true });
+        YODAWY.auth.initialize({ authenticated: true, user, role: user.role, permissions: [] });
+        YODAWY.settings.configure();
+        await Promise.all([
+            YODAWY.settings.load(),
+            YODAWY.permissions.load(),
+            YODAWY.visibility.load(),
+            YODAWY.tools.loadManifest(),
+            YODAWY.announcements.load()
+        ]);
+        const engine = user.role === 'SUPER_ADMIN' ? PAGE.YODAWY_SUPER_ADMIN_ENGINE : user.role === 'ADMIN' ? PAGE.YODAWY_ADMIN_ENGINE : PAGE.YODAWY_USER_ENGINE;
+        if (!engine || typeof YODAWY.init !== 'function') throw new Error('ROLE_ENGINE_UNAVAILABLE');
+        await YODAWY.init();
         PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-cloud-ready', { detail: { user, data } }));
     } catch (error) {
-        showError(error.code || 'UNKNOWN_ERROR');
+        showError(error.code || error.message || 'UNKNOWN_ERROR');
     }
 })(PAGE, STORE);
