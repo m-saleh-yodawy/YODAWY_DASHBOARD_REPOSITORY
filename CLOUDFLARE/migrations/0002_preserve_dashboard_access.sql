@@ -1,3 +1,5 @@
+ALTER TABLE users ADD COLUMN personal_repository TEXT NOT NULL DEFAULT '';
+
 ALTER TABLE tool_permissions ADD COLUMN forced_state INTEGER NOT NULL DEFAULT 0 CHECK (forced_state IN (0, 1));
 ALTER TABLE tool_permissions ADD COLUMN permission_type TEXT NOT NULL DEFAULT 'USER' CHECK (permission_type IN ('USER', 'ADMIN', 'SUPER_ADMIN'));
 
@@ -16,6 +18,15 @@ INSERT OR IGNORE INTO users (id, name, role, status) VALUES
   ('Q-003', 'MOAAZ SALEH', 'ADMIN', 'ACTIVE'),
   ('Q-004', 'Ahmed Saleh', 'ADMIN', 'ACTIVE'),
   ('Q-005', 'Mahmoud Saleh', 'USER', 'ACTIVE');
+
+UPDATE users SET personal_repository = CASE id
+  WHEN 'Q-001' THEN 'Q-001_MOHAMED_SALEH'
+  WHEN 'Q-002' THEN 'Q-002_OMAR_SALEH'
+  WHEN 'Q-003' THEN 'Q-003_MOAAZ_SALEH'
+  WHEN 'Q-004' THEN 'Q-004_AHMED_SALEH'
+  WHEN 'Q-005' THEN 'Q-005_MAHMOUD_SALEH'
+  ELSE personal_repository
+END;
 
 INSERT OR IGNORE INTO tools (id, name, description, source_repo, source_path, version, status, content_hash) VALUES
   ('TOOL-001', 'CONFIRMATION TYPE BUTTONS', '', 'YODAWY_DASHBOARD_REPOSITORY', 'CLOUDFLARE/public/tools/confirmation-type-buttons.js', '1', 'ACTIVE', '05cf99782083be0b235ad890853d19d3ee696f6a237b87ab93927bd51ab5978a'),
