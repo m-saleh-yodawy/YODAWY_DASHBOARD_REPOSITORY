@@ -122,6 +122,7 @@ CREATE TABLE portal_accounts (
   account_id TEXT PRIMARY KEY,
   owner_user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
   provider TEXT NOT NULL CHECK (provider IN ('METLIFE', 'NEXTCARE')),
+  account_type TEXT NOT NULL DEFAULT 'PERSONAL' CHECK (account_type IN ('PERSONAL', 'ALTERNATIVE')),
   label TEXT NOT NULL,
   username TEXT NOT NULL,
   encrypted_password TEXT NOT NULL,
