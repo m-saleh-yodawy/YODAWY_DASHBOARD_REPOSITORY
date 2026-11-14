@@ -783,6 +783,19 @@ const instance = {
         return true;
     },
 
+    async suspend() {
+        if (!state.initialized) return true;
+        await this.destroy();
+        state.destroyed = false;
+        return true;
+    },
+
+    async resume() {
+        if (state.initialized) return true;
+        state.destroyed = false;
+        return this.init();
+    },
+
     async destroy() {
         if (state.destroyed) return true;
 

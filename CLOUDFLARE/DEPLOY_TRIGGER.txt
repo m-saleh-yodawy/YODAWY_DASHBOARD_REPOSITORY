@@ -1,1 +1,2 @@
 Deployment trigger for the main production branch.
+NO-ITEMS-SCREENSHOT lifecycle deployment 2026-11-14.

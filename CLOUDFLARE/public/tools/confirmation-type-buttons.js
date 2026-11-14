@@ -406,6 +406,27 @@
             return true;
         },
 
+        async suspend() {
+            if (!state.initialized) return true;
+            state.controller.abort();
+            state.controller = new AbortController();
+            state.request?.abort();
+            state.request = null;
+            state.observer?.disconnect();
+            state.observer = null;
+            clearInterval(state.interval);
+            state.interval = null;
+            state.initialized = false;
+            ui.destroy();
+            return true;
+        },
+
+        async resume() {
+            if (state.destroyed || state.initialized) return true;
+            state.controller = new AbortController();
+            return this.init();
+        },
+
         async destroy() {
             if (state.destroyed) return true;
 
