@@ -5,7 +5,6 @@
 
     const CONFIG = {
         PATH: 'CONFIG/tools-visibility.json',
-        SUPER_ADMIN_ID: 'Q-001',
         VISIBILITY_TYPES: ['PRIVATE', 'PUBLIC', 'SELECTED_USERS']
     };
 
@@ -103,11 +102,7 @@
     const isSuperAdmin = () => {
         const { AUTH } = getDependencies();
 
-        return (
-            AUTH.isAuthenticated() &&
-            AUTH.getRole() === 'SUPER_ADMIN' &&
-            normalizeUserId(AUTH.getUserId()) === CONFIG.SUPER_ADMIN_ID
-        );
+        return AUTH.isAuthenticated() && AUTH.getRole() === 'SUPER_ADMIN';
     };
 
     const canManage = () =>
