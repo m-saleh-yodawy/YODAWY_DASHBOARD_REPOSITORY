@@ -3403,7 +3403,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             } catch (error) {
                 submit.disabled = false;
                 submit.removeAttribute('aria-busy');
-                button.classList.remove('yd-button-loading');
+                submit.classList.remove('yd-button-loading');
                 submit.textContent = editing ? 'Save Changes' : 'Publish';
                 showMessageDialog('Announcement Not Saved', error?.message || 'Unable to submit this announcement.');
             }
@@ -3904,7 +3904,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             } catch (error) {
                 submitButton.disabled = false;
                 submitButton.removeAttribute('aria-busy');
-                button.classList.remove('yd-button-loading');
+                submitButton.classList.remove('yd-button-loading');
                 submitButton.textContent = editing ? 'Save Changes' : 'Create User';
                 showMessageDialog('Unable to submit user request', error?.message || 'The request could not be submitted.');
             }
