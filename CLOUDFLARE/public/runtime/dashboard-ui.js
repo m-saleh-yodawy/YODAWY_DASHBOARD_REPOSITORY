@@ -298,13 +298,13 @@
         return transaction?.actorName || transaction?.actor?.name || actor?.name || actorId || 'Unknown';
     };
 
-    const renderPendingBadge = (label = 'Pending') => '<span class="yd-pending-badge"><i class="fa-solid fa-spinner fa-spin"></i><span>' + escapeHTML(label) + '</span></span>';
+    const renderPendingBadge = () => '<span class="yd-pending-badge" role="status" aria-label="Loading"><span class="yd-control-spinner" aria-hidden="true"></span></span>';
     const renderFailedBadge = (label = 'FAILED') => '<span class="yd-pending-badge yd-pending-failed"><i class="fa-solid fa-circle-exclamation"></i><span>' + escapeHTML(label) + '</span></span>';
     const setButtonLoading = (button, label = 'Loading') => {
         if (!button) return;
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
-        button.innerHTML = '<span class="yd-inline-loading"><span class="yd-control-spinner" aria-hidden="true"></span><span>' + escapeHTML(label) + '</span></span>';
+        button.classList.add('yd-button-loading');
     };
     const setControlLoading = control => {
         if (!control) return;
@@ -1893,18 +1893,16 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
 #yd-dashboard-root .yd-tool-summary span { padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; background: #fff; }
 
 #yd-dashboard-root .yd-pending-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 22px;
-    padding: 2px 8px;
-    border: 1px solid #ead7a9;
-    border-radius: 999px;
-    background: #fff8e8;
-    color: #8a6421;
-    font-size: 9px;
-    font-weight: 500 !important;
-    white-space: nowrap;
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--brand);
 }
 #yd-dashboard-root .yd-pending-badge.yd-pending-failed {
     border-color: #f0d7d9;
@@ -1931,6 +1929,21 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
 #yd-dashboard-root .ui-select-trigger[aria-busy="true"]:disabled {
     opacity: .9;
     cursor: wait;
+}
+#yd-dashboard-root button.yd-button-loading { position: relative; }
+#yd-dashboard-root button.yd-button-loading > * { visibility: hidden !important; }
+#yd-dashboard-root button.yd-button-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 13px;
+    height: 13px;
+    margin: -7.5px 0 0 -7.5px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: yd-control-spin .7s linear infinite;
 }
 #yd-dashboard-root .yd-switch.is-loading .yd-switch-knob {
     opacity: 0;
@@ -3029,11 +3042,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const pending = pendingLocalTools.get(id);
             const enabled = pending ? pending.enabled === true : storedEnabled;
             const expanded = expandedTools.has(id) ? ' open' : '';
-            const status = pending ? renderPendingBadge(pending.label || 'Updating') : '<span class="yd-pill ' + (enabled ? 'green' : 'red') + '">' + (enabled ? 'ON' : 'OFF') + '</span>';
+            const status = '<span class="yd-pill ' + (enabled ? 'green' : 'red') + '">' + (enabled ? 'ON' : 'OFF') + '</span>';
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + ' · v' + escapeHTML(tool.version || '1') + '</small></span></span>' +
                 '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
-                '<div class="yd-tool-accordion-body">' + (id === 'TOOL-005' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + (pending ? renderPendingBadge(pending.label || 'Updating') : '') + '</div></details>';
+                '<div class="yd-tool-accordion-body">' + (id === 'TOOL-005' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + </div></details>;
         }).join('');
         return '<section class="yd-welcome"><div><h1>Tools</h1><p>' + (isSuperAdmin ? 'Manage your personal tools and their availability.' : 'Expand a tool to access its personal settings and control its status.') + '</p></div></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-tool-search" placeholder="Search tools by name or ID"><span class="yd-pill">' + getLoadedTools().length + ' loaded / ' + allTools.length + ' total</span></div>' +
@@ -3107,7 +3120,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 if (forced) forcedCount++;
                 const blocked = !active || Boolean(pending || pendingUser);
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
-                const pendingBadge = pending ? renderPendingBadge('Queued') : '';
+                const pendingBadge = '';
                 const userEnabled = isSuperAdmin && context.userSettings?.[userId]?.[tool.id] === 'ENABLED';
                 const userEnabledControl = isSuperAdmin ? '<div class="yd-permission-control"><span class="yd-permission-label">User Enabled</span><span class="yd-permission-status-dot ' + (userEnabled ? 'on' : '') + '" title="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '" aria-label="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '"></span></div>' : '';
                 const permittedControl = '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + (!isSuperAdmin && forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>') + '</div>';
@@ -3117,7 +3130,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + userEnabledControl + forcedControl + '</div></div>';
             }).join('');
             const expanded = expandedUsers.has(userId) ? ' open' : '';
-            const userBadge = pendingUser ? renderPendingBadge(String(pendingUser.action).toUpperCase() === 'DELETE_USER' ? 'Deleting' : 'Updating') : '';
+            const userBadge = '';
             const toolRows = rows || '<div class="yd-empty">No tools are available.</div>';
             return '<details class="yd-accordion-item" data-user-accordion data-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-accordion-user"><strong>' + escapeHTML(formatName(user.name)) + ' ' + userBadge + '</strong><small><span class="yd-id-badge">' + escapeHTML(userId) + '</span>' + renderRolePill(user.role) + '</small></span><span class="yd-accordion-summary-meta"><span class="yd-pill green">' + grantedCount + ' Permitted</span><span class="yd-pill blue">' + forcedCount + ' Forced</span></span></summary><div class="yd-accordion-body"><div class="yd-permission-search-wrap"><input type="search" class="yd-permission-search" placeholder="ACTIVE SEARCH" aria-label="Search tools by name or ID"></div><div class="yd-permission-search-empty" hidden>No matching tools found.</div>' + toolRows + '</div></details>';
         }).join('');
@@ -3242,7 +3255,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const loading = Boolean(pending || pendingUser);
             const label = (allowed ? 'Remove access for ' : 'Allow access for ') + formatName(user.name) + ' to ' + tool.name;
             return '<div class="yd-visibility-row-control">' +
-                (pending ? renderPendingBadge('Saving') : pendingUser ? renderPendingBadge('Updating') : !active ? '<span class="yd-pill red">Inactive</span>' : '') +
+                (!active && !loading ? '<span class="yd-pill red">Inactive</span>' : '') +
                 '<button type="button" class="yd-switch yd-visibility-switch' + (allowed ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(userId) + '" data-enabled="' + String(allowed) + '" role="switch" aria-checked="' + String(allowed) + '" aria-label="' + escapeHTML(label) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>' +
                 '</div>';
         };
@@ -3268,7 +3281,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const rows = tools.map(tool => {
                     return '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(tool.id) + '</small></div>' + renderSwitch(tool, user) + '</div>';
                 }).join('');
-                return '<details class="yd-visibility-accordion-item" data-visibility-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(userId) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + tools.length + ' TOOLS</span>' + bulkSwitch + (pendingUser ? renderPendingBadge('Updating') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No tools available.</div>') + '</div></details>';
+                return '<details class="yd-visibility-accordion-item" data-visibility-user="' + escapeHTML(userId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(userId) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + tools.length + ' TOOLS</span>' + bulkSwitch + </span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No tools available.</div>') + '</div></details>';
             }).join('');
             if (!users.length) accordions = '<div class="yd-card yd-empty">No users are available.</div>';
         } else {
@@ -3283,7 +3296,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const rows = users.map(user =>
                     '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(String(user.id || '').trim().toUpperCase()) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></div>' + renderSwitch(tool, user) + '</div>'
                 ).join('');
-                return '<details class="yd-visibility-accordion-item" data-visibility-tool="' + escapeHTML(toolId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(toolId) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + users.length + ' USERS</span>' + bulkSwitch + (pending ? renderPendingBadge('Saving') : '') + '</span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No users are available.</div>') + '</div></details>';
+                return '<details class="yd-visibility-accordion-item" data-visibility-tool="' + escapeHTML(toolId) + '"' + expanded + '><summary><span class="yd-visibility-accordion-heading"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(toolId) + '</small></span><span class="yd-visibility-accordion-meta"><span class="yd-pill blue">' + allowedCount + ' / ' + users.length + ' USERS</span>' + bulkSwitch + </span></summary><div class="yd-visibility-rows">' + (rows || '<div class="yd-empty">No users are available.</div>') + '</div></details>';
             }).join('');
             if (!tools.length) accordions = '<div class="yd-card yd-empty">No tools are available.</div>';
         }
