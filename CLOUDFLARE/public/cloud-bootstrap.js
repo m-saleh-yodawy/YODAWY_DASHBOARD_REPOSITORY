@@ -4,8 +4,10 @@ return (async function (PAGE, STORE) {
     const runtime = API + '/runtime/';
     const ASSET_VERSION = '20261114-icons-3';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
-    const showError = code => {
+    const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
+        const detail = String(failure?.message || failure || '').trim();
+        const code = String(failure?.code || (messages[detail] ? detail : 'UNKNOWN_ERROR')).trim();
         const item = messages[code] || messages.UNKNOWN_ERROR || { title: 'SYSTEM ERROR', message: 'AN UNEXPECTED ERROR OCCURRED.' };
         const root = PAGE.document.createElement('div');
         root.id = 'yd-cloud-error';
@@ -15,7 +17,8 @@ return (async function (PAGE, STORE) {
         const title = PAGE.document.createElement('h3');
         title.textContent = item.title || 'SYSTEM ERROR';
         const message = PAGE.document.createElement('p');
-        message.textContent = item.message || 'AN UNEXPECTED ERROR OCCURRED.';
+        message.style.whiteSpace = 'pre-wrap';
+        message.textContent = (item.message || 'AN UNEXPECTED ERROR OCCURRED.') + (detail && detail !== code && detail !== item.message ? '\n\nDETAIL: ' + detail : '') + '\nERROR CODE: ' + code;
         const button = PAGE.document.createElement('button');
         button.textContent = 'CLOSE';
         button.style.cssText = 'padding:10px 22px;border:0;border-radius:7px;background:#875A7B;color:#fff;cursor:pointer';
@@ -193,6 +196,6 @@ return (async function (PAGE, STORE) {
         await YODAWY.init();
         PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-cloud-ready', { detail: { user, data } }));
     } catch (error) {
-        showError(error.code || error.message || 'UNKNOWN_ERROR');
+        showError(error);
     }
 })(PAGE, STORE);
