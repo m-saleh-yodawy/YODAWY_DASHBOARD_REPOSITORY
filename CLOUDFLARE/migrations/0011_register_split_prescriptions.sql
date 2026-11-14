@@ -1,5 +1,5 @@
 INSERT OR IGNORE INTO tools (tool_id, name, description, version, asset_path, sha256, enabled)
-VALUES ('TOOL-005', 'Split Prescriptions', 'Select prescription items in Odoo and complete splitting in Portal', '1', 'TOOLS/split-prescriptions.js', '85272f909f82b64651002444a34c1d9063927f83bd7ba1684e82f898cc36dbf7', 1);
+VALUES ('TOOL-005', 'Split Prescriptions', 'Select prescription items in Odoo and complete splitting in Portal', '1', 'TOOLS/split-prescriptions.js', '80619134453dc668d45bea84a7e454a0dfc6d19fe3834d4a73993c1af43dd67e', 1);
 
 INSERT OR IGNORE INTO tool_permissions (user_id, tool_id, can_use, forced_state, permission_type, updated_at)
 SELECT user_id, 'TOOL-005', MAX(can_use), MAX(forced_state), MAX(permission_type), CURRENT_TIMESTAMP
