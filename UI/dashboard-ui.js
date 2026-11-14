@@ -438,7 +438,6 @@
     };
 
     const injectStyles = () => {
-        ensureExternalStylesheet('yd-fontawesome-css', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css', 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css');
         document.getElementById('yd-nunito-font')?.remove();
         document.getElementById('yd-poppins-font')?.remove();
         ensureExternalStylesheet('yd-nunito-sans-font', 'https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
@@ -475,10 +474,54 @@
     font-synthesis: none;
     text-rendering: optimizeLegibility;
 }
-#yd-dashboard-root *, #yd-dashboard-root *::before, #yd-dashboard-root *::after {
+#yd-dashboard-root *:not(.yd-custom-icon), #yd-dashboard-root *:not(.yd-custom-icon)::before, #yd-dashboard-root *:not(.yd-custom-icon)::after {
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
 }
+@font-face {
+    font-family: 'YD Dashboard Icons';
+    src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 900;
+    font-display: block;
+}
+#yd-dashboard-root .yd-custom-icon {
+    font-family: 'YD Dashboard Icons' !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+}
+#yd-dashboard-root .yd-custom-icon.fa-spinner::before { content: '\f110'; }
+#yd-dashboard-root .yd-custom-icon.fa-circle-exclamation::before { content: '\f06a'; }
+#yd-dashboard-root .yd-custom-icon.fa-toolbox::before { content: '\f552'; }
+#yd-dashboard-root .yd-custom-icon.fa-chart-pie::before { content: '\f200'; }
+#yd-dashboard-root .yd-custom-icon.fa-bullhorn::before { content: '\f0a1'; }
+#yd-dashboard-root .yd-custom-icon.fa-users::before { content: '\f0c0'; }
+#yd-dashboard-root .yd-custom-icon.fa-sliders::before { content: '\f1de'; }
+#yd-dashboard-root .yd-custom-icon.fa-eye::before { content: '\f06e'; }
+#yd-dashboard-root .yd-custom-icon.fa-right-left::before { content: '\f362'; }
+#yd-dashboard-root .yd-custom-icon.fa-gear::before { content: '\f013'; }
+#yd-dashboard-root .yd-custom-icon.fa-user-shield::before { content: '\f505'; }
+#yd-dashboard-root .yd-custom-icon.fa-arrows-rotate::before { content: '\f021'; }
+#yd-dashboard-root .yd-custom-icon.fa-cloud-arrow-up::before { content: '\f0ee'; }
+#yd-dashboard-root .yd-custom-icon.fa-xmark::before { content: '\f00d'; }
+#yd-dashboard-root .yd-custom-icon.fa-circle-info::before { content: '\f05a'; }
+#yd-dashboard-root .yd-custom-icon.fa-check::before { content: '\f00c'; }
+#yd-dashboard-root .yd-custom-icon.fa-arrow-rotate-right::before { content: '\f01e'; }
+#yd-dashboard-root .yd-custom-icon.fa-shield-halved::before { content: '\f3ed'; }
+#yd-dashboard-root .yd-custom-icon.fa-bolt::before { content: '\f0e7'; }
+#yd-dashboard-root .yd-custom-icon.fa-cloud::before { content: '\f0c2'; }
+#yd-dashboard-root .yd-custom-icon.fa-user::before { content: '\f007'; }
+#yd-dashboard-root .yd-custom-icon.fa-plug-circle-check::before { content: '\e55c'; }
+#yd-dashboard-root .yd-custom-icon.fa-plus::before { content: '\f067'; }
+#yd-dashboard-root .yd-custom-icon.fa-square-check::before { content: '\f14a'; }
+#yd-dashboard-root .yd-custom-icon.fa-square::before { content: '\f0c8'; }
+#yd-dashboard-root .yd-custom-icon.fa-database::before { content: '\f1c0'; }
+#yd-dashboard-root .yd-custom-icon.fa-lock::before { content: '\f023'; }
+#yd-dashboard-root .yd-custom-icon.fa-key::before { content: '\f084'; }
+#yd-dashboard-root .yd-custom-icon.fa-circle-check::before { content: '\f058'; }
+#yd-dashboard-root .fa-spin { animation: yd-fa-spin 2s linear infinite; }
+@keyframes yd-fa-spin { to { transform: rotate(360deg); } }
+
 #yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
 #yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
     font-family: "Font Awesome 6 Free" !important;
@@ -3420,6 +3463,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         closeDropdowns(null);
         openVisibilityToolId = null;
         root.innerHTML = renderShell(renderPage());
+        root.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
         syncInputSurfaceBackgrounds(root);
     };
 
@@ -3869,6 +3913,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         overlay.className = 'yd-modal-backdrop';
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><p>' + escapeHTML(message) + '</p><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
+        overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
         document.getElementById(CONFIG.ID)?.appendChild(overlay);
         const close = () => overlay.remove();
         overlay.addEventListener('click', event => {
