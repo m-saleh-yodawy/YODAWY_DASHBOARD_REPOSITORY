@@ -100,11 +100,12 @@
         return data;
     };
 
-    const validateVisibility = data => {
+    const validateVisibility = (data, users = snapshot?.users || []) => {
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
             throw createError('Invalid visibility configuration');
         }
 
+        const superAdminIds = new Set(users.filter(user => normalizeText(user.role).toUpperCase() === 'SUPER_ADMIN').map(user => normalizeId(user.id)));
         const result = {};
 
         for (const [toolId, record] of Object.entries(data)) {
@@ -122,7 +123,7 @@
             result[toolId] = {
                 visibility: record.visibility,
                 allowedUsers: [
-                    ...new Set(record.allowedUsers.map(normalizeId).filter(Boolean))
+                    ...new Set(record.allowedUsers.map(normalizeId).filter(id => id && !superAdminIds.has(id)))
                 ]
             };
         }
@@ -160,7 +161,7 @@
         snapshot = {
             users: clone(users.users),
             permissions: clone(eligiblePermissions),
-            visibility: validateVisibility(visibility),
+            visibility: validateVisibility(visibility, users.users),
             transactions: clone(logs.transactions || {}),
             updatedAt: logs.updatedAt || null
         };
@@ -624,7 +625,7 @@
             ...clone(changes)
         };
 
-        const validated = validateVisibility(updated);
+        const validated = validateVisibility(updated, snapshot.users);
         const targetToolIds = Array.isArray(metadata.targetToolIds)
             ? [...new Set(metadata.targetToolIds.map(normalizeText).filter(id => getTools().some(tool => tool.id === id)))]
             : [];
@@ -646,7 +647,7 @@
 
         const updated = validateVisibility({
             [id]: record
-        });
+        }, snapshot.users);
 
         return updateVisibility(updated, { targetToolIds: [id] });
     };
