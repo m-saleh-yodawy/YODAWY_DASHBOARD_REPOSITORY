@@ -144,6 +144,7 @@ const decryptPortalPassword = async (env, ciphertext, iv) => {
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: Uint8Array.from(atob(iv), char => char.charCodeAt(0)) }, key, Uint8Array.from(atob(ciphertext), char => char.charCodeAt(0)));
   return new TextDecoder().decode(plain);
 };
+
 const portalAccountRoutes = async (request, env, path) => {
   const actor = await authenticate(request, env);
   if (!actor) return respond(request, env, { success: false, error: "UNAUTHORIZED" }, 401);
@@ -151,8 +152,8 @@ const portalAccountRoutes = async (request, env, path) => {
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
   if (path === "/api/portal-accounts" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT a.account_id, a.provider, a.label, a.username, a.scope, a.enabled, a.owner_user_id, CASE WHEN a.owner_user_id = ? THEN 1 ELSE 0 END AS is_owner FROM portal_accounts a LEFT JOIN portal_account_access g ON g.account_id = a.account_id AND g.user_id = ? WHERE a.enabled = 1 AND (a.owner_user_id = ? OR g.user_id = ? OR (? = 1 AND a.scope = 'SHARED')) ORDER BY a.provider, a.label").bind(actor.user_id, actor.user_id, actor.user_id, actor.user_id, isSuper ? 1 : 0).all();
-    return respond(request, env, { success: true, accounts: (rows.results || []).map(row => ({ id: row.account_id, provider: row.provider, label: row.label, username: row.username, scope: row.scope, isPersonal: row.scope === "PERSONAL", isOwner: Boolean(row.is_owner) })) });
+    const rows = await env.DB.prepare("SELECT account_id, provider, label, username FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY provider, label").bind(actor.user_id).all();
+    return respond(request, env, { success: true, accounts: (rows.results || []).map(row => ({ id: row.account_id, provider: row.provider, label: row.label, username: row.username, isPersonal: true })) });
   }
   if (path === "/api/portal-accounts" && request.method === "POST") {
     const body = await readBody(request);
@@ -160,43 +161,53 @@ const portalAccountRoutes = async (request, env, path) => {
     const label = String(body.label || "").trim();
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
-    const scope = String(body.scope || "PERSONAL").trim().toUpperCase();
-    const grants = Array.isArray(body.allowedUserIds) ? [...new Set(body.allowedUserIds.map(value => String(value).trim().toUpperCase()))] : [];
-    if (!["METLIFE", "NEXTCARE"].includes(provider) || !label || label.length > 80 || !username || username.length > 160 || !password || password.length > 256 || !["PERSONAL", "SHARED"].includes(scope)) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
-    if (scope === "SHARED" && !isSuper) return forbidden();
-    if (scope === "PERSONAL" && grants.length) return respond(request, env, { success: false, error: "PERSONAL_ACCOUNT_CANNOT_HAVE_GRANTS" }, 400);
-    if (grants.length > 200) return respond(request, env, { success: false, error: "TOO_MANY_ACCOUNT_GRANTS" }, 400);
-    for (const userId of grants) {
-      if (!/^Q-[0-9]{3,}$/.test(userId) || !await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(userId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_GRANT" }, 400);
+    const targets = isSuper && Array.isArray(body.targetUserIds) ? [...new Set(body.targetUserIds.map(value => String(value).trim().toUpperCase()))] : [actor.user_id];
+    if (!["METLIFE", "NEXTCARE"].includes(provider) || !label || label.length > 80 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    if (!isSuper && body.targetUserIds !== undefined) return forbidden();
+    for (const userId of targets) {
+      if (!/^Q-[0-9]{3,}$/.test(userId) || !await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(userId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
     }
     let encrypted;
     try { encrypted = await encryptPortalPassword(env, password); }
     catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
-    const id = "PA-" + randomToken().slice(0, 20).toUpperCase();
-    const owner = scope === "PERSONAL" ? actor.user_id : actor.user_id;
-    await env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, label, username, encrypted_password, encryption_iv, encryption_version, scope, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, 1, ?, ?)").bind(id, owner, provider, label, username, encrypted.ciphertext, encrypted.iv, scope, now, now).run();
-    if (scope === "SHARED") {
-      const statements = grants.map(userId => env.DB.prepare("INSERT INTO portal_account_access (account_id, user_id, created_at) VALUES (?, ?, ?)").bind(id, userId, now));
-      if (statements.length) await env.DB.batch(statements);
-    }
-    return respond(request, env, { success: true, account: { id, provider, label, username, scope } }, 201);
+    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, label, username, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, label, username, encrypted.ciphertext, encrypted.iv, now, now));
+    await env.DB.batch(statements);
+    return respond(request, env, { success: true, createdFor: targets.length });
   }
-  const credentialMatch = path.match(/^\/api\/portal-accounts\/([A-Za-z0-9-]+)\/credentials$/);
-  if (credentialMatch && request.method === "POST") {
-    const id = decodeURIComponent(credentialMatch[1]);
-    const access = await env.DB.prepare("SELECT a.* FROM portal_accounts a LEFT JOIN portal_account_access g ON g.account_id = a.account_id AND g.user_id = ? WHERE a.account_id = ? AND a.enabled = 1 AND (a.owner_user_id = ? OR g.user_id = ?)").bind(actor.user_id, id, actor.user_id, actor.user_id).first();
-    if (!access) return forbidden();
+  const accountMatch = path.match(/^\/api\/portal-accounts\/([A-Za-z0-9-]+)\/credentials$/);
+  if (accountMatch && request.method === "POST") {
+    const id = decodeURIComponent(accountMatch[1]);
+    const account = await env.DB.prepare("SELECT account_id, provider, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND enabled = 1").bind(id, actor.user_id).first();
+    if (!account) return forbidden();
     try {
-      const password = await decryptPortalPassword(env, access.encrypted_password, access.encryption_iv);
-      return respond(request, env, { success: true, credentials: { accountId: access.account_id, provider: access.provider, username: access.username, password } });
+      const password = await decryptPortalPassword(env, account.encrypted_password, account.encryption_iv);
+      return respond(request, env, { success: true, credentials: { accountId: account.account_id, provider: account.provider, username: account.username, password } });
     } catch (error) {
       return respond(request, env, { success: false, error: error.message }, 503);
     }
   }
-  if (credentialMatch && request.method === "DELETE") {
-    const id = decodeURIComponent(credentialMatch[1]);
-    const result = await env.DB.prepare("DELETE FROM portal_accounts WHERE account_id = ? AND (owner_user_id = ? OR ? = 1)").bind(id, actor.user_id, isSuper ? 1 : 0).run();
+  if (accountMatch && request.method === "DELETE") {
+    const id = decodeURIComponent(accountMatch[1]);
+    const result = await env.DB.prepare("DELETE FROM portal_accounts WHERE account_id = ? AND owner_user_id = ?").bind(id, actor.user_id).run();
     return result.meta?.changes ? respond(request, env, { success: true }) : respond(request, env, { success: false, error: "NOT_FOUND_OR_FORBIDDEN" }, 404);
+  }
+  if (path === "/api/portal-accounts/bulk" && request.method === "POST") {
+    if (!isSuper) return forbidden();
+    const body = await readBody(request);
+    const provider = String(body.provider || "").trim().toUpperCase();
+    const label = String(body.label || "").trim();
+    const username = String(body.username || "").trim();
+    const password = String(body.password || "");
+    if (!["METLIFE", "NEXTCARE"].includes(provider) || !label || label.length > 80 || !username || username.length > 160 || !password || password.length > 256) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    const users = await env.DB.prepare("SELECT user_id FROM users WHERE status = 'Active' AND role IN ('USER', 'ADMIN')").all();
+    const targets = (users.results || []).map(user => user.user_id);
+    if (!targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGETS" }, 400);
+    let encrypted;
+    try { encrypted = await encryptPortalPassword(env, password); }
+    catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
+    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, label, username, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, label, username, encrypted.ciphertext, encrypted.iv, now, now));
+    await env.DB.batch(statements);
+    return respond(request, env, { success: true, createdFor: targets.length });
   }
   return null;
 };
