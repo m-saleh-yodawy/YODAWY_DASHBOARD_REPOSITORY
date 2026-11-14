@@ -480,7 +480,7 @@
 }
 @font-face {
     font-family: 'YD Dashboard Icons';
-    src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2') format('woff2');
+    src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/webfonts/fa-solid-900.woff2') format('woff2');
     font-style: normal;
     font-weight: 900;
     font-display: block;
