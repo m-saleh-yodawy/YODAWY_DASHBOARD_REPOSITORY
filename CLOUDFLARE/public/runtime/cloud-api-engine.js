@@ -138,6 +138,7 @@
     const savePortalAccount = async account => call('/api/portal-accounts', 'POST', account);
     const getPortalCredentials = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'POST');
     const deletePortalAccount = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'DELETE');
+    const savePortalAccountsForAll = async account => call('/api/portal-accounts/bulk', 'POST', account);
     const recordActivity = async activity => call('/api/dashboard/activity', 'POST', activity);
     const setUserPassword = async (userId, password) => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password', 'POST', { password });
     const getRepository = async () => ({ default_branch: 'cloudflare' });
