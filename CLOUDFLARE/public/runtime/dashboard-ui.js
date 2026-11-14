@@ -2,7 +2,7 @@
     'use strict';
 
     const page = document.defaultView || window;
-    if (window.YODAWY_DASHBOARD_UI?.getContext?.() || page.YODAWY_DASHBOARD_UI?.getContext?.()) return;
+    if (typeof window.YODAWY_DASHBOARD_UI?.init === 'function' || typeof page.YODAWY_DASHBOARD_UI?.init === 'function') return;
 
     const CONFIG = Object.freeze({
         ID: 'yd-dashboard-root',
@@ -3486,7 +3486,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (typeof source !== 'string' || !source.includes('page.YODAWY_DASHBOARD_UI')) {
             throw new Error('The latest Dashboard UI source is invalid or unavailable.');
         }
-        const registrationGuard = '    if (window.YODAWY_DASHBOARD_UI?.getContext?.() || page.YODAWY_DASHBOARD_UI?.getContext?.()) return;\n';
+        const registrationGuard = '    if (typeof window.YODAWY_DASHBOARD_UI?.init === 'function' || typeof page.YODAWY_DASHBOARD_UI?.init === 'function') return;\n';
         if (source.split(registrationGuard).length !== 2) {
             throw new Error('The Dashboard UI registration guard could not be safely bypassed.');
         }
