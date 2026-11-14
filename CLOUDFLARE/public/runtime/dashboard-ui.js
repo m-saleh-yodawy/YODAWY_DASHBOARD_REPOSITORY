@@ -32,6 +32,8 @@
 
     let context = null;
     let rootElement = null;
+    let portalAccounts = null;
+    let portalAccountsLoading = false;
     let activePage = 'tools';
     let refreshTimer = null;
     let notice = null;
@@ -3004,6 +3006,37 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '</section>';
     };
 
+    const loadPortalAccounts = async () => {
+        if (portalAccounts || portalAccountsLoading) return;
+        portalAccountsLoading = true;
+        try {
+            const api = context?.api || page.YODAWY_API_ENGINE;
+            const response = await api?.getPortalAccounts?.();
+            if (response?.success !== true) throw new Error(response?.error || 'Portal accounts are unavailable.');
+            portalAccounts = Array.isArray(response.accounts) ? response.accounts : [];
+        } catch {
+            portalAccounts = [];
+        } finally {
+            portalAccountsLoading = false;
+            if (context && activePage === 'tools' && isCurrentUI()) render();
+        }
+    };
+
+    const renderSplitAccountSettings = settings => {
+        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
+        if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-spinner fa-spin"></i></span><span><strong>Split Account</strong><small>Loading available accounts...</small></span></div>';
+        const accounts = portalAccounts.filter(account => account.provider === 'METLIFE');
+        const types = [...new Set(accounts.map(account => account.accountType).filter(type => ['PERSONAL', 'ALTERNATIVE'].includes(type)))];
+        if (!types.length) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-circle-info"></i></span><span><strong>Split Account</strong><small>No MetLife accounts are configured for this user.</small></span></div>';
+        const options = [
+            ...(types.includes('PERSONAL') ? [{ value: 'PERSONAL', label: 'Personal Account' }] : []),
+            ...(types.includes('ALTERNATIVE') ? [{ value: 'ALTERNATIVE', label: 'B.Kamal Account' }] : [])
+        ];
+        const selected = String(settings.preferences?.metlifeSplitAccount || '');
+        const value = options.some(option => option.value === selected) ? selected : '';
+        return '<div class="yd-field"><label for="yd-metlife-split-account">MetLife Split Account</label><select id="yd-metlife-split-account" data-action="split-account-preference" class="yd-input" aria-label="MetLife Split Account"><option value="">Choose an account</option>' + options.map(option => '<option value="' + option.value + '"' + (value === option.value ? ' selected' : '') + '>' + option.label + '</option>').join('') + '</select><small class="yd-field-hint">This choice is saved to your personal Dashboard settings.</small></div>';
+    };
+
     const renderTools = () => {
         const allTools = getTools();
         const isSuperAdmin = context.userRole === 'SUPER_ADMIN';
@@ -3022,7 +3055,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + ' · v' + escapeHTML(tool.version || '1') + '</small></span></span>' +
                 '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
-                '<div class="yd-tool-accordion-body"><div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>Tool-specific user settings will be available here.</small></span>' + (pending ? renderPendingBadge(pending.label || 'Updating') : '') + '</div></div></details>';
+                '<div class="yd-tool-accordion-body">' + (id === 'TOOL-005' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + (pending ? renderPendingBadge(pending.label || 'Updating') : '') + '</div></details>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Tools</h1><p>' + (isSuperAdmin ? 'Manage your personal tools and their availability.' : 'Expand a tool to access its personal settings and control its status.') + '</p></div></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-tool-search" placeholder="Search tools by name or ID"><span class="yd-pill">' + getLoadedTools().length + ' loaded / ' + allTools.length + ' total</span></div>' +
@@ -4403,6 +4436,25 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const bindEvents = root => {
+        root.addEventListener('change', async event => {
+            const select = event.target.closest?.('[data-action="split-account-preference"]');
+            if (!select || !root.contains(select)) return;
+            const selected = String(select.value || '').toUpperCase();
+            if (!['PERSONAL', 'ALTERNATIVE'].includes(selected)) return;
+            select.disabled = true;
+            try {
+                const updated = context.settings.getSettings();
+                updated.preferences = { ...(updated.preferences || {}), metlifeSplitAccount: selected };
+                await context.settings.save(updated);
+                showNotice('MetLife Split Account preference saved.');
+            } catch (error) {
+                showMessageDialog('Preference Not Saved', error?.message || 'Unable to save your Split account preference.');
+                render();
+            } finally {
+                if (select.isConnected) select.disabled = false;
+            }
+        });
+
         root.addEventListener('toggle', event => {
             const userItem = event.target.closest?.('details[data-user-accordion]');
             const toolItem = event.target.closest?.('details[data-tool-accordion]');
@@ -4681,6 +4733,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (document.getElementById(CONFIG.STYLE_ID)) document.getElementById(CONFIG.STYLE_ID).remove();
         rootElement = null;
         context = null;
+        portalAccounts = null;
+        portalAccountsLoading = false;
         notice = null;
         isOpen = false;
         profileOpen = false;
