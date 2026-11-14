@@ -2,6 +2,7 @@ return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
+    const ASSET_VERSION = '20261114-icons-3';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = code => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -42,7 +43,7 @@ return (async function (PAGE, STORE) {
     };
     const loadScript = path => new Promise((resolve, reject) => {
         const script = PAGE.document.createElement('script');
-        script.src = runtime + path;
+        script.src = runtime + path + '?v=' + ASSET_VERSION;
         script.async = false;
         script.onload = () => { script.remove(); resolve(true); };
         script.onerror = () => { script.remove(); reject(new Error('RUNTIME_ASSET_FAILED: ' + path)); };
