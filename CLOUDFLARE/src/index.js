@@ -438,7 +438,7 @@ export default {
       if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });
       if (url.pathname === "/api/ready" && request.method === "GET") {
         try {
-          const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs", "portal_accounts", "portal_account_access"];
+          const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs", "portal_accounts"];
           const result = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (" + required.map(() => "?").join(",") + ")").bind(...required).all();
           const existing = new Set((result.results || []).map(item => item.name));
           const missing = required.filter(name => !existing.has(name));
