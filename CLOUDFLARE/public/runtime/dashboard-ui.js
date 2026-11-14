@@ -188,6 +188,8 @@
         catch { return [context.user]; }
     };
 
+    const getVisibilityUsers = () => getUsers().filter(user => String(user.role || 'USER').trim().toUpperCase() !== 'SUPER_ADMIN');
+
     const getTools = () => {
         try { return context.tools?.getManifest?.() || []; }
         catch { return []; }
@@ -3183,7 +3185,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const engine = getRoleEngine();
         const record = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
         const fresh = document.createElement('div');
-        fresh.innerHTML = renderAllowedUsersDropdown(tool, record, engine?.getUsers?.() || [], pending);
+        fresh.innerHTML = renderAllowedUsersDropdown(tool, record, getVisibilityUsers(), pending);
         const replacement = fresh.firstElementChild;
         if (!replacement) return;
         const currentTrigger = current.querySelector('.ui-select-trigger');
@@ -3221,7 +3223,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const tools = getTools();
         const engine = getRoleEngine();
         const visibility = { ...(engine?.getVisibility?.() || {}), ...Object.fromEntries(optimisticVisibility) };
-        const users = engine?.getUsers?.() || [];
+        const users = getVisibilityUsers();
         const pendingTools = new Map(tools.map(tool => [String(tool.id), getPendingVisibility(String(tool.id))]));
         const pendingUsers = new Map(users.map(user => [String(user.id || '').trim().toUpperCase(), getPendingUser(user)]));
         const isAllowed = (tool, user) => {
@@ -3786,7 +3788,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     const createVisibilityDraft = toolId => {
         const engine = getRoleEngine();
         const record = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
-        const users = engine?.getUsers?.() || [];
+        const users = getVisibilityUsers();
         const allUsers = record.visibility === 'PUBLIC';
         return {
             toolId,
@@ -4050,7 +4052,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             } else if (action === 'toggle-visibility-bulk') {
                 const mode = String(button.dataset.mode || '');
                 const engine = getRoleEngine();
-                const users = engine?.getUsers?.() || [];
+                const users = getVisibilityUsers();
                 const tools = getTools();
                 const visibility = { ...(engine?.getVisibility?.() || {}), ...Object.fromEntries(optimisticVisibility) };
                 if (mode === 'ALL_USERS') {
@@ -4136,12 +4138,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const toolId = String(button.dataset.tool || '').trim();
                 const userId = String(button.dataset.user || '').trim().toUpperCase();
                 const engine = getRoleEngine();
-                const user = (engine?.getUsers?.() || []).find(item => String(item.id || '').trim().toUpperCase() === userId);
+                const user = getVisibilityUsers().find(item => String(item.id || '').trim().toUpperCase() === userId);
                 const tool = getTools().find(item => String(item.id || '').trim() === toolId);
                 if (!tool || !user || button.disabled || getPendingVisibility(toolId, userId) || getPendingUser(user)) return;
                 const currentRecord = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
                 const allowedUsers = new Set(currentRecord.visibility === 'PUBLIC'
-                    ? (engine?.getUsers?.() || []).map(item => String(item.id || '').trim().toUpperCase())
+                    ? getVisibilityUsers().map(item => String(item.id || '').trim().toUpperCase())
                     : (currentRecord.allowedUsers || []).map(id => String(id).trim().toUpperCase()));
                 const currentAllowed = currentRecord.visibility === 'PUBLIC' || allowedUsers.has(userId);
                 const nextAllowed = !currentAllowed;
@@ -4357,7 +4359,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             if (getPendingVisibility(toolId)) return true;
             if (!visibilityDraft || visibilityDraft.toolId !== toolId) visibilityDraft = createVisibilityDraft(toolId);
             if (visibilityDraft.allUsers) {
-                visibilityDraft.allowedUsers = new Set(getRoleEngine().getUsers().map(user => String(user.id || '').trim().toUpperCase()));
+                visibilityDraft.allowedUsers = new Set(getVisibilityUsers().map(user => String(user.id || '').trim().toUpperCase()));
                 visibilityDraft.allUsers = false;
             }
             if (visibilityDraft.allowedUsers.has(userId)) visibilityDraft.allowedUsers.delete(userId);
