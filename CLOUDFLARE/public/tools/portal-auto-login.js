@@ -31,119 +31,34 @@
         if (state.destroyed) throw new Error('Tool stopped');
     };
 
-    const ACCOUNTS_GLOBAL = '__YODAWY_PORTAL_ACCOUNTS__';
-
-    const sleep = ms => new Promise((resolve, reject) => {
-        if (state.destroyed) return reject(new Error('Tool stopped'));
-        const timer = setTimeout(() => {
-            state.timers.delete(timer);
-            state.controller.signal.removeEventListener('abort', abort);
-            resolve();
-        }, ms);
-        const abort = () => {
-            clearTimeout(timer);
-            state.timers.delete(timer);
-            reject(new Error('Tool stopped'));
-        };
-        state.timers.add(timer);
-        state.controller.signal.addEventListener('abort', abort, { once: true });
-    });
-
-    const normalize = value => String(value ?? '')
-        .replace(/\u00a0/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-    const visible = selector => [
-        ...document.querySelectorAll(selector)
-    ].filter(element =>
-        element.getClientRects().length > 0 &&
-        getComputedStyle(element).visibility !== 'hidden'
-    );
-
-    function setInput(input, value) {
-        input.setAttribute('autocomplete', 'off');
-
-        const descriptor = Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value'
-        );
-
-        descriptor.set.call(input, String(value ?? ''));
-
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    async function waitFor(find, timeout = 30000, interval = 300) {
+    const waitForApi = async () => {
         const started = Date.now();
-
-        while (Date.now() - started < timeout) {
+        while (Date.now() - started < 20000) {
             ensureActive();
-
-            try {
-                const result = find();
-                if (result) return result;
-            } catch (_) {}
-
-            await sleep(interval);
+            const api = window.YODAWY_API_ENGINE;
+            if (api?.getPortalAccounts && api?.getPortalCredentials) return api;
+            await sleep(250);
         }
+        throw new Error('Cloud account service is unavailable.');
+    };
 
-        throw new Error('Required page element was not found.');
-    }
-
-    function readAccountsFromLoader() {
-        const parsed = window[ACCOUNTS_GLOBAL];
-
-        if (!parsed || typeof parsed !== 'object') {
-            throw new Error(
-                'Account configuration was not provided by YODAWY LOADER.'
-            );
+    const resolvePersonalAccount = async company => {
+        const api = await waitForApi();
+        const name = normalize(company);
+        const provider = name.includes('metlife') ? 'METLIFE' : name.includes('nextcare') ? 'NEXTCARE' : '';
+        if (!provider) throw new Error('Unsupported insurance provider.');
+        const result = await api.getPortalAccounts();
+        const accounts = (result.accounts || []).filter(account =>
+            account.provider === provider && (account.accountType ? account.accountType === 'PERSONAL' : !/b\.?\s*kamal|alternative/i.test(account.label || ''))
+        );
+        if (!accounts.length) throw new Error('Your personal ' + provider + ' account is not configured.');
+        const account = accounts.find(item => /personal/i.test(item.label || '')) || accounts[0];
+        const response = await api.getPortalCredentials(account.id);
+        if (!response.success || !response.credentials?.username || !response.credentials?.password) {
+            throw new Error('Personal insurance credentials are unavailable.');
         }
-
-        const accounts =
-            parsed.accounts ||
-            parsed.users ||
-            parsed.portal_users ||
-            parsed;
-
-        if (
-            !accounts ||
-            typeof accounts !== 'object' ||
-            Array.isArray(accounts)
-        ) {
-            throw new Error('Invalid account configuration.');
-        }
-
-        return accounts;
-    }
-
-    function buildAccountIndex(accounts) {
-        const index = new Map();
-
-        for (const [company, account] of Object.entries(accounts)) {
-            if (
-                !account ||
-                typeof account !== 'object' ||
-                !String(account.username ?? '').trim() ||
-                !String(account.password ?? '').trim()
-            ) {
-                continue;
-            }
-
-            index.set(normalize(company), {
-                username: String(account.username),
-                password: String(account.password)
-            });
-        }
-
-        return index;
-    }
-
-    function resolveAccount(company, accountIndex) {
-        return accountIndex.get(normalize(company)) || null;
-    }
+        return response.credentials;
+    };
 
     function setupOdoo() {
         if (state.destroyed) return;
@@ -204,28 +119,12 @@
         const cardNumber = (params.get('card') || '').trim();
         const formNumber = (params.get('fn') || '').trim();
 
-        let accountIndex;
-
+        let account;
         try {
-            const accounts = readAccountsFromLoader();
-            accountIndex = buildAccountIndex(accounts);
-        } catch (_) {
+            account = await resolvePersonalAccount(company);
+        } catch (error) {
             ensureActive();
-            alert(
-                'YODAWY LOADER did not provide the private Portal accounts. ' +
-                'Check the PORTAL_ACCOUNTS object inside the Loader script.'
-            );
-            return;
-        }
-
-        const account = resolveAccount(company, accountIndex);
-
-        if (!account) {
-            alert(
-                `No Portal account matched this company:\n${company}\n\n` +
-                'Check that the company exists in the PORTAL_ACCOUNTS object inside ' +
-                'the Loader script and that its username and password are filled in.'
-            );
+            alert(error.message || 'Personal Portal account is unavailable.');
             return;
         }
 
