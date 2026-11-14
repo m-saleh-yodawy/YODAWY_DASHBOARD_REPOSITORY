@@ -229,7 +229,7 @@ const dashboardRoutes = async (request, env, path) => {
       env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
-      env.DB.prepare("SELECT tool_id, user_id FROM tool_visibility_users").all(),
+      env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all(),
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
       isSuper ? env.DB.prepare("SELECT user_id, settings_json FROM user_settings").all() : Promise.resolve({ results: [] }),
       env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
@@ -313,12 +313,13 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/visibility" && request.method === "PUT") {
     if (!isSuper || !body.visibility || typeof body.visibility !== "object" || Array.isArray(body.visibility)) return forbidden();
     const statements = [];
+    const eligibleVisibilityUsers = new Set((await env.DB.prepare("SELECT user_id FROM users WHERE role IN ('USER', 'ADMIN')").all()).results.map(user => String(user.user_id).trim().toUpperCase()));
     for (const [toolId, record] of Object.entries(body.visibility)) {
       const mode = String(record?.visibility || "PRIVATE").toUpperCase();
       if (!["PRIVATE", "PUBLIC", "SELECTED_USERS"].includes(mode) || !Array.isArray(record.allowedUsers)) continue;
       statements.push(env.DB.prepare("INSERT INTO tool_visibility (tool_id, mode, updated_at) VALUES (?, ?, ?) ON CONFLICT(tool_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at").bind(toolId, mode, now));
       statements.push(env.DB.prepare("DELETE FROM tool_visibility_users WHERE tool_id = ?").bind(toolId));
-      for (const userId of [...new Set(record.allowedUsers.map(value => String(value).trim().toUpperCase()).filter(Boolean))]) {
+      for (const userId of [...new Set(record.allowedUsers.map(value => String(value).trim().toUpperCase()).filter(userId => userId && eligibleVisibilityUsers.has(userId)))]) {
         statements.push(env.DB.prepare("INSERT OR IGNORE INTO tool_visibility_users (tool_id, user_id) VALUES (?, ?)").bind(toolId, userId));
       }
     }
