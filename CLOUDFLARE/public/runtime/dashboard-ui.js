@@ -3015,7 +3015,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const renderSplitAccountSettings = settings => {
         if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
-        if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-spinner fa-spin"></i></span><span><strong>Split Account</strong><small>Loading available accounts...</small></span></div>';
+        if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><span class="yd-control-spinner" aria-hidden="true"></span></span><span><strong>Split Account</strong></span></div>';
         const accounts = portalAccounts.filter(account => account.provider === 'METLIFE');
         const types = [...new Set(accounts.map(account => account.accountType).filter(type => ['PERSONAL', 'ALTERNATIVE'].includes(type)))];
         if (!types.length) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-circle-info"></i></span><span><strong>Split Account</strong><small>No MetLife accounts are configured for this user.</small></span></div>';
@@ -3403,6 +3403,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             } catch (error) {
                 submit.disabled = false;
                 submit.removeAttribute('aria-busy');
+                button.classList.remove('yd-button-loading');
                 submit.textContent = editing ? 'Save Changes' : 'Publish';
                 showMessageDialog('Announcement Not Saved', error?.message || 'Unable to submit this announcement.');
             }
@@ -3828,6 +3829,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             } catch (error) {
                 button.disabled = false;
                 button.removeAttribute('aria-busy');
+                button.classList.remove('yd-button-loading');
                 button.textContent = confirmLabel;
                 showMessageDialog('Unable to Submit Request', error?.message || 'The requested action failed.');
             }
@@ -3902,6 +3904,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             } catch (error) {
                 submitButton.disabled = false;
                 submitButton.removeAttribute('aria-busy');
+                button.classList.remove('yd-button-loading');
                 submitButton.textContent = editing ? 'Save Changes' : 'Create User';
                 showMessageDialog('Unable to submit user request', error?.message || 'The request could not be submitted.');
             }
@@ -3962,13 +3965,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     const icon = button.querySelector('.yd-action-icon');
                     const label = button.querySelector('b');
                     if (icon) icon.innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
-                    if (label) label.textContent = 'Refreshing';
+                    if (label) label.textContent = 'Refresh';
                 }
                 showNotice('Refreshing dashboard files, data and available tools...');
                 trackBackground(refresh().catch(error => showMessageDialog('Dashboard Refresh Failed', error?.message || 'Unable to refresh the dashboard.')).finally(() => {
                     if (button?.isConnected) {
                         button.disabled = false;
                         button.removeAttribute('aria-busy');
+                button.classList.remove('yd-button-loading');
                         const icon = button.querySelector('.yd-action-icon');
                         const label = button.querySelector('b');
                         if (icon) icon.innerHTML = '<i class="fa-solid fa-arrow-rotate-right"></i>';
