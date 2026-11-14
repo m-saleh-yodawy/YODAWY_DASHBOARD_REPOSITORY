@@ -3259,10 +3259,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 '<button type="button" class="yd-switch yd-visibility-switch' + (allowed ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(userId) + '" data-enabled="' + String(allowed) + '" role="switch" aria-checked="' + String(allowed) + '" aria-label="' + escapeHTML(label) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>' +
                 '</div>';
         };
-        const renderBulkSwitch = (label, mode, targetId, enabled, disabled, targetName) => {
+        const renderBulkSwitch = (label, mode, targetId, enabled, disabled, targetName, loading = false) => {
             const actionLabel = (enabled ? 'Disable ' : 'Enable ') + label.toLowerCase() + ' for ' + targetName;
             const targetAttribute = mode === 'ALL_TOOLS' ? 'data-user' : 'data-tool';
-            return '<span class="yd-visibility-bulk"><span class="yd-visibility-bulk-label">' + label + '</span><button type="button" class="yd-switch yd-visibility-switch yd-visibility-bulk-switch' + (enabled ? ' on' : '') + '" data-action="toggle-visibility-bulk" data-mode="' + mode + '" ' + targetAttribute + '="' + escapeHTML(targetId) + '" data-enabled="' + String(enabled) + '" role="switch" aria-checked="' + String(enabled) + '" aria-label="' + escapeHTML(actionLabel) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></span>';
+            return '<span class="yd-visibility-bulk"><span class="yd-visibility-bulk-label">' + label + '</span><button type="button" class="yd-switch yd-visibility-switch yd-visibility-bulk-switch' + (enabled ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility-bulk" data-mode="' + mode + '" ' + targetAttribute + '="' + escapeHTML(targetId) + '" data-enabled="' + String(enabled) + '" role="switch" aria-checked="' + String(enabled) + '" aria-label="' + escapeHTML(actionLabel) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></span>';
         };
         const modeCards = '<div class="yd-visibility-modes" data-active-mode="' + visibilityMode + '" role="tablist" aria-label="Visibility layout">' +
             '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong></span></button>' +
@@ -3277,7 +3277,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const active = String(user.status || '').toLowerCase() === 'active';
                 const pendingTool = tools.some(tool => getPendingVisibility(String(tool.id), userId));
                 const allToolsEnabled = tools.length > 0 && allowedCount === tools.length;
-                const bulkSwitch = renderBulkSwitch('ALL TOOLS', 'ALL_TOOLS', userId, allToolsEnabled, Boolean(!active || pendingUser || pendingTool || !tools.length), formatName(user.name));
+                const bulkSwitch = renderBulkSwitch('ALL TOOLS', 'ALL_TOOLS', userId, allToolsEnabled, Boolean(!active || pendingUser || pendingTool || !tools.length), formatName(user.name), Boolean(pendingUser || pendingTool));
                 const rows = tools.map(tool => {
                     return '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(tool.id) + '</small></div>' + renderSwitch(tool, user) + '</div>';
                 }).join('');
@@ -3292,7 +3292,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const expanded = visibilityExpandedTools.has(toolId) ? ' open' : '';
                 const pendingUser = users.some(user => pendingUsers.get(String(user.id || '').trim().toUpperCase()));
                 const allUsersEnabled = users.length > 0 && allowedCount === users.length;
-                const bulkSwitch = renderBulkSwitch('ALL USERS', 'ALL_USERS', toolId, allUsersEnabled, Boolean(pending || pendingUser || !users.length), tool.name);
+                const bulkSwitch = renderBulkSwitch('ALL USERS', 'ALL_USERS', toolId, allUsersEnabled, Boolean(pending || pendingUser || !users.length), tool.name, Boolean(pending || pendingUser));
                 const rows = users.map(user =>
                     '<div class="yd-visibility-row"><div class="yd-visibility-row-main"><strong>' + escapeHTML(formatName(user.name)) + '</strong><small>' + escapeHTML(String(user.id || '').trim().toUpperCase()) + ' · ' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</small></div>' + renderSwitch(tool, user) + '</div>'
                 ).join('');
