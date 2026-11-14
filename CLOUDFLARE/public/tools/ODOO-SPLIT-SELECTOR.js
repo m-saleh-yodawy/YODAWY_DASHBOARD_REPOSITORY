@@ -1147,7 +1147,7 @@
         button.title = 'Fetch Split Drugs';
 
         button.innerHTML = `
-<i class="fa fa-fw fa-exchange o_button_icon"></i>
+<i class="yd-custom-icon fa fa-fw fa-exchange o_button_icon"></i>
 <div class="o_stat_info">
     <span class="o_stat_text">Split</span>
 </div>`;

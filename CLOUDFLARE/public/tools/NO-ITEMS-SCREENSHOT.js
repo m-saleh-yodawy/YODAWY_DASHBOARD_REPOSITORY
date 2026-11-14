@@ -683,7 +683,7 @@ systray.setAttribute('role','menuitem');
 
 systray.innerHTML=`
 <button id="noitems-systray-button" type="button" title="No Items Automation" aria-label="No Items Automation">
-<i class="fa fa-camera"></i>
+<i class="yd-custom-icon fa fa-camera"></i>
 <span id="noitems-counter">0</span>
 </button>
 `;

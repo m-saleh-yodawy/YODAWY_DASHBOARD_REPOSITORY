@@ -1570,7 +1570,7 @@
                     aria-label="Ordered By WH"
                 >
                     <i
-                        class="fa fa-shopping-cart"
+                        class="yd-custom-icon fa fa-shopping-cart"
                         role="img"
                         aria-label="Ordered By WH"
                     ></i>

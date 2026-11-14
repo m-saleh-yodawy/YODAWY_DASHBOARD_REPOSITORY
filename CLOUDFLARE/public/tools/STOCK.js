@@ -558,7 +558,7 @@ function createUI(){
     systrayItem.setAttribute('role','menuitem');
     systrayItem.innerHTML=`
         <button id="ms-stock-hzb-systray-button" type="button" title="Stock HZB" aria-label="Stock HZB">
-            <i class="fa fa-cubes" role="img" aria-label="Stock HZB"></i>
+            <i class="yd-custom-icon fa fa-cubes" role="img" aria-label="Stock HZB"></i>
         </button>`;
 
     const systrayButton=systrayItem.firstElementChild;
