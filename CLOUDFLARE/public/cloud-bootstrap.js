@@ -2,7 +2,7 @@ return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261114-icons-3';
+    const ASSET_VERSION = '20261114-ui-init-5';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -163,6 +163,12 @@ return (async function (PAGE, STORE) {
             'dashboard-ui.js'
         ];
         for (const asset of assets) await loadScript(asset);
+        const dashboardUI = PAGE.YODAWY_DASHBOARD_UI || PAGE.document.defaultView?.YODAWY_DASHBOARD_UI;
+        if (!dashboardUI || typeof dashboardUI.init !== 'function') {
+            const error = new Error('Dashboard UI runtime did not register an init function. Asset version: ' + ASSET_VERSION);
+            error.code = 'DASHBOARD_UI_NOT_REGISTERED';
+            throw error;
+        }
         const YODAWY = {
             api: PAGE.YODAWY_API_ENGINE,
             auth: PAGE.YODAWY_AUTH_ENGINE,
@@ -172,7 +178,7 @@ return (async function (PAGE, STORE) {
             cloudAuth: { changePassword: context.changePassword, logout: context.logout },
             tools: PAGE.YODAWY_TOOLS_MANAGER,
             announcements: PAGE.YODAWY_ANNOUNCEMENTS_ENGINE,
-            ui: PAGE.YODAWY_DASHBOARD_UI,
+            ui: dashboardUI,
             user,
             userId: user.id,
             userRole: user.role,
