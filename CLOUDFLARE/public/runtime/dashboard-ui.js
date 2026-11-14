@@ -491,35 +491,35 @@
     font-weight: 900 !important;
     font-style: normal !important;
 }
-#yd-dashboard-root .fa-spinner::before { content: '\\f110'; }
-#yd-dashboard-root .fa-circle-exclamation::before { content: '\\f06a'; }
-#yd-dashboard-root .fa-toolbox::before { content: '\\f552'; }
-#yd-dashboard-root .fa-chart-pie::before { content: '\\f200'; }
-#yd-dashboard-root .fa-bullhorn::before { content: '\\f0a1'; }
-#yd-dashboard-root .fa-users::before { content: '\\f0c0'; }
-#yd-dashboard-root .fa-sliders::before { content: '\\f1de'; }
-#yd-dashboard-root .fa-eye::before { content: '\\f06e'; }
-#yd-dashboard-root .fa-right-left::before { content: '\\f362'; }
-#yd-dashboard-root .fa-gear::before { content: '\\f013'; }
-#yd-dashboard-root .fa-user-shield::before { content: '\\f505'; }
-#yd-dashboard-root .fa-arrows-rotate::before { content: '\\f021'; }
-#yd-dashboard-root .fa-cloud-arrow-up::before { content: '\\f0ee'; }
-#yd-dashboard-root .fa-xmark::before { content: '\\f00d'; }
-#yd-dashboard-root .fa-circle-info::before { content: '\\f05a'; }
-#yd-dashboard-root .fa-check::before { content: '\\f00c'; }
-#yd-dashboard-root .fa-arrow-rotate-right::before { content: '\\f01e'; }
-#yd-dashboard-root .fa-shield-halved::before { content: '\\f3ed'; }
-#yd-dashboard-root .fa-bolt::before { content: '\\f0e7'; }
-#yd-dashboard-root .fa-cloud::before { content: '\\f0c2'; }
-#yd-dashboard-root .fa-user::before { content: '\\f007'; }
-#yd-dashboard-root .fa-plug-circle-check::before { content: '\\e55c'; }
-#yd-dashboard-root .fa-plus::before { content: '\\f067'; }
-#yd-dashboard-root .fa-square-check::before { content: '\\f14a'; }
-#yd-dashboard-root .fa-square::before { content: '\\f0c8'; }
-#yd-dashboard-root .fa-database::before { content: '\\f1c0'; }
-#yd-dashboard-root .fa-lock::before { content: '\\f023'; }
-#yd-dashboard-root .fa-key::before { content: '\\f084'; }
-#yd-dashboard-root .fa-circle-check::before { content: '\\f058'; }
+#yd-dashboard-root .fa-spinner::before { content: '\f110'; }
+#yd-dashboard-root .fa-circle-exclamation::before { content: '\f06a'; }
+#yd-dashboard-root .fa-toolbox::before { content: '\f552'; }
+#yd-dashboard-root .fa-chart-pie::before { content: '\f200'; }
+#yd-dashboard-root .fa-bullhorn::before { content: '\f0a1'; }
+#yd-dashboard-root .fa-users::before { content: '\f0c0'; }
+#yd-dashboard-root .fa-sliders::before { content: '\f1de'; }
+#yd-dashboard-root .fa-eye::before { content: '\f06e'; }
+#yd-dashboard-root .fa-right-left::before { content: '\f362'; }
+#yd-dashboard-root .fa-gear::before { content: '\f013'; }
+#yd-dashboard-root .fa-user-shield::before { content: '\f505'; }
+#yd-dashboard-root .fa-arrows-rotate::before { content: '\f021'; }
+#yd-dashboard-root .fa-cloud-arrow-up::before { content: '\f0ee'; }
+#yd-dashboard-root .fa-xmark::before { content: '\f00d'; }
+#yd-dashboard-root .fa-circle-info::before { content: '\f05a'; }
+#yd-dashboard-root .fa-check::before { content: '\f00c'; }
+#yd-dashboard-root .fa-arrow-rotate-right::before { content: '\f01e'; }
+#yd-dashboard-root .fa-shield-halved::before { content: '\f3ed'; }
+#yd-dashboard-root .fa-bolt::before { content: '\f0e7'; }
+#yd-dashboard-root .fa-cloud::before { content: '\f0c2'; }
+#yd-dashboard-root .fa-user::before { content: '\f007'; }
+#yd-dashboard-root .fa-plug-circle-check::before { content: '\e55c'; }
+#yd-dashboard-root .fa-plus::before { content: '\f067'; }
+#yd-dashboard-root .fa-square-check::before { content: '\f14a'; }
+#yd-dashboard-root .fa-square::before { content: '\f0c8'; }
+#yd-dashboard-root .fa-database::before { content: '\f1c0'; }
+#yd-dashboard-root .fa-lock::before { content: '\f023'; }
+#yd-dashboard-root .fa-key::before { content: '\f084'; }
+#yd-dashboard-root .fa-circle-check::before { content: '\f058'; }
 #yd-dashboard-root .fa-spin { animation: yd-fa-spin 2s linear infinite; }
 @keyframes yd-fa-spin { to { transform: rotate(360deg); } }
 #yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
