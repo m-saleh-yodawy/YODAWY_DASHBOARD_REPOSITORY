@@ -524,22 +524,8 @@
 @keyframes yd-fa-spin { to { transform: rotate(360deg); } }
 #yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
 #yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
-    font-family: "Font Awesome 6 Free" !important;
+    font-family: 'YD Font Awesome' !important;
     font-weight: 900 !important;
-    font-style: normal !important;
-    font-variant: normal !important;
-}
-#yd-dashboard-root .fa-regular, #yd-dashboard-root .far,
-#yd-dashboard-root .fa-regular::before, #yd-dashboard-root .far::before {
-    font-family: "Font Awesome 6 Free" !important;
-    font-weight: 400 !important;
-    font-style: normal !important;
-    font-variant: normal !important;
-}
-#yd-dashboard-root .fa-brands, #yd-dashboard-root .fab,
-#yd-dashboard-root .fa-brands::before, #yd-dashboard-root .fab::before {
-    font-family: "Font Awesome 6 Brands" !important;
-    font-weight: 400 !important;
     font-style: normal !important;
     font-variant: normal !important;
 }
