@@ -198,17 +198,18 @@ const portalAccountRoutes = async (request, env, path) => {
     const body = await readBody(request);
     const provider = String(body.provider || "").trim().toUpperCase();
     const label = String(body.label || "").trim();
-    const accountType = String(body.accountType || (/b\.kamal|alternative/i.test(label) ? "ALTERNATIVE" : "PERSONAL")).trim().toUpperCase();
+    const accountType = String(body.accountType || "PERSONAL").trim().toUpperCase();
+    const odooKey = String(body.odooKey || "").trim();
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
-    if (!["METLIFE", "NEXTCARE"].includes(provider) || !["PERSONAL", "ALTERNATIVE"].includes(accountType) || !label || label.length > 80 || !username || username.length > 160 || !password || password.length > 256) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
     const users = await env.DB.prepare("SELECT user_id FROM users WHERE status = 'Active' AND role IN ('USER', 'ADMIN')").all();
     const targets = (users.results || []).map(user => user.user_id);
     if (!targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGETS" }, 400);
     let encrypted;
     try { encrypted = await encryptPortalPassword(env, password); }
     catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
-    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, encrypted.ciphertext, encrypted.iv, now, now));
+    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
     await env.DB.batch(statements);
     return respond(request, env, { success: true, createdFor: targets.length });
   }
