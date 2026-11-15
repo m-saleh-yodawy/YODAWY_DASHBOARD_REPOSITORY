@@ -153,8 +153,8 @@ const portalAccountRoutes = async (request, env, path) => {
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
   if (path === "/api/portal-accounts" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT account_id, provider, account_type, label, username FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY provider, account_type, label").bind(actor.user_id).all();
-    return respond(request, env, { success: true, accounts: (rows.results || []).map(row => ({ id: row.account_id, provider: row.provider, accountType: row.account_type, label: row.label, username: row.username, isPersonal: row.account_type === "PERSONAL" })) });
+    const rows = await env.DB.prepare("SELECT account_id, provider, account_type, label, username, odoo_key FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY account_type, odoo_key, label").bind(actor.user_id).all();
+    return respond(request, env, { success: true, accounts: (rows.results || []).map(row => ({ id: row.account_id, provider: row.provider, accountType: row.account_type, label: row.label, username: row.username, odooKey: row.odoo_key, isPersonal: row.account_type === "PERSONAL" })) });
   }
   if (path === "/api/portal-accounts" && request.method === "POST") {
     const body = await readBody(request);
@@ -164,7 +164,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     const targets = isSuper && Array.isArray(body.targetUserIds) ? [...new Set(body.targetUserIds.map(value => String(value).trim().toUpperCase()))] : [actor.user_id];
-    if (!["METLIFE", "NEXTCARE"].includes(provider) || !["PERSONAL", "ALTERNATIVE"].includes(accountType) || !label || label.length > 80 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    if (!["PORTAL"].includes(provider) || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
     if (!isSuper && body.targetUserIds !== undefined) return forbidden();
     for (const userId of targets) {
       if (!/^Q-[0-9]{3,}$/.test(userId) || !await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(userId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
@@ -172,18 +172,18 @@ const portalAccountRoutes = async (request, env, path) => {
     let encrypted;
     try { encrypted = await encryptPortalPassword(env, password); }
     catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
-    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, encrypted.ciphertext, encrypted.iv, now, now));
+    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
     await env.DB.batch(statements);
     return respond(request, env, { success: true, createdFor: targets.length });
   }
   const accountMatch = path.match(/^\/api\/portal-accounts\/([A-Za-z0-9-]+)\/credentials$/);
   if (accountMatch && request.method === "POST") {
     const id = decodeURIComponent(accountMatch[1]);
-    const account = await env.DB.prepare("SELECT account_id, provider, account_type, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND enabled = 1").bind(id, actor.user_id).first();
+    const account = await env.DB.prepare("SELECT account_id, provider, account_type, username, odoo_key, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND enabled = 1").bind(id, actor.user_id).first();
     if (!account) return forbidden();
     try {
       const password = await decryptPortalPassword(env, account.encrypted_password, account.encryption_iv);
-      return respond(request, env, { success: true, credentials: { accountId: account.account_id, provider: account.provider, accountType: account.account_type, username: account.username, password } });
+      return respond(request, env, { success: true, credentials: { accountId: account.account_id, provider: account.provider, accountType: account.account_type, username: account.username, odooKey: account.odoo_key, password } });
     } catch (error) {
       return respond(request, env, { success: false, error: error.message }, 503);
     }
