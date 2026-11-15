@@ -1456,6 +1456,10 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     vertical-align: middle;
 }
 
+#yd-dashboard-root .yd-tool-accordion-list {
+    padding-bottom: 20px;
+}
+
 #yd-dashboard-root .yd-accordion-list,
 #yd-dashboard-root .yd-tool-accordion-list {
     display: flex;
