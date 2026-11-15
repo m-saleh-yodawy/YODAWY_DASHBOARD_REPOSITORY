@@ -3498,7 +3498,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 if (source.startsWith('[')) {
                     records = JSON.parse(source);
                 } else {
-                    const entries = [...source.matchAll(/(?:UserName|Username)\s*:\s*([^\r\n]+)[\s\\S]*?Password\s*:\s*([^\r\n]+)/gi)];
+                    const entries = [...source.matchAll(/(?:UserName|Username)\s*:\s*([^\r\n]+)[\s\S]*?Password\s*:\s*([^\r\n]+)/gi)];
                     if (!entries.length) throw new Error('No Username / Password records were found.');
                     const keyMap = {
                         'administrative control authority (aca)': 'Administrative control Authority (ACA)',
