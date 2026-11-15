@@ -158,13 +158,14 @@ const portalAccountRoutes = async (request, env, path) => {
   }
   if (path === "/api/portal-accounts" && request.method === "POST") {
     const body = await readBody(request);
-    const provider = String(body.provider || "").trim().toUpperCase();
+    const provider = String(body.provider || "PORTAL").trim().toUpperCase();
     const label = String(body.label || "").trim();
-    const accountType = String(body.accountType || (/b\.kamal|alternative/i.test(label) ? "ALTERNATIVE" : "PERSONAL")).trim().toUpperCase();
+    const accountType = String(body.accountType || "PERSONAL").trim().toUpperCase();
+    const odooKey = String(body.odooKey || "").trim();
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     const targets = isSuper && Array.isArray(body.targetUserIds) ? [...new Set(body.targetUserIds.map(value => String(value).trim().toUpperCase()))] : [actor.user_id];
-    if (!["PORTAL"].includes(provider) || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
     if (!isSuper && body.targetUserIds !== undefined) return forbidden();
     for (const userId of targets) {
       if (!/^Q-[0-9]{3,}$/.test(userId) || !await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(userId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
