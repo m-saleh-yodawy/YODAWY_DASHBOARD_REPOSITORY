@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ODOO >>> AUTO LOGIN
+// @name         Odoo Auto Login
 // @namespace    http://tampermonkey.net/
 // @version      1
 // @description  Open Yodawy ERX directly by clicking the customer card number

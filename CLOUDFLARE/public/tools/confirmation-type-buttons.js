@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         CONFIRMATION TYPE BUTTONS
+// @name         Confirmation Type Buttons
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh

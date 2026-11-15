@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         METLIFE >>> CARD NUMBER AUTOMATION
+// @name         MetLife Card Number Automation
 // @namespace    https://i-care.globemedegypt.com/
 // @version      1
 // @author       Mohamed Saleh

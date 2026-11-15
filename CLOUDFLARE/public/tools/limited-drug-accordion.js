@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ODOO >>> LIMITED DRUG ACCORDION
+// @name         Limited Drug Accordion
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh

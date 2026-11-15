@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ODOO >>> NO ITEMS SCREENSHOT
+// @name         No Items Screenshot
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh

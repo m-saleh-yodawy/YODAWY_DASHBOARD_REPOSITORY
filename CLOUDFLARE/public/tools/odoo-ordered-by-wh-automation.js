@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ODOO >>> ORDERED BY WH AUTOMATION
+// @name         Odoo Ordered by WH Automation
 // @namespace    http://tampermonkey.net/
 // @version      1
 // @author       Mohamed Saleh
