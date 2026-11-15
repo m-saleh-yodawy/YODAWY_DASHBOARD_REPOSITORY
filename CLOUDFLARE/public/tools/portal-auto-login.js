@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         PORTAL AUTO LOGIN
+// @name         Portal Auto Login
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @description  Unified Odoo to Portal login using YODAWY LOADER

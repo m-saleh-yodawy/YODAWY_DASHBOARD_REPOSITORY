@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ODOO >>> STOCK
+// @name         Odoo Stock
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh

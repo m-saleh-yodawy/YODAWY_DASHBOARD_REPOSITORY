@@ -1,3 +1,13 @@
+// ==UserScript==
+// @name         Split Prescriptions
+// @namespace    https://odoo.yodawy.com/
+// @version      1
+// @author       Mohamed Saleh
+// @match        https://odoo.yodawy.com/web*
+// @run-at       document-idle
+// @grant        none
+// ==/UserScript==
+
 (function(){
     'use strict';
 

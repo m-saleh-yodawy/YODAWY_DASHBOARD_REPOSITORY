@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         PORTAL >>> AUTO SPLIT
+// @name         Portal Auto Split
 // @namespace    http://tampermonkey.net/
 // @version      1
 // @author       Mohamed Saleh

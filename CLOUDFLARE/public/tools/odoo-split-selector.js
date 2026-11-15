@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         ODOO >>> SPLIT SELECTOR
+// @name         Odoo Split Selector
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh
