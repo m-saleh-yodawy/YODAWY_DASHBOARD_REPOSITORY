@@ -35,7 +35,8 @@ const verifyAccess = async (token, secret) => {
 };
 const allowedOrigin = (request, env) => {
   const origin = request.headers.get("origin") || "";
-  return (env.ALLOWED_ORIGINS || "https://odoo.yodawy.com,https://portal.yodawy.com").split(",").map(value => value.trim()).includes(origin) ? origin : "";
+  const origins = new Set(["https://odoo.yodawy.com", "https://portal.yodawy.com", ...(env.ALLOWED_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean)]);
+  return origins.has(origin) ? origin : "";
 };
 const respond = (request, env, data, status = 200) => {
   const headers = new Headers(json(data, status).headers);
@@ -463,6 +464,12 @@ export default {
       }
       return respond(request, env, { success: false, error: "NOT_FOUND" }, 404);
     }
-    return env.ASSETS.fetch(request);
+    const response = await env.ASSETS.fetch(request);
+    const origin = allowedOrigin(request, env);
+    if (!origin) return response;
+    const headers = new Headers(response.headers);
+    headers.set("access-control-allow-origin", origin);
+    headers.set("vary", "Origin");
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   }
 };
