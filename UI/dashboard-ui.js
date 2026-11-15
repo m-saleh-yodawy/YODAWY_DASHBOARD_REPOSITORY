@@ -3481,7 +3481,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (String(context?.userRole || '').toUpperCase() !== 'SUPER_ADMIN') return;
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<form class="yd-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-import-title"><h3 id="yd-portal-import-title">Import Portal Accounts</h3><p>Paste a JSON array. Passwords are encrypted by the Worker before being stored.</p><div class="yd-field"><label for="yd-portal-import-json">Account Data</label><textarea id="yd-portal-import-json" name="accounts" rows="12" spellcheck="false" required placeholder=\'[{"label":"Next Care","username":"portal_user","password":"...","odooKey":"Next Care","accountType":"PERSONAL"}]\'></textarea></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-import-cancel>Cancel</button><button type="submit" class="yd-primary">Validate & Import</button></div><div class="yd-form-feedback" data-portal-import-feedback hidden></div></form>';
+        overlay.innerHTML = '<form class="yd-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-import-title"><h3 id="yd-portal-import-title">Import Portal Accounts</h3><p>Paste the account list in Username / Password format. The importer detects Mohamed's personal accounts and the shared alternatives automatically.</p><div class="yd-field"><label for="yd-portal-import-json">Account Credentials</label><textarea id="yd-portal-import-json" name="accounts" rows="12" spellcheck="false" required placeholder="Username: m.saleh_Nextcare&#10;Password: ********"></textarea></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-import-cancel>Cancel</button><button type="submit" class="yd-primary">Validate & Import</button></div><div class="yd-form-feedback" data-portal-import-feedback hidden></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
         const form = overlay.querySelector('form');
         const close = () => overlay.remove();
@@ -3494,15 +3494,54 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             if (submit.disabled) return;
             let records;
             try {
-                records = JSON.parse(field.value);
+                const source = field.value.trim();
+                if (source.startsWith('[')) {
+                    records = JSON.parse(source);
+                } else {
+                    const entries = [...source.matchAll(/(?:UserName|Username)\\s*:\\s*([^\\r\\n]+)[\\s\\S]*?Password\\s*:\\s*([^\\r\\n]+)/gi)];
+                    if (!entries.length) throw new Error('No Username / Password records were found.');
+                    const keyMap = {
+                        'administrative control authority (aca)': 'Administrative control Authority (ACA)',
+                        'adminstrative control authority': 'Administrative control Authority (ACA)',
+                        'al ahly medical company': 'Ahly Medical',
+                        'al mashreq': 'El Mashreq',
+                        'careplus': 'Care Plus',
+                        'egycare': 'EGY-Care',
+                        'egymed': 'EgyMed',
+                        'diamond electronic services': 'DES',
+                        'national printing agency': 'National Authority For Printing & Publishing',
+                        'medi card': 'Medicard',
+                        'medicard': 'Medicard',
+                        'nextcare': 'Next Care',
+                        'tristar': 'Tri-Star',
+                        'wadi el nile': 'Wadi El Neel',
+                        'yodawy': 'Medicard'
+                    };
+                    records = entries.map((match) => {
+                        const username = match[1].trim();
+                        const password = match[2].trim();
+                        const separator = username.indexOf('_');
+                        if (separator < 0) throw new Error('Invalid username: ' + username);
+                        const owner = username.slice(0, separator).toLowerCase();
+                        const originalLabel = username.slice(separator + 1).trim();
+                        const label = owner === 'm.saleh' && originalLabel.toLowerCase() === 'yodawy' ? 'Medicard' : originalLabel;
+                        const accountType = owner === 'm.saleh' ? 'PERSONAL' : owner === 'a.shaaban' ? 'NON-PERSONAL' : '';
+                        if (!accountType) throw new Error('Unsupported account owner in: ' + username);
+                        return { label, username, password, odooKey: keyMap[originalLabel.toLowerCase()] || label, accountType };
+                    }).filter(item => !(item.accountType === 'NON-PERSONAL' && item.label.toLowerCase() === 'hyper one'));
+                }
+                if (!Array.isArray(records) || !records.length || records.length > 150) throw new Error('Provide between 1 and 150 account records.');
+                records = records.map(item => ({ ...item, targetUserIds: [String(context?.userId || context?.user?.id || context?.user?.userId || '').trim().toUpperCase()] }));
+                if (records.some(item => !records[0].targetUserIds[0] || !item.label || !item.username || !item.password || !['PERSONAL', 'NON-PERSONAL'].includes(String(item.accountType || '').toUpperCase()))) throw new Error('Each account needs label, username, password and accountType (PERSONAL or NON-PERSONAL).');
+            } catch (error) {
+                feedback.hidden = false;
+                feedback.textContent = error.message || 'Invalid account data.';
+                return;
+            }
+            submit.disabled = true;
                 if (!Array.isArray(records) || !records.length || records.length > 150) throw new Error('Provide a JSON array containing 1 to 150 accounts.');
                 records = records.map(item => ({ ...item, targetUserIds: [String(context?.userId || context?.user?.id || context?.user?.userId || '').trim().toUpperCase()] }));
                 if (records.some(item => !item.targetUserIds[0] || !item.label || !item.username || !item.password || !['PERSONAL', 'NON-PERSONAL'].includes(String(item.accountType || '').toUpperCase()))) throw new Error('Each account needs label, username, password and accountType (PERSONAL or NON-PERSONAL).');
-            } catch (error) {
-                feedback.hidden = false;
-                feedback.textContent = error.message || 'Invalid JSON.';
-                return;
-            }
             submit.disabled = true;
             submit.innerHTML = '<span class="yd-control-spinner"></span><span>Importing...</span>';
             feedback.hidden = true;
