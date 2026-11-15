@@ -144,7 +144,7 @@
 
     const ROLE_ACCESS = Object.freeze({
         USER: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password']),
             canManageAnnouncements: false,
             canManageUsers: false,
@@ -156,7 +156,7 @@
             canViewNetwork: false
         }),
         ADMIN: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
@@ -168,7 +168,7 @@
             canViewNetwork: false
         }),
         SUPER_ADMIN: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
@@ -2891,7 +2891,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const navItems = () => {
         const access = getRoleAccess();
-        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements']];
+        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements'], ['accounts', 'fa-solid fa-building-shield', 'Accounts']];
         if (access.canManageUsers) items.push(['users', 'fa-solid fa-users', 'Users']);
         if (access.canManageUserPermissions || access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
@@ -3015,6 +3015,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             portalAccountsLoading = false;
             if (context && activePage === 'tools' && isCurrentUI()) render();
         }
+    };
+
+    const renderAccounts = () => {
+        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
+        const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
+        const personal = accounts.filter(account => account.accountType === 'PERSONAL');
+        const nonPersonal = accounts.filter(account => account.accountType === 'NON-PERSONAL');
+        const renderGroup = (title, icon, items, type) => '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + icon + '"></i></span><span>' + title + '</span><span class="yd-pill">' + items.length + '</span></div>' + (items.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + items.map(account => '<tr><td><strong>' + escapeHTML(account.label || '—') + '</strong></td><td>' + escapeHTML(account.username || '—') + '</td><td>' + escapeHTML(account.odooKey || '—') + '</td><td>' + escapeHTML(account.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>No ' + type + ' accounts yet</strong><small>Accounts assigned to your user will appear here.</small></div>') + '</section>';
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Manage personal and shared portal accounts assigned to your Dashboard user.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span><button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : renderGroup('Personal Accounts', 'fa-user-lock', personal, 'personal') + renderGroup('Non-Personal Accounts', 'fa-users', nonPersonal, 'non-personal'));
     };
 
     const renderSplitAccountSettings = settings => {
@@ -3446,6 +3455,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             overview: renderOverview,
             tools: renderTools,
             announcements: renderAnnouncements,
+            accounts: renderAccounts,
             users: renderUsers,
             permissions: renderPermissions,
             visibility: renderVisibility,
