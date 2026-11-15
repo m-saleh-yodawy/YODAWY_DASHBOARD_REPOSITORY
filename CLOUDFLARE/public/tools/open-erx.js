@@ -175,10 +175,17 @@
             const handler = () => {
                 const company = getFieldValue('payor_id');
                 const cardNumber = String(card.innerText || card.textContent || '').trim();
-                const formNumber = getFieldValue('prescription_number');
+                const formNumber = getFieldValue('prescription_number') ||
+                    getFieldValue('user_ref_2') ||
+                    getFieldValue('prescription_mongo_id');
 
                 if (!company || !cardNumber || !formNumber) {
-                    alert('Unable to read the insurance company, card number, or Form Number.');
+                    const missing = [
+                        !company && 'insurance company',
+                        !cardNumber && 'card number',
+                        !formNumber && 'prescription reference'
+                    ].filter(Boolean);
+                    alert('Unable to read the ' + missing.join(', ') + '.');
                     return;
                 }
 
