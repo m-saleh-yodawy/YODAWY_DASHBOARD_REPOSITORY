@@ -3527,7 +3527,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         const label = owner === 'm.saleh' && originalLabel.toLowerCase() === 'yodawy' ? 'Medicard' : originalLabel;
                         const accountType = owner === 'm.saleh' ? 'PERSONAL' : ['a.shaaban', 'm.moustafa'].includes(owner) ? 'NON-PERSONAL' : '';
                         if (!accountType) throw new Error('Unsupported account owner in: ' + username);
-                        return { label, username, password, odooKey: keyMap[originalLabel.toLowerCase()] || label, accountType };
+                        return { label, username, password, odooKey: keyMap[originalLabel.toLowerCase()] || '', accountType };
                     }).filter(item => !(item.accountType === 'NON-PERSONAL' && item.label.toLowerCase() === 'hyper one'));
                 }
                 if (!Array.isArray(records) || !records.length || records.length > 150) throw new Error('Provide between 1 and 150 account records.');
