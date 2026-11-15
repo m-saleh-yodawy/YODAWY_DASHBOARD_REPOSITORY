@@ -142,7 +142,7 @@
 
     const ROLE_ACCESS = Object.freeze({
         USER: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password']),
             canManageAnnouncements: false,
             canManageUsers: false,
@@ -154,7 +154,7 @@
             canViewNetwork: false
         }),
         ADMIN: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
@@ -166,7 +166,7 @@
             canViewNetwork: false
         }),
         SUPER_ADMIN: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
@@ -2935,7 +2935,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const navItems = () => {
         const access = getRoleAccess();
-        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements']];
+        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements'], ['accounts', 'fa-solid fa-building-shield', 'Accounts']];
         if (access.canManageUsers) items.push(['users', 'fa-solid fa-users', 'Users']);
         if (access.canManageUserPermissions || access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
@@ -3453,6 +3453,30 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '</div></div>';
     };
 
+    let portalAccounts = null;
+    let portalAccountsLoading = false;
+    const loadPortalAccounts = async () => {
+        if (portalAccounts || portalAccountsLoading) return;
+        portalAccountsLoading = true;
+        try {
+            const api = context?.api || page.YODAWY_API_ENGINE;
+            const response = await api?.getPortalAccounts?.();
+            if (response?.success !== true) throw new Error('Portal accounts are unavailable.');
+            portalAccounts = Array.isArray(response.accounts) ? response.accounts : [];
+        } catch {
+            portalAccounts = [];
+        } finally {
+            portalAccountsLoading = false;
+            if (context && activePage === 'accounts' && isCurrentUI()) render();
+        }
+    };
+    const renderAccounts = () => {
+        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
+        const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
+        const group = (title, icon, rows) => '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + icon + '"></i></span><span>' + title + '</span><span class="yd-pill">' + rows.length + '</span></div>' + (rows.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + rows.map(a => '<tr><td><strong>' + escapeHTML(a.label || '—') + '</strong></td><td>' + escapeHTML(a.username || '—') + '</td><td>' + escapeHTML(a.odooKey || '—') + '</td><td>' + escapeHTML(a.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>No accounts yet</strong></div>') + '</section>';
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Personal and non-personal accounts assigned to your Dashboard user.</p></div><button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : group('Personal Accounts', 'fa-user-lock', accounts.filter(a => a.accountType === 'PERSONAL')) + group('Non-Personal Accounts', 'fa-users', accounts.filter(a => a.accountType === 'NON-PERSONAL')));
+    };
+
     const renderPage = () => {
         const access = getRoleAccess();
         if (!access.pages.includes(activePage)) activePage = 'tools';
@@ -3460,6 +3484,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             overview: renderOverview,
             tools: renderTools,
             announcements: renderAnnouncements,
+            accounts: renderAccounts,
             users: renderUsers,
             permissions: renderPermissions,
             visibility: renderVisibility,
@@ -4491,6 +4516,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const activityMenu = root.querySelector('.yd-activity-dropdown');
                 if (activityMenu) activityMenu.hidden = true;
                 root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
+            }
+            if (actionButton?.dataset.action === 'refresh-portal-accounts') {
+                event.preventDefault();
+                event.stopPropagation();
+                portalAccounts = null;
+                loadPortalAccounts();
+                render();
+                return;
             }
             if (handleAllowedUsersAction(actionButton)) return;
             if (actionButton?.dataset.action === 'toggle-visibility-bulk') {
