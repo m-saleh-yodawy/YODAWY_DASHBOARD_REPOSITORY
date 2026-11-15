@@ -194,6 +194,44 @@ const portalAccountRoutes = async (request, env, path) => {
     const result = await env.DB.prepare("DELETE FROM portal_accounts WHERE account_id = ? AND owner_user_id = ?").bind(id, actor.user_id).run();
     return result.meta?.changes ? respond(request, env, { success: true }) : respond(request, env, { success: false, error: "NOT_FOUND_OR_FORBIDDEN" }, 404);
   }
+  if (path === "/api/portal-accounts/import" && request.method === "POST") {
+    if (!isSuper) return forbidden();
+    const length = Number(request.headers.get("content-length") || 0);
+    if (length > 262144) return respond(request, env, { success: false, error: "IMPORT_TOO_LARGE" }, 413);
+    const body = await readBody(request);
+    const records = body.accounts;
+    if (!Array.isArray(records) || !records.length || records.length > 150) return respond(request, env, { success: false, error: "INVALID_IMPORT" }, 400);
+    const userRows = await env.DB.prepare("SELECT user_id FROM users WHERE status = 'Active'").all();
+    const activeUsers = new Set((userRows.results || []).map(user => user.user_id));
+    const prepared = [];
+    const seen = new Set();
+    let skipped = 0;
+    for (const item of records) {
+      const provider = String(item?.provider || "PORTAL").trim().toUpperCase();
+      const label = String(item?.label || "").trim();
+      const accountType = String(item?.accountType || "").trim().toUpperCase();
+      const odooKey = String(item?.odooKey || "").trim();
+      const username = String(item?.username || "").trim();
+      const password = String(item?.password || "");
+      const targets = [...new Set(Array.isArray(item?.targetUserIds) ? item.targetUserIds.map(value => String(value).trim().toUpperCase()) : [])];
+      if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 100) return respond(request, env, { success: false, error: "INVALID_IMPORT_RECORD" }, 400);
+      if (targets.some(userId => !/^Q-[0-9]{3,}$/.test(userId) || !activeUsers.has(userId))) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
+      for (const userId of targets) {
+        const key = [userId, provider, odooKey.toLowerCase(), accountType].join("|");
+        if (seen.has(key)) return respond(request, env, { success: false, error: "DUPLICATE_IMPORT_RECORD" }, 409);
+        seen.add(key);
+        const existing = await env.DB.prepare("SELECT account_id, account_type FROM portal_accounts WHERE owner_user_id = ? AND provider = ? AND LOWER(COALESCE(odoo_key, label)) = LOWER(?) AND enabled = 1 LIMIT 1").bind(userId, provider, odooKey || label).first();
+        if (existing) { skipped++; continue; }
+        let encrypted;
+        try { encrypted = await encryptPortalPassword(env, password); }
+        catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
+        prepared.push(env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
+      }
+    }
+    for (let index = 0; index < prepared.length; index += 50) await env.DB.batch(prepared.slice(index, index + 50));
+    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'PORTAL_ACCOUNT_IMPORT', 'PORTAL_ACCOUNT', NULL, ?, ?)").bind(actor.user_id, JSON.stringify({ created: prepared.length, skipped }), now).run();
+    return respond(request, env, { success: true, created: prepared.length, skipped, processed: prepared.length + skipped });
+  }
   if (path === "/api/portal-accounts/bulk" && request.method === "POST") {
     if (!isSuper) return forbidden();
     const body = await readBody(request);
