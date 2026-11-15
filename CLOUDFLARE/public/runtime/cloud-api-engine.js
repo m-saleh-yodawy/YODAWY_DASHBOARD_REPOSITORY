@@ -139,9 +139,10 @@
     const getPortalCredentials = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'POST');
     const deletePortalAccount = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'DELETE');
     const savePortalAccountsForAll = async account => call('/api/portal-accounts/bulk', 'POST', account);
+    const importPortalAccounts = async accounts => call('/api/portal-accounts/import', 'POST', { accounts });
     const recordActivity = async activity => call('/api/dashboard/activity', 'POST', activity);
     const setUserPassword = async (userId, password) => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password', 'POST', { password });
     const getRepository = async () => ({ default_branch: 'cloudflare' });
     const getConfig = () => Object.freeze({ owner: 'cloudflare', repo: 'yodawy-dashboard', branch: 'cloudflare', configured: true });
-    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, savePortalAccount, getPortalCredentials, deletePortalAccount, setUserPassword, clearToken: () => true, getConfig });
+    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, clearToken: () => true, getConfig });
 })(window);
