@@ -161,6 +161,13 @@
     const setupOdoo = () => {
         if (state.destroyed) return;
 
+        if (!document.getElementById('yd-open-erx-reference-style')) {
+            const style = document.createElement('style');
+            style.id = 'yd-open-erx-reference-style';
+            style.textContent = '[name="user_ref"]:hover{text-decoration:underline!important;text-underline-offset:2px}';
+            document.head.append(style);
+        }
+
         for (const [element, item] of state.handlers) {
             if (element.isConnected) continue;
             element.removeEventListener('click', item.handler);
@@ -359,6 +366,7 @@
             }
 
             state.handlers.clear();
+            document.getElementById('yd-open-erx-reference-style')?.remove();
             if (registry[TOOL_ID] === instance) delete registry[TOOL_ID];
             return true;
         }
