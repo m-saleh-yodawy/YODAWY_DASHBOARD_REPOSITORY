@@ -3013,7 +3013,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             portalAccounts = [];
         } finally {
             portalAccountsLoading = false;
-            if (context && activePage === 'tools' && isCurrentUI()) render();
+            if (context && ['tools', 'accounts'].includes(activePage) && isCurrentUI()) render();
         }
     };
 
@@ -4531,6 +4531,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const activityMenu = root.querySelector('.yd-activity-dropdown');
                 if (activityMenu) activityMenu.hidden = true;
                 root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
+            }
+            if (actionButton?.dataset.action === 'refresh-portal-accounts') {
+                event.preventDefault();
+                event.stopPropagation();
+                portalAccounts = null;
+                loadPortalAccounts();
+                render();
+                return;
             }
             if (handleAllowedUsersAction(actionButton)) return;
             if (actionButton?.dataset.action === 'toggle-visibility-bulk') {
