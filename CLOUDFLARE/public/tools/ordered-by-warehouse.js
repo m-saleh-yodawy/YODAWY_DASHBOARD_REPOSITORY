@@ -1,7 +1,6 @@
 // ==UserScript==
-// @name         Odoo Ordered by WH Automation
+// @name         Ordered By Warehouse
 // @namespace    http://tampermonkey.net/
-// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle

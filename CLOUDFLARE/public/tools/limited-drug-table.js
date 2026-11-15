@@ -1,7 +1,6 @@
 // ==UserScript==
-// @name         Limited Drug Accordion
+// @name         Limited Drug Table
 // @namespace    https://odoo.yodawy.com/
-// @version      1
 // @author       Mohamed Saleh
 // @description  Limited Drug Accordion with alternative pricing and Log Note actions
 // @match        https://odoo.yodawy.com/web*
@@ -13,7 +12,7 @@
     'use strict';
 
     const TOOL_ID = 'TOOL-004';
-    const TOOL_PATH = 'TOOLS/limited-drug-accordion.js';
+    const TOOL_PATH = 'TOOLS/limited-drug-table.js';
     const STYLE_ID = 'tm-limited-drug-accordion-style';
     const PURPLE = '#875A7B';
     const DARK = '#68465f';

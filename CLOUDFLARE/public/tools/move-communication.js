@@ -1,7 +1,6 @@
 // ==UserScript==
-// @name         Odoo Move Communication
+// @name         Move Communication
 // @namespace    http://tampermonkey.net/
-// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/*
 // @grant        none

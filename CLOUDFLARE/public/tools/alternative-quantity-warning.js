@@ -1,7 +1,6 @@
 // ==UserScript==
 // @name         Alternative Quantity Warning
 // @namespace    https://odoo.yodawy.com/
-// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle

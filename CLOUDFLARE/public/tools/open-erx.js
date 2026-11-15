@@ -1,8 +1,6 @@
 // ==UserScript==
-// @name         Portal Auto Login
+// @name         Open Erx
 // @namespace    https://odoo.yodawy.com/
-// @version      1
-// @description  Unified Odoo to Portal login using YODAWY LOADER
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/*
 // @match        https://portal.yodawy.com/*
@@ -14,7 +12,7 @@
     'use strict';
 
     const TOOL_ID = 'TOOL-002';
-    const TOOL_PATH = 'TOOLS/portal-auto-login.js';
+    const TOOL_PATH = 'TOOLS/open-erx.js';
     const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
 
     if (registry[TOOL_ID]) return;
@@ -45,7 +43,7 @@
     const resolvePersonalAccount = async company => {
         const api = await waitForApi();
         const name = normalize(company);
-        const provider = name.includes('metlife') ? 'METLIFE' : name.includes('nextcare') ? 'NEXTCARE' : '';
+        const provider = name.includes('metlife') ? 'METLIFE' : /next[\s_-]*care/.test(name) ? 'NEXTCARE' : '';
         if (!provider) throw new Error('Unsupported insurance provider.');
         const result = await api.getPortalAccounts();
         const accounts = (result.accounts || []).filter(account =>

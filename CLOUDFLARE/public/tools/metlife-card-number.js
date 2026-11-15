@@ -1,7 +1,6 @@
 // ==UserScript==
-// @name         MetLife Card Number Automation
+// @name         Metlife Card Number
 // @namespace    https://i-care.globemedegypt.com/
-// @version      1
 // @author       Mohamed Saleh
 // @match        https://i-care.globemedegypt.com:8034/*
 // @grant        none

@@ -1,7 +1,6 @@
 // ==UserScript==
-// @name         Confirmation Type Buttons
+// @name         Confirmation Type
 // @namespace    https://odoo.yodawy.com/
-// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle
@@ -12,7 +11,7 @@
     'use strict';
 
     const TOOL_ID = 'TOOL-001';
-    const TOOL_PATH = 'TOOLS/confirmation-type-buttons.js';
+    const TOOL_PATH = 'TOOLS/confirmation-type.js';
 
     const C = {
         M: 'helpdesk.ticket',

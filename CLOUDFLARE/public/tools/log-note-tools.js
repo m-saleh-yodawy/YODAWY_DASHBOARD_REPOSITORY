@@ -1,7 +1,6 @@
 // ==UserScript==
-// @name         Odoo Log Note Tools
+// @name         Log Note Tools
 // @namespace    http://tampermonkey.net/
-// @version      1
 // @description  Add Edit & Delete buttons to Odoo Log Notes
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/*
