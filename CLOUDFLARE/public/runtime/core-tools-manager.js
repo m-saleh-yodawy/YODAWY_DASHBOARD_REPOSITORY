@@ -151,6 +151,7 @@
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
 
+        if (tool.enabled === false) return false;
         if (!AUTH.isAuthenticated() || !userId) return false;
         if (!SETTINGS.isLoaded() || !VISIBILITY.isLoaded()) return false;
         if (!PERMISSIONS.isLoaded()) return false;
