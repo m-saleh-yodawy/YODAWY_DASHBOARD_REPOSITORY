@@ -247,6 +247,8 @@
         return stop(toolId);
     };
 
+    let syncFailures = [];
+
     const sync = async () => {
         ensureInitialized();
 
@@ -255,15 +257,17 @@
         }
 
         syncing = true;
+        syncFailures = [];
 
         try {
             const dependencies = getDependencies();
 
             for (const tool of manifest) {
-                if (canLoad(tool, dependencies)) {
-                    await start(tool);
-                } else {
-                    await stop(tool.id);
+                try {
+                    if (canLoad(tool, dependencies)) await start(tool);
+                    else await stop(tool.id);
+                } catch (error) {
+                    syncFailures.push({ id: tool.id, name: tool.name, message: error?.message || 'Tool synchronization failed' });
                 }
             }
 
@@ -317,6 +321,7 @@
         stopAll,
         getManifest,
         getLoadedTools,
+        getSyncFailures: () => syncFailures.map(item => ({ ...item })),
         getStatus,
         isLoaded,
         isInitialized: () => initialized
