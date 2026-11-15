@@ -121,10 +121,11 @@ CREATE INDEX idx_auth_events_user_time ON auth_events(user_id, created_at DESC);
 CREATE TABLE portal_accounts (
   account_id TEXT PRIMARY KEY,
   owner_user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('METLIFE', 'NEXTCARE')),
-  account_type TEXT NOT NULL DEFAULT 'PERSONAL' CHECK (account_type IN ('PERSONAL', 'ALTERNATIVE')),
+  provider TEXT NOT NULL DEFAULT 'PORTAL',
+  account_type TEXT NOT NULL DEFAULT 'PERSONAL' CHECK (account_type IN ('PERSONAL', 'NON-PERSONAL')),
   label TEXT NOT NULL,
   username TEXT NOT NULL,
+  odoo_key TEXT,
   encrypted_password TEXT NOT NULL,
   encryption_iv TEXT NOT NULL,
   encryption_version INTEGER NOT NULL DEFAULT 1,
@@ -134,3 +135,4 @@ CREATE TABLE portal_accounts (
 );
 
 CREATE INDEX idx_portal_accounts_owner_provider ON portal_accounts(owner_user_id, provider, enabled);
+CREATE INDEX idx_portal_accounts_owner_type_key ON portal_accounts(owner_user_id, account_type, odoo_key, enabled);
