@@ -1498,6 +1498,10 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     vertical-align: middle;
 }
 
+#yd-dashboard-root .yd-tool-accordion-list {
+    padding-bottom: 20px;
+}
+
 #yd-dashboard-root .yd-accordion-list,
 #yd-dashboard-root .yd-tool-accordion-list {
     display: flex;
