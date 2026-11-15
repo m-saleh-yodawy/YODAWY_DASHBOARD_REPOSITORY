@@ -3474,7 +3474,55 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
         const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
         const group = (title, icon, rows) => '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + icon + '"></i></span><span>' + title + '</span><span class="yd-pill">' + rows.length + '</span></div>' + (rows.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + rows.map(a => '<tr><td><strong>' + escapeHTML(a.label || '—') + '</strong></td><td>' + escapeHTML(a.username || '—') + '</td><td>' + escapeHTML(a.odooKey || '—') + '</td><td>' + escapeHTML(a.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>No accounts yet</strong></div>') + '</section>';
-        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Personal and non-personal accounts assigned to your Dashboard user.</p></div><button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : group('Personal Accounts', 'fa-user-lock', accounts.filter(a => a.accountType === 'PERSONAL')) + group('Non-Personal Accounts', 'fa-users', accounts.filter(a => a.accountType === 'NON-PERSONAL')));
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Personal and non-personal accounts assigned to your Dashboard user.</p></div><div class="yd-welcome-actions">' + (String(context?.userRole || '').toUpperCase() === 'SUPER_ADMIN' ? '<button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '') + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : group('Personal Accounts', 'fa-user-lock', accounts.filter(a => a.accountType === 'PERSONAL')) + group('Non-Personal Accounts', 'fa-users', accounts.filter(a => a.accountType === 'NON-PERSONAL')));
+    };
+
+    const openPortalAccountsImport = () => {
+        if (String(context?.userRole || '').toUpperCase() !== 'SUPER_ADMIN') return;
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        overlay.innerHTML = '<form class="yd-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-import-title"><h3 id="yd-portal-import-title">Import Portal Accounts</h3><p>Paste a JSON array. Passwords are encrypted by the Worker before being stored.</p><div class="yd-field"><label for="yd-portal-import-json">Account Data</label><textarea id="yd-portal-import-json" name="accounts" rows="12" spellcheck="false" required placeholder=\'[{"label":"Next Care","username":"portal_user","password":"...","odooKey":"Next Care","accountType":"PERSONAL"}]\'></textarea></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-import-cancel>Cancel</button><button type="submit" class="yd-primary">Validate & Import</button></div><div class="yd-form-feedback" data-portal-import-feedback hidden></div></form>';
+        document.getElementById(CONFIG.ID).appendChild(overlay);
+        const form = overlay.querySelector('form');
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-portal-import-cancel]')) close(); });
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const submit = form.querySelector('[type="submit"]');
+            const feedback = form.querySelector('[data-portal-import-feedback]');
+            const field = form.querySelector('[name="accounts"]');
+            if (submit.disabled) return;
+            let records;
+            try {
+                records = JSON.parse(field.value);
+                if (!Array.isArray(records) || !records.length || records.length > 150) throw new Error('Provide a JSON array containing 1 to 150 accounts.');
+                records = records.map(item => ({ ...item, targetUserIds: [String(context?.userId || context?.user?.id || context?.user?.userId || '').trim().toUpperCase()] }));
+                if (records.some(item => !item.targetUserIds[0] || !item.label || !item.username || !item.password || !['PERSONAL', 'NON-PERSONAL'].includes(String(item.accountType || '').toUpperCase()))) throw new Error('Each account needs label, username, password and accountType (PERSONAL or NON-PERSONAL).');
+            } catch (error) {
+                feedback.hidden = false;
+                feedback.textContent = error.message || 'Invalid JSON.';
+                return;
+            }
+            submit.disabled = true;
+            submit.innerHTML = '<span class="yd-control-spinner"></span><span>Importing...</span>';
+            feedback.hidden = true;
+            try {
+                const api = context?.api || page.YODAWY_API_ENGINE;
+                const response = await api?.importPortalAccounts?.(records);
+                if (response?.success !== true) throw new Error(response?.error || 'Import failed.');
+                portalAccounts = null;
+                await loadPortalAccounts();
+                close();
+                render();
+                showNotice('Portal accounts imported: ' + response.created + ' created, ' + response.skipped + ' skipped.');
+            } catch (error) {
+                submit.disabled = false;
+                submit.textContent = 'Validate & Import';
+                feedback.hidden = false;
+                feedback.textContent = error.message || 'Import failed.';
+            }
+        });
+        syncInputSurfaceBackgrounds(overlay);
     };
 
     const renderPage = () => {
@@ -4516,6 +4564,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const activityMenu = root.querySelector('.yd-activity-dropdown');
                 if (activityMenu) activityMenu.hidden = true;
                 root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
+            }
+            if (actionButton?.dataset.action === 'import-portal-accounts') {
+                event.preventDefault();
+                event.stopPropagation();
+                openPortalAccountsImport();
+                return;
             }
             if (actionButton?.dataset.action === 'refresh-portal-accounts') {
                 event.preventDefault();
