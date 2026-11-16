@@ -4586,7 +4586,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         activityClickRoot = root;
         root.addEventListener('click', activityClickHandler, true);
 
-        root.addEventListener('click', event => {
+        root.addEventListener('click', async event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
             if (activityMenuOpen && !event.target.closest('.yd-activity-wrap')) {
