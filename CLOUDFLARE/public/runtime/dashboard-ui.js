@@ -4538,6 +4538,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         });
 
         root.addEventListener('toggle', event => {
+            const openedAccordion = event.target.matches?.('details') ? event.target : null;
+            if (openedAccordion?.open) {
+                root.querySelectorAll('details[open]').forEach(other => {
+                    if (other !== openedAccordion && !other.contains(openedAccordion)) other.open = false;
+                });
+            }
             const userItem = event.target.closest?.('details[data-user-accordion]');
             const toolItem = event.target.closest?.('details[data-tool-accordion]');
             const visibilityUserItem = event.target.closest?.('details[data-visibility-user]');
@@ -4621,8 +4627,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 if (typeof value !== 'string' || !value) return;
                 try {
                     await navigator.clipboard.writeText(value);
-                    const icon = actionButton.querySelector('i');
-                    if (icon) { icon.className = 'fa-solid fa-check'; setTimeout(() => { if (icon.isConnected) icon.className = 'fa-regular fa-copy'; }, 1200); }
+                    clearTimeout(actionButton._ydCopyTimer);
+                    actionButton.innerHTML = '<span aria-hidden="true">✓</span>';
+                    actionButton._ydCopyTimer = setTimeout(() => {
+                        if (actionButton.isConnected) actionButton.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                        actionButton._ydCopyTimer = null;
+                    }, 1200);
                 } catch {
                     showMessageDialog('Copy Failed', 'Unable to copy this value. Check browser clipboard permissions.');
                 }
