@@ -153,8 +153,22 @@ const portalAccountRoutes = async (request, env, path) => {
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
   if (path === "/api/portal-accounts" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT account_id, provider, account_type, label, username, odoo_key FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY account_type, odoo_key, label").bind(actor.user_id).all();
-    return respond(request, env, { success: true, accounts: (rows.results || []).map(row => ({ id: row.account_id, provider: row.provider, accountType: row.account_type, label: row.label, username: row.username, odooKey: row.odoo_key, isPersonal: row.account_type === "PERSONAL" })) });
+    const rows = await env.DB.prepare("SELECT account_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY account_type, odoo_key, label").bind(actor.user_id).all();
+    try {
+      const accounts = await Promise.all((rows.results || []).map(async row => ({
+        id: row.account_id,
+        provider: row.provider,
+        accountType: row.account_type,
+        label: row.label,
+        username: row.username,
+        odooKey: row.odoo_key,
+        password: await decryptPortalPassword(env, row.encrypted_password, row.encryption_iv),
+        isPersonal: row.account_type === "PERSONAL"
+      })));
+      return respond(request, env, { success: true, accounts });
+    } catch (error) {
+      return respond(request, env, { success: false, error: error.message }, 503);
+    }
   }
   if (path === "/api/portal-accounts" && request.method === "POST") {
     const body = await readBody(request);
