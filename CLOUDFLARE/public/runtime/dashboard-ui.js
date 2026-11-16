@@ -67,6 +67,17 @@
     let activityClickHandler = null;
     let activityClickRoot = null;
 
+    const mountModalOverlay = overlay => {
+        const root = document.getElementById(CONFIG.ID);
+        if (!root || !document.body) throw new Error('Dashboard modal host is unavailable.');
+        const styles = page.getComputedStyle(root);
+        for (let index = 0; index < styles.length; index++) {
+            const property = styles[index];
+            if (property.startsWith('--')) overlay.style.setProperty(property, styles.getPropertyValue(property));
+        }
+        document.body.appendChild(overlay);
+    };
+
     const syncInputSurfaceBackgrounds = scope => {
         const selector = 'input:not([type="hidden"]), textarea, select, .yd-allowed-users-search';
         const controls = [...(scope?.querySelectorAll?.(selector) || [])];
@@ -3534,7 +3545,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
         overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', class: 'yd-announcement-cycle-select', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
-        document.getElementById(CONFIG.ID).appendChild(overlay);
+        mountModalOverlay(overlay);
         syncInputSurfaceBackgrounds(overlay);
         const close = () => {
             closeDropdowns(null);
@@ -4018,7 +4029,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal" role="dialog" aria-modal="true"><h3>' + escapeHTML(title) + '</h3><p>' + escapeHTML(message) + '</p><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>Cancel</button><button type="button" class="yd-danger" data-confirm-accept>' + escapeHTML(confirmLabel) + '</button></div></section>';
-        document.getElementById(CONFIG.ID).appendChild(overlay);
+        mountModalOverlay(overlay);
         const close = () => overlay.remove();
         overlay.addEventListener('click', event => {
             if (event.target === overlay || event.target.closest('[data-confirm-cancel]')) close();
@@ -4059,7 +4070,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 (editing ? '<div class="yd-field"><label>Reset Password (Optional)</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Leave blank to keep current password"></div>' : '<div class="yd-field"><label>Initial Password</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="At least 10 characters"></div>') +
                 roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
-        document.getElementById(CONFIG.ID).appendChild(overlay);
+        mountModalOverlay(overlay);
         syncInputSurfaceBackgrounds(overlay);
         const close = () => {
             closeDropdowns(null);
