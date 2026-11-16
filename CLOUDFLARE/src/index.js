@@ -197,8 +197,16 @@ const portalAccountRoutes = async (request, env, path) => {
   if (path === "/api/portal-accounts/import" && request.method === "POST") {
     if (!isSuper) return forbidden();
     const length = Number(request.headers.get("content-length") || 0);
-    if (length > 262144) return respond(request, env, { success: false, error: "IMPORT_TOO_LARGE" }, 413);
-    const body = await readBody(request);
+    if (length > 256 * 1024) return respond(request, env, { success: false, error: "IMPORT_TOO_LARGE" }, 413);
+    let body;
+    try {
+      const raw = await request.arrayBuffer();
+      if (raw.byteLength > 256 * 1024) return respond(request, env, { success: false, error: "IMPORT_TOO_LARGE" }, 413);
+      body = JSON.parse(new TextDecoder().decode(raw));
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("INVALID_IMPORT");
+    } catch {
+      return respond(request, env, { success: false, error: "INVALID_IMPORT" }, 400);
+    }
     const targetUserId = String(body.targetUserId || "").trim().toUpperCase();
     const groups = body.groups;
     const definitions = [
