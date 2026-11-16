@@ -2913,6 +2913,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     --yd-radius-panel: 9px;
     --yd-radius-control: 6px;
     --yd-radius-small: 5px;
+    --yd-radius-element: 8px;
 }
 #yd-dashboard-root :is(.yd-card,.yd-kpi-card,.yd-announcement-card,.yd-modal,.yd-confirm-modal,.yd-message-modal,.yd-tool-card,.yd-panel,.yd-section,.yd-accordion-item,.yd-tool-accordion-item,.yd-visibility-accordion-item) {
     border-radius: var(--yd-radius-panel) !important;
@@ -2923,13 +2924,31 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root :is(.yd-accordion-body,.yd-tool-accordion-body,.yd-visibility-rows,.yd-dropdown,.yd-menu,.yd-popover,.yd-tooltip,.yd-empty,.yd-alert,.yd-notice,.yd-form-group,.yd-field,.yd-table-wrap) {
     border-radius: 7px !important;
 }
-#yd-dashboard-root .yd-brand-logo { border-radius: 9px !important; }
-#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-activity-item-status,.yd-accordion-index,[class*="pill"],[class*="badge"],[class*="label"],[class*="status"],[class*="id-badge"]) {
+#yd-dashboard-root :is(.yd-nav,.yd-nav-icon,.yd-brand-logo,.yd-accordion-index,.yd-pagination-link) {
+    border-radius: var(--yd-radius-element) !important;
+}
+#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-activity-item-status,[class*="pill"],[class*="badge"],[class*="label"],[class*="status"],[class*="id-badge"]) {
     border-radius: 5px !important;
 }
-#yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-gb-badge,.yd-announcement-avatar,[class*="avatar"],[class*="dot"],[class*="switch"],[class*="toggle"],[class*="progress"]) {
+#yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-gb-badge,.yd-announcement-avatar,[class*="avatar"],[class*="dot"],[class*="progress"]) {
     border-radius: 50% !important;
 }
+#yd-dashboard-root .yd-switch {
+    box-sizing: border-box !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 22px !important;
+    padding: 3px !important;
+    border-radius: 999px !important;
+}
+#yd-dashboard-root .yd-switch .yd-switch-knob {
+    box-sizing: border-box !important;
+    width: 16px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    border-radius: 50% !important;
+}
+#yd-dashboard-root .yd-switch.on .yd-switch-knob { transform: translateX(16px) !important; }
 
 #yd-dashboard-root .yd-accordion-list,
 #yd-dashboard-root .yd-tool-accordion-list,
