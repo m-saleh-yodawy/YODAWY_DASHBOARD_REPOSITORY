@@ -3092,7 +3092,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 }
 
 
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"] {
+input[type="range"] {
     appearance: none !important;
     -webkit-appearance: none !important;
     display: block !important;
@@ -3108,24 +3108,24 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     accent-color: #875a7b !important;
     cursor: pointer !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]::-webkit-slider-runnable-track {
+input[type="range"]::-webkit-slider-runnable-track {
     height: 6px !important;
     border: 0 !important;
     border-radius: 999px !important;
     background: #e9dfea !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]::-moz-range-track {
+input[type="range"]::-moz-range-track {
     height: 6px !important;
     border: 0 !important;
     border-radius: 999px !important;
     background: #e9dfea !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]::-moz-range-progress {
+input[type="range"]::-moz-range-progress {
     height: 6px !important;
     border-radius: 999px !important;
     background: #875a7b !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]::-webkit-slider-thumb {
+input[type="range"]::-webkit-slider-thumb {
     appearance: none !important;
     -webkit-appearance: none !important;
     width: 16px !important;
@@ -3135,35 +3135,36 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     border-radius: 50% !important;
     background: #875a7b !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .24) !important;
-    cursor: grab !important;
-    transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+    cursor: pointer !important;
+    transition: none !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]::-moz-range-thumb {
+input[type="range"]::-moz-range-thumb {
     width: 12px !important;
     height: 12px !important;
     border: 2px solid #fff !important;
     border-radius: 50% !important;
     background: #875a7b !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, .24) !important;
-    cursor: grab !important;
-    transition: background-color .15s ease, box-shadow .15s ease, transform .15s ease !important;
+    cursor: pointer !important;
+    transition: none !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:hover::-webkit-slider-thumb,
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:focus-visible::-webkit-slider-thumb {
-    background: #68465f !important;
-    box-shadow: 0 0 0 4px rgba(135, 90, 123, .18) !important;
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:focus::-webkit-slider-thumb,
+input[type="range"]:focus-visible::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+    background: #875a7b !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .24) !important;
+    transform: none !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:hover::-moz-range-thumb,
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:focus-visible::-moz-range-thumb {
-    background: #68465f !important;
-    box-shadow: 0 0 0 4px rgba(135, 90, 123, .18) !important;
+input[type="range"]:hover::-moz-range-thumb,
+input[type="range"]:focus::-moz-range-thumb,
+input[type="range"]:focus-visible::-moz-range-thumb,
+input[type="range"]:active::-moz-range-thumb {
+    background: #875a7b !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .24) !important;
+    transform: none !important;
 }
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:active::-webkit-slider-thumb,
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:active::-moz-range-thumb {
-    cursor: grabbing !important;
-    transform: scale(1.08);
-}
-:is(#yd-dashboard-root, body > .yd-modal-backdrop) input[type="range"]:disabled {
+input[type="range"]:disabled {
     opacity: .45 !important;
     cursor: not-allowed !important;
 }
