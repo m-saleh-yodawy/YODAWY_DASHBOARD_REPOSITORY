@@ -75,6 +75,23 @@
             const property = styles[index];
             if (property.startsWith('--')) overlay.style.setProperty(property, styles.getPropertyValue(property));
         }
+        overlay.addEventListener('click', event => {
+            const trigger = event.target.closest?.('[data-action="toggle-dropdown"]');
+            if (!trigger) return;
+            const dropdown = trigger.closest('.yd-dropdown');
+            if (!dropdown) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (dropdown.dataset.open === 'true') {
+                closeDropdownMenu(dropdown);
+                return;
+            }
+            closeDropdowns(dropdown);
+            dropdown.dataset.open = 'true';
+            dropdown.classList.add('open');
+            trigger.setAttribute('aria-expanded', 'true');
+            openDropdownMenu(dropdown);
+        }, true);
         document.body.appendChild(overlay);
     };
 
@@ -1377,6 +1394,99 @@ body > .yd-modal-backdrop .yd-modal h3 { margin: 0 0 14px; color: var(--ink); fo
 body > .yd-modal-backdrop .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 body > .yd-modal-backdrop .yd-confirm-modal { width: min(430px, 100%); padding: 22px; }
 body > .yd-modal-backdrop .yd-confirm-modal p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+body > .yd-modal-backdrop .yd-announcement-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(620px, calc(100vw - 32px));
+    max-height: min(760px, calc(100vh - 32px));
+    overflow: visible;
+    padding: 24px;
+    border: 1px solid #d9d9de;
+    border-radius: 8px;
+    background: #fff;
+    color: #18181b;
+    box-shadow: 0 12px 32px #0002;
+}
+body > .yd-modal-backdrop .yd-announcement-form h3 {
+    margin: 0;
+    padding: 0 0 14px;
+    border-bottom: 1px solid #e5e5e5;
+    color: #18181b;
+    font-size: 17px;
+    font-weight: 700 !important;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 0;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-field label {
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 700 !important;
+}
+body > .yd-modal-backdrop .yd-announcement-form textarea {
+    display: block;
+    width: 100%;
+    min-height: 180px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    background: #fff !important;
+    color: #18181b;
+    font: 400 13px/1.6 'Nunito Sans', 'Cairo', system-ui, sans-serif;
+    resize: vertical;
+}
+body > .yd-modal-backdrop .yd-announcement-form textarea:focus {
+    border-color: #875a7b;
+    outline: 0;
+    box-shadow: 0 0 0 2px #875a7b20;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select { display: flex; width: 100%; min-width: 0; }
+body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger {
+    justify-content: space-between;
+    width: 100%;
+    height: 38px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    background: #fff;
+    color: #18181b;
+    font-size: 13px;
+    font-weight: 500 !important;
+    text-align: left;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover,
+body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
+    border-color: #875a7b;
+    background: #fff;
+    color: #18181b;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select .ui-select-value { color: #18181b !important; text-align: left !important; }
+body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron { position: static; color: #6b7280; }
+body > .yd-modal-backdrop .yd-announcement-form .yd-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 4px 0 0;
+    padding: 14px 0 0;
+    border-top: 1px solid #e5e5e5;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-primary,
+body > .yd-modal-backdrop .yd-announcement-form .yd-secondary {
+    min-width: 92px;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 700 !important;
+}
+body > .yd-modal-backdrop .yd-announcement-form .yd-secondary { border: 1px solid #d1d5db; background: #fff; color: #374151; }
+body > .yd-modal-backdrop .yd-announcement-form .yd-primary { border: 1px solid #875a7b; background: #875a7b; color: #fff; }
+body > .yd-modal-backdrop .yd-announcement-form .yd-primary:hover { border-color: #68465f; background: #68465f; }
 body > .yd-modal-backdrop .yd-message-icon {
     display: grid;
     place-items: center;
@@ -4576,7 +4686,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const closeDropdowns = except => {
-        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"]').forEach(dropdown => {
+        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"], body > .yd-modal-backdrop .ui-select[data-open="true"]').forEach(dropdown => {
             if (dropdown === except) return;
             closeDropdownMenu(dropdown);
         });
@@ -4932,7 +5042,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             if (!actionButton) return;
             const menu = actionButton.closest('.ui-select-menu');
             const dropdown = menu?._ydSelectOwner;
-            if (!dropdown || !root.contains(dropdown)) return;
+            if (!dropdown || (!root.contains(dropdown) && !dropdown.closest('.yd-modal-backdrop'))) return;
             event._ydSelectHandled = true;
             if (handleAllowedUsersAction(actionButton)) return;
             if (actionButton.dataset.action === 'select-dropdown') {
