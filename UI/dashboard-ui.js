@@ -2573,9 +2573,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 #yd-dashboard-root textarea:focus,
 #yd-dashboard-root textarea:focus-visible,
 #yd-dashboard-root select:focus,
-#yd-dashboard-root select:focus-visible,
-#yd-dashboard-root .ui-select-trigger:focus,
-#yd-dashboard-root .ui-select-trigger:focus-visible {
+#yd-dashboard-root select:focus-visible {
     outline: none !important;
     box-shadow: none !important;
 }
@@ -4307,7 +4305,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const trigger = dropdown?.querySelector('.ui-select-trigger');
         if (!menu || !trigger || menu.dataset.portal !== 'true') return;
         const rect = trigger.getBoundingClientRect();
-        const dropdownRect = dropdown.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
         const width = Math.min(Math.max(rect.width, 144), viewportWidth - 24);
