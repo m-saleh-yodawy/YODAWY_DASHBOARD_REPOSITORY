@@ -2885,11 +2885,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         scroll-behavior: auto !important;
     }
 }
-#yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+#yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; gap: 7px; padding: 0 8px 8px; }
 #yd-dashboard-root .yd-portal-account-field { min-width: 0; }
-#yd-dashboard-root .yd-portal-account-field label { display: block; margin: 0 0 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
-#yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 5px 7px 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: #f5f3f5; }
-#yd-dashboard-root .yd-portal-account-value.yd-password-value { background: #fff; }
+#yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 3px 6px 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: #fff; }
 #yd-dashboard-root .yd-portal-account-value > span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
 #yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: var(--brand-soft); color: var(--brand-dark); cursor: pointer; }
 #yd-dashboard-root .yd-portal-copy:hover { background: #e9dfe7; }
@@ -2902,6 +2900,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-section-link { flex: 0 0 auto; padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--brand-dark); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background .18s ease, border-color .18s ease, color .18s ease; }
 #yd-dashboard-root .yd-portal-section-link:hover { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
 #yd-dashboard-root .yd-portal-section .yd-tool-accordion-list { padding-bottom: 0; }
+
+#yd-dashboard-root .yd-portal-section .yd-tool-accordion-item[open] > .yd-tool-accordion-body { margin: 5px 8px 7px; padding: 6px; border-radius: 8px; }
+#yd-dashboard-root .yd-portal-section .yd-tool-accordion-item[open] > summary { padding-top: 9px; padding-bottom: 9px; }
+#yd-dashboard-root .yd-portal-section .yd-tool-accordion-item > summary { min-height: 44px; }
+#yd-dashboard-root .yd-portal-section { scroll-margin-top: 18px; }
 
 `;
         (document.head || document.documentElement).appendChild(style);
@@ -3053,7 +3056,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const title = String(account.label || '').trim() || fallback || username || 'Unnamed Account';
             return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '">' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong><small>Portal Account</small></span></span></summary>' +
-                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><label>Username</label><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><label>Password</label><div class="yd-portal-account-value yd-password-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
+                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
         };
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
         const renderGroup = (group, index) => {
@@ -4594,6 +4597,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         root.addEventListener('click', activityClickHandler, true);
 
         root.addEventListener('click', async event => {
+            const sectionLink = event.target.closest('.yd-portal-section-link');
+            if (sectionLink) {
+                event.preventDefault();
+                const target = root.querySelector(sectionLink.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    history.replaceState(null, '', sectionLink.getAttribute('href'));
+                }
+                return;
+            }
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
             if (activityMenuOpen && !event.target.closest('.yd-activity-wrap')) {
