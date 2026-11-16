@@ -4462,7 +4462,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 event.target.value = '';
                 if (!file) return;
                 try {
-                    if (file.size > 262144 || !/\\.json$/i.test(file.name)) throw new Error('Select a JSON file smaller than 256 KB.');
+                    if (file.size > 262144 || !/\.json$/i.test(file.name)) throw new Error('Select a JSON file smaller than 256 KB.');
                     const payload = JSON.parse(await file.text());
                     const expected = ['Personal - Linked', 'Non-Personal - Linked', 'Personal - Unlinked', 'Non-Personal - Unlinked'];
                     if (!payload || typeof payload !== 'object' || !/^Q-[0-9]{3,}$/i.test(String(payload.targetUserId || '')) || !payload.groups || expected.some(key => !Array.isArray(payload.groups[key])) || Object.keys(payload.groups).length !== 4) throw new Error('The JSON structure or group names are invalid.');
