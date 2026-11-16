@@ -2064,10 +2064,10 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     height: 34px;
     min-height: 34px;
     padding: 0 10px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--brand);
     border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
+    background: var(--brand);
+    color: #fff;
     font-size: 12px;
     font-weight: 500 !important;
     text-align: left;
@@ -2075,17 +2075,17 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     outline: none;
     user-select: none;
     cursor: pointer;
-    transition: border-color .15s, box-shadow .15s, background-color .15s;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease, color .15s ease;
 }
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled) {
-    border-color: #b28aa8;
-    background: #fcf9fc;
-    color: var(--brand-dark);
+#yd-dashboard-root .ui-select-trigger:hover:not(:disabled),
+#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
+    border-color: var(--brand-dark);
+    background: var(--brand-dark);
+    color: #fff;
 }
-#yd-dashboard-root .ui-select-trigger:focus-visible,
-#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger {
+#yd-dashboard-root .ui-select-trigger:focus-visible {
     outline: none !important;
-    box-shadow: none !important;
+    box-shadow: 0 0 0 3px var(--brand-ring) !important;
 }
 #yd-dashboard-root .ui-select-trigger:disabled { cursor: not-allowed; opacity: .5; }
 #yd-dashboard-root .ui-select-value {
@@ -2097,18 +2097,18 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-#yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: var(--muted); }
-#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-value[data-placeholder="true"] { color: #fff !important; }
+#yd-dashboard-root .ui-select-value,
+#yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: #fff !important; }
 #yd-dashboard-root .ui-select-chevron {
     display: block !important;
     width: 14px;
     height: 14px;
     flex: 0 0 14px;
-    color: var(--muted);
+    color: #fff !important;
     opacity: 1;
     visibility: visible;
     pointer-events: none;
-    transition: transform .15s;
+    transition: transform .15s ease;
 }
 #yd-dashboard-root .ui-select[data-open="true"] .ui-select-chevron { transform: rotate(180deg); }
 
@@ -2233,27 +2233,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     transform: rotate(45deg);
 }
 
-#yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger { max-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger,
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
-    border: 1px solid var(--brand);
-    background: var(--brand);
-    color: #fff;
-}
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-chevron {
-    color: rgba(255, 255, 255, .9);
-}
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-}
+#yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 0; }
 #yd-dashboard-root .yd-allowed-users-search,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
     box-sizing: border-box;
@@ -2703,29 +2683,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 #yd-dashboard-root tbody th:last-child {
     border-top-right-radius: 10px;
     border-bottom-right-radius: 10px;
-}
-
-#yd-dashboard-root .ui-select-trigger {
-    border: 1px solid var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-}
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
-    border-color: var(--brand-dark) !important;
-    background: var(--brand-dark) !important;
-    color: #fff !important;
-}
-#yd-dashboard-root .ui-select-trigger:focus-visible {
-    border-color: var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-    box-shadow: 0 0 0 3px var(--brand-ring) !important;
-}
-#yd-dashboard-root .ui-select-trigger .ui-select-value,
-#yd-dashboard-root .ui-select-trigger .ui-select-value[data-placeholder="true"],
-#yd-dashboard-root .ui-select-trigger .ui-select-chevron {
-    color: #fff !important;
 }
 
 #yd-dashboard-root .yd-pill.yd-role-super-admin {
@@ -4353,8 +4310,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const dropdownRect = dropdown.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
-        const isAllowedUsers = dropdown.classList.contains('yd-allowed-users-dropdown');
-        const width = Math.min(Math.max(isAllowedUsers ? dropdownRect.width : rect.width, isAllowedUsers ? 240 : 144), viewportWidth - 24);
+        const width = Math.min(Math.max(rect.width, 144), viewportWidth - 24);
         const maxHeight = Math.min(320, viewportHeight - 24);
         const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
         const roomBelow = viewportHeight - rect.bottom - 12;
@@ -4368,8 +4324,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (supportsAnchor) {
             trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
             menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
-            if (isAllowedUsers) menu.style.setProperty('--yd-select-menu-width', dropdownRect.width + 'px');
-            else menu.style.removeProperty('--yd-select-menu-width');
+            menu.style.removeProperty('--yd-select-menu-width');
             ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
             return;
         }
