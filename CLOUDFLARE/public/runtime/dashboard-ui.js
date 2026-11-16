@@ -3649,6 +3649,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     const render = () => {
         const root = rootElement;
         if (!isCurrentUI() || !root) return;
+        const main = root.querySelector('#yd-main');
+        const scrollTop = main?.scrollTop || 0;
+        const scrollLeft = main?.scrollLeft || 0;
         root.querySelectorAll('details[data-user-accordion]').forEach(item => {
             if (item.open) expandedUsers.add(item.dataset.user);
             else expandedUsers.delete(item.dataset.user);
@@ -3662,6 +3665,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         root.innerHTML = renderShell(renderPage());
         root.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
         syncInputSurfaceBackgrounds(root);
+        const nextMain = root.querySelector('#yd-main');
+        if (nextMain) {
+            nextMain.scrollTop = scrollTop;
+            nextMain.scrollLeft = scrollLeft;
+        }
     };
 
     const captureUIState = noticeMessage => ({
