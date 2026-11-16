@@ -2885,8 +2885,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         scroll-behavior: auto !important;
     }
 }
-#yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; gap: 7px; padding: 0 8px 8px; }
-#yd-dashboard-root .yd-portal-account-field { min-width: 0; }
+#yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: row; align-items: stretch; gap: 10px; padding: 0 8px 8px; }
+#yd-dashboard-root .yd-portal-account-field { flex: 1 1 50%; min-width: 0; width: 50%; }
 #yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 3px 6px 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: #e1e1e1; }
 #yd-dashboard-root .yd-portal-account-value > span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
 #yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: var(--brand-soft); color: var(--brand-dark); cursor: pointer; }
@@ -2895,7 +2895,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-section { margin: 0 0 30px; padding: 0 0 28px; border: 0 !important; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent !important; box-shadow: none !important; scroll-margin-top: 24px; }
 #yd-dashboard-root .yd-portal-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
 #yd-dashboard-root .yd-portal-section-heading { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
-#yd-dashboard-root .yd-portal-section-heading h2 { margin: 0; color: var(--ink); font-size: 19px; line-height: 1.35; font-weight: 800; }
+#yd-dashboard-root .yd-portal-section-heading h2 { margin: 0; color: var(--ink); font-size: 15px; line-height: 1.35; font-weight: 800; }
 #yd-dashboard-root .yd-portal-section-nav { display: flex; align-items: center; gap: 9px; margin: 0 0 25px; padding: 3px 0 10px; overflow-x: auto; scrollbar-width: thin; }
 #yd-dashboard-root .yd-portal-section-link { flex: 0 0 auto; padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--brand-dark); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background .18s ease, border-color .18s ease, color .18s ease; }
 #yd-dashboard-root .yd-portal-section-link:hover { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
@@ -3059,13 +3059,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
         };
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
-        const renderGroup = (group, index) => {
-            const items = accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known);
-            return '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + items.length + '</span></div>' + (items.length ? '<div class="yd-tool-accordion-list">' + items.map(renderAccount).join('') + '</div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>' + group.empty + '</strong><small>Accounts assigned to your Dashboard user will appear here.</small></div>') + '</section>';
-        };
+        const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
+        const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const importControls = canImport ? '<input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden><button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '';
-        const sectionLinks = groups.map((group, index) => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[index] + '">' + group.title + '</a>').join('');
-        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>View your portal usernames and passwords grouped by account type.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span>' + importControls + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav>' + groups.map(renderGroup).join(''));
+        const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>View your portal usernames and passwords grouped by account type.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span>' + importControls + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav>' + populatedGroups.map(renderGroup).join(''));
     };
 
     const renderSplitAccountSettings = settings => {
