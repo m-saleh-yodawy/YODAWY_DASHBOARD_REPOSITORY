@@ -732,13 +732,13 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: min(410px, calc(100vw - 28px));
     max-height: min(540px, calc(100vh - 105px));
     overflow: hidden;
-    border: 1px solid #e6dfe5;
-    border-radius: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     background: #fff;
     color: var(--ink);
-    box-shadow: 0 12px 38px rgba(34, 21, 35, .18), 0 2px 8px rgba(34, 21, 35, .08);
+    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
     transform-origin: top right;
-    animation: yd-select-dropdown-drop .24s cubic-bezier(.16, 1, .3, 1) both;
+    animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .yd-activity-dropdown[hidden] { display: none !important; }
 #yd-dashboard-root .yd-activity-menu-head {
@@ -893,11 +893,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 304px;
     padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 8px;
     background: #fff;
     color: var(--ink);
     box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
-    animation: yd-dropdown-enter .13s cubic-bezier(.2, .8, .2, 1) both;
+    animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .yd-profile-menu[hidden] { display: none !important; }
 #yd-dashboard-root .yd-gb-card {
@@ -2227,7 +2227,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top center;
     box-sizing: border-box !important;
-    animation: yd-select-dropdown-drop .34s cubic-bezier(.16, 1, .3, 1) both;
+    animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .ui-select[data-open="true"] .ui-select-menu,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
@@ -2325,6 +2325,22 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     transform: rotate(45deg);
 }
 
+#yd-dashboard-root .ui-select-menu,
+#yd-dashboard-root .yd-profile-menu,
+#yd-dashboard-root .yd-activity-dropdown,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    background: #fff !important;
+    color: var(--ink) !important;
+    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08) !important;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
+    animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
+}
+#yd-dashboard-root .ui-select-menu[data-open-direction="up"],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][data-open-direction="up"] {
+    animation-name: yd-select-dropdown-rise !important;
+}
 #yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 0; }
 #yd-dashboard-root .yd-allowed-users-search,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
@@ -2773,29 +2789,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     border-bottom-right-radius: 10px;
 }
 
-#yd-dashboard-root .ui-select-trigger {
-    border: 1px solid var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-}
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
-    border-color: var(--brand-dark) !important;
-    background: var(--brand-dark) !important;
-    color: #fff !important;
-}
-#yd-dashboard-root .ui-select-trigger:focus-visible {
-    border-color: var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-    box-shadow: 0 0 0 3px var(--brand-ring) !important;
-}
-#yd-dashboard-root .ui-select-trigger .ui-select-value,
-#yd-dashboard-root .ui-select-trigger .ui-select-value[data-placeholder="true"],
-#yd-dashboard-root .ui-select-trigger .ui-select-chevron {
-    color: #fff !important;
-}
-
 #yd-dashboard-root .yd-pill.yd-role-super-admin {
     border-color: #bfdbfe !important;
     background: #dbeafe !important;
@@ -2984,9 +2977,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root :is(button,input,select,textarea,.yd-btn,.yd-icon-btn,.yd-tab,.yd-nav-item,.yd-portal-account-value,.yd-portal-copy,.yd-portal-section-link,.yd-search,.yd-filter,.yd-input,.yd-select,.yd-textarea,.yd-action-btn) {
     border-radius: var(--yd-radius-control) !important;
 }
-#yd-dashboard-root :is(.yd-accordion-body,.yd-tool-accordion-body,.yd-visibility-rows,.yd-dropdown,.yd-menu,.yd-popover,.yd-tooltip,.yd-empty,.yd-alert,.yd-notice,.yd-form-group,.yd-field,.yd-table-wrap) {
+#yd-dashboard-root :is(.yd-accordion-body,.yd-tool-accordion-body,.yd-visibility-rows,.yd-popover,.yd-tooltip,.yd-empty,.yd-alert,.yd-notice,.yd-form-group,.yd-field,.yd-table-wrap) {
     border-radius: 7px !important;
 }
+#yd-dashboard-root :is(.yd-dropdown,.yd-menu) { border-radius: 8px !important; }
 #yd-dashboard-root :is(.yd-nav,.yd-nav-icon,.yd-brand-logo,.yd-accordion-index,.yd-pagination-link) {
     border-radius: var(--yd-radius-element) !important;
 }
