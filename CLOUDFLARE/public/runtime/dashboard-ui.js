@@ -32,8 +32,6 @@
 
     let context = null;
     let rootElement = null;
-    let portalAccounts = null;
-    let portalAccountsLoading = false;
     let activePage = 'tools';
     let refreshTimer = null;
     let notice = null;
@@ -66,34 +64,6 @@
     let dropdownResizeHandler = null;
     let activityClickHandler = null;
     let activityClickRoot = null;
-
-    const mountModalOverlay = overlay => {
-        const root = document.getElementById(CONFIG.ID);
-        if (!root || !document.body) throw new Error('Dashboard modal host is unavailable.');
-        const styles = page.getComputedStyle(root);
-        for (let index = 0; index < styles.length; index++) {
-            const property = styles[index];
-            if (property.startsWith('--')) overlay.style.setProperty(property, styles.getPropertyValue(property));
-        }
-        overlay.addEventListener('click', event => {
-            const trigger = event.target.closest?.('[data-action="toggle-dropdown"]');
-            if (!trigger) return;
-            const dropdown = trigger.closest('.yd-dropdown');
-            if (!dropdown) return;
-            event.preventDefault();
-            event.stopPropagation();
-            if (dropdown.dataset.open === 'true') {
-                closeDropdownMenu(dropdown);
-                return;
-            }
-            closeDropdowns(dropdown);
-            dropdown.dataset.open = 'true';
-            dropdown.classList.add('open');
-            trigger.setAttribute('aria-expanded', 'true');
-            openDropdownMenu(dropdown);
-        }, true);
-        document.body.appendChild(overlay);
-    };
 
     const syncInputSurfaceBackgrounds = scope => {
         const selector = 'input:not([type="hidden"]), textarea, select, .yd-allowed-users-search';
@@ -286,18 +256,10 @@
         (item.targetToolIds || [item.targetToolId]).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
     ) || null;
 
-    const getPendingVisibility = (toolId, userId = '') => {
-        const tool = String(toolId || '').trim();
-        const user = String(userId || '').trim().toUpperCase();
-        const transaction = getPendingTransactions().find(item => {
-            if (String(item.action || '').toUpperCase() !== 'UPDATE_VISIBILITY') return false;
-            if (!(item.targetToolIds || []).map(value => String(value || '').trim()).includes(tool)) return false;
-            const target = String(item.targetId || item.targetUserId || '').trim().toUpperCase();
-            return target ? Boolean(user) && target === user : !user;
-        });
-        const key = user ? tool + ':' + user : tool + ':*';
-        return transaction || (pendingVisibilitySubmissions.has(key) ? { action: 'SUBMITTING' } : null);
-    };
+    const getPendingVisibility = toolId => getPendingTransactions().find(item =>
+        String(item.action || '').toUpperCase() === 'UPDATE_VISIBILITY' &&
+        (item.targetToolIds || []).map(value => String(value || '').trim()).includes(String(toolId || '').trim())
+    ) || (pendingVisibilitySubmissions.has(String(toolId || '').trim()) ? { action: 'SUBMITTING' } : null);
 
     const getPendingUser = user => {
         const id = String(user?.id || '').trim().toUpperCase();
@@ -373,7 +335,21 @@
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu' + extraMenuClass + '" role="listbox" aria-multiselectable="' + String(multiple) + '" hidden><div class="ui-select-group">' + header + items + '</div></div></div>';
     };
 
-    const showNotice = () => {};
+    const showNotice = (message, type = 'success') => {
+        if (!isCurrentUI()) return;
+        notice = { message, type };
+        const element = document.querySelector('#' + CONFIG.ID + ' .yd-toast');
+        if (element) {
+            element.className = 'yd-toast ' + type;
+            element.textContent = message;
+            element.hidden = false;
+            clearTimeout(element._ydTimer);
+            element._ydTimer = setTimeout(() => {
+                element.hidden = true;
+                notice = null;
+            }, 4500);
+        } else render();
+    };
 
     const updateActivity = (id, changes = {}) => {
         if (!id) return;
@@ -515,7 +491,6 @@
     font-family: 'YD Dashboard Icons' !important;
     font-weight: 900 !important;
     font-style: normal !important;
-    font-variant: normal !important;
 }
 #yd-dashboard-root .yd-custom-icon.fa-spinner::before { content: '\f110'; }
 #yd-dashboard-root .yd-custom-icon.fa-circle-exclamation::before { content: '\f06a'; }
@@ -549,6 +524,27 @@
 #yd-dashboard-root .fa-spin { animation: yd-fa-spin 2s linear infinite; }
 @keyframes yd-fa-spin { to { transform: rotate(360deg); } }
 
+#yd-dashboard-root .fa-solid, #yd-dashboard-root .fas,
+#yd-dashboard-root .fa-solid::before, #yd-dashboard-root .fas::before {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    font-variant: normal !important;
+}
+#yd-dashboard-root .fa-regular, #yd-dashboard-root .far,
+#yd-dashboard-root .fa-regular::before, #yd-dashboard-root .far::before {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    font-variant: normal !important;
+}
+#yd-dashboard-root .fa-brands, #yd-dashboard-root .fab,
+#yd-dashboard-root .fa-brands::before, #yd-dashboard-root .fab::before {
+    font-family: "Font Awesome 6 Brands" !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    font-variant: normal !important;
+}
 #yd-dashboard-root :lang(ar):not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
 #yd-dashboard-root [dir="rtl"]:not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
 #yd-dashboard-root [dir="rtl"] :not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
@@ -1132,7 +1128,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-welcome p { margin: 4px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 
-body > .yd-modal-backdrop .yd-primary, #yd-dashboard-root .yd-primary, #yd-dashboard-root .yd-secondary, #yd-dashboard-root .yd-danger {
+#yd-dashboard-root .yd-primary, #yd-dashboard-root .yd-secondary, #yd-dashboard-root .yd-danger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1146,13 +1142,13 @@ body > .yd-modal-backdrop .yd-primary, #yd-dashboard-root .yd-primary, #yd-dashb
     white-space: nowrap;
     transition: all .15s;
 }
-body > .yd-modal-backdrop .yd-primary, #yd-dashboard-root .yd-primary {
+#yd-dashboard-root .yd-primary {
     border: 1px solid var(--brand);
     background: var(--brand);
     color: #fff;
     box-shadow: 0 2px 5px #875a7b1a;
 }
-body > .yd-modal-backdrop .yd-primary:hover, #yd-dashboard-root .yd-primary:hover {
+#yd-dashboard-root .yd-primary:hover {
     border-color: var(--brand-dark);
     background: var(--brand-dark);
     box-shadow: 0 3px 8px #68465f24;
@@ -1370,7 +1366,7 @@ body > .yd-modal-backdrop .yd-primary:hover, #yd-dashboard-root .yd-primary:hove
 #yd-dashboard-root .yd-field label { color: var(--text); font-size: 11px; font-weight: 600 !important; }
 #yd-dashboard-root .yd-field input { width: 100%; }
 
-body > .yd-modal-backdrop {
+#yd-dashboard-root .yd-modal-backdrop {
     position: fixed;
     inset: 0;
     z-index: 2147483005;
@@ -1381,7 +1377,7 @@ body > .yd-modal-backdrop {
     backdrop-filter: blur(3px);
     animation: yd-backdrop-enter .16s ease-out both;
 }
-body > .yd-modal-backdrop .yd-modal {
+#yd-dashboard-root .yd-modal {
     width: min(560px, 100%);
     padding: 22px;
     border: 1px solid var(--border);
@@ -1390,104 +1386,11 @@ body > .yd-modal-backdrop .yd-modal {
     box-shadow: 0 24px 70px #17131c38;
     animation: yd-modal-enter .18s cubic-bezier(.2, .8, .2, 1) both;
 }
-body > .yd-modal-backdrop .yd-modal h3 { margin: 0 0 14px; color: var(--ink); font-size: 16px; font-weight: 700 !important; letter-spacing: -.02em; }
-body > .yd-modal-backdrop .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
-body > .yd-modal-backdrop .yd-confirm-modal { width: min(430px, 100%); padding: 22px; }
-body > .yd-modal-backdrop .yd-confirm-modal p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
-body > .yd-modal-backdrop .yd-announcement-form {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    width: min(620px, calc(100vw - 32px));
-    max-height: min(760px, calc(100vh - 32px));
-    overflow: visible;
-    padding: 24px;
-    border: 1px solid #d9d9de;
-    border-radius: 8px;
-    background: #fff;
-    color: #18181b;
-    box-shadow: 0 12px 32px #0002;
-}
-body > .yd-modal-backdrop .yd-announcement-form h3 {
-    margin: 0;
-    padding: 0 0 14px;
-    border-bottom: 1px solid #e5e5e5;
-    color: #18181b;
-    font-size: 17px;
-    font-weight: 700 !important;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-field {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    margin: 0;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-field label {
-    color: #4b5563;
-    font-size: 12px;
-    font-weight: 700 !important;
-}
-body > .yd-modal-backdrop .yd-announcement-form textarea {
-    display: block;
-    width: 100%;
-    min-height: 180px;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 5px;
-    background: #fff !important;
-    color: #18181b;
-    font: 400 13px/1.6 'Nunito Sans', 'Cairo', system-ui, sans-serif;
-    resize: vertical;
-}
-body > .yd-modal-backdrop .yd-announcement-form textarea:focus {
-    border-color: #875a7b;
-    outline: 0;
-    box-shadow: 0 0 0 2px #875a7b20;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select { display: flex; width: 100%; min-width: 0; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger {
-    justify-content: space-between;
-    width: 100%;
-    height: 38px;
-    min-height: 38px;
-    padding: 0 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 5px;
-    background: #fff;
-    color: #18181b;
-    font-size: 13px;
-    font-weight: 500 !important;
-    text-align: left;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover,
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
-    border-color: #875a7b;
-    background: #fff;
-    color: #18181b;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select .ui-select-value { color: #18181b !important; text-align: left !important; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron { position: static; color: #6b7280; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin: 4px 0 0;
-    padding: 14px 0 0;
-    border-top: 1px solid #e5e5e5;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-primary,
-body > .yd-modal-backdrop .yd-announcement-form .yd-secondary {
-    min-width: 92px;
-    min-height: 36px;
-    padding: 0 14px;
-    border-radius: 5px;
-    font-size: 12px;
-    font-weight: 700 !important;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-secondary { border: 1px solid #d1d5db; background: #fff; color: #374151; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-primary { border: 1px solid #875a7b; background: #875a7b; color: #fff; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-primary:hover { border-color: #68465f; background: #68465f; }
-body > .yd-modal-backdrop .yd-message-icon {
+#yd-dashboard-root .yd-modal h3 { margin: 0 0 14px; color: var(--ink); font-size: 16px; font-weight: 700 !important; letter-spacing: -.02em; }
+#yd-dashboard-root .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+#yd-dashboard-root .yd-confirm-modal { width: min(430px, 100%); padding: 22px; }
+#yd-dashboard-root .yd-confirm-modal p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+#yd-dashboard-root .yd-message-icon {
     display: grid;
     place-items: center;
     width: 42px;
@@ -1499,7 +1402,25 @@ body > .yd-modal-backdrop .yd-message-icon {
     color: var(--danger);
     font-size: 19px;
 }
-body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-message-icon.success { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+#yd-dashboard-root .yd-message-icon.success { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+
+#yd-dashboard-root .yd-toast {
+    position: fixed;
+    right: 26px;
+    bottom: 26px;
+    z-index: 2147483006;
+    max-width: min(440px, calc(100vw - 32px));
+    padding: 12px 16px;
+    border: 1px solid #3b3442;
+    border-radius: 10px;
+    background: #302a35;
+    color: #fff;
+    box-shadow: 0 12px 32px #17131c24;
+    font-size: 12px;
+    font-weight: 600 !important;
+    animation: yd-toast-enter .18s cubic-bezier(.2, .8, .2, 1) both;
+}
+#yd-dashboard-root .yd-toast.error { border-color: #a8414a; background: #a8414a; }
 
 #yd-dashboard-root .yd-switch {
     position: relative;
@@ -1524,7 +1445,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 1px 3px #0002;
-    transition: transform .18s cubic-bezier(.2, .8, .2, 1), box-shadow .16s ease;
+    transition: transform .24s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease;
 }
 #yd-dashboard-root .yd-switch.on .yd-switch-knob { transform: translateX(16px); }
 #yd-dashboard-root .yd-switch:disabled { opacity: .5; cursor: not-allowed; }
@@ -1672,7 +1593,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
         block-size: 0;
         min-block-size: 0;
         overflow: hidden;
-        transition: block-size .32s cubic-bezier(.2, .8, .2, 1), content-visibility .32s allow-discrete;
+        transition: block-size .95s cubic-bezier(.25, .1, .25, 1), content-visibility .95s allow-discrete;
     }
     #yd-dashboard-root details.yd-accordion-item[open]::details-content,
     #yd-dashboard-root details.yd-tool-accordion-item[open]::details-content,
@@ -1708,7 +1629,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     content: '';
     pointer-events: none;
     transform: translateX(0);
-    transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+    transition: transform .68s cubic-bezier(.22, .8, .2, 1);
 }
 #yd-dashboard-root .yd-visibility-modes[data-active-mode="TOOLS"]::before {
     transform: translateX(calc(100% + 3px));
@@ -1730,7 +1651,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     background: transparent !important;
     color: #756b77;
     cursor: pointer;
-    transition: color .24s ease, border-color .24s ease;
+    transition: color .48s ease, border-color .48s ease;
 }
 #yd-dashboard-root .yd-visibility-mode-card:hover:not(.active) { color: #68465f; }
 #yd-dashboard-root .yd-visibility-mode-card.active {
@@ -1968,8 +1889,6 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
 #yd-dashboard-root .yd-permission-controls { display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap; }
 #yd-dashboard-root .yd-permission-control { display: flex; align-items: center; gap: 6px; min-width: 132px; }
 #yd-dashboard-root .yd-permission-label { min-width: 75px; color: var(--muted); font-size: 10px; font-weight: 600 !important; }
-#yd-dashboard-root .yd-permission-status-dot { display: inline-block; width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: #d04452; box-shadow: 0 0 0 2px #d044521a; }
-#yd-dashboard-root .yd-permission-status-dot.on { background: #24945f; box-shadow: 0 0 0 2px #24945f1a; }
 
 #yd-dashboard-root .yd-tool-accordion-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
 #yd-dashboard-root .yd-accordion-index {
@@ -2145,10 +2064,10 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     height: 34px;
     min-height: 34px;
     padding: 0 10px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--brand);
     border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
+    background: var(--brand);
+    color: #fff;
     font-size: 12px;
     font-weight: 500 !important;
     text-align: left;
@@ -2156,17 +2075,17 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     outline: none;
     user-select: none;
     cursor: pointer;
-    transition: border-color .15s, box-shadow .15s, background-color .15s;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease, color .15s ease;
 }
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled) {
-    border-color: #b28aa8;
-    background: #fcf9fc;
-    color: var(--brand-dark);
+#yd-dashboard-root .ui-select-trigger:hover:not(:disabled),
+#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
+    border-color: var(--brand-dark);
+    background: var(--brand-dark);
+    color: #fff;
 }
-#yd-dashboard-root .ui-select-trigger:focus-visible,
-#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger {
+#yd-dashboard-root .ui-select-trigger:focus-visible {
     outline: none !important;
-    box-shadow: none !important;
+    box-shadow: 0 0 0 3px var(--brand-ring) !important;
 }
 #yd-dashboard-root .ui-select-trigger:disabled { cursor: not-allowed; opacity: .5; }
 #yd-dashboard-root .ui-select-value {
@@ -2178,18 +2097,18 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-#yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: var(--muted); }
-#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-value[data-placeholder="true"] { color: #fff !important; }
+#yd-dashboard-root .ui-select-value,
+#yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: #fff !important; }
 #yd-dashboard-root .ui-select-chevron {
     display: block !important;
     width: 14px;
     height: 14px;
     flex: 0 0 14px;
-    color: var(--muted);
+    color: #fff !important;
     opacity: 1;
     visibility: visible;
     pointer-events: none;
-    transition: transform .15s;
+    transition: transform .15s ease;
 }
 #yd-dashboard-root .ui-select[data-open="true"] .ui-select-chevron { transform: rotate(180deg); }
 
@@ -2314,27 +2233,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     transform: rotate(45deg);
 }
 
-#yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger { max-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger,
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
-    border: 1px solid var(--brand);
-    background: var(--brand);
-    color: #fff;
-}
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-chevron {
-    color: rgba(255, 255, 255, .9);
-}
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-}
+#yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 0; }
 #yd-dashboard-root .yd-allowed-users-search,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
     box-sizing: border-box;
@@ -2565,55 +2464,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     text-align: center;
     white-space: nowrap;
 }
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger,
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 34px;
-    min-height: 34px;
-    padding: 0 34px;
-    border: 1px solid var(--brand);
-    border-radius: 8px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600 !important;
-    text-align: center;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value,
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value[data-placeholder="true"] {
-    color: #fff !important;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
-    color: rgba(255, 255, 255, .92);
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value {
-    flex: 1 1 auto;
-    width: 100%;
-    padding: 0;
-    text-align: center !important;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
-    position: absolute;
-    top: calc(50% - 7px);
-    right: 10px;
-    width: 14px;
-    height: 14px;
-    flex: 0 0 14px;
-}
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
     padding: 14px;
@@ -2678,6 +2528,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     from { opacity: 0; transform: translateY(7px) scale(.985); }
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes yd-toast-enter {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 
 @media (max-width: 1120px) {
     #yd-dashboard-root .yd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2719,9 +2573,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 #yd-dashboard-root textarea:focus,
 #yd-dashboard-root textarea:focus-visible,
 #yd-dashboard-root select:focus,
-#yd-dashboard-root select:focus-visible,
-#yd-dashboard-root .ui-select-trigger:focus,
-#yd-dashboard-root .ui-select-trigger:focus-visible {
+#yd-dashboard-root select:focus-visible {
     outline: none !important;
     box-shadow: none !important;
 }
@@ -2829,29 +2681,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 #yd-dashboard-root tbody th:last-child {
     border-top-right-radius: 10px;
     border-bottom-right-radius: 10px;
-}
-
-#yd-dashboard-root .ui-select-trigger {
-    border: 1px solid var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-}
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
-    border-color: var(--brand-dark) !important;
-    background: var(--brand-dark) !important;
-    color: #fff !important;
-}
-#yd-dashboard-root .ui-select-trigger:focus-visible {
-    border-color: var(--brand) !important;
-    background: var(--brand) !important;
-    color: #fff !important;
-    box-shadow: 0 0 0 3px var(--brand-ring) !important;
-}
-#yd-dashboard-root .ui-select-trigger .ui-select-value,
-#yd-dashboard-root .ui-select-trigger .ui-select-value[data-placeholder="true"],
-#yd-dashboard-root .ui-select-trigger .ui-select-chevron {
-    color: #fff !important;
 }
 
 #yd-dashboard-root .yd-pill.yd-role-super-admin {
@@ -3006,176 +2835,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         scroll-behavior: auto !important;
     }
 }
-#yd-dashboard-root .yd-tool-accordion-item[data-portal-account] .yd-tool-accordion-copy strong { color: #000 !important; font-size: 14px !important; font-weight: 700 !important; }
-#yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 0 8px 8px; }
-#yd-dashboard-root .yd-portal-account-field { flex: 0 0 50%; min-width: 0; width: 50%; max-width: 50%; }
-#yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 3px 6px 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: #e1e1e1; }
-#yd-dashboard-root .yd-portal-account-value > span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
-#yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: var(--brand-soft); color: var(--brand-dark); cursor: pointer; }
-#yd-dashboard-root .yd-portal-copy:hover { background: #e9dfe7; }
-#yd-dashboard-root .yd-portal-copy.is-copied i { display: none; }
-#yd-dashboard-root .yd-portal-copy.is-copied::after { content: "✓"; font-family: Arial, sans-serif; font-size: 19px; font-weight: 700; line-height: 1; }
-
-#yd-dashboard-root .yd-portal-section { margin: 0 0 30px; padding: 0 0 28px; border: 0 !important; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent !important; box-shadow: none !important; scroll-margin-top: 24px; }
-#yd-dashboard-root .yd-portal-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
-#yd-dashboard-root .yd-portal-section-heading { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
-#yd-dashboard-root .yd-portal-section-heading h2 { margin: 0; color: var(--ink); font-size: 15px; line-height: 1.35; font-weight: 800; }
-#yd-dashboard-root .yd-portal-section-nav { display: flex; align-items: center; gap: 9px; margin: 0 0 25px; padding: 3px 0 10px; overflow-x: auto; scrollbar-width: thin; }
-#yd-dashboard-root .yd-portal-section-link { flex: 0 0 auto; padding: 9px 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--brand-dark); font-size: 12px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: background .18s ease, border-color .18s ease, color .18s ease; }
-#yd-dashboard-root .yd-portal-section-link:hover { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-dark); }
-#yd-dashboard-root .yd-portal-section .yd-tool-accordion-list { padding-bottom: 0; }
-
-#yd-dashboard-root .yd-portal-section .yd-tool-accordion-item[open] > .yd-tool-accordion-body { margin: 5px 8px 7px; padding: 6px; border-radius: 8px; }
-#yd-dashboard-root .yd-portal-section .yd-tool-accordion-item[open] > summary { padding-top: 9px; padding-bottom: 9px; }
-#yd-dashboard-root .yd-portal-section .yd-tool-accordion-item > summary { min-height: 44px; }
-#yd-dashboard-root .yd-portal-section { scroll-margin-top: 18px; }
-
-#yd-dashboard-root {
-    --yd-radius-panel: 9px;
-    --yd-radius-control: 6px;
-    --yd-radius-small: 5px;
-    --yd-radius-element: 8px;
-}
-#yd-dashboard-root :is(.yd-card,.yd-kpi-card,.yd-announcement-card,.yd-modal,.yd-confirm-modal,.yd-message-modal,.yd-tool-card,.yd-panel,.yd-section,.yd-accordion-item,.yd-tool-accordion-item,.yd-visibility-accordion-item) {
-    border-radius: var(--yd-radius-panel) !important;
-}
-#yd-dashboard-root :is(button,input,select,textarea,.yd-btn,.yd-icon-btn,.yd-tab,.yd-nav-item,.yd-portal-account-value,.yd-portal-copy,.yd-portal-section-link,.yd-search,.yd-filter,.yd-input,.yd-select,.yd-textarea,.yd-action-btn) {
-    border-radius: var(--yd-radius-control) !important;
-}
-#yd-dashboard-root :is(.yd-accordion-body,.yd-tool-accordion-body,.yd-visibility-rows,.yd-dropdown,.yd-menu,.yd-popover,.yd-tooltip,.yd-empty,.yd-alert,.yd-notice,.yd-form-group,.yd-field,.yd-table-wrap) {
-    border-radius: 7px !important;
-}
-#yd-dashboard-root :is(.yd-nav,.yd-nav-icon,.yd-brand-logo,.yd-accordion-index,.yd-pagination-link) {
-    border-radius: var(--yd-radius-element) !important;
-}
-#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-activity-item-status,[class*="pill"],[class*="badge"],[class*="label"],[class*="status"],[class*="id-badge"]) {
-    border-radius: 5px !important;
-}
-#yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-gb-badge,.yd-announcement-avatar,[class*="avatar"],[class*="dot"],[class*="progress"]) {
-    border-radius: 50% !important;
-}
-#yd-dashboard-root .yd-switch {
-    box-sizing: border-box !important;
-    width: 38px !important;
-    min-width: 38px !important;
-    height: 22px !important;
-    padding: 3px !important;
-    border-radius: 999px !important;
-}
-#yd-dashboard-root .yd-switch .yd-switch-knob {
-    box-sizing: border-box !important;
-    width: 16px !important;
-    min-width: 16px !important;
-    height: 16px !important;
-    border-radius: 50% !important;
-}
-#yd-dashboard-root .yd-switch.on .yd-switch-knob { transform: translateX(16px) !important; }
-
-#yd-dashboard-root .yd-accordion-list,
-#yd-dashboard-root .yd-tool-accordion-list,
-#yd-dashboard-root .yd-visibility-accordion-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-bottom: 20px;
-    overflow: visible;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-#yd-dashboard-root details.yd-accordion-item,
-#yd-dashboard-root details.yd-tool-accordion-item,
-#yd-dashboard-root details.yd-visibility-accordion-item {
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 11px;
-    background: #fff;
-    box-shadow: 0 2px 5px #29242e08;
-    interpolate-size: allow-keywords;
-}
-#yd-dashboard-root details.yd-accordion-item > summary,
-#yd-dashboard-root details.yd-tool-accordion-item > summary,
-#yd-dashboard-root details.yd-visibility-accordion-item > summary {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    box-sizing: border-box;
-    min-height: 48px;
-    padding: 10px 42px 10px 14px !important;
-    background: #fff !important;
-    color: var(--ink);
-    cursor: pointer;
-    list-style: none;
-    transition: background-color .22s cubic-bezier(.2, .8, .2, 1), color .22s cubic-bezier(.2, .8, .2, 1), border-color .22s cubic-bezier(.2, .8, .2, 1);
-}
-#yd-dashboard-root details.yd-accordion-item > summary::-webkit-details-marker,
-#yd-dashboard-root details.yd-tool-accordion-item > summary::-webkit-details-marker,
-#yd-dashboard-root details.yd-visibility-accordion-item > summary::-webkit-details-marker { display: none; }
-#yd-dashboard-root details.yd-accordion-item > summary:hover,
-#yd-dashboard-root details.yd-tool-accordion-item > summary:hover,
-#yd-dashboard-root details.yd-visibility-accordion-item > summary:hover,
-#yd-dashboard-root details.yd-accordion-item[open] > summary,
-#yd-dashboard-root details.yd-tool-accordion-item[open] > summary,
-#yd-dashboard-root details.yd-visibility-accordion-item[open] > summary { background: #f8f5f7 !important; }
-#yd-dashboard-root details.yd-accordion-item > summary::after,
-#yd-dashboard-root details.yd-tool-accordion-item > summary::after,
-#yd-dashboard-root details.yd-visibility-accordion-item > summary::after {
-    position: absolute;
-    right: 17px;
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid var(--muted);
-    border-bottom: 2px solid var(--muted);
-    content: '';
-    transform: rotate(45deg);
-    transition: transform .22s cubic-bezier(.2, .8, .2, 1), border-color .22s cubic-bezier(.2, .8, .2, 1);
-}
-#yd-dashboard-root details.yd-accordion-item[open] > summary::after,
-#yd-dashboard-root details.yd-tool-accordion-item[open] > summary::after,
-#yd-dashboard-root details.yd-visibility-accordion-item[open] > summary::after { border-color: var(--brand); transform: rotate(225deg); }
-#yd-dashboard-root details.yd-accordion-item > summary:hover::after,
-#yd-dashboard-root details.yd-tool-accordion-item > summary:hover::after,
-#yd-dashboard-root details.yd-visibility-accordion-item > summary:hover::after { border-color: var(--brand); }
-#yd-dashboard-root .yd-accordion-body,
-#yd-dashboard-root .yd-tool-accordion-body,
-#yd-dashboard-root .yd-visibility-rows {
-    margin: 8px !important;
-    padding: 10px !important;
-    border-radius: 9px;
-    background: #fff;
-}
-#yd-dashboard-root .yd-accordion-body,
-#yd-dashboard-root .yd-tool-accordion-body { border: 0; box-shadow: 0 1px 3px #29242e08; }
-@supports selector(details::details-content) {
-    #yd-dashboard-root details.yd-accordion-item::details-content,
-    #yd-dashboard-root details.yd-tool-accordion-item::details-content,
-    #yd-dashboard-root details.yd-visibility-accordion-item::details-content {
-        display: block;
-        block-size: 0;
-        min-block-size: 0;
-        overflow: hidden;
-        transition: block-size .26s cubic-bezier(.2, .8, .2, 1), content-visibility .26s allow-discrete;
-    }
-    #yd-dashboard-root details.yd-accordion-item[open]::details-content,
-    #yd-dashboard-root details.yd-tool-accordion-item[open]::details-content,
-    #yd-dashboard-root details.yd-visibility-accordion-item[open]::details-content { block-size: auto; }
-}
-@media (prefers-reduced-motion: reduce) {
-    #yd-dashboard-root details.yd-accordion-item > summary,
-    #yd-dashboard-root details.yd-tool-accordion-item > summary,
-    #yd-dashboard-root details.yd-visibility-accordion-item > summary { transition-duration: .01ms !important; }
-}
-
 `;
         (document.head || document.documentElement).appendChild(style);
     };
 
     const navItems = () => {
         const access = getRoleAccess();
-        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements'], ['accounts', 'fa-solid fa-globe', 'Portals']];
+        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements'], ['accounts', 'fa-solid fa-building-shield', 'Accounts']];
         if (access.canManageUsers) items.push(['users', 'fa-solid fa-users', 'Users']);
         if (access.canManageUserPermissions || access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
@@ -3206,6 +2872,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
         const avatar = escapeHTML(initials(user.name || user.id));
         const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="' + icon + '"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
+        const toast = notice ? '<div class="yd-toast ' + escapeHTML(notice.type) + '">' + escapeHTML(notice.message) + '</div>' : '';
         return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
@@ -3217,7 +2884,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                                     '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
-                '</div></div>';
+                '</div></div>' + toast;
     };
 
     const statCard = (label, value, icon, colorClass = 'purple') =>
@@ -3285,64 +2952,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '</section>';
     };
 
-    const loadPortalAccounts = async (force = false) => {
-        if (portalAccountsLoading || (portalAccounts && !force)) return;
-        portalAccountsLoading = true;
-        try {
-            const api = context?.api || page.YODAWY_API_ENGINE;
-            const response = await api?.getPortalAccounts?.(force);
-            if (response?.success !== true) throw new Error(response?.error || 'Portal accounts are unavailable.');
-            portalAccounts = Array.isArray(response.accounts) ? response.accounts : [];
-            page.YODAWY_PORTAL_ACCOUNTS = portalAccounts;
-        } catch {
-            portalAccounts = [];
-            page.YODAWY_PORTAL_ACCOUNTS = [];
-        } finally {
-            portalAccountsLoading = false;
-            if (context && ['tools', 'accounts'].includes(activePage) && isCurrentUI()) render();
-        }
-    };
-
-    const renderAccounts = () => {
-        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
-        const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
-        const canImport = context?.userRole === 'SUPER_ADMIN';
-        const groups = [
-            { title: 'Personal - Linked', icon: 'fa-user-check', type: 'PERSONAL', known: true, empty: 'No personal linked accounts.' },
-            { title: 'Non-Personal - Linked', icon: 'fa-building-circle-check', type: 'NON-PERSONAL', known: true, empty: 'No non-personal linked accounts.' },
-            { title: 'Personal - Unlinked', icon: 'fa-user-question', type: 'PERSONAL', known: false, empty: 'No personal unlinked accounts.' },
-            { title: 'Non-Personal - Unlinked', icon: 'fa-building', type: 'NON-PERSONAL', known: false, empty: 'No non-personal unlinked accounts.' }
-        ];
-        const renderAccount = (account, index) => {
-            const username = String(account.username || '');
-            const fallback = username.includes('_') ? username.slice(username.indexOf('_') + 1).trim() : username;
-            const title = String(account.label || '').trim() || fallback || username || 'Unnamed Account';
-            return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '">' +
-                '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong></span></span></summary>' +
-                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
-        };
-        const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
-        const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
-        const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
-        const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
-        return '<section class="yd-welcome"><div><h1>Portals</h1><p>View your portal usernames and passwords grouped by account type.</p></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav>' + populatedGroups.map(renderGroup).join(''));
-    };
-
-    const renderSplitAccountSettings = settings => {
-        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
-        if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><span class="yd-control-spinner" aria-hidden="true"></span></span><span><strong>Split Account</strong></span></div>';
-        const accounts = portalAccounts.filter(account => account.provider === 'METLIFE');
-        const types = [...new Set(accounts.map(account => account.accountType).filter(type => ['PERSONAL', 'ALTERNATIVE'].includes(type)))];
-        if (!types.length) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-circle-info"></i></span><span><strong>Split Account</strong><small>No MetLife accounts are configured for this user.</small></span></div>';
-        const options = [
-            ...(types.includes('PERSONAL') ? [{ value: 'PERSONAL', label: 'Personal Account' }] : []),
-            ...(types.includes('ALTERNATIVE') ? [{ value: 'ALTERNATIVE', label: 'B.Kamal Account' }] : [])
-        ];
-        const selected = String(settings.preferences?.metlifeSplitAccount || '');
-        const value = options.some(option => option.value === selected) ? selected : '';
-        return '<div class="yd-field"><label for="yd-metlife-split-account">MetLife Split Account</label><select id="yd-metlife-split-account" data-action="split-account-preference" class="yd-input" aria-label="MetLife Split Account"><option value="">Choose an account</option>' + options.map(option => '<option value="' + option.value + '"' + (value === option.value ? ' selected' : '') + '>' + option.label + '</option>').join('') + '</select><small class="yd-field-hint">This choice is saved to your personal Dashboard settings.</small></div>';
-    };
-
     const renderTools = () => {
         const allTools = getTools();
         const isSuperAdmin = context.userRole === 'SUPER_ADMIN';
@@ -3361,7 +2970,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + '</small></span></span>' +
                 '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
-                '<div class="yd-tool-accordion-body">' + (id === 'TOOL-003' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + '</div></details>';
+                '<div class="yd-tool-accordion-body"><div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>Tool-specific user settings will be available here.</small></span>' + '</div></div></details>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Tools</h1><p>' + (isSuperAdmin ? 'Manage your personal tools and their availability.' : 'Expand a tool to access its personal settings and control its status.') + '</p></div></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-tool-search" placeholder="Search tools by name or ID"><span class="yd-pill">' + getLoadedTools().length + ' loaded / ' + allTools.length + ' total</span></div>' +
@@ -3436,13 +3045,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const blocked = !active || Boolean(pending || pendingUser);
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
                 const pendingBadge = '';
-                const userEnabled = isSuperAdmin && context.userSettings?.[userId]?.[tool.id] === 'ENABLED';
-                const userEnabledControl = isSuperAdmin ? '<div class="yd-permission-control"><span class="yd-permission-label">User Enabled</span><span class="yd-permission-status-dot ' + (userEnabled ? 'on' : '') + '" title="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '" aria-label="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '"></span></div>' : '';
-                const permittedControl = '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span>' + (!isSuperAdmin && forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '<button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>') + '</div>';
+                const permittedControl = !isSuperAdmin && forced
+                    ? '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span><span class="yd-pill yellow" title="Protected by Forced State">Protected</span></div>'
+                    : '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span><button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>';
                 const forcedControl = isSuperAdmin
                     ? '<div class="yd-permission-control"><span class="yd-permission-label">Forced State</span><button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + (blocked ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>'
                     : forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '';
-                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + userEnabledControl + forcedControl + '</div></div>';
+                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + forcedControl + '</div></div>';
             }).join('');
             const expanded = expandedUsers.has(userId) ? ' open' : '';
             const userBadge = '';
@@ -3563,7 +3172,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             const toolId = String(tool.id);
             const userId = String(user.id || '').trim().toUpperCase();
             const allowed = isAllowed(tool, user);
-            const pending = getPendingVisibility(toolId, userId);
+            const pending = pendingTools.get(toolId);
             const pendingUser = pendingUsers.get(userId);
             const active = String(user.status || '').toLowerCase() === 'active';
             const disabled = Boolean(pending || pendingUser || !active);
@@ -3590,7 +3199,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const pendingUser = pendingUsers.get(userId);
                 const expanded = visibilityExpandedUsers.has(userId) ? ' open' : '';
                 const active = String(user.status || '').toLowerCase() === 'active';
-                const pendingTool = tools.some(tool => getPendingVisibility(String(tool.id), userId));
+                const pendingTool = tools.some(tool => pendingTools.get(String(tool.id)));
                 const allToolsEnabled = tools.length > 0 && allowedCount === tools.length;
                 const bulkSwitch = renderBulkSwitch('ALL TOOLS', 'ALL_TOOLS', userId, allToolsEnabled, Boolean(!active || pendingUser || pendingTool || !tools.length), formatName(user.name), Boolean(pendingUser || pendingTool));
                 const rows = tools.map(tool => {
@@ -3654,8 +3263,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const cycle = getAnnouncementCycle(post || { createdAt: new Date().toISOString() });
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', class: 'yd-announcement-cycle-select', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
-        mountModalOverlay(overlay);
+        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
+        document.getElementById(CONFIG.ID).appendChild(overlay);
         syncInputSurfaceBackgrounds(overlay);
         const close = () => {
             closeDropdowns(null);
@@ -3750,6 +3359,117 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '</div></div>';
     };
 
+    let portalAccounts = null;
+    let portalAccountsLoading = false;
+    const loadPortalAccounts = async () => {
+        if (portalAccounts || portalAccountsLoading) return;
+        portalAccountsLoading = true;
+        try {
+            const api = context?.api || page.YODAWY_API_ENGINE;
+            const response = await api?.getPortalAccounts?.();
+            if (response?.success !== true) throw new Error('Portal accounts are unavailable.');
+            portalAccounts = Array.isArray(response.accounts) ? response.accounts : [];
+        } catch {
+            portalAccounts = [];
+        } finally {
+            portalAccountsLoading = false;
+            if (context && activePage === 'accounts' && isCurrentUI()) render();
+        }
+    };
+    const renderAccounts = () => {
+        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
+        const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
+        const group = (title, icon, rows) => '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + icon + '"></i></span><span>' + title + '</span><span class="yd-pill">' + rows.length + '</span></div>' + (rows.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + rows.map(a => '<tr><td><strong>' + escapeHTML(a.label || '—') + '</strong></td><td>' + escapeHTML(a.username || '—') + '</td><td>' + escapeHTML(a.odooKey || '—') + '</td><td>' + escapeHTML(a.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>No accounts yet</strong></div>') + '</section>';
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Personal and non-personal accounts assigned to your Dashboard user.</p></div><div class="yd-welcome-actions">' + (String(context?.userRole || '').toUpperCase() === 'SUPER_ADMIN' ? '<button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '') + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : group('Personal Accounts', 'fa-user-lock', accounts.filter(a => a.accountType === 'PERSONAL')) + group('Non-Personal Accounts', 'fa-users', accounts.filter(a => a.accountType === 'NON-PERSONAL')));
+    };
+
+    const openPortalAccountsImport = () => {
+        if (String(context?.userRole || '').toUpperCase() !== 'SUPER_ADMIN') return;
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        overlay.innerHTML = '<form class="yd-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-import-title"><h3 id="yd-portal-import-title">Import Portal Accounts</h3><p>Paste the account list in Username / Password format. The importer detects Mohamed's personal accounts and the shared alternatives automatically.</p><div class="yd-field"><label for="yd-portal-import-json">Account Credentials</label><textarea id="yd-portal-import-json" name="accounts" rows="12" spellcheck="false" required placeholder="Username: m.saleh_Nextcare&#10;Password: ********"></textarea></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-import-cancel>Cancel</button><button type="submit" class="yd-primary">Validate & Import</button></div><div class="yd-form-feedback" data-portal-import-feedback hidden></div></form>';
+        document.getElementById(CONFIG.ID).appendChild(overlay);
+        const form = overlay.querySelector('form');
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-portal-import-cancel]')) close(); });
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const submit = form.querySelector('[type="submit"]');
+            const feedback = form.querySelector('[data-portal-import-feedback]');
+            const field = form.querySelector('[name="accounts"]');
+            if (submit.disabled) return;
+            let records;
+            try {
+                const source = field.value.trim();
+                if (source.startsWith('[')) {
+                    records = JSON.parse(source);
+                } else {
+                    const entries = [...source.matchAll(/(?:UserName|Username)\s*:\s*([^\r\n]+)[\s\S]*?Password\s*:\s*([^\r\n]+)/gi)];
+                    if (!entries.length) throw new Error('No Username / Password records were found.');
+                    const keyMap = {
+                        'administrative control authority (aca)': 'Administrative control Authority (ACA)',
+                        'adminstrative control authority': 'Administrative control Authority (ACA)',
+                        'al ahly medical company': 'Ahly Medical',
+                        'al mashreq': 'El Mashreq',
+                        'careplus': 'Care Plus',
+                        'egycare': 'EGY-Care',
+                        'egymed': 'EgyMed',
+                        'diamond electronic services': 'DES',
+                        'national printing agency': 'National Authority For Printing & Publishing',
+                        'medi card': 'Medicard',
+                        'medicard': 'Medicard',
+                        'nextcare': 'Next Care',
+                        'tristar': 'Tri-Star',
+                        'wadi el nile': 'Wadi El Neel',
+                        'yodawy': 'Medicard'
+                    };
+                    records = entries.map((match) => {
+                        const username = match[1].trim().replace(/\\_/g, '_').replace(/\\+$/, '').trim();
+                        const password = match[2].trim();
+                        const separator = username.indexOf('_');
+                        if (separator < 0) throw new Error('Invalid username: ' + username);
+                        const owner = username.slice(0, separator).toLowerCase();
+                        const originalLabel = username.slice(separator + 1).trim();
+                        const label = owner === 'm.saleh' && originalLabel.toLowerCase() === 'yodawy' ? 'Medicard' : originalLabel;
+                        const accountType = owner === 'm.saleh' ? 'PERSONAL' : ['a.shaaban', 'm.moustafa'].includes(owner) ? 'NON-PERSONAL' : '';
+                        if (!accountType) throw new Error('Unsupported account owner in: ' + username);
+                        return { label, username, password, odooKey: keyMap[originalLabel.toLowerCase()] || '', accountType };
+                    }).filter(item => !(item.accountType === 'NON-PERSONAL' && item.label.toLowerCase() === 'hyper one'));
+                }
+                if (!Array.isArray(records) || !records.length || records.length > 150) throw new Error('Provide between 1 and 150 account records.');
+                records = records.map(item => ({ ...item, targetUserIds: [String(context?.userId || context?.user?.id || context?.user?.userId || '').trim().toUpperCase()] }));
+                if (records.some(item => !records[0].targetUserIds[0] || !item.label || !item.username || !item.password || !['PERSONAL', 'NON-PERSONAL'].includes(String(item.accountType || '').toUpperCase()))) throw new Error('Each account needs label, username, password and accountType (PERSONAL or NON-PERSONAL).');
+            } catch (error) {
+                feedback.hidden = false;
+                feedback.textContent = error.message || 'Invalid account data.';
+                return;
+            }
+            submit.disabled = true;
+                if (!Array.isArray(records) || !records.length || records.length > 150) throw new Error('Provide a JSON array containing 1 to 150 accounts.');
+                records = records.map(item => ({ ...item, targetUserIds: [String(context?.userId || context?.user?.id || context?.user?.userId || '').trim().toUpperCase()] }));
+                if (records.some(item => !item.targetUserIds[0] || !item.label || !item.username || !item.password || !['PERSONAL', 'NON-PERSONAL'].includes(String(item.accountType || '').toUpperCase()))) throw new Error('Each account needs label, username, password and accountType (PERSONAL or NON-PERSONAL).');
+            submit.disabled = true;
+            submit.innerHTML = '<span class="yd-control-spinner"></span><span>Importing...</span>';
+            feedback.hidden = true;
+            try {
+                const api = context?.api || page.YODAWY_API_ENGINE;
+                const response = await api?.importPortalAccounts?.(records);
+                if (response?.success !== true) throw new Error(response?.error || 'Import failed.');
+                portalAccounts = null;
+                await loadPortalAccounts();
+                close();
+                render();
+                showNotice('Portal accounts imported: ' + response.created + ' created, ' + response.skipped + ' skipped.');
+            } catch (error) {
+                submit.disabled = false;
+                submit.textContent = 'Validate & Import';
+                feedback.hidden = false;
+                feedback.textContent = error.message || 'Import failed.';
+            }
+        });
+        syncInputSurfaceBackgrounds(overlay);
+    };
+
     const renderPage = () => {
         const access = getRoleAccess();
         if (!access.pages.includes(activePage)) activePage = 'tools';
@@ -3770,9 +3490,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     const render = () => {
         const root = rootElement;
         if (!isCurrentUI() || !root) return;
-        const main = root.querySelector('#yd-main');
-        const scrollTop = main?.scrollTop || 0;
-        const scrollLeft = main?.scrollLeft || 0;
         root.querySelectorAll('details[data-user-accordion]').forEach(item => {
             if (item.open) expandedUsers.add(item.dataset.user);
             else expandedUsers.delete(item.dataset.user);
@@ -3786,11 +3503,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         root.innerHTML = renderShell(renderPage());
         root.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
         syncInputSurfaceBackgrounds(root);
-        const nextMain = root.querySelector('#yd-main');
-        if (nextMain) {
-            nextMain.scrollTop = scrollTop;
-            nextMain.scrollLeft = scrollLeft;
-        }
     };
 
     const captureUIState = noticeMessage => ({
@@ -4139,7 +3851,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal" role="dialog" aria-modal="true"><h3>' + escapeHTML(title) + '</h3><p>' + escapeHTML(message) + '</p><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>Cancel</button><button type="button" class="yd-danger" data-confirm-accept>' + escapeHTML(confirmLabel) + '</button></div></section>';
-        mountModalOverlay(overlay);
+        document.getElementById(CONFIG.ID).appendChild(overlay);
         const close = () => overlay.remove();
         overlay.addEventListener('click', event => {
             if (event.target === overlay || event.target.closest('[data-confirm-cancel]')) close();
@@ -4180,7 +3892,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 (editing ? '<div class="yd-field"><label>Reset Password (Optional)</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Leave blank to keep current password"></div>' : '<div class="yd-field"><label>Initial Password</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="At least 10 characters"></div>') +
                 roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
-        mountModalOverlay(overlay);
+        document.getElementById(CONFIG.ID).appendChild(overlay);
         syncInputSurfaceBackgrounds(overlay);
         const close = () => {
             closeDropdowns(null);
@@ -4235,43 +3947,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         });
     };
 
-    let activeMessageDialog = null;
-    let messageDialogTimer = null;
     const showMessageDialog = (title, message, type = 'error') => {
         if (!isCurrentUI()) return;
-        const root = document.getElementById(CONFIG.ID);
-        if (!root) return;
-        const computed = getComputedStyle(root);
-        const variables = [...computed].filter(name => name.startsWith('--'));
-        if (activeMessageDialog?.isConnected) {
-            const section = activeMessageDialog.querySelector('.yd-message-modal');
-            const heading = section?.querySelector('h3');
-            const body = section?.querySelector('[data-message-details]');
-            if (heading && body) {
-                const entry = document.createElement('p');
-                entry.textContent = title + ': ' + message;
-                body.appendChild(entry);
-                heading.textContent = 'Multiple Dashboard Messages';
-            }
-            return;
-        }
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        variables.forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
-        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><p>' + escapeHTML(message) + '</p><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
         overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
-        document.body.appendChild(overlay);
-        activeMessageDialog = overlay;
-        const closeButton = overlay.querySelector('[data-message-close]');
-        if (closeButton) {
-            closeButton.disabled = true;
-            closeButton.textContent = 'Please wait 10 seconds';
-        }
-        messageDialogTimer = setTimeout(() => {
-            overlay.remove();
-            if (activeMessageDialog === overlay) activeMessageDialog = null;
-        }, 10000);
+        document.getElementById(CONFIG.ID)?.appendChild(overlay);
+        const close = () => overlay.remove();
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay || event.target.closest('[data-message-close]')) close();
+        });
     };
 
     const runAction = async (action, button) => {
@@ -4410,7 +4097,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         ? { visibility: 'PUBLIC', allowedUsers: [] }
                         : { visibility: 'SELECTED_USERS', allowedUsers: [] };
                     optimisticVisibility.set(toolId, updatedRecord);
-                    pendingVisibilitySubmissions.add(toolId + ':*');
+                    pendingVisibilitySubmissions.add(toolId);
                     render();
                     const metadata = {
                         action: 'UPDATE_VISIBILITY',
@@ -4422,13 +4109,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                             engine.setToolVisibility(toolId, updatedRecord), metadata
                         );
                     } finally {
-                        pendingVisibilitySubmissions.delete(toolId + ':*');
+                        pendingVisibilitySubmissions.delete(toolId);
                         render();
                     }
                 } else if (mode === 'ALL_TOOLS') {
                     const userId = String(button.dataset.user || '').trim().toUpperCase();
                     const user = users.find(item => String(item.id || '').trim().toUpperCase() === userId);
-                    if (!user || String(user.status || '').toLowerCase() !== 'active' || button.disabled || getPendingUser(user) || tools.some(tool => getPendingVisibility(String(tool.id), userId))) return;
+                    if (!user || String(user.status || '').toLowerCase() !== 'active' || button.disabled || getPendingUser(user) || tools.some(tool => getPendingVisibility(String(tool.id)))) return;
                     const nextEnabled = button.dataset.enabled !== 'true';
                     const userIds = users.map(item => String(item.id || '').trim().toUpperCase());
                     const changes = [];
@@ -4453,7 +4140,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     }
                     changes.forEach(({ toolId, record }) => {
                         optimisticVisibility.set(toolId, record);
-                        pendingVisibilitySubmissions.add(toolId + ':' + userId);
+                        pendingVisibilitySubmissions.add(toolId);
                     });
                     render();
                     const visibilityChanges = Object.fromEntries(changes.map(({ toolId, record }) => [toolId, record]));
@@ -4471,7 +4158,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         );
                         showNotice('ALL TOOLS access ' + (nextEnabled ? 'enabled' : 'disabled') + ' for ' + formatName(user.name || userId) + '.');
                     } finally {
-                        targetToolIds.forEach(toolId => pendingVisibilitySubmissions.delete(toolId + ':' + userId));
+                        targetToolIds.forEach(toolId => pendingVisibilitySubmissions.delete(toolId));
                         render();
                     }
                 }
@@ -4481,7 +4168,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 const engine = getRoleEngine();
                 const user = getVisibilityUsers().find(item => String(item.id || '').trim().toUpperCase() === userId);
                 const tool = getTools().find(item => String(item.id || '').trim() === toolId);
-                if (!tool || !user || button.disabled || getPendingVisibility(toolId, userId) || getPendingUser(user)) return;
+                if (!tool || !user || button.disabled || getPendingVisibility(toolId) || getPendingUser(user)) return;
                 const currentRecord = optimisticVisibility.get(toolId) || (engine?.getVisibility?.() || {})[toolId] || { visibility: 'PRIVATE', allowedUsers: [] };
                 const allowedUsers = new Set(currentRecord.visibility === 'PUBLIC'
                     ? getVisibilityUsers().map(item => String(item.id || '').trim().toUpperCase())
@@ -4492,7 +4179,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 else allowedUsers.delete(userId);
                 const updatedRecord = { visibility: 'SELECTED_USERS', allowedUsers: [...allowedUsers] };
                 optimisticVisibility.set(toolId, updatedRecord);
-                pendingVisibilitySubmissions.add(toolId + ':' + userId);
+                pendingVisibilitySubmissions.add(toolId);
                 render();
                 const metadata = {
                     action: 'UPDATE_VISIBILITY',
@@ -4506,7 +4193,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                         engine.setToolVisibility(toolId, updatedRecord), metadata
                     );
                 } finally {
-                    pendingVisibilitySubmissions.delete(toolId + ':' + userId);
+                    pendingVisibilitySubmissions.delete(toolId);
                     render();
                 }
             } else if (action === 'toggle-permission') {
@@ -4547,7 +4234,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                     ? { visibility: 'PUBLIC', allowedUsers: [] }
                     : { visibility: 'SELECTED_USERS', allowedUsers: [...draft.allowedUsers] };
                 optimisticVisibility.set(toolId, record);
-                pendingVisibilitySubmissions.add(toolId + ':*');
+                pendingVisibilitySubmissions.add(toolId);
                 visibilityDraft = null;
                 openVisibilityToolId = null;
                 closeDropdowns(null);
@@ -4556,7 +4243,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 try {
                     await runNetworkOperation('Saving allowed users', () => getRoleEngine().setToolVisibility(toolId, record), metadata);
                 } finally {
-                    pendingVisibilitySubmissions.delete(toolId + ':*');
+                    pendingVisibilitySubmissions.delete(toolId);
                     render();
                 }
             } else if (action === 'add-announcement') {
@@ -4618,12 +4305,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const trigger = dropdown?.querySelector('.ui-select-trigger');
         if (!menu || !trigger || menu.dataset.portal !== 'true') return;
         const rect = trigger.getBoundingClientRect();
-        const dropdownRect = dropdown.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
-        const isAllowedUsers = dropdown.classList.contains('yd-allowed-users-dropdown');
-        const width = Math.min(Math.max(isAllowedUsers ? dropdownRect.width : rect.width, isAllowedUsers ? 240 : 144), viewportWidth - 24);
-        const maxHeight = Math.min(dropdown.classList.contains('yd-announcement-cycle-select') ? 260 : 320, viewportHeight - 24);
+        const width = Math.min(Math.max(rect.width, 144), viewportWidth - 24);
+        const maxHeight = Math.min(320, viewportHeight - 24);
         const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
         const roomBelow = viewportHeight - rect.bottom - 12;
         const roomAbove = rect.top - 12;
@@ -4636,8 +4321,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (supportsAnchor) {
             trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
             menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
-            if (isAllowedUsers) menu.style.setProperty('--yd-select-menu-width', dropdownRect.width + 'px');
-            else menu.style.removeProperty('--yd-select-menu-width');
+            menu.style.removeProperty('--yd-select-menu-width');
             ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
             return;
         }
@@ -4686,7 +4370,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const closeDropdowns = except => {
-        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"], body > .yd-modal-backdrop .ui-select[data-open="true"]').forEach(dropdown => {
+        document.querySelectorAll('#' + CONFIG.ID + ' .ui-select[data-open="true"]').forEach(dropdown => {
             if (dropdown === except) return;
             closeDropdownMenu(dropdown);
         });
@@ -4757,63 +4441,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
     };
 
     const bindEvents = root => {
-        root.addEventListener('change', async event => {
-            if (event.target.id === 'yd-portal-accounts-import-file') {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (!file) return;
-                try {
-                    if (!/\.json$/i.test(file.name)) throw new Error('Select a valid JSON file.');
-                    if (!Number.isFinite(file.size) || file.size <= 0) throw new Error('The selected file is empty or unreadable.');
-                    if (file.size > 256 * 1024) throw new Error('The selected file exceeds the 256 KB limit.');
-                    const payload = JSON.parse(await file.text());
-                    const expected = ['Personal - Linked', 'Non-Personal - Linked', 'Personal - Unlinked', 'Non-Personal - Unlinked'];
-                    if (!payload || typeof payload !== 'object' || !/^Q-[0-9]{3,}$/i.test(String(payload.targetUserId || '')) || !payload.groups || expected.some(key => !Array.isArray(payload.groups[key])) || Object.keys(payload.groups).length !== 4) throw new Error('The JSON structure or group names are invalid.');
-                    const counts = expected.map(key => key + ': ' + payload.groups[key].length).join('\\n');
-                    const total = expected.reduce((sum, key) => sum + payload.groups[key].length, 0);
-                    if (!total || total > 150) throw new Error('The file must contain between 1 and 150 accounts.');
-                    if (!window.confirm('Import ' + total + ' accounts for ' + payload.targetUserId + '?\\n\\n' + counts + '\\n\\nExisting usernames will be skipped. Passwords will be encrypted before saving.')) return;
-                    const button = root.querySelector('[data-action="import-portal-accounts"]');
-                    if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.innerHTML = '<span class="yd-control-spinner"></span><span>Importing...</span>'; }
-                    const api = context?.api || page.YODAWY_API_ENGINE;
-                    const result = await api?.importPortalAccounts?.(payload);
-                    if (result?.success !== true) throw new Error(result?.error || 'The account import failed.');
-                    portalAccounts = null;
-                    await loadPortalAccounts();
-                    showMessageDialog('Accounts Imported', 'Added: ' + result.created + '\\nSkipped: ' + result.skipped + '\\nProcessed: ' + result.processed, 'success');
-                } catch (error) {
-                    showMessageDialog('Import Failed', error?.message || 'Unable to import the selected JSON file.');
-                } finally {
-                    const button = root.querySelector('[data-action="import-portal-accounts"]');
-                    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = '<i class="fa-solid fa-file-import"></i><span>Import Accounts</span>'; }
-                }
-                return;
-            }
-            const select = event.target.closest?.('[data-action="split-account-preference"]');
-            if (!select || !root.contains(select)) return;
-            const selected = String(select.value || '').toUpperCase();
-            if (!['PERSONAL', 'ALTERNATIVE'].includes(selected)) return;
-            select.disabled = true;
-            try {
-                const updated = context.settings.getSettings();
-                updated.preferences = { ...(updated.preferences || {}), metlifeSplitAccount: selected };
-                await context.settings.save(updated);
-                showNotice('MetLife Split Account preference saved.');
-            } catch (error) {
-                showMessageDialog('Preference Not Saved', error?.message || 'Unable to save your Split account preference.');
-                render();
-            } finally {
-                if (select.isConnected) select.disabled = false;
-            }
-        });
-
         root.addEventListener('toggle', event => {
-            const openedAccordion = event.target.matches?.('details') ? event.target : null;
-            if (openedAccordion?.open) {
-                root.querySelectorAll('details[open]').forEach(other => {
-                    if (other !== openedAccordion && !other.contains(openedAccordion)) other.open = false;
-                });
-            }
             const userItem = event.target.closest?.('details[data-user-accordion]');
             const toolItem = event.target.closest?.('details[data-tool-accordion]');
             const visibilityUserItem = event.target.closest?.('details[data-visibility-user]');
@@ -4870,17 +4498,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         activityClickRoot = root;
         root.addEventListener('click', activityClickHandler, true);
 
-        root.addEventListener('click', async event => {
-            const sectionLink = event.target.closest('.yd-portal-section-link');
-            if (sectionLink) {
-                event.preventDefault();
-                const target = root.querySelector(sectionLink.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    history.replaceState(null, '', sectionLink.getAttribute('href'));
-                }
-                return;
-            }
+        root.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
             if (activityMenuOpen && !event.target.closest('.yd-activity-wrap')) {
@@ -4889,41 +4507,17 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 if (activityMenu) activityMenu.hidden = true;
                 root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
             }
-            if (actionButton?.dataset.action === 'copy-portal-value') {
-                event.preventDefault();
-                event.stopPropagation();
-                const account = (portalAccounts || []).find(item => item.id === actionButton.dataset.account);
-                const value = account?.[actionButton.dataset.field];
-                if (typeof value !== 'string' || !value) return;
-                try {
-                    await navigator.clipboard.writeText(value);
-                    clearTimeout(actionButton._ydCopyTimer);
-                    actionButton.classList.add('is-copied');
-                    actionButton.setAttribute('aria-label', 'Copied');
-                    actionButton._ydCopyTimer = setTimeout(() => {
-                        if (actionButton.isConnected) {
-                            actionButton.classList.remove('is-copied');
-                            actionButton.setAttribute('aria-label', actionButton.dataset.field === 'username' ? 'Copy username' : 'Copy password');
-                        }
-                        actionButton._ydCopyTimer = null;
-                    }, 1200);
-                } catch {
-                    showMessageDialog('Copy Failed', 'Unable to copy this value. Check browser clipboard permissions.');
-                }
-                return;
-            }
             if (actionButton?.dataset.action === 'import-portal-accounts') {
                 event.preventDefault();
                 event.stopPropagation();
-                if (context?.userRole !== 'SUPER_ADMIN') return;
-                root.querySelector('#yd-portal-accounts-import-file')?.click();
+                openPortalAccountsImport();
                 return;
             }
             if (actionButton?.dataset.action === 'refresh-portal-accounts') {
                 event.preventDefault();
                 event.stopPropagation();
                 portalAccounts = null;
-                loadPortalAccounts(true);
+                loadPortalAccounts();
                 render();
                 return;
             }
@@ -5042,7 +4636,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             if (!actionButton) return;
             const menu = actionButton.closest('.ui-select-menu');
             const dropdown = menu?._ydSelectOwner;
-            if (!dropdown || (!root.contains(dropdown) && !dropdown.closest('.yd-modal-backdrop'))) return;
+            if (!dropdown || !root.contains(dropdown)) return;
             event._ydSelectHandled = true;
             if (handleAllowedUsersAction(actionButton)) return;
             if (actionButton.dataset.action === 'select-dropdown') {
@@ -5096,7 +4690,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             throw new Error('Authenticated dashboard context is required.');
         }
         context = options;
-        loadPortalAccounts();
         const uiState = options.uiState && typeof options.uiState === 'object' ? options.uiState : {};
         const defaultPage = context.settings?.getSettings?.()?.startPage;
         const requestedPage = String(uiState.activePage || '');
@@ -5109,7 +4702,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         restorePendingAnnouncements();
         isOpen = uiState.isOpen === true;
         profileOpen = uiState.profileOpen === true;
-        notice = null;
+        notice = uiState.notice ? { message: String(uiState.notice), type: uiState.noticeType === 'error' ? 'error' : 'success' } : null;
         injectStyles();
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
@@ -5118,6 +4711,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         document.body.appendChild(root);
         render();
         bindEvents(root);
+        if (notice) {
+            const toast = root.querySelector('.yd-toast');
+            if (toast) toast._ydTimer = setTimeout(() => {
+                toast.hidden = true;
+                notice = null;
+            }, 4500);
+        }
         resumePendingTransactions();
         refreshTimer = null;
         return true;
@@ -5140,8 +4740,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (document.getElementById(CONFIG.STYLE_ID)) document.getElementById(CONFIG.STYLE_ID).remove();
         rootElement = null;
         context = null;
-        portalAccounts = null;
-        portalAccountsLoading = false;
         notice = null;
         isOpen = false;
         profileOpen = false;
