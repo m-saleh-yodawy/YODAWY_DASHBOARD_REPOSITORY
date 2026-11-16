@@ -2830,40 +2830,55 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     outline: none !important;
 }
 
-html,
-body,
-body * {
+#yd-dashboard-root,
+#yd-dashboard-root *,
+body > .yd-modal-backdrop,
+body > .yd-modal-backdrop *,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] * {
     scrollbar-color: #875a7b #f4eff4 !important;
     scrollbar-width: thin !important;
 }
-html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-body *::-webkit-scrollbar {
+#yd-dashboard-root::-webkit-scrollbar,
+#yd-dashboard-root *::-webkit-scrollbar,
+body > .yd-modal-backdrop::-webkit-scrollbar,
+body > .yd-modal-backdrop *::-webkit-scrollbar,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar {
     width: 8px !important;
     height: 8px !important;
 }
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track,
-body *::-webkit-scrollbar-track {
+#yd-dashboard-root::-webkit-scrollbar-track,
+#yd-dashboard-root *::-webkit-scrollbar-track,
+body > .yd-modal-backdrop::-webkit-scrollbar-track,
+body > .yd-modal-backdrop *::-webkit-scrollbar-track,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-track,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-track {
     border-radius: 8px !important;
     background: #f4eff4 !important;
 }
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb,
-body *::-webkit-scrollbar-thumb,
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover,
-body *::-webkit-scrollbar-thumb:hover,
-html::-webkit-scrollbar-thumb:active,
-body::-webkit-scrollbar-thumb:active,
-body *::-webkit-scrollbar-thumb:active {
+#yd-dashboard-root::-webkit-scrollbar-thumb,
+#yd-dashboard-root *::-webkit-scrollbar-thumb,
+body > .yd-modal-backdrop::-webkit-scrollbar-thumb,
+body > .yd-modal-backdrop *::-webkit-scrollbar-thumb,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-thumb,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb,
+#yd-dashboard-root::-webkit-scrollbar-thumb:hover,
+#yd-dashboard-root *::-webkit-scrollbar-thumb:hover,
+body > .yd-modal-backdrop::-webkit-scrollbar-thumb:hover,
+body > .yd-modal-backdrop *::-webkit-scrollbar-thumb:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-thumb:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb:hover {
     border: 2px solid #f4eff4 !important;
     border-radius: 8px !important;
     background: #875a7b !important;
 }
-html::-webkit-scrollbar-corner,
-body::-webkit-scrollbar-corner,
-body *::-webkit-scrollbar-corner {
+#yd-dashboard-root::-webkit-scrollbar-corner,
+#yd-dashboard-root *::-webkit-scrollbar-corner,
+body > .yd-modal-backdrop::-webkit-scrollbar-corner,
+body > .yd-modal-backdrop *::-webkit-scrollbar-corner,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-corner,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-corner {
     background: #f4eff4 !important;
 }
 
