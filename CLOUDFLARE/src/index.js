@@ -199,38 +199,48 @@ const portalAccountRoutes = async (request, env, path) => {
     const length = Number(request.headers.get("content-length") || 0);
     if (length > 262144) return respond(request, env, { success: false, error: "IMPORT_TOO_LARGE" }, 413);
     const body = await readBody(request);
-    const records = body.accounts;
-    if (!Array.isArray(records) || !records.length || records.length > 150) return respond(request, env, { success: false, error: "INVALID_IMPORT" }, 400);
-    const userRows = await env.DB.prepare("SELECT user_id FROM users WHERE status = 'Active'").all();
-    const activeUsers = new Set((userRows.results || []).map(user => user.user_id));
-    const prepared = [];
-    const seen = new Set();
-    let skipped = 0;
-    for (const item of records) {
-      const provider = String(item?.provider || "PORTAL").trim().toUpperCase();
-      const label = String(item?.label || "").trim();
-      const accountType = String(item?.accountType || "").trim().toUpperCase();
-      const odooKey = String(item?.odooKey || "").trim();
-      const username = String(item?.username || "").trim();
-      const password = String(item?.password || "");
-      const targets = [...new Set(Array.isArray(item?.targetUserIds) ? item.targetUserIds.map(value => String(value).trim().toUpperCase()) : [])];
-      if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 100) return respond(request, env, { success: false, error: "INVALID_IMPORT_RECORD" }, 400);
-      if (targets.some(userId => !/^Q-[0-9]{3,}$/.test(userId) || !activeUsers.has(userId))) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
-      for (const userId of targets) {
-        const key = [userId, provider, odooKey.toLowerCase(), accountType].join("|");
-        if (seen.has(key)) return respond(request, env, { success: false, error: "DUPLICATE_IMPORT_RECORD" }, 409);
-        seen.add(key);
-        const existing = await env.DB.prepare("SELECT account_id, account_type FROM portal_accounts WHERE owner_user_id = ? AND provider = ? AND LOWER(COALESCE(odoo_key, label)) = LOWER(?) AND enabled = 1 LIMIT 1").bind(userId, provider, odooKey || label).first();
-        if (existing) { skipped++; continue; }
-        let encrypted;
-        try { encrypted = await encryptPortalPassword(env, password); }
-        catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
-        prepared.push(env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
+    const targetUserId = String(body.targetUserId || "").trim().toUpperCase();
+    const groups = body.groups;
+    const definitions = [
+      ["knownPersonal", "PERSONAL", true],
+      ["knownCompany", "NON-PERSONAL", true],
+      ["unknownPersonal", "PERSONAL", false],
+      ["unknownCompany", "NON-PERSONAL", false]
+    ];
+    if (!/^Q-[0-9]{3,}$/.test(targetUserId) || !groups || typeof groups !== "object" || Array.isArray(groups)) return respond(request, env, { success: false, error: "INVALID_IMPORT" }, 400);
+    if (!await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(targetUserId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
+    const records = [];
+    for (const [group, accountType, requiresKey] of definitions) {
+      if (!Array.isArray(groups[group])) return respond(request, env, { success: false, error: "INVALID_IMPORT_GROUP", group }, 400);
+      for (const item of groups[group]) {
+        const label = String(item?.payer || item?.label || "").trim();
+        const username = String(item?.username || "").trim();
+        const password = String(item?.password || "");
+        const odooKey = String(item?.odooKey || "").trim();
+        if (!label || label.length > 160 || !username || username.length > 160 || !password || password.length > 256 || odooKey.length > 160 || (requiresKey && !odooKey) || (!requiresKey && odooKey)) return respond(request, env, { success: false, error: "INVALID_IMPORT_RECORD", group }, 400);
+        records.push({ label, username, password, odooKey, accountType });
       }
     }
+    if (!records.length || records.length > 150) return respond(request, env, { success: false, error: "INVALID_IMPORT_COUNT" }, 400);
+    const seen = new Set();
+    for (const item of records) {
+      const key = item.username.toLowerCase();
+      if (seen.has(key)) return respond(request, env, { success: false, error: "DUPLICATE_IMPORT_USERNAME" }, 409);
+      seen.add(key);
+    }
+    const prepared = [];
+    let skipped = 0;
+    for (const item of records) {
+      const existing = await env.DB.prepare("SELECT account_id FROM portal_accounts WHERE owner_user_id = ? AND provider = 'PORTAL' AND LOWER(username) = LOWER(?) AND enabled = 1 LIMIT 1").bind(targetUserId, item.username).first();
+      if (existing) { skipped++; continue; }
+      let encrypted;
+      try { encrypted = await encryptPortalPassword(env, item.password); }
+      catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
+      prepared.push(env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, 'PORTAL', ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), targetUserId, item.accountType, item.label, item.username, item.odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
+    }
     for (let index = 0; index < prepared.length; index += 50) await env.DB.batch(prepared.slice(index, index + 50));
-    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'PORTAL_ACCOUNT_IMPORT', 'PORTAL_ACCOUNT', NULL, ?, ?)").bind(actor.user_id, JSON.stringify({ created: prepared.length, skipped }), now).run();
-    return respond(request, env, { success: true, created: prepared.length, skipped, processed: prepared.length + skipped });
+    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'PORTAL_ACCOUNT_IMPORT', 'PORTAL_ACCOUNT', ?, ?, ?)").bind(actor.user_id, targetUserId, JSON.stringify({ created: prepared.length, skipped, total: records.length }), now).run();
+    return respond(request, env, { success: true, targetUserId, created: prepared.length, skipped, processed: records.length });
   }
   if (path === "/api/portal-accounts/bulk" && request.method === "POST") {
     if (!isSuper) return forbidden();
