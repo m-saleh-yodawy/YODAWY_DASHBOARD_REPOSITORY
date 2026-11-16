@@ -2923,8 +2923,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root :is(.yd-accordion-body,.yd-tool-accordion-body,.yd-visibility-rows,.yd-dropdown,.yd-menu,.yd-popover,.yd-tooltip,.yd-empty,.yd-alert,.yd-notice,.yd-form-group,.yd-field,.yd-table-wrap) {
     border-radius: 7px !important;
 }
-#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-switch,.yd-visibility-switch,.yd-activity-item-status,.yd-accordion-index,[class*="avatar"],[class*="logo"],[class*="dot"],[class*="icon"],[class*="badge"],[class*="pill"],[class*="switch"],[class*="toggle"],[class*="progress"]) {
-    border-radius: revert !important;
+#yd-dashboard-root .yd-brand-logo { border-radius: 9px !important; }
+#yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-gb-badge,.yd-announcement-avatar) { border-radius: 50% !important; }
+#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-switch,.yd-visibility-switch,.yd-activity-item-status,.yd-accordion-index,[class*="avatar"],[class*="dot"],[class*="badge"],[class*="pill"],[class*="switch"],[class*="toggle"],[class*="progress"]) {
+    border-radius: 50% !important;
 }
 
 #yd-dashboard-root .yd-accordion-list,
