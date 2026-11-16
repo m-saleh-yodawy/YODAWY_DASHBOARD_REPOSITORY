@@ -2892,6 +2892,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-account-value > span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
 #yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: var(--brand-soft); color: var(--brand-dark); cursor: pointer; }
 #yd-dashboard-root .yd-portal-copy:hover { background: #e9dfe7; }
+#yd-dashboard-root .yd-portal-copy.is-copied i { display: none; }
+#yd-dashboard-root .yd-portal-copy.is-copied::after { content: "✓"; font-family: Arial, sans-serif; font-size: 19px; font-weight: 700; line-height: 1; }
 
 #yd-dashboard-root .yd-portal-section { margin: 0 0 30px; padding: 0 0 28px; border: 0 !important; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent !important; box-shadow: none !important; scroll-margin-top: 24px; }
 #yd-dashboard-root .yd-portal-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
@@ -4628,9 +4630,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 try {
                     await navigator.clipboard.writeText(value);
                     clearTimeout(actionButton._ydCopyTimer);
-                    actionButton.innerHTML = '<span aria-hidden="true">✓</span>';
+                    actionButton.classList.add('is-copied');
+                    actionButton.setAttribute('aria-label', 'Copied');
                     actionButton._ydCopyTimer = setTimeout(() => {
-                        if (actionButton.isConnected) actionButton.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                        if (actionButton.isConnected) {
+                            actionButton.classList.remove('is-copied');
+                            actionButton.setAttribute('aria-label', actionButton.dataset.field === 'username' ? 'Copy username' : 'Copy password');
+                        }
                         actionButton._ydCopyTimer = null;
                     }, 1200);
                 } catch {
