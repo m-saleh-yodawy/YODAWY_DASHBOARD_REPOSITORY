@@ -2484,11 +2484,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     text-align: center;
     white-space: nowrap;
 }
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-}
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
     padding: 14px;
@@ -3313,7 +3308,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const cycle = getAnnouncementCycle(post || { createdAt: new Date().toISOString() });
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', class: 'yd-announcement-cycle-select', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
+        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
         document.getElementById(CONFIG.ID).appendChild(overlay);
         syncInputSurfaceBackgrounds(overlay);
         const close = () => {
