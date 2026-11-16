@@ -2942,8 +2942,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-account-field { flex: 0 0 50%; min-width: 0; width: 50%; max-width: 50%; }
 #yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 3px 6px 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: #e1e1e1; }
 #yd-dashboard-root .yd-portal-account-value > span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
-#yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: var(--brand-soft); color: var(--brand-dark); cursor: pointer; }
-#yd-dashboard-root .yd-portal-copy:hover { background: #e9dfe7; }
+#yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: #fff !important; color: var(--brand-dark); cursor: pointer; }
+#yd-dashboard-root .yd-portal-copy:hover,
+#yd-dashboard-root .yd-portal-copy:focus,
+#yd-dashboard-root .yd-portal-copy:focus-visible,
+#yd-dashboard-root .yd-portal-copy:active { background: #fff !important; }
 #yd-dashboard-root .yd-portal-copy.is-copied i { display: none; }
 #yd-dashboard-root .yd-portal-copy.is-copied::after { content: "✓"; font-family: Arial, sans-serif; font-size: 19px; font-weight: 700; line-height: 1; }
 
