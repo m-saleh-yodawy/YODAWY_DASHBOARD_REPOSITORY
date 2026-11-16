@@ -2909,6 +2909,24 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-section .yd-tool-accordion-item > summary { min-height: 44px; }
 #yd-dashboard-root .yd-portal-section { scroll-margin-top: 18px; }
 
+#yd-dashboard-root {
+    --yd-radius-panel: 9px;
+    --yd-radius-control: 6px;
+    --yd-radius-small: 5px;
+}
+#yd-dashboard-root :is(.yd-card,.yd-kpi-card,.yd-announcement-card,.yd-modal,.yd-confirm-modal,.yd-message-modal,.yd-tool-card,.yd-panel,.yd-section,.yd-accordion-item,.yd-tool-accordion-item,.yd-visibility-accordion-item) {
+    border-radius: var(--yd-radius-panel) !important;
+}
+#yd-dashboard-root :is(button,input,select,textarea,.yd-btn,.yd-icon-btn,.yd-tab,.yd-nav-item,.yd-portal-account-value,.yd-portal-copy,.yd-portal-section-link,.yd-search,.yd-filter,.yd-input,.yd-select,.yd-textarea,.yd-action-btn) {
+    border-radius: var(--yd-radius-control) !important;
+}
+#yd-dashboard-root :is(.yd-accordion-body,.yd-tool-accordion-body,.yd-visibility-rows,.yd-dropdown,.yd-menu,.yd-popover,.yd-tooltip,.yd-empty,.yd-alert,.yd-notice,.yd-form-group,.yd-field,.yd-table-wrap) {
+    border-radius: 7px !important;
+}
+#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-switch,.yd-visibility-switch,.yd-activity-item-status,.yd-accordion-index,[class*="avatar"],[class*="logo"],[class*="dot"],[class*="icon"],[class*="badge"],[class*="pill"],[class*="switch"],[class*="toggle"],[class*="progress"]) {
+    border-radius: revert !important;
+}
+
 #yd-dashboard-root .yd-accordion-list,
 #yd-dashboard-root .yd-tool-accordion-list,
 #yd-dashboard-root .yd-visibility-accordion-list {
