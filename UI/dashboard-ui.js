@@ -2726,44 +2726,54 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
 
 #yd-dashboard-root,
 #yd-dashboard-root *,
+body > .yd-modal-backdrop,
+body > .yd-modal-backdrop *,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] * {
-    scrollbar-color: #bdaabd #f4eff4;
-    scrollbar-width: thin;
+    scrollbar-color: #875a7b #f4eff4 !important;
+    scrollbar-width: thin !important;
 }
 #yd-dashboard-root::-webkit-scrollbar,
 #yd-dashboard-root *::-webkit-scrollbar,
+body > .yd-modal-backdrop::-webkit-scrollbar,
+body > .yd-modal-backdrop *::-webkit-scrollbar,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 8px !important;
+    height: 8px !important;
 }
 #yd-dashboard-root::-webkit-scrollbar-track,
 #yd-dashboard-root *::-webkit-scrollbar-track,
+body > .yd-modal-backdrop::-webkit-scrollbar-track,
+body > .yd-modal-backdrop *::-webkit-scrollbar-track,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-track,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-track {
-    border-radius: 8px;
-    background: #f4eff4;
+    border-radius: 8px !important;
+    background: #f4eff4 !important;
 }
 #yd-dashboard-root::-webkit-scrollbar-thumb,
 #yd-dashboard-root *::-webkit-scrollbar-thumb,
+body > .yd-modal-backdrop::-webkit-scrollbar-thumb,
+body > .yd-modal-backdrop *::-webkit-scrollbar-thumb,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-thumb,
-body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb {
-    border: 2px solid #f4eff4;
-    border-radius: 8px;
-    background: #bdaabd;
-}
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb,
 #yd-dashboard-root::-webkit-scrollbar-thumb:hover,
 #yd-dashboard-root *::-webkit-scrollbar-thumb:hover,
+body > .yd-modal-backdrop::-webkit-scrollbar-thumb:hover,
+body > .yd-modal-backdrop *::-webkit-scrollbar-thumb:hover,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-thumb:hover,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-thumb:hover {
-    background: #875a7b;
+    border: 2px solid #f4eff4 !important;
+    border-radius: 8px !important;
+    background: #875a7b !important;
 }
 #yd-dashboard-root::-webkit-scrollbar-corner,
 #yd-dashboard-root *::-webkit-scrollbar-corner,
+body > .yd-modal-backdrop::-webkit-scrollbar-corner,
+body > .yd-modal-backdrop *::-webkit-scrollbar-corner,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"]::-webkit-scrollbar-corner,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scrollbar-corner {
-    background: #f4eff4;
+    background: #f4eff4 !important;
 }
 
 #yd-dashboard-root button,
