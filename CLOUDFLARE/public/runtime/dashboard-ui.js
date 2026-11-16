@@ -2885,6 +2885,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         scroll-behavior: auto !important;
     }
 }
+#yd-dashboard-root .yd-portal-account-list { display: flex; flex-direction: column; gap: 8px; }
+#yd-dashboard-root .yd-portal-account { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+#yd-dashboard-root .yd-portal-account summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
+#yd-dashboard-root .yd-portal-account summary::-webkit-details-marker { display: none; }
+#yd-dashboard-root .yd-portal-account summary i { color: var(--brand); transition: transform .18s ease; }
+#yd-dashboard-root .yd-portal-account[open] summary i { transform: rotate(180deg); }
+#yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
+#yd-dashboard-root .yd-portal-account-field { min-width: 0; }
+#yd-dashboard-root .yd-portal-account-field label { display: block; margin: 0 0 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+#yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 5px 7px 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: #f5f3f5; }
+#yd-dashboard-root .yd-portal-account-value.yd-password-value { background: #fff; }
+#yd-dashboard-root .yd-portal-account-value > span { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 13px; }
+#yd-dashboard-root .yd-portal-copy { display: inline-flex; flex: 0 0 32px; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 7px; background: var(--brand-soft); color: var(--brand-dark); cursor: pointer; }
+#yd-dashboard-root .yd-portal-copy:hover { background: #e9dfe7; }
+
 `;
         (document.head || document.documentElement).appendChild(style);
     };
@@ -3001,16 +3016,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             '</section>';
     };
 
-    const loadPortalAccounts = async () => {
-        if (portalAccounts || portalAccountsLoading) return;
+    const loadPortalAccounts = async (force = false) => {
+        if (portalAccountsLoading || (portalAccounts && !force)) return;
         portalAccountsLoading = true;
         try {
             const api = context?.api || page.YODAWY_API_ENGINE;
-            const response = await api?.getPortalAccounts?.();
+            const response = await api?.getPortalAccounts?.(force);
             if (response?.success !== true) throw new Error(response?.error || 'Portal accounts are unavailable.');
             portalAccounts = Array.isArray(response.accounts) ? response.accounts : [];
+            page.YODAWY_PORTAL_ACCOUNTS = portalAccounts;
         } catch {
             portalAccounts = [];
+            page.YODAWY_PORTAL_ACCOUNTS = [];
         } finally {
             portalAccountsLoading = false;
             if (context && ['tools', 'accounts'].includes(activePage) && isCurrentUI()) render();
@@ -3027,12 +3044,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             { title: 'Personal - Unlinked', icon: 'fa-user-question', type: 'PERSONAL', known: false, empty: 'No personal unlinked accounts.' },
             { title: 'Non-Personal - Unlinked', icon: 'fa-building', type: 'NON-PERSONAL', known: false, empty: 'No non-personal unlinked accounts.' }
         ];
+        const renderAccount = account => {
+            const username = String(account.username || '');
+            const fallback = username.includes('_') ? username.slice(username.indexOf('_') + 1).trim() : username;
+            const title = String(account.label || '').trim() || fallback || username || 'Unnamed Account';
+            return '<details class="yd-portal-account"><summary><span>' + escapeHTML(title) + '</span><i class="fa-solid fa-chevron-down"></i></summary><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><label>Username</label><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><label>Password</label><div class="yd-portal-account-value yd-password-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></details>';
+        };
         const renderGroup = group => {
             const items = accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known);
-            return '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + group.icon + '"></i></span><span>' + group.title + '</span><span class="yd-pill">' + items.length + '</span></div>' + (items.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + items.map(account => '<tr><td><strong>' + escapeHTML(account.label || '—') + '</strong></td><td>' + escapeHTML(account.username || '—') + '</td><td>' + escapeHTML(account.odooKey || 'Unlinked') + '</td><td>' + escapeHTML(account.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>' + group.empty + '</strong><small>Accounts assigned to your Dashboard user will appear here.</small></div>') + '</section>';
+            return '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + group.icon + '"></i></span><span>' + group.title + '</span><span class="yd-pill">' + items.length + '</span></div>' + (items.length ? '<div class="yd-portal-account-list">' + items.map(renderAccount).join('') + '</div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>' + group.empty + '</strong><small>Accounts assigned to your Dashboard user will appear here.</small></div>') + '</section>';
         };
         const importControls = canImport ? '<input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden><button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '';
-        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>View personal and company portal accounts grouped by their imported Odoo Key status.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span>' + importControls + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : groups.map(renderGroup).join(''));
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>View your portal usernames and passwords grouped by account type and Odoo Key status.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span>' + importControls + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : groups.map(renderGroup).join(''));
     };
 
     const renderSplitAccountSettings = settings => {
@@ -4572,6 +4595,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 if (activityMenu) activityMenu.hidden = true;
                 root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
             }
+            if (actionButton?.dataset.action === 'copy-portal-value') {
+                event.preventDefault();
+                event.stopPropagation();
+                const account = (portalAccounts || []).find(item => item.id === actionButton.dataset.account);
+                const value = account?.[actionButton.dataset.field];
+                if (typeof value !== 'string' || !value) return;
+                try {
+                    await navigator.clipboard.writeText(value);
+                    const icon = actionButton.querySelector('i');
+                    if (icon) { icon.className = 'fa-solid fa-check'; setTimeout(() => { if (icon.isConnected) icon.className = 'fa-regular fa-copy'; }, 1200); }
+                } catch {
+                    showMessageDialog('Copy Failed', 'Unable to copy this value. Check browser clipboard permissions.');
+                }
+                return;
+            }
             if (actionButton?.dataset.action === 'import-portal-accounts') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -4583,7 +4621,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
                 event.preventDefault();
                 event.stopPropagation();
                 portalAccounts = null;
-                loadPortalAccounts();
+                loadPortalAccounts(true);
                 render();
                 return;
             }
@@ -4756,6 +4794,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             throw new Error('Authenticated dashboard context is required.');
         }
         context = options;
+        loadPortalAccounts();
         const uiState = options.uiState && typeof options.uiState === 'object' ? options.uiState : {};
         const defaultPage = context.settings?.getSettings?.()?.startPage;
         const requestedPage = String(uiState.activePage || '');
