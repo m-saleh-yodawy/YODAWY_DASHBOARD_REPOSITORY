@@ -659,27 +659,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     white-space: nowrap;
 }
 #yd-dashboard-root .yd-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
-#yd-dashboard-root .yd-header-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 30px;
-    padding: 0 10px;
-    border: 1px solid var(--success-border);
-    border-radius: 999px;
-    background: var(--success-bg);
-    color: var(--success);
-    font-size: 11px;
-    font-weight: 600 !important;
-    white-space: nowrap;
-}
-#yd-dashboard-root .yd-header-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #2e9464;
-    box-shadow: 0 0 0 3px #2e94641a;
-}
+
+
 #yd-dashboard-root .yd-activity-wrap { position: relative; z-index: 20; display: inline-flex; align-items: center; }
 #yd-dashboard-root .yd-activity-trigger {
     display: inline-flex;
@@ -871,20 +852,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     font-size: 12px;
     font-weight: 700 !important;
 }
-#yd-dashboard-root .yd-gb-badge {
-    position: absolute;
-    right: -2px;
-    bottom: -2px;
-    display: grid;
-    place-items: center;
-    width: 14px;
-    height: 14px;
-    border: 1px solid #fff;
-    border-radius: 50%;
-    background: var(--success);
-    color: #fff;
-    font-size: 8px;
-}
+
 #yd-dashboard-root .yd-profile-menu {
     position: absolute;
     top: calc(100% + 12px);
@@ -2905,8 +2873,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
 #yd-dashboard-root .yd-announcement-card,
 #yd-dashboard-root .yd-announcement-avatar,
 #yd-dashboard-root .yd-brand-logo,
-#yd-dashboard-root .yd-gb-avatar,
-#yd-dashboard-root .yd-gb-badge {
+#yd-dashboard-root .yd-gb-avatar {
     transition-property: color, background-color, border-color, box-shadow, transform, opacity, filter;
     transition-duration: .24s;
     transition-timing-function: cubic-bezier(.2, .8, .2, 1);
@@ -2986,7 +2953,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-activity-item-status,[class*="pill"],[class*="badge"],[class*="label"],[class*="status"],[class*="id-badge"]) {
     border-radius: 5px !important;
 }
-#yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-gb-badge,.yd-announcement-avatar,[class*="avatar"],[class*="dot"],[class*="progress"]) {
+#yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-announcement-avatar,[class*="avatar"],[class*="dot"],[class*="progress"]) {
     border-radius: 50% !important;
 }
 #yd-dashboard-root .yd-switch {
@@ -3222,7 +3189,7 @@ input[type="range"]:disabled {
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
-                        '<div class="yd-header-actions">' + renderActivityIndicator() + '<div class="yd-header-status"><span class="yd-header-dot"></span><span>Connected</span></div>' +
+                        '<div class="yd-header-actions">' + renderActivityIndicator() +
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span><span class="yd-gb-badge"><i class="fa-solid fa-check"></i></span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
