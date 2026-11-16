@@ -966,6 +966,49 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-close-btn:hover { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger); }
 
+#yd-dashboard-root #yd-profile-trigger,
+#yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
+    border-radius: 50% !important;
+}
+#yd-dashboard-root #yd-profile-trigger {
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    padding: 1px !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: var(--brand) !important;
+    box-shadow: none !important;
+}
+#yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
+    width: 100% !important;
+    height: 100% !important;
+    border: 1px solid #fff !important;
+}
+#yd-dashboard-root .yd-close-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    border: 1px solid #e5d9e3 !important;
+    border-radius: 50% !important;
+    background: #f8f5f7 !important;
+    color: #875a7b !important;
+    cursor: pointer !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease !important;
+}
+#yd-dashboard-root .yd-close-btn:hover,
+#yd-dashboard-root .yd-close-btn:focus-visible {
+    border-color: #875a7b !important;
+    background: #875a7b !important;
+    color: #fff !important;
+}
 #yd-dashboard-root #yd-body { display: flex; flex: 1; min-height: 0; }
 #yd-dashboard-root #yd-sidebar {
     display: flex;
