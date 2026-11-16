@@ -2489,50 +2489,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     width: 100%;
     min-width: 0;
 }
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger,
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 34px;
-    min-height: 34px;
-    padding: 0 34px;
-    border: 1px solid var(--brand);
-    border-radius: 8px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600 !important;
-    text-align: center;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value,
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value[data-placeholder="true"] {
-    color: #fff !important;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
-    color: rgba(255, 255, 255, .92);
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value {
-    flex: 1 1 auto;
-    width: 100%;
-    padding: 0;
-    text-align: center !important;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
-    position: absolute;
-    top: calc(50% - 7px);
-    right: 10px;
-    width: 14px;
-    height: 14px;
-    flex: 0 0 14px;
-}
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
     padding: 14px;
