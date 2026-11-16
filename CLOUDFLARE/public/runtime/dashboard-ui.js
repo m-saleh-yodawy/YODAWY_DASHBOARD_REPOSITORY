@@ -1444,29 +1444,6 @@ body > .yd-modal-backdrop .yd-announcement-form textarea:focus {
     outline: 0;
     box-shadow: 0 0 0 2px #875a7b20;
 }
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select { display: flex; width: 100%; min-width: 0; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger {
-    justify-content: space-between;
-    width: 100%;
-    height: 38px;
-    min-height: 38px;
-    padding: 0 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 5px;
-    background: #fff;
-    color: #18181b;
-    font-size: 13px;
-    font-weight: 500 !important;
-    text-align: left;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover,
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
-    border-color: #875a7b;
-    background: #fff;
-    color: #18181b;
-}
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select .ui-select-value { color: #18181b !important; text-align: left !important; }
-body > .yd-modal-backdrop .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron { position: static; color: #6b7280; }
 body > .yd-modal-backdrop .yd-announcement-form .yd-modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -2136,62 +2113,96 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     width: 100%;
     min-width: 0;
 }
-#yd-dashboard-root .ui-select-trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    width: 100%;
-    height: 34px;
-    min-height: 34px;
-    padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
-    font-size: 12px;
-    font-weight: 500 !important;
-    text-align: left;
-    white-space: nowrap;
-    outline: none;
-    user-select: none;
-    cursor: pointer;
-    transition: border-color .15s, box-shadow .15s, background-color .15s;
-}
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled) {
-    border-color: #b28aa8;
-    background: #fcf9fc;
-    color: var(--brand-dark);
-}
-#yd-dashboard-root .ui-select-trigger:focus-visible,
-#yd-dashboard-root .ui-select[data-open="true"] .ui-select-trigger {
+#yd-dashboard-root .ui-select > .ui-select-trigger,
+#yd-dashboard-root .ui-select > .yd-dropdown-trigger {
+    appearance: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    width: 100% !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    border: 1px solid var(--brand) !important;
+    border-radius: 8px !important;
+    background: var(--brand) !important;
+    color: #fff !important;
+    font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+    text-align: left !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
     outline: none !important;
     box-shadow: none !important;
+    user-select: none !important;
+    cursor: pointer !important;
+    transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease, color .15s ease, transform .15s ease !important;
 }
-#yd-dashboard-root .ui-select-trigger:disabled { cursor: not-allowed; opacity: .5; }
-#yd-dashboard-root .ui-select-value {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: inherit;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+#yd-dashboard-root .ui-select > .ui-select-trigger:hover:not(:disabled),
+#yd-dashboard-root .ui-select > .yd-dropdown-trigger:hover:not(:disabled),
+#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
+    border-color: var(--brand-dark) !important;
+    background: var(--brand-dark) !important;
+    color: #fff !important;
 }
-#yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: var(--muted); }
-#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-value[data-placeholder="true"] { color: #fff !important; }
-#yd-dashboard-root .ui-select-chevron {
+#yd-dashboard-root .ui-select > .ui-select-trigger:focus-visible,
+#yd-dashboard-root .ui-select > .yd-dropdown-trigger:focus-visible {
+    border-color: var(--brand-dark) !important;
+    background: var(--brand-dark) !important;
+    color: #fff !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px var(--brand-ring) !important;
+}
+#yd-dashboard-root .ui-select > .ui-select-trigger:disabled,
+#yd-dashboard-root .ui-select > .yd-dropdown-trigger:disabled {
+    opacity: .5 !important;
+    cursor: not-allowed !important;
+}
+#yd-dashboard-root .ui-select > .ui-select-trigger > .ui-select-value,
+#yd-dashboard-root .ui-select > .ui-select-trigger > .yd-dropdown-value,
+#yd-dashboard-root .ui-select > .ui-select-trigger > .ui-select-value[data-placeholder="true"] {
     display: block !important;
-    width: 14px;
-    height: 14px;
-    flex: 0 0 14px;
-    color: var(--muted);
-    opacity: 1;
-    visibility: visible;
-    pointer-events: none;
-    transition: transform .15s;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: transparent !important;
+    color: #fff !important;
+    font-family: inherit !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    text-align: left !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
 }
-#yd-dashboard-root .ui-select[data-open="true"] .ui-select-chevron { transform: rotate(180deg); }
+#yd-dashboard-root .ui-select > .ui-select-trigger > .ui-select-chevron,
+#yd-dashboard-root .ui-select > .yd-dropdown-trigger > .ui-select-chevron {
+    display: block !important;
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px !important;
+    min-height: 14px !important;
+    flex: 0 0 14px !important;
+    margin: 0 0 0 8px !important;
+    padding: 0 !important;
+    color: #fff !important;
+    stroke: currentColor !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    transform: rotate(0deg);
+    transition: transform .15s ease !important;
+}
+#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger > .ui-select-chevron,
+#yd-dashboard-root .ui-select[data-open="true"] > .yd-dropdown-trigger > .ui-select-chevron { transform: rotate(180deg) !important; }
 
 #yd-dashboard-root .ui-select-menu,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
@@ -2314,27 +2325,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     transform: rotate(45deg);
 }
 
-#yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger { max-width: 220px; }
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger,
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .yd-allowed-users-dropdown[data-open="true"] > .ui-select-trigger {
-    border: 1px solid var(--brand);
-    background: var(--brand);
-    color: #fff;
-}
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-allowed-users-dropdown .ui-select-chevron {
-    color: rgba(255, 255, 255, .9);
-}
-#yd-dashboard-root .yd-allowed-users-dropdown > .ui-select-trigger:focus-visible {
-    outline: none !important;
-    box-shadow: none !important;
-}
+#yd-dashboard-root .yd-allowed-users-dropdown { display: flex; width: 100%; min-width: 0; }
 #yd-dashboard-root .yd-allowed-users-search,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-users-search {
     box-sizing: border-box;
@@ -2564,55 +2555,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     font-weight: 600 !important;
     text-align: center;
     white-space: nowrap;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger,
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select[data-open="true"] > .ui-select-trigger {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 34px;
-    min-height: 34px;
-    padding: 0 34px;
-    border: 1px solid var(--brand);
-    border-radius: 8px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600 !important;
-    text-align: center;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select > .ui-select-trigger:hover:not(:disabled) {
-    border-color: var(--brand-dark);
-    background: var(--brand-dark);
-    color: #fff;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value,
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value[data-placeholder="true"] {
-    color: #fff !important;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
-    color: rgba(255, 255, 255, .92);
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-value {
-    flex: 1 1 auto;
-    width: 100%;
-    padding: 0;
-    text-align: center !important;
-}
-#yd-dashboard-root .yd-announcement-form .yd-announcement-cycle-select .ui-select-chevron {
-    position: absolute;
-    top: calc(50% - 7px);
-    right: 10px;
-    width: 14px;
-    height: 14px;
-    flex: 0 0 14px;
 }
 #yd-dashboard-root .yd-announcement-body {
     margin: 0;
@@ -3654,7 +3596,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const cycle = getAnnouncementCycle(post || { createdAt: new Date().toISOString() });
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', class: 'yd-announcement-cycle-select', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
+        overlay.innerHTML = '<form class="yd-modal yd-announcement-form" role="dialog" aria-modal="true" aria-labelledby="yd-announcement-form-title"><h3 id="yd-announcement-form-title">' + (editing ? 'Edit Announcement' : 'New Announcement') + '</h3><div class="yd-field"><label for="yd-announcement-body">Message</label><textarea id="yd-announcement-body" name="body" maxlength="6000" required placeholder="Write the announcement here...">' + escapeHTML(post?.body || '') + '</textarea></div><div class="yd-field"><label for="yd-announcement-cycle">Cycle</label>' + renderDropdown('cycle', cycle, ANNOUNCEMENT_CYCLES.map(item => ({ value: item, label: item })), { id: 'yd-announcement-cycle', 'data-label': 'Cycle' }) + '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-announcement-cancel>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Publish') + '</button></div></form>';
         mountModalOverlay(overlay);
         syncInputSurfaceBackgrounds(overlay);
         const close = () => {
@@ -4618,12 +4560,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const trigger = dropdown?.querySelector('.ui-select-trigger');
         if (!menu || !trigger || menu.dataset.portal !== 'true') return;
         const rect = trigger.getBoundingClientRect();
-        const dropdownRect = dropdown.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
-        const isAllowedUsers = dropdown.classList.contains('yd-allowed-users-dropdown');
-        const width = Math.min(Math.max(isAllowedUsers ? dropdownRect.width : rect.width, isAllowedUsers ? 240 : 144), viewportWidth - 24);
-        const maxHeight = Math.min(dropdown.classList.contains('yd-announcement-cycle-select') ? 260 : 320, viewportHeight - 24);
+        const width = Math.min(Math.max(rect.width, 144), viewportWidth - 24);
+        const maxHeight = Math.min(320, viewportHeight - 24);
         const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
         const roomBelow = viewportHeight - rect.bottom - 12;
         const roomAbove = rect.top - 12;
@@ -4636,8 +4576,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (supportsAnchor) {
             trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
             menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
-            if (isAllowedUsers) menu.style.setProperty('--yd-select-menu-width', dropdownRect.width + 'px');
-            else menu.style.removeProperty('--yd-select-menu-width');
+            menu.style.removeProperty('--yd-select-menu-width');
             ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
             return;
         }
