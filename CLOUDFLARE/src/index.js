@@ -128,7 +128,7 @@ const authRoutes = async (request, env, path) => {
 
 
 const portalAccountKey = async env => {
-  const raw = String(env.PORTAL_ACCOUNTS_ENCRYPTION_KEY || "");
+  const raw = String(env.PORTALS_ENCRYPTION_KEY || "");
   if (!/^[A-Za-z0-9_-]{43}$/.test(raw)) throw new Error("PORTAL_ACCOUNTS_KEY_NOT_CONFIGURED");
   const bytes = Uint8Array.from(atob(raw.replace(/-/g, "+").replace(/_/g, "/") + "="), char => char.charCodeAt(0));
   if (bytes.length !== 32) throw new Error("PORTAL_ACCOUNTS_KEY_INVALID");
