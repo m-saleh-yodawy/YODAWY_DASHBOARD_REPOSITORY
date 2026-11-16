@@ -3021,10 +3021,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
         const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
         const groups = [
-            { title: 'Personal Accounts · Key Identified', icon: 'fa-user-check', type: 'PERSONAL', known: true, empty: 'No personal accounts with an identified Odoo Key.' },
-            { title: 'Company Accounts · Key Identified', icon: 'fa-building-circle-check', type: 'NON-PERSONAL', known: true, empty: 'No company accounts with an identified Odoo Key.' },
-            { title: 'Personal Accounts · Key To Identify', icon: 'fa-user-question', type: 'PERSONAL', known: false, empty: 'No personal accounts awaiting Odoo Key identification.' },
-            { title: 'Company Accounts · Key To Identify', icon: 'fa-building', type: 'NON-PERSONAL', known: false, empty: 'No company accounts awaiting Odoo Key identification.' }
+            { title: 'Personal – Linked', icon: 'fa-user-check', type: 'PERSONAL', known: true, empty: 'No personal accounts with an identified Odoo Key.' },
+            { title: 'Non-Personal – Linked', icon: 'fa-building-circle-check', type: 'NON-PERSONAL', known: true, empty: 'No company accounts with an identified Odoo Key.' },
+            { title: 'Personal – Pending', icon: 'fa-user-question', type: 'PERSONAL', known: false, empty: 'No personal accounts awaiting Odoo Key identification.' },
+            { title: 'Non-Personal – Pending', icon: 'fa-building', type: 'NON-PERSONAL', known: false, empty: 'No company accounts awaiting Odoo Key identification.' }
         ];
         const renderGroup = group => {
             const items = accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known);
