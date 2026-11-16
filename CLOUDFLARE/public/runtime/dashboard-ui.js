@@ -2909,6 +2909,104 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-section .yd-tool-accordion-item > summary { min-height: 44px; }
 #yd-dashboard-root .yd-portal-section { scroll-margin-top: 18px; }
 
+#yd-dashboard-root .yd-accordion-list,
+#yd-dashboard-root .yd-tool-accordion-list,
+#yd-dashboard-root .yd-visibility-accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 20px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+#yd-dashboard-root details.yd-accordion-item,
+#yd-dashboard-root details.yd-tool-accordion-item,
+#yd-dashboard-root details.yd-visibility-accordion-item {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: #fff;
+    box-shadow: 0 2px 5px #29242e08;
+    interpolate-size: allow-keywords;
+}
+#yd-dashboard-root details.yd-accordion-item > summary,
+#yd-dashboard-root details.yd-tool-accordion-item > summary,
+#yd-dashboard-root details.yd-visibility-accordion-item > summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-sizing: border-box;
+    min-height: 48px;
+    padding: 10px 42px 10px 14px !important;
+    background: #fff !important;
+    color: var(--ink);
+    cursor: pointer;
+    list-style: none;
+    transition: background-color .22s cubic-bezier(.2, .8, .2, 1), color .22s cubic-bezier(.2, .8, .2, 1), border-color .22s cubic-bezier(.2, .8, .2, 1);
+}
+#yd-dashboard-root details.yd-accordion-item > summary::-webkit-details-marker,
+#yd-dashboard-root details.yd-tool-accordion-item > summary::-webkit-details-marker,
+#yd-dashboard-root details.yd-visibility-accordion-item > summary::-webkit-details-marker { display: none; }
+#yd-dashboard-root details.yd-accordion-item > summary:hover,
+#yd-dashboard-root details.yd-tool-accordion-item > summary:hover,
+#yd-dashboard-root details.yd-visibility-accordion-item > summary:hover,
+#yd-dashboard-root details.yd-accordion-item[open] > summary,
+#yd-dashboard-root details.yd-tool-accordion-item[open] > summary,
+#yd-dashboard-root details.yd-visibility-accordion-item[open] > summary { background: #f8f5f7 !important; }
+#yd-dashboard-root details.yd-accordion-item > summary::after,
+#yd-dashboard-root details.yd-tool-accordion-item > summary::after,
+#yd-dashboard-root details.yd-visibility-accordion-item > summary::after {
+    position: absolute;
+    right: 17px;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    content: '';
+    transform: rotate(45deg);
+    transition: transform .22s cubic-bezier(.2, .8, .2, 1), border-color .22s cubic-bezier(.2, .8, .2, 1);
+}
+#yd-dashboard-root details.yd-accordion-item[open] > summary::after,
+#yd-dashboard-root details.yd-tool-accordion-item[open] > summary::after,
+#yd-dashboard-root details.yd-visibility-accordion-item[open] > summary::after { border-color: var(--brand); transform: rotate(225deg); }
+#yd-dashboard-root details.yd-accordion-item > summary:hover::after,
+#yd-dashboard-root details.yd-tool-accordion-item > summary:hover::after,
+#yd-dashboard-root details.yd-visibility-accordion-item > summary:hover::after { border-color: var(--brand); }
+#yd-dashboard-root .yd-accordion-body,
+#yd-dashboard-root .yd-tool-accordion-body,
+#yd-dashboard-root .yd-visibility-rows {
+    margin: 8px !important;
+    padding: 10px !important;
+    border-radius: 9px;
+    background: #fff;
+}
+#yd-dashboard-root .yd-accordion-body,
+#yd-dashboard-root .yd-tool-accordion-body { border: 0; box-shadow: 0 1px 3px #29242e08; }
+@supports selector(details::details-content) {
+    #yd-dashboard-root details.yd-accordion-item::details-content,
+    #yd-dashboard-root details.yd-tool-accordion-item::details-content,
+    #yd-dashboard-root details.yd-visibility-accordion-item::details-content {
+        display: block;
+        block-size: 0;
+        min-block-size: 0;
+        overflow: hidden;
+        transition: block-size .26s cubic-bezier(.2, .8, .2, 1), content-visibility .26s allow-discrete;
+    }
+    #yd-dashboard-root details.yd-accordion-item[open]::details-content,
+    #yd-dashboard-root details.yd-tool-accordion-item[open]::details-content,
+    #yd-dashboard-root details.yd-visibility-accordion-item[open]::details-content { block-size: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #yd-dashboard-root details.yd-accordion-item > summary,
+    #yd-dashboard-root details.yd-tool-accordion-item > summary,
+    #yd-dashboard-root details.yd-visibility-accordion-item > summary { transition-duration: .01ms !important; }
+}
+
 `;
         (document.head || document.documentElement).appendChild(style);
     };
