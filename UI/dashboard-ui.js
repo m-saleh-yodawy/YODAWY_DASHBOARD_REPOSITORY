@@ -1970,7 +1970,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     animation: yd-control-spin .7s linear infinite;
 }
 #yd-dashboard-root button[aria-busy="true"]:disabled,
-#yd-dashboard-root .ui-select-trigger[aria-busy="true"]:disabled {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-trigger[aria-busy="true"]:disabled {
     opacity: .9;
     cursor: wait;
 }
@@ -2049,13 +2049,13 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-pagination-link.active { border-color: var(--brand) !important; background: var(--brand) !important; color: #fff !important; font-weight: 700 !important; }
 #yd-dashboard-root .yd-pagination-link.disabled { opacity: .38; pointer-events: none; cursor: not-allowed; }
 
-#yd-dashboard-root .ui-select {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select {
     position: relative;
     display: inline-flex;
     width: 100%;
     min-width: 0;
 }
-#yd-dashboard-root .ui-select-trigger {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-trigger {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2077,18 +2077,18 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     cursor: pointer;
     transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease, color .15s ease;
 }
-#yd-dashboard-root .ui-select-trigger:hover:not(:disabled),
-#yd-dashboard-root .ui-select[data-open="true"] > .ui-select-trigger {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-trigger:hover:not(:disabled),
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select[data-open="true"] > .ui-select-trigger {
     border-color: var(--brand-dark);
     background: var(--brand-dark);
     color: #fff;
 }
-#yd-dashboard-root .ui-select-trigger:focus-visible {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-trigger:focus-visible {
     outline: none !important;
     box-shadow: 0 0 0 3px var(--brand-ring) !important;
 }
-#yd-dashboard-root .ui-select-trigger:disabled { cursor: not-allowed; opacity: .5; }
-#yd-dashboard-root .ui-select-value {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-trigger:disabled { cursor: not-allowed; opacity: .5; }
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-value {
     flex: 1;
     min-width: 0;
     overflow: hidden;
@@ -2097,9 +2097,9 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-#yd-dashboard-root .ui-select-value,
-#yd-dashboard-root .ui-select-value[data-placeholder="true"] { color: #fff !important; }
-#yd-dashboard-root .ui-select-chevron {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-value,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-value[data-placeholder="true"] { color: #fff !important; }
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-chevron {
     display: block !important;
     width: 14px;
     height: 14px;
@@ -2110,9 +2110,9 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     pointer-events: none;
     transition: transform .15s ease;
 }
-#yd-dashboard-root .ui-select[data-open="true"] .ui-select-chevron { transform: rotate(180deg); }
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select[data-open="true"] .ui-select-chevron { transform: rotate(180deg); }
 
-#yd-dashboard-root .ui-select-menu,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-menu,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     position: absolute;
     top: calc(100% + 4px);
@@ -2137,49 +2137,35 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     box-sizing: border-box !important;
     animation: yd-select-dropdown-drop .34s cubic-bezier(.16, 1, .3, 1) both;
 }
-#yd-dashboard-root .ui-select[data-open="true"] .ui-select-menu,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select[data-open="true"] .ui-select-menu,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     display: block;
 }
-#yd-dashboard-root .ui-select-menu[data-open-direction="up"],
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-menu[data-open-direction="up"],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][data-open-direction="up"] {
     transform-origin: bottom center;
     animation-name: yd-select-dropdown-rise;
 }
-@supports (position-anchor: --yd-dropdown-anchor) and (top: anchor(bottom)) and (width: anchor-size(width)) {
-    body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
-        position: fixed !important;
-        position-anchor: --yd-active-dropdown-anchor !important;
-        top: anchor(bottom) !important;
-        left: anchor(left) !important;
-        right: auto !important;
-        margin-top: 4px !important;
-        width: var(--yd-select-menu-width, anchor-size(width)) !important;
-        min-width: max(var(--yd-select-menu-width, anchor-size(width)), 144px) !important;
-        max-width: min(360px, calc(100vw - 24px)) !important;
-        max-height: min(320px, calc(100vh - 24px)) !important;
-        position-try-fallbacks: flip-block, flip-inline !important;
-    }
-}
-#yd-dashboard-root .ui-select-menu[hidden],
+
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-menu[hidden],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"][hidden] {
     display: none !important;
 }
-#yd-dashboard-root .ui-select-group,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-group,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-group {
     display: block;
     width: 100%;
     min-width: 0;
     padding: 10px;
 }
-#yd-dashboard-root .ui-select-label,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-label,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-label {
     padding: 4px 6px;
     color: #71717a;
     font-size: 11px;
     font-weight: 600 !important;
 }
-#yd-dashboard-root .ui-select-item,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item {
     position: relative;
     display: flex;
@@ -2202,10 +2188,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     box-sizing: border-box;
     transition: background-color .12s, color .12s;
 }
-#yd-dashboard-root .ui-select-item:hover,
-#yd-dashboard-root .ui-select-item:focus-visible,
-#yd-dashboard-root .ui-select-option:hover,
-#yd-dashboard-root .ui-select-option:focus-visible,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item:hover,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item:focus-visible,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-option:hover,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-option:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:hover,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,
@@ -2214,13 +2200,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-opti
     color: #68465f !important;
     outline: none !important;
 }
-#yd-dashboard-root .ui-select-item[data-selected="true"],
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item[data-selected="true"],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item[data-selected="true"] {
     background: #f8f5f7;
     color: #714b67;
     font-weight: 700 !important;
 }
-#yd-dashboard-root .ui-select-item[data-selected="true"]::after,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item[data-selected="true"]::after,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item[data-selected="true"]::after {
     content: "";
     position: absolute;
@@ -2556,10 +2542,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     #yd-dashboard-root .yd-nav span:not(.yd-nav-icon), #yd-dashboard-root .yd-nav-label, #yd-dashboard-root .yd-sidebar-bottom { display: none; }
     #yd-dashboard-root .yd-form-grid { grid-template-columns: 1fr; }
 }
-#yd-dashboard-root .ui-select-option:hover,
-#yd-dashboard-root .ui-select-option:focus-visible,
-#yd-dashboard-root .ui-select-item:hover,
-#yd-dashboard-root .ui-select-item:focus-visible,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-option:hover,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-option:focus-visible,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item:hover,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:hover,
@@ -2809,7 +2795,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] *::-webkit-scro
     transition-duration: .24s;
     transition-timing-function: cubic-bezier(.2, .8, .2, 1);
 }
-#yd-dashboard-root .ui-select-item::after {
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item::after {
     transition: border-color .2s ease, transform .2s ease, opacity .2s ease;
 }
 @media (max-width: 620px) {
@@ -4307,35 +4293,30 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const rect = trigger.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const viewportHeight = document.documentElement.clientHeight;
-        const width = Math.min(Math.max(rect.width, 144), viewportWidth - 24);
-        const maxHeight = Math.min(320, viewportHeight - 24);
-        const menuHeight = Math.min(menu.scrollHeight || maxHeight, maxHeight);
-        const roomBelow = viewportHeight - rect.bottom - 12;
-        const roomAbove = rect.top - 12;
-        const openAbove = roomBelow < Math.min(menuHeight, 180) && roomAbove > roomBelow;
-        menu.dataset.openDirection = openAbove ? 'up' : 'down';
-        const supportsAnchor = typeof CSS !== 'undefined' &&
-            CSS.supports('position-anchor: --yd-active-dropdown-anchor') &&
-            CSS.supports('top: anchor(bottom)') &&
-            CSS.supports('width: anchor-size(width)');
-        if (supportsAnchor) {
-            trigger.style.setProperty('anchor-name', '--yd-active-dropdown-anchor');
-            menu.style.setProperty('position-anchor', '--yd-active-dropdown-anchor', 'important');
-            menu.style.removeProperty('--yd-select-menu-width');
-            ['position', 'left', 'right', 'top', 'width', 'min-width', 'max-width', 'max-height', 'margin-top'].forEach(property => menu.style.removeProperty(property));
-            return;
-        }
+        if (viewportWidth < 1 || viewportHeight < 1) return;
+        const width = Math.max(1, Math.min(Math.max(rect.width, 144), viewportWidth - 24));
+        menu.style.setProperty('max-height', 'none', 'important');
+        const naturalHeight = Math.max(menu.scrollHeight, menu.getBoundingClientRect().height, 80);
+        const roomBelow = Math.max(0, viewportHeight - rect.bottom - 12);
+        const roomAbove = Math.max(0, rect.top - 12);
+        const openAbove = roomBelow < Math.min(naturalHeight, 320) && roomAbove > roomBelow;
+        const availableSpace = openAbove ? roomAbove : roomBelow;
+        const maxHeight = Math.max(80, Math.min(320, viewportHeight - 24, availableSpace));
+        const renderedHeight = Math.min(naturalHeight, maxHeight);
         const left = Math.max(12, Math.min(rect.left, viewportWidth - width - 12));
         const top = openAbove
-            ? Math.max(12, rect.top - menuHeight - 4)
-            : Math.max(12, Math.min(rect.bottom + 4, viewportHeight - menuHeight - 12));
+            ? Math.max(12, rect.top - renderedHeight - 4)
+            : Math.max(12, Math.min(rect.bottom + 4, viewportHeight - renderedHeight - 12));
+        menu.dataset.openDirection = openAbove ? 'up' : 'down';
         menu.style.setProperty('position', 'fixed', 'important');
         menu.style.setProperty('left', left + 'px', 'important');
+        menu.style.setProperty('right', 'auto', 'important');
         menu.style.setProperty('top', top + 'px', 'important');
         menu.style.setProperty('width', width + 'px', 'important');
         menu.style.setProperty('min-width', width + 'px', 'important');
         menu.style.setProperty('max-width', 'calc(100vw - 24px)', 'important');
         menu.style.setProperty('max-height', maxHeight + 'px', 'important');
+        menu.style.setProperty('overflow-y', 'auto', 'important');
         menu.style.setProperty('z-index', '2147483647', 'important');
     };
 
