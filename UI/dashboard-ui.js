@@ -971,13 +971,15 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 50% !important;
 }
 #yd-dashboard-root #yd-profile-trigger {
-    width: 38px !important;
-    min-width: 38px !important;
-    height: 38px !important;
-    padding: 1px !important;
+    box-sizing: border-box !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    height: 54px !important;
+    padding: 3px !important;
     overflow: hidden !important;
-    border: 0 !important;
-    background: var(--brand) !important;
+    border: 1px solid #875a7b !important;
+    border-radius: 50% !important;
+    background: #fff !important;
     box-shadow: none !important;
 }
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
