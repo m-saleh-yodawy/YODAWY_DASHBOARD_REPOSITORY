@@ -2885,12 +2885,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         scroll-behavior: auto !important;
     }
 }
-#yd-dashboard-root .yd-portal-account-list { display: flex; flex-direction: column; gap: 8px; }
-#yd-dashboard-root .yd-portal-account { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
-#yd-dashboard-root .yd-portal-account summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
-#yd-dashboard-root .yd-portal-account summary::-webkit-details-marker { display: none; }
-#yd-dashboard-root .yd-portal-account summary i { color: var(--brand); transition: transform .18s ease; }
-#yd-dashboard-root .yd-portal-account[open] summary i { transform: rotate(180deg); }
 #yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px; }
 #yd-dashboard-root .yd-portal-account-field { min-width: 0; }
 #yd-dashboard-root .yd-portal-account-field label { display: block; margin: 0 0 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -3044,15 +3038,17 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
             { title: 'Personal - Unlinked', icon: 'fa-user-question', type: 'PERSONAL', known: false, empty: 'No personal unlinked accounts.' },
             { title: 'Non-Personal - Unlinked', icon: 'fa-building', type: 'NON-PERSONAL', known: false, empty: 'No non-personal unlinked accounts.' }
         ];
-        const renderAccount = account => {
+        const renderAccount = (account, index) => {
             const username = String(account.username || '');
             const fallback = username.includes('_') ? username.slice(username.indexOf('_') + 1).trim() : username;
             const title = String(account.label || '').trim() || fallback || username || 'Unnamed Account';
-            return '<details class="yd-portal-account"><summary><span>' + escapeHTML(title) + '</span><i class="fa-solid fa-chevron-down"></i></summary><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><label>Username</label><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><label>Password</label><div class="yd-portal-account-value yd-password-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></details>';
+            return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '">' +
+                '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong><small>Portal Account</small></span></span></summary>' +
+                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><label>Username</label><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><label>Password</label><div class="yd-portal-account-value yd-password-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
         };
         const renderGroup = group => {
             const items = accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known);
-            return '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + group.icon + '"></i></span><span>' + group.title + '</span><span class="yd-pill">' + items.length + '</span></div>' + (items.length ? '<div class="yd-portal-account-list">' + items.map(renderAccount).join('') + '</div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>' + group.empty + '</strong><small>Accounts assigned to your Dashboard user will appear here.</small></div>') + '</section>';
+            return '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + group.icon + '"></i></span><span>' + group.title + '</span><span class="yd-pill">' + items.length + '</span></div>' + (items.length ? '<div class="yd-tool-accordion-list">' + items.map(renderAccount).join('') + '</div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>' + group.empty + '</strong><small>Accounts assigned to your Dashboard user will appear here.</small></div>') + '</section>';
         };
         const importControls = canImport ? '<input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden><button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '';
         return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>View your portal usernames and passwords grouped by account type and Odoo Key status.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span>' + importControls + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : groups.map(renderGroup).join(''));
