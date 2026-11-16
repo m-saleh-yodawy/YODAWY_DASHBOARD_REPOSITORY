@@ -202,10 +202,10 @@ const portalAccountRoutes = async (request, env, path) => {
     const targetUserId = String(body.targetUserId || "").trim().toUpperCase();
     const groups = body.groups;
     const definitions = [
-      ["knownPersonal", "PERSONAL", true],
-      ["knownCompany", "NON-PERSONAL", true],
-      ["unknownPersonal", "PERSONAL", false],
-      ["unknownCompany", "NON-PERSONAL", false]
+      ["Personal - Linked", "PERSONAL", true],
+      ["Non-Personal - Linked", "NON-PERSONAL", true],
+      ["Personal - Unlinked", "PERSONAL", false],
+      ["Non-Personal - Unlinked", "NON-PERSONAL", false]
     ];
     if (!/^Q-[0-9]{3,}$/.test(targetUserId) || !groups || typeof groups !== "object" || Array.isArray(groups)) return respond(request, env, { success: false, error: "INVALID_IMPORT" }, 400);
     if (!await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(targetUserId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
