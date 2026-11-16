@@ -2912,7 +2912,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 
     const navItems = () => {
         const access = getRoleAccess();
-        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements'], ['accounts', 'fa-solid fa-building-shield', 'Accounts']];
+        const items = [['tools', 'fa-solid fa-toolbox', 'Tools'], ['overview', 'fa-solid fa-chart-pie', 'Overview'], ['announcements', 'fa-solid fa-bullhorn', 'Announcements'], ['accounts', 'fa-solid fa-globe', 'Portals']];
         if (access.canManageUsers) items.push(['users', 'fa-solid fa-users', 'Users']);
         if (access.canManageUserPermissions || access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
@@ -3061,9 +3061,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
         const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
-        const importControls = canImport ? '<input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden><button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
-        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>View your portal usernames and passwords grouped by account type.</p></div><div class="yd-welcome-actions"><span class="yd-pill ' + (portalAccountsLoading ? 'yellow' : 'green') + '">' + (portalAccountsLoading ? 'Loading' : accounts.length + ' Accounts') + '</span>' + importControls + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav>' + populatedGroups.map(renderGroup).join(''));
+        return '<section class="yd-welcome"><div><h1>Portals</h1><p>View your portal usernames and passwords grouped by account type.</p></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav>' + populatedGroups.map(renderGroup).join(''));
     };
 
     const renderSplitAccountSettings = settings => {
