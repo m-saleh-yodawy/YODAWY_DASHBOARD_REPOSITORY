@@ -997,7 +997,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     padding: 0 !important;
     border: 1px solid #e5d9e3 !important;
     border-radius: 50% !important;
-    background: #f8f5f7 !important;
+    background: #e1e1e1 !important;
     color: #875a7b !important;
     cursor: pointer !important;
     font-size: 14px !important;
