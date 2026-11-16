@@ -2885,6 +2885,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
         scroll-behavior: auto !important;
     }
 }
+#yd-dashboard-root .yd-tool-accordion-item[data-portal-account] .yd-tool-accordion-copy strong { color: #000 !important; font-size: 14px !important; font-weight: 700 !important; }
 #yd-dashboard-root .yd-portal-account-fields { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 0 8px 8px; }
 #yd-dashboard-root .yd-portal-account-field { flex: 0 0 50%; min-width: 0; width: 50%; max-width: 50%; }
 #yd-dashboard-root .yd-portal-account-value { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 3px 6px 3px 10px; border: 1px solid var(--border); border-radius: 7px; background: #e1e1e1; }
