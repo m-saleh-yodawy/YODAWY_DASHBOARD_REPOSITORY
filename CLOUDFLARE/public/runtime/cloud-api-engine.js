@@ -134,12 +134,27 @@
         throw fail('Cloud virtual file not found: ' + clean, 404);
     };
     const getFile = async path => ({ content: encode(await getFileContent(path)), sha: 'cloud-managed' });
-    const getPortalAccounts = async () => call('/api/portal-accounts');
+    let portalAccountsCache = null;
+    let portalAccountsRequest = null;
+    const getPortalAccounts = async (force = false) => {
+        if (force) { portalAccountsCache = null; portalAccountsRequest = null; }
+        if (portalAccountsCache) return portalAccountsCache;
+        if (!portalAccountsRequest) portalAccountsRequest = call('/api/portal-accounts').then(response => {
+            if (response?.success !== true) throw fail(response?.error || 'Portal accounts are unavailable.');
+            portalAccountsCache = response;
+            return response;
+        }).finally(() => { portalAccountsRequest = null; });
+        return portalAccountsRequest;
+    };
+    const getPortalCredentials = async accountId => {
+        const response = await getPortalAccounts();
+        const account = (response.accounts || []).find(item => item.id === accountId);
+        return account ? { success: true, credentials: { accountId: account.id, provider: account.provider, accountType: account.accountType, username: account.username, odooKey: account.odooKey, password: account.password } } : { success: false, error: 'PORTAL_ACCOUNT_NOT_FOUND' };
+    };
     const savePortalAccount = async account => call('/api/portal-accounts', 'POST', account);
-    const getPortalCredentials = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'POST');
     const deletePortalAccount = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'DELETE');
     const savePortalAccountsForAll = async account => call('/api/portal-accounts/bulk', 'POST', account);
-    const importPortalAccounts = async payload => call('/api/portal-accounts/import', 'POST', payload);
+    const importPortalAccounts = async payload => { const result = await call('/api/portal-accounts/import', 'POST', payload); if (result?.success) { portalAccountsCache = null; portalAccountsRequest = null; } return result; };
     const recordActivity = async activity => call('/api/dashboard/activity', 'POST', activity);
     const setUserPassword = async (userId, password) => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password', 'POST', { password });
     const getRepository = async () => ({ default_branch: 'cloudflare' });
