@@ -2,7 +2,7 @@ return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261117-clean-dashboard-header-8';
+    const ASSET_VERSION = '20261117-circular-header-controls-9';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
