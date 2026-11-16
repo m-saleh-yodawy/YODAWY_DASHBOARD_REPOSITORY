@@ -979,11 +979,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 54px !important;
     min-width: 54px !important;
     height: 54px !important;
-    padding: 3px !important;
+    padding: 2px !important;
     overflow: hidden !important;
-    border: 1px solid #875a7b !important;
+    border: 0 !important;
     border-radius: 50% !important;
-    background: #fff !important;
+    background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand)) !important;
     box-shadow: none !important;
 }
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
