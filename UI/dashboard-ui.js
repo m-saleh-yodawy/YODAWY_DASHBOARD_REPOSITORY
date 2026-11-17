@@ -4160,6 +4160,60 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     render();
                 }
             } else if (action === 'toggle-permission') {
+                if (button.dataset.bulk === 'true') {
+                    const field = button.dataset.field || 'granted';
+                    const userId = button.dataset.user;
+                    if (button.disabled || getPendingUser({ id: userId })) return;
+                    if (field === 'forcedState' && context.userRole !== 'SUPER_ADMIN') throw new Error('Forced State can only be managed by SUPER ADMIN.');
+                    const engine = getRoleEngine();
+                    const tools = engine?.getTools?.() || [];
+                    const permissions = engine?.getPermissions?.() || {};
+                    const userPermissions = permissions[userId] || {};
+                    const nextValue = button.dataset.value !== 'true';
+                    const user = getUsers().find(item => String(item.id).toUpperCase() === String(userId).toUpperCase());
+                    const targets = tools.filter(tool => {
+                        const pending = getPendingPermission(userId, tool.id);
+                        const record = userPermissions[tool.id] || {};
+                        const current = pending?.permissionField === field && typeof pending.permissionValue === 'boolean' ? pending.permissionValue : record[field] === true;
+                        return !pending && current !== nextValue;
+                    });
+                    if (!targets.length) {
+                        showNotice('All tools already have the selected state.');
+                        return;
+                    }
+                    button.disabled = true;
+                    button.classList.add('is-loading');
+                    button.setAttribute('aria-busy', 'true');
+                    let submitted = 0;
+                    try {
+                        for (const tool of targets) {
+                            const actionLabel = field === 'forcedState' ? (nextValue ? 'FORCED STATE ON' : 'FORCED STATE OFF') : (nextValue ? 'PERMITTED' : 'ACCESS REVOKED');
+                            const metadata = {
+                                action: 'MODIFY_TOOL_PERMISSION',
+                                targetId: userId,
+                                targetName: formatName(user?.name || userId),
+                                targetToolId: tool.id,
+                                permissionField: field,
+                                permissionValue: nextValue,
+                                summary: 'BULK ' + actionLabel + ' · ' + tool.id + ' · ' + formatName(user?.name || userId)
+                            };
+                            await runNetworkOperation(field === 'forcedState' ? 'Updating all forced states' : 'Updating all tool access', () =>
+                                engine.setToolPermission(userId, tool.id, { [field]: nextValue }), metadata
+                            );
+                            submitted++;
+                        }
+                        showNotice(submitted + ' tool permissions queued successfully.');
+                    } catch (error) {
+                        if (submitted) {
+                            const partialError = new Error(submitted + ' of ' + targets.length + ' updates were queued. The remaining updates could not be submitted: ' + (error?.message || 'Unknown error.'));
+                            partialError.partial = true;
+                            throw partialError;
+                        }
+                        throw error;
+                    } finally {
+                        if (isCurrentUI()) render();
+                    }
+                } else {
                 const field = button.dataset.field || 'granted';
                 const userId = button.dataset.user;
                 const toolId = button.dataset.tool;
@@ -4188,6 +4242,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 await runNetworkOperation(field === 'forcedState' ? 'Updating forced state' : 'Updating tool access', () =>
                     getRoleEngine().setToolPermission(userId, toolId, { [field]: nextValue }), metadata
                 );
+                            }
             } else if (action === 'save-allowed-users') {
                 const toolId = button.dataset.tool;
                 const draft = visibilityDraft;
