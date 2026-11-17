@@ -972,9 +972,9 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root #yd-profile-trigger {
     box-sizing: border-box !important;
-    width: 54px !important;
-    min-width: 54px !important;
-    height: 54px !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
     padding: 2px !important;
     overflow: hidden !important;
     border: 0 !important;
@@ -991,16 +991,16 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 30px !important;
-    min-width: 30px !important;
-    height: 30px !important;
+    width: 26px !important;
+    min-width: 26px !important;
+    height: 26px !important;
     padding: 0 !important;
     border: 1px solid #e5d9e3 !important;
     border-radius: 50% !important;
     background: #e1e1e1 !important;
     color: #875a7b !important;
     cursor: pointer !important;
-    font-size: 14px !important;
+    font-size: 12px !important;
     line-height: 1 !important;
     box-shadow: none !important;
     transition: background-color .15s ease, color .15s ease, border-color .15s ease !important;
