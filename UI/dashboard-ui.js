@@ -1668,6 +1668,14 @@ body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover 
 }
 #yd-dashboard-root .yd-permission-row[hidden] { display: none !important; }
 #yd-dashboard-root .yd-permission-search-wrap + .yd-permission-search-empty[hidden] { display: none !important; }
+#yd-dashboard-root .yd-users-table { overflow: visible; }
+#yd-dashboard-root .yd-users-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 7;
+    background: #875a7b !important;
+    color: #fff !important;
+}
 #yd-dashboard-root .yd-permission-columns {
     position: sticky;
     top: 0;
@@ -1678,10 +1686,10 @@ body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover 
     gap: 10px;
     margin: 0 0 10px;
     padding: 10px 9px;
-    border: 1px solid var(--border);
+    border: 1px solid #68465f;
     border-radius: 10px;
-    background: #f8f5f7;
-    box-shadow: 0 3px 8px rgba(30, 20, 35, .08);
+    background: #875a7b;
+    box-shadow: 0 3px 8px rgba(30, 20, 35, .12);
 }
 #yd-dashboard-root .yd-permission-columns-controls,
 #yd-dashboard-root .yd-permission-controls {
@@ -1690,8 +1698,9 @@ body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover 
     align-items: center;
     gap: 8px;
 }
+#yd-dashboard-root .yd-permission-columns > span,
 #yd-dashboard-root .yd-permission-columns-controls span {
-    color: var(--brand-dark);
+    color: #fff;
     font-size: 10px;
     font-weight: 800 !important;
     text-align: center;
@@ -2993,7 +3002,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         }).join('');
         return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div>' + (getRoleAccess().canManageUsers ? '<button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button>' : '') + '</section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
-            '<div class="yd-table-wrap"><table><thead><tr><th>User</th><th>User ID</th><th>Role</th><th>Status</th><th>Personal Repository</th><th>Actions</th></tr></thead><tbody>' +
+            '<div class="yd-table-wrap yd-users-table"><table><thead><tr><th>User</th><th>User ID</th><th>Role</th><th>Status</th><th>Personal Repository</th><th>Actions</th></tr></thead><tbody>' +
             (rows || '<tr><td colspan="6" class="yd-empty">No users found.</td></tr>') + '</tbody></table></div>';
     };
 
@@ -3039,7 +3048,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             ? '<span class="yd-pill yd-role-pill yd-role-super-admin">SUPER ADMIN CONTROL</span>'
             : '<span class="yd-pill yd-role-pill yd-role-admin">ADMIN CONTROL</span>';
         const empty = users.length ? '' : '<div class="yd-empty">No eligible USER accounts found.</div>';
-        return '<section class="yd-welcome"><div><h1>User Permissions</h1><p>' + description + '</p></div>' + badge + '</section>' + (users.length ? '<div class="yd-permission-columns"><span></span><div class="yd-permission-columns-controls"><span>Permitted</span><span>User Enabled</span><span>Forced State</span></div></div>' : '') + '<div class="yd-accordion-list">' + (items || empty) + '</div>';
+        return '<section class="yd-welcome"><div><h1>User Permissions</h1><p>' + description + '</p></div>' + badge + '</section>' + (users.length ? '<div class="yd-permission-columns"><span>Tool</span><div class="yd-permission-columns-controls"><span>Permitted</span><span>User Enabled</span><span>Forced State</span></div></div>' : '') + '<div class="yd-accordion-list">' + (items || empty) + '</div>';
     };
 
     const filterAllowedUsersMenu = (menu, query) => {
