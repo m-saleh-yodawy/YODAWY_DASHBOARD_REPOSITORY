@@ -2967,6 +2967,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-copy.is-copied i { display: none; }
 #yd-dashboard-root .yd-portal-copy.is-copied::after { content: "✓"; font-family: Arial, sans-serif; font-size: 19px; font-weight: 700; line-height: 1; }
 
+#yd-dashboard-root .yd-portal-search-wrap { position: relative; width: 100%; margin: 0 0 16px; }
+#yd-dashboard-root .yd-portal-search-wrap > i { position: absolute; top: 50%; left: 13px; color: var(--muted); font-size: 13px; transform: translateY(-50%); pointer-events: none; }
+#yd-dashboard-root .yd-portal-search-wrap .yd-search { width: 100%; max-width: 100%; min-height: 40px; padding: 8px 12px 8px 36px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--ink); font-size: 13px; }
+#yd-dashboard-root .yd-portal-search-wrap .yd-search:focus { border-color: var(--brand); }
+#yd-dashboard-root .yd-portal-search-empty { margin: 8px 0 20px; }
 #yd-dashboard-root .yd-portal-section { margin: 0 0 30px; padding: 0 0 28px; border: 0 !important; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent !important; box-shadow: none !important; scroll-margin-top: 24px; }
 #yd-dashboard-root .yd-portal-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
 #yd-dashboard-root .yd-portal-section-heading { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
@@ -3438,7 +3443,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const username = String(account.username || '');
             const fallback = username.includes('_') ? username.slice(username.indexOf('_') + 1).trim() : username;
             const title = String(account.label || '').trim() || fallback || username || 'Unnamed Account';
-            return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '">' +
+            const searchText = [account.payer, account.provider, account.label, account.username, account.password, account.odooKey].filter(Boolean).join(' ').toLocaleLowerCase();
+            return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '" data-portal-search="' + escapeHTML(searchText) + '">' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong></span></span></summary>' +
                 '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
         };
@@ -3446,7 +3452,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
         const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
-        return '<section class="yd-welcome"><div><h1>Portals</h1><p>View your portal usernames and passwords grouped by account type.</p></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav>' + populatedGroups.map(renderGroup).join(''));
+        return '<section class="yd-welcome"><div><h1>Portals</h1><p>View your portal usernames and passwords grouped by account type.</p></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<div class="yd-portal-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty" hidden>No matching portal accounts found.</div>' + populatedGroups.map(renderGroup).join(''));
     };
 
     const renderSplitAccountSettings = settings => {
@@ -5123,7 +5129,27 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         });
 
         root.addEventListener('input', event => {
-            if (event.target.id === 'yd-user-search' || event.target.id === 'yd-tool-search') {
+            if (event.target.id === 'yd-portal-search') {
+                const query = event.target.value.trim().toLocaleLowerCase();
+                let totalVisible = 0;
+                root.querySelectorAll('.yd-portal-section').forEach(section => {
+                    const items = [...section.querySelectorAll('.yd-tool-accordion-item[data-portal-account]')];
+                    let visible = 0;
+                    items.forEach(item => {
+                        const matches = !query || String(item.dataset.portalSearch || '').includes(query);
+                        item.hidden = !matches;
+                        if (matches) visible++;
+                    });
+                    section.hidden = visible === 0;
+                    const count = section.querySelector('.yd-portal-section-heading .yd-pill');
+                    if (count) count.textContent = String(visible);
+                    const link = root.querySelector('.yd-portal-section-link[href="#' + section.id + '"]');
+                    if (link) link.hidden = visible === 0;
+                    totalVisible += visible;
+                });
+                const empty = root.querySelector('.yd-portal-search-empty');
+                if (empty) empty.hidden = totalVisible !== 0;
+            } else if (event.target.id === 'yd-user-search' || event.target.id === 'yd-tool-search') {
                 const query = event.target.value.toLowerCase();
                 root.querySelectorAll('tbody tr, .yd-tool-accordion-item').forEach(row => {
                     row.hidden = !row.textContent.toLowerCase().includes(query);
