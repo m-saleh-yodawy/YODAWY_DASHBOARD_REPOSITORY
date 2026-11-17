@@ -883,7 +883,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 54px;
     height: 54px;
     margin-bottom: 8px;
-    padding: 1px;
+    padding: 2px;
     border-radius: 50%;
     background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand));
 }
@@ -925,6 +925,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     background: #e1e1e1 !important;
     color: #68465f !important;
     outline: none !important;
+}
+#yd-dashboard-root .yd-profile-menu .yd-refresh-action,
+#yd-dashboard-root .yd-profile-menu .yd-refresh-action:hover,
+#yd-dashboard-root .yd-profile-menu .yd-refresh-action:focus-visible {
+    background: #E1E1E1 !important;
 }
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:hover .yd-action-icon,
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible .yd-action-icon {
@@ -3057,7 +3062,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
-                                    '<button class="yd-dropdown-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
+                                    '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>' + toast;
