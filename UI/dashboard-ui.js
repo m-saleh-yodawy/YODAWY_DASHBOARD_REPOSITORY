@@ -975,11 +975,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 40px !important;
     min-width: 40px !important;
     height: 40px !important;
-    padding: 2px !important;
+    padding: 3px !important;
     overflow: hidden !important;
     border: 0 !important;
     border-radius: 50% !important;
-    background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand)) !important;
+    background: #e1e1e1 !important;
     box-shadow: none !important;
 }
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
@@ -2932,6 +2932,43 @@ input[type="range"]:disabled {
     border-width: 2px !important;
 }
 
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+#yd-dashboard-root textarea,
+#yd-dashboard-root select,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+body > .yd-modal-backdrop textarea,
+body > .yd-modal-backdrop select,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]) {
+    box-sizing: border-box !important;
+    border: 1px solid var(--border, #d9d4dc) !important;
+}
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):hover,
+#yd-dashboard-root textarea:hover,
+#yd-dashboard-root select:hover,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):hover,
+body > .yd-modal-backdrop textarea:hover,
+body > .yd-modal-backdrop select:hover,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]):hover {
+    border-width: 1px !important;
+}
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
+#yd-dashboard-root textarea:focus,
+#yd-dashboard-root textarea:focus-visible,
+#yd-dashboard-root select:focus,
+#yd-dashboard-root select:focus-visible,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
+body > .yd-modal-backdrop textarea:focus,
+body > .yd-modal-backdrop textarea:focus-visible,
+body > .yd-modal-backdrop select:focus,
+body > .yd-modal-backdrop select:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]):focus,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]):focus-visible {
+    border: 2px solid #875a7b !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
 `;
         (document.head || document.documentElement).appendChild(style);
     };
