@@ -593,162 +593,6 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
 
 
-#yd-dashboard-root .yd-activity-wrap { position: relative; z-index: 20; display: inline-flex; align-items: center; }
-#yd-dashboard-root .yd-activity-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-width: 92px;
-    min-height: 34px;
-    padding: 4px 8px;
-    border: 1px solid #e6dbe3;
-    border-radius: 9px;
-    background: #faf7fa;
-    color: var(--ink);
-    cursor: pointer;
-    text-align: left;
-}
-#yd-dashboard-root .yd-activity-spinner,
-#yd-dashboard-root .yd-activity-item-spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    flex: 0 0 14px;
-    border: 2px solid var(--brand);
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: yd-control-spin .72s linear infinite;
-}
-#yd-dashboard-root .yd-activity-trigger-copy { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
-#yd-dashboard-root .yd-activity-trigger-copy strong { color: var(--brand-dark); font-size: 9px; font-weight: 800 !important; line-height: 1.2; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-trigger-copy small { max-width: 132px; overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 9px;
-    font-weight: 800 !important;
-}
-#yd-dashboard-root .yd-activity-dropdown {
-    position: absolute;
-    top: calc(100% + 11px);
-    right: 0;
-    z-index: 2147483010;
-    display: flex;
-    flex-direction: column;
-    width: min(410px, calc(100vw - 28px));
-    max-height: min(540px, calc(100vh - 105px));
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
-    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
-    transform-origin: top right;
-    animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
-}
-#yd-dashboard-root .yd-activity-dropdown[hidden] { display: none !important; }
-#yd-dashboard-root .yd-activity-menu-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 15px 15px 13px;
-    border-bottom: 1px solid #eee9ed;
-    background: #fff;
-}
-#yd-dashboard-root .yd-activity-menu-heading { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
-#yd-dashboard-root .yd-activity-menu-head strong { color: #25212a; font-size: 13px; font-weight: 750 !important; }
-#yd-dashboard-root .yd-activity-menu-head small { color: #85808a; font-size: 10px; }
-#yd-dashboard-root .yd-activity-menu-total {
-    flex: 0 0 auto;
-    padding: 5px 8px;
-    border: 1px solid #eadfea;
-    border-radius: 999px;
-    background: #faf6fa;
-    color: var(--brand-dark);
-    font-size: 9px;
-    font-weight: 800 !important;
-    white-space: nowrap;
-}
-#yd-dashboard-root .yd-activity-menu-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 27px;
-    height: 27px;
-    flex: 0 0 27px;
-    padding: 0;
-    border: 0;
-    border-radius: 7px;
-    background: transparent;
-    color: #77717b;
-    cursor: pointer;
-}
-#yd-dashboard-root .yd-activity-menu-close:hover { background: #f2edf2; color: var(--brand-dark); }
-#yd-dashboard-root .yd-activity-list { overflow: auto; overscroll-behavior: contain; padding: 3px 12px; }
-#yd-dashboard-root .yd-activity-item { display: flex; align-items: flex-start; gap: 11px; padding: 13px 3px; border-bottom: 1px solid #f0edf0; }
-#yd-dashboard-root .yd-activity-item:last-child { border-bottom: 0; }
-#yd-dashboard-root .yd-activity-item-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    border: 1px solid #eee5ed;
-    border-radius: 10px;
-    background: #faf6fa;
-    color: var(--brand);
-    font-size: 14px;
-}
-#yd-dashboard-root .yd-activity-item-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 5px; }
-#yd-dashboard-root .yd-activity-item-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-#yd-dashboard-root .yd-activity-item-copy strong { overflow: hidden; color: #29252d; font-size: 11px; font-weight: 750 !important; text-overflow: ellipsis; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-item-copy small { overflow: hidden; color: #817b85; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-item-stage { color: #62596a; font-size: 9px; line-height: 1.45; }
-#yd-dashboard-root .yd-activity-item-status { flex: 0 0 auto; padding: 3px 6px; border-radius: 999px; background: #f3edf4; color: var(--brand-dark); font-size: 8px; font-weight: 800 !important; white-space: nowrap; }
-#yd-dashboard-root .yd-activity-progress {
-    position: relative;
-    height: 3px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: #eee9ef;
-}
-#yd-dashboard-root .yd-activity-progress span {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 36%;
-    border-radius: inherit;
-    background: var(--brand);
-    animation: yd-activity-progress 1.7s ease-in-out infinite;
-}
-@keyframes yd-activity-progress {
-    0% { transform: translateX(-110%); }
-    100% { transform: translateX(310%); }
-}
-#yd-dashboard-root .yd-activity-menu-foot {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 10px 14px;
-    border-top: 1px solid #eee9ed;
-    background: #fbfafb;
-    color: #817b85;
-    font-size: 9px;
-}
-#yd-dashboard-root .yd-activity-menu-foot i { color: var(--brand); }
-@media (max-width: 620px) {
-    #yd-dashboard-root .yd-activity-trigger { min-width: 35px; justify-content: center; padding: 4px 6px; }
-    #yd-dashboard-root .yd-activity-trigger-copy { display: none; }
-    #yd-dashboard-root .yd-activity-dropdown { right: 0; width: min(390px, calc(100vw - 20px)); max-height: calc(100vh - 95px); }
-}
-
 #yd-dashboard-root .yd-profile-wrap { position: relative; display: inline-flex; align-items: center; }
 #yd-dashboard-root .yd-gb-btn {
     position: relative;
@@ -2263,7 +2107,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 
 :is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-menu,
 #yd-dashboard-root .yd-profile-menu,
-#yd-dashboard-root .yd-activity-dropdown,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
@@ -2937,7 +2780,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root :is(.yd-nav,.yd-nav-icon,.yd-brand-logo,.yd-accordion-index,.yd-pagination-link) {
     border-radius: var(--yd-radius-element) !important;
 }
-#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,.yd-activity-item-status,[class*="pill"],[class*="badge"],[class*="label"],[class*="status"],[class*="id-badge"]) {
+#yd-dashboard-root :is(.yd-pill,.yd-badge,.yd-role-label,.yd-id-badge,.yd-status,.yd-status-badge,[class*="pill"],[class*="badge"],[class*="label"],[class*="status"],[class*="id-badge"]) {
     border-radius: 5px !important;
 }
 #yd-dashboard-root :is(.yd-gb-avatar,.yd-gb-avatar-lg,.yd-gb-ring-lg,.yd-announcement-avatar,[class*="avatar"],[class*="dot"],[class*="progress"]) {
@@ -3222,7 +3065,6 @@ body > .yd-modal-backdrop select,
 :is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-menu,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
 #yd-dashboard-root .yd-dropdown-menu,
-#yd-dashboard-root .yd-activity-dropdown,
 #yd-dashboard-root .yd-profile-menu {
     border: 0 !important;
 }
@@ -3961,22 +3803,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         persistPendingTransactions();
     };
 
-    const getTransactionActivity = status => {
-        const states = {
-            SENT: ['QUEUED', 'Submitted to NETWORK · waiting for processing'],
-            RECEIVED: ['RECEIVED', 'Request received by the destination workflow'],
-            PROCESSING: ['PROCESSING', 'Applying the requested changes'],
-            PROCESSED: ['PROCESSED', 'Changes applied · preparing the response'],
-            RESPONSE_SENT: ['SYNCING', 'Returning the result to Dashboard'],
-            COMPLETED: ['FINALIZING', 'Applying the confirmed result'],
-            FAILED: ['FAILED', 'The workflow reported a failure'],
-            REJECTED: ['REJECTED', 'The request was rejected']
-        };
-        const [statusLabel, stage] = states[status] || ['QUEUED', 'Waiting for NETWORK status'];
-        return { status, statusLabel, stage };
-    };
-
-    const monitorTransaction = (transaction, existingActivityId = '', transactionEngine = null) => {
+    const monitorTransaction = (transaction, transactionEngine = null) => {
         const requestId = transaction?.requestId;
         if (!requestId || trackedTransactions.has(requestId)) return;
         trackedTransactions.add(requestId);
@@ -4002,7 +3829,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 if (!result || !['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
                     keepMonitoring = Boolean(context && localTransactions.has(requestId));
                     showMessageDialog('Still Processing', 'This request is taking longer than expected. It remains queued and locked. The dashboard will keep checking its status.');
-                    if (keepMonitoring) setTimeout(() => monitorTransaction(transaction, '', engine), 15000);
+                    if (keepMonitoring) setTimeout(() => monitorTransaction(transaction, engine), 15000);
                     return;
                 }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
@@ -4077,7 +3904,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             render();
             showNotice(message + ' queued. You can continue working while it processes.');
         }
-        monitorTransaction(transaction, '', transactionEngine);
+        monitorTransaction(transaction, transactionEngine);
         return request;
     };
 
