@@ -824,7 +824,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     padding: 1px;
     border: 0;
     border-radius: 50%;
-    background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand));
+    background: var(--brand);
     cursor: pointer;
 }
 #yd-dashboard-root #yd-profile-trigger:focus,
@@ -885,7 +885,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     margin-bottom: 8px;
     padding: 2px;
     border-radius: 50%;
-    background: conic-gradient(var(--brand), var(--brand-dark), #b48aa8, var(--brand));
+    background: var(--brand);
 }
 #yd-dashboard-root .yd-gb-avatar-lg {
     display: flex;
