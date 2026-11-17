@@ -2969,6 +2969,49 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type
     outline: none !important;
     box-shadow: none !important;
 }
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+#yd-dashboard-root textarea,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+body > .yd-modal-backdrop textarea,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]) {
+    border: 1px solid #875a7b !important;
+}
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
+#yd-dashboard-root textarea:focus,
+#yd-dashboard-root textarea:focus-visible,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
+body > .yd-modal-backdrop input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
+body > .yd-modal-backdrop textarea:focus,
+body > .yd-modal-backdrop textarea:focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]):focus,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] input:not([type="hidden"]):focus-visible {
+    border: 2px solid #875a7b !important;
+}
+#yd-dashboard-root select,
+body > .yd-modal-backdrop select,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select > .ui-select-trigger,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select > .yd-dropdown-trigger {
+    border: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select > .ui-select-trigger:hover:not(:disabled),
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select > .yd-dropdown-trigger:hover:not(:disabled),
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select[data-open="true"] > .ui-select-trigger,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select > .ui-select-trigger:focus-visible,
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select > .yd-dropdown-trigger:focus-visible {
+    border: 0 !important;
+    box-shadow: none !important;
+}
+:is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-menu,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
+#yd-dashboard-root .yd-dropdown-menu,
+#yd-dashboard-root .yd-activity-dropdown,
+#yd-dashboard-root .yd-profile-menu {
+    border: 0 !important;
+}
+
 `;
         (document.head || document.documentElement).appendChild(style);
     };
