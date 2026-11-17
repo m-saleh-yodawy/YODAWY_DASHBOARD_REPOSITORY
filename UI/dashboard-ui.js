@@ -2355,8 +2355,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
 }
 @media (max-width: 760px) {
     #yd-dashboard-root .yd-permission-search { width: 100%; min-width: 0; }
-    #yd-dashboard-root .yd-permission-row { grid-template-columns: 1fr; }
-    #yd-dashboard-root .yd-permission-controls { justify-content: flex-start; }
+    #yd-dashboard-root .yd-permission-row, #yd-dashboard-root .yd-permission-columns { grid-template-columns: 1fr; }
+    #yd-dashboard-root .yd-permission-columns > span { display: none; }
+    #yd-dashboard-root .yd-permission-controls, #yd-dashboard-root .yd-permission-columns-controls { gap: 4px; }
+    #yd-dashboard-root .yd-permission-columns-controls span { font-size: 9px; }
+    #yd-dashboard-root .yd-permission-controls { justify-content: initial; }
     #yd-dashboard-root .yd-network-pagination { align-items: flex-start; flex-direction: column; }
 }
 @media (max-width: 620px) {
