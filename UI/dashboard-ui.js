@@ -51,9 +51,6 @@
     const pendingAnnouncements = new Map();
     const pendingLocalTools = new Map();
     const trackedTransactions = new Set();
-    const activityItems = new Map();
-    let activityMenuOpen = false;
-    let activityCounter = 0;
     let networkPage = 1;
     const NETWORK_PAGE_SIZE = 10;
     let dropdownMenuClickHandler = null;
@@ -62,8 +59,6 @@
     let dropdownKeydownHandler = null;
     let dropdownScrollHandler = null;
     let dropdownResizeHandler = null;
-    let activityClickHandler = null;
-    let activityClickRoot = null;
 
     const syncInputSurfaceBackgrounds = scope => {
         const selector = 'input:not([type="hidden"]), textarea, select, .yd-allowed-users-search';
@@ -351,72 +346,9 @@
         } else render();
     };
 
-    const updateActivity = (id, changes = {}) => {
-        if (!id) return;
-        const current = activityItems.get(id) || {
-            id,
-            startedAt: Date.now(),
-            status: 'RUNNING',
-            statusLabel: 'ACTIVE',
-            stage: 'Starting operation'
-        };
-        const next = { ...current, ...changes, id };
-        if (Object.keys(next).every(key => next[key] === current[key])) return;
-        activityItems.set(id, next);
-        if (isCurrentUI()) render();
-    };
-
-    const beginActivity = (label, location = 'Dashboard', stage = 'Starting operation', id = '') => {
-        const activityId = id || 'LOCAL-' + (++activityCounter);
-        updateActivity(activityId, {
-            label: String(label || 'Background operation'),
-            location: String(location || 'Dashboard'),
-            status: 'RUNNING',
-            statusLabel: 'ACTIVE',
-            stage,
-            startedAt: activityItems.get(activityId)?.startedAt || Date.now()
-        });
-        return activityId;
-    };
-
-    const finishActivity = id => {
-        if (!id || !activityItems.delete(id)) return;
-        if (!activityItems.size) activityMenuOpen = false;
-        if (isCurrentUI()) render();
-    };
-
-    const getActivityLocation = metadata => {
-        const pageNames = {
-            tools: 'Tools',
-            overview: 'Overview',
-            announcements: 'Announcements',
-            users: 'Users',
-            permissions: 'Permissions',
-            visibility: 'Visibility',
-            transactions: 'NETWORK',
-            account: 'Settings'
-        };
-        const parts = [pageNames[activePage] || 'Dashboard'];
-        const target = metadata?.targetName || metadata?.targetId;
-        if (target) parts.push(String(target));
-        if (metadata?.targetToolId) parts.push(String(metadata.targetToolId));
-        else if (Array.isArray(metadata?.targetToolIds) && metadata.targetToolIds.length) {
-            parts.push(metadata.targetToolIds.length === 1 ? String(metadata.targetToolIds[0]) : metadata.targetToolIds.length + ' tools');
-        }
-        return parts.join(' · ');
-    };
-
-    const trackBackground = (task, details = {}) => {
-        const activityId = beginActivity(
-            details.label || 'Background operation',
-            details.location || 'Dashboard',
-            details.stage || 'Working in the background'
-        );
+    const trackBackground = task => {
         backgroundTransactions.add(task);
-        task.finally(() => {
-            backgroundTransactions.delete(task);
-            finishActivity(activityId);
-        }).catch(() => {});
+        task.finally(() => backgroundTransactions.delete(task)).catch(() => {});
         return task;
     };
 
@@ -3036,23 +2968,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         return items;
     };
 
-    const renderActivityIndicator = () => {
-        const items = [...activityItems.values()].sort((a, b) => a.startedAt - b.startedAt);
-        if (!items.length) return '';
-        const count = items.length;
-        const first = items[0];
-        const rows = items.map(item => {
-            const label = String(item.label || 'Background operation');
-            const icon = /user|permission|visibility|access/i.test(label) ? 'fa-user-shield'
-                : /announcement/i.test(label) ? 'fa-bullhorn'
-                : /tool|module|refresh|sync/i.test(label) ? 'fa-arrows-rotate'
-                : /setting/i.test(label) ? 'fa-sliders'
-                : 'fa-cloud-arrow-up';
-            return '<div class="yd-activity-item"><span class="yd-activity-item-icon"><i class="fa-solid ' + icon + '"></i></span><span class="yd-activity-item-copy"><span class="yd-activity-item-top"><strong>' + escapeHTML(label) + '</strong><span class="yd-activity-item-status">' + escapeHTML(item.statusLabel || 'ACTIVE') + '</span></span><small>' + escapeHTML(item.location || 'Dashboard') + '</small><span class="yd-activity-progress"><span></span></span><span class="yd-activity-item-stage">' + escapeHTML(item.stage || 'In progress') + '</span></span></div>';
-        }).join('');
-        return '<div class="yd-activity-wrap"><button type="button" class="yd-activity-trigger" data-action="activity-toggle" aria-controls="yd-activity-dropdown" aria-expanded="' + String(activityMenuOpen) + '" aria-label="View ' + count + ' active operations"><span class="yd-activity-spinner"></span><span class="yd-activity-trigger-copy"><strong>' + count + ' ACTIVE</strong><small>' + escapeHTML(first.label || 'Background operation') + '</small></span><span class="yd-activity-count">' + count + '</span></button><div id="yd-activity-dropdown" class="yd-activity-dropdown" role="region" aria-label="Active operations"' + (activityMenuOpen ? '' : ' hidden') + '><div class="yd-activity-menu-head"><span class="yd-activity-menu-heading"><strong>Running operations</strong><small>These actions continue in the background</small></span><span class="yd-activity-menu-total">' + count + ' ACTIVE</span><button type="button" class="yd-activity-menu-close" data-action="activity-close" aria-label="Close activity list"><i class="fa-solid fa-xmark"></i></button></div><div class="yd-activity-list">' + rows + '</div><div class="yd-activity-menu-foot"><i class="fa-solid fa-circle-info"></i><span>You can keep working while these actions finish.</span></div></div>';
-    };
-
     const renderShell = body => {
         const user = context.user || {};
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
@@ -3063,7 +2978,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
-                        '<div class="yd-header-actions">' + renderActivityIndicator() +
+                        '<div class="yd-header-actions">'
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
@@ -3836,13 +3751,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const requestId = transaction?.requestId;
         if (!requestId || trackedTransactions.has(requestId)) return;
         trackedTransactions.add(requestId);
-        const activityId = existingActivityId || 'NETWORK-' + requestId;
-        const initial = getTransactionActivity(String(transaction.status || 'SENT').toUpperCase());
-        beginActivity(transaction.summary || formatAction(transaction.action), getActivityLocation(transaction), initial.stage, activityId);
-        updateActivity(activityId, { ...initial, requestId });
         const task = (async () => {
             const startedAt = Date.now();
-            let keepActivity = false;
+            let keepMonitoring = false;
             try {
                 const engine = transactionEngine || getRoleEngine();
                 if (!engine?.getTransaction) throw new Error('NETWORK transaction engine is unavailable.');
@@ -3851,25 +3762,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     try {
                         result = await engine.getTransaction(requestId);
                     } catch {
-                        updateActivity(activityId, { status: 'WAITING', statusLabel: 'RETRYING', stage: 'Checking NETWORK status again' });
                         await new Promise(resolve => setTimeout(resolve, 3500));
                         continue;
                     }
                     const status = String(result?.status || transaction.status || 'SENT').toUpperCase();
-                    updateActivity(activityId, { ...getTransactionActivity(status), requestId });
                     if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) break;
                     await new Promise(resolve => setTimeout(resolve, 4000));
                 }
                 const status = String(result?.status || '').toUpperCase();
                 if (!result || !['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
-                    keepActivity = Boolean(context && localTransactions.has(requestId));
-                    updateActivity(activityId, { status: 'QUEUED', statusLabel: 'WAITING', stage: 'Still processing · next status check scheduled' });
+                    keepMonitoring = Boolean(context && localTransactions.has(requestId));
                     showMessageDialog('Still Processing', 'This request is taking longer than expected. It remains queued and locked. The dashboard will keep checking its status.');
-                    if (keepActivity) setTimeout(() => monitorTransaction(transaction, activityId, engine), 15000);
+                    if (keepMonitoring) setTimeout(() => monitorTransaction(transaction, '', engine), 15000);
                     return;
                 }
                 if (status !== 'COMPLETED') throw new Error(result?.error || result?.message || 'The request could not be completed.');
-                updateActivity(activityId, { status: 'FINALIZING', statusLabel: 'SYNCING', stage: 'Refreshing Dashboard data and confirming the update' });
                 if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && ['CREATE_ANNOUNCEMENT', 'DELETE_ANNOUNCEMENT'].includes(transaction.action)) {
                     pendingAnnouncements.delete(requestId);
                     persistPendingAnnouncements();
@@ -3887,7 +3794,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 showMessageDialog('Operation Failed', error?.message || 'The background operation failed. No changes were confirmed.');
             } finally {
                 trackedTransactions.delete(requestId);
-                if (!keepActivity) finishActivity(activityId);
             }
         })();
         backgroundTransactions.add(task);
@@ -3914,13 +3820,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const transactionEngine = getRoleEngine(runtimeContext);
         const actor = runtimeContext.user || {};
         const actorId = String(runtimeContext.userId || actor.id || actor.userId || '').trim().toUpperCase();
-        const activityId = beginActivity(message, getActivityLocation(metadata), 'Creating NETWORK request', 'SUBMIT-' + (++activityCounter));
         let request;
         try {
             request = await operation();
             if (!request?.requestId) throw new Error('GitHub did not confirm the request.');
         } catch (error) {
-            finishActivity(activityId);
             if (Array.isArray(metadata.targetToolIds) && metadata.targetToolIds.length) {
                 metadata.targetToolIds.forEach(toolId => optimisticVisibility.delete(toolId));
                 render();
@@ -3940,19 +3844,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         };
         if (!transaction.summary) transaction.summary = formatAction(transaction.action || message);
         persistTransaction(transaction);
-        updateActivity(activityId, {
-            status: 'QUEUED',
-            statusLabel: 'QUEUED',
-            stage: 'Submitted · waiting for NETWORK workflow',
-            requestId: request.requestId,
-            label: transaction.summary || message,
-            location: getActivityLocation(transaction)
-        });
         if (isCurrentUI()) {
             render();
             showNotice(message + ' queued. You can continue working while it processes.');
         }
-        monitorTransaction(transaction, activityId, transactionEngine);
+        monitorTransaction(transaction, '', transactionEngine);
         return request;
     };
 
@@ -4665,29 +4561,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             }
         }, true);
 
-        activityClickHandler = event => {
-            const actionButton = event.target.closest?.('[data-action="activity-toggle"], [data-action="activity-close"]');
-            if (!actionButton || !root.contains(actionButton)) return;
-            event.preventDefault();
-            event.stopPropagation();
-            activityMenuOpen = actionButton.dataset.action === 'activity-toggle' ? !activityMenuOpen : false;
-            const menu = root.querySelector('.yd-activity-dropdown');
-            const trigger = root.querySelector('[data-action="activity-toggle"]');
-            if (menu) menu.hidden = !activityMenuOpen;
-            trigger?.setAttribute('aria-expanded', String(activityMenuOpen));
-        };
-        activityClickRoot = root;
-        root.addEventListener('click', activityClickHandler, true);
-
         root.addEventListener('click', event => {
             const actionButton = event.target.closest('[data-action]');
             const dropdown = event.target.closest('.yd-dropdown');
-            if (activityMenuOpen && !event.target.closest('.yd-activity-wrap')) {
-                activityMenuOpen = false;
-                const activityMenu = root.querySelector('.yd-activity-dropdown');
-                if (activityMenu) activityMenu.hidden = true;
-                root.querySelector('[data-action="activity-toggle"]')?.setAttribute('aria-expanded', 'false');
-            }
             if (actionButton?.dataset.action === 'import-portal-accounts') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -4752,8 +4628,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             }
             if (actionButton?.dataset.action === 'toggle-dashboard') { isOpen = !isOpen; render(); return; }
             if (actionButton?.dataset.action === 'close-dashboard') { isOpen = false; profileOpen = false; render(); return; }
-            if (actionButton?.dataset.action === 'activity-toggle') { activityMenuOpen = !activityMenuOpen; render(); return; }
-            if (actionButton?.dataset.action === 'activity-close') { activityMenuOpen = false; render(); return; }
             if (actionButton?.dataset.action === 'profile-toggle') { profileOpen = !profileOpen; render(); return; }
             if (actionButton?.dataset.action === 'network-page') {
                 event.preventDefault();
@@ -4850,21 +4724,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             if (event._ydSelectHandled || event.target.closest?.('.ui-select-menu.yd-select-portal-menu[data-portal="true"]')) return;
             if (!root.contains(event.target)) {
                 closeDropdowns(null);
-                if (activityMenuOpen) {
-                    activityMenuOpen = false;
-                    render();
-                }
             }
         };
         document.addEventListener('click', dropdownOutsideClickHandler);
 
         dropdownKeydownHandler = event => {
             if (event.key !== 'Escape') return;
-            if (activityMenuOpen) {
-                activityMenuOpen = false;
-                render();
-                return;
-            }
             if (root.querySelector('.ui-select[data-open="true"]')) {
                 closeDropdowns(null);
                 return;
@@ -4932,8 +4797,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (dropdownKeydownHandler) document.removeEventListener('keydown', dropdownKeydownHandler);
         if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
         if (dropdownResizeHandler) removeWindowEventListener('resize', dropdownResizeHandler);
-        if (activityClickRoot && activityClickHandler) activityClickRoot.removeEventListener('click', activityClickHandler, true);
-        activityClickRoot = activityClickHandler = null;
         dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         rootElement?.remove();
         if (document.getElementById(CONFIG.STYLE_ID)) document.getElementById(CONFIG.STYLE_ID).remove();
@@ -4953,8 +4816,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         pendingVisibilitySubmissions.clear();
         pendingLocalTools.clear();
         trackedTransactions.clear();
-        activityItems.clear();
-        activityMenuOpen = false;
         return true;
     };
 
