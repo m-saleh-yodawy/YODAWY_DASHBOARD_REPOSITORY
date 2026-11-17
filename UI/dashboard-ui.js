@@ -877,6 +877,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     text-align: center;
 }
 #yd-dashboard-root .yd-gb-ring-lg {
+    background: #875A7B !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -975,6 +976,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     border-radius: 50% !important;
 }
 #yd-dashboard-root #yd-profile-trigger {
+    background: #875A7B !important;
     box-sizing: border-box !important;
     width: 40px !important;
     min-width: 40px !important;
