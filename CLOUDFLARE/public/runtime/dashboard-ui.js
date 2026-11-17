@@ -985,11 +985,10 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     width: 40px !important;
     min-width: 40px !important;
     height: 40px !important;
-    padding: 3px !important;
+    padding: 2px !important;
     overflow: hidden !important;
     border: 0 !important;
     border-radius: 50% !important;
-    background: #875A7B !important;
     box-shadow: none !important;
 }
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
