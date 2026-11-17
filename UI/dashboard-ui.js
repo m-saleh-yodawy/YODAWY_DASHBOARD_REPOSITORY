@@ -3042,6 +3042,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 const blocked = !active || Boolean(pending || pendingUser);
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
                 const pendingBadge = '';
+                const userEnabled = isSuperAdmin && context.userSettings?.[userId]?.[tool.id] === 'ENABLED';
+                const userEnabledControl = '<div class="yd-permission-control">' + (isSuperAdmin ? '<span class="yd-permission-status-dot ' + (userEnabled ? 'on' : '') + '" title="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '" aria-label="' + (userEnabled ? 'User Enabled' : 'User Disabled') + '"></span>' : '<span class="yd-permission-status-dot" title="Not available for this role"></span>') + '</div>';
                 const permittedControl = !isSuperAdmin && forced
                     ? '<div class="yd-permission-control"><span class="yd-pill yellow" title="Protected by Forced State">Protected</span></div>'
                     : '<div class="yd-permission-control"><button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>';
