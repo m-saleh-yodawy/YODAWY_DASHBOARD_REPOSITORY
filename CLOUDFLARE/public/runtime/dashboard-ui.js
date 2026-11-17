@@ -875,9 +875,9 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     margin: 0 0 8px;
     padding: 12px 10px 13px;
     border: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0 !important;
     border-radius: 8px;
-    background: #faf9fb;
+    background: #e1e1e1;
     text-align: center;
 }
 #yd-dashboard-root .yd-gb-ring-lg {
