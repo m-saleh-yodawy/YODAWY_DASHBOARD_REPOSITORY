@@ -2920,6 +2920,18 @@ input[type="range"]:disabled {
     opacity: .45 !important;
     cursor: not-allowed !important;
 }
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+#yd-dashboard-root textarea,
+#yd-dashboard-root select {
+    box-sizing: border-box !important;
+    border-width: 1px !important;
+}
+#yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus,
+#yd-dashboard-root textarea:focus,
+#yd-dashboard-root select:focus {
+    border-width: 2px !important;
+}
+
 `;
         (document.head || document.documentElement).appendChild(style);
     };
