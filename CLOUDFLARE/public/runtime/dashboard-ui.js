@@ -1150,7 +1150,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-welcome p { margin: 4px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
 
-body > .yd-modal-backdrop .yd-primary, body > .yd-modal-backdrop .yd-secondary, body > .yd-modal-backdrop .yd-danger, #yd-dashboard-root .yd-primary, #yd-dashboard-root .yd-secondary, body > .yd-modal-backdrop .yd-danger, #yd-dashboard-root .yd-danger {
+body > .yd-modal-backdrop .yd-primary, body > .yd-modal-backdrop .yd-secondary, body > .yd-modal-backdrop .yd-danger, #yd-dashboard-root .yd-primary, #yd-dashboard-root .yd-secondary, #yd-dashboard-root .yd-danger {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1177,7 +1177,7 @@ body > .yd-modal-backdrop .yd-primary:hover, #yd-dashboard-root .yd-primary:hove
 }
 body > .yd-modal-backdrop .yd-secondary, #yd-dashboard-root .yd-secondary { border: 1px solid var(--border); background: #fff; color: var(--brand-dark); }
 body > .yd-modal-backdrop .yd-secondary:hover, #yd-dashboard-root .yd-secondary:hover { border-color: #d8c7d7; background: var(--brand-soft); }
-#yd-dashboard-root .yd-danger { border: 1px solid var(--danger-border); background: var(--danger-bg); color: var(--danger); }
+body > .yd-modal-backdrop .yd-danger, #yd-dashboard-root .yd-danger { border: 1px solid var(--danger-border); background: var(--danger-bg); color: var(--danger); }
 body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover { border-color: #e7bec2; background: #f9e7e8; }
 
 #yd-dashboard-root .yd-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; margin-bottom: 14px; }
