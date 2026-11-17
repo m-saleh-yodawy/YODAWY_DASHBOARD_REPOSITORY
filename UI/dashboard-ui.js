@@ -1668,6 +1668,35 @@ body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover 
 }
 #yd-dashboard-root .yd-permission-row[hidden] { display: none !important; }
 #yd-dashboard-root .yd-permission-search-wrap + .yd-permission-search-empty[hidden] { display: none !important; }
+#yd-dashboard-root .yd-permission-columns {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(300px, 1.2fr);
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 10px;
+    padding: 10px 9px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #f8f5f7;
+    box-shadow: 0 3px 8px rgba(30, 20, 35, .08);
+}
+#yd-dashboard-root .yd-permission-columns-controls,
+#yd-dashboard-root .yd-permission-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 8px;
+}
+#yd-dashboard-root .yd-permission-columns-controls span {
+    color: var(--brand-dark);
+    font-size: 10px;
+    font-weight: 800 !important;
+    text-align: center;
+    white-space: nowrap;
+}
 #yd-dashboard-root .yd-permission-row {
     display: grid;
     grid-template-columns: minmax(180px, 1fr) minmax(300px, 1.2fr);
@@ -1684,9 +1713,7 @@ body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover 
 #yd-dashboard-root .yd-permission-tool { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 #yd-dashboard-root .yd-permission-tool strong { color: var(--ink); font-size: 11.5px; }
 #yd-dashboard-root .yd-permission-tool > span { color: var(--muted); font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important; font-size: 10px; }
-#yd-dashboard-root .yd-permission-controls { display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap; }
-#yd-dashboard-root .yd-permission-control { display: flex; align-items: center; gap: 6px; min-width: 132px; }
-#yd-dashboard-root .yd-permission-label { min-width: 75px; color: var(--muted); font-size: 10px; font-weight: 600 !important; }
+#yd-dashboard-root .yd-permission-control { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 28px; }
 
 #yd-dashboard-root .yd-tool-accordion-main { display: flex; align-items: center; gap: 10px; min-width: 0; }
 #yd-dashboard-root .yd-accordion-index {
@@ -2990,12 +3017,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
                 const pendingBadge = '';
                 const permittedControl = !isSuperAdmin && forced
-                    ? '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span><span class="yd-pill yellow" title="Protected by Forced State">Protected</span></div>'
-                    : '<div class="yd-permission-control"><span class="yd-permission-label">Permitted</span><button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>';
+                    ? '<div class="yd-permission-control"><span class="yd-pill yellow" title="Protected by Forced State">Protected</span></div>'
+                    : '<div class="yd-permission-control"><button type="button" class="yd-switch ' + (granted ? 'on' : '') + (pending?.permissionField === 'granted' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="granted" data-value="' + String(granted) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(granted) + '" aria-label="Permit ' + escapeHTML(tool.name) + '"' + (permissionDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>';
                 const forcedControl = isSuperAdmin
-                    ? '<div class="yd-permission-control"><span class="yd-permission-label">Forced State</span><button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + (blocked ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>'
-                    : forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '';
-                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + forcedControl + '</div></div>';
+                    ? '<div class="yd-permission-control"><button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + (blocked ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>'
+                    : '<div class="yd-permission-control">' + (forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '') + '</div>';
+                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + permittedControl + '<div class="yd-permission-control"></div>' + forcedControl + '</div></div>';
             }).join('');
             const expanded = expandedUsers.has(userId) ? ' open' : '';
             const userBadge = '';
@@ -3009,7 +3036,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             ? '<span class="yd-pill yd-role-pill yd-role-super-admin">SUPER ADMIN CONTROL</span>'
             : '<span class="yd-pill yd-role-pill yd-role-admin">ADMIN CONTROL</span>';
         const empty = users.length ? '' : '<div class="yd-empty">No eligible USER accounts found.</div>';
-        return '<section class="yd-welcome"><div><h1>User Permissions</h1><p>' + description + '</p></div>' + badge + '</section><div class="yd-accordion-list">' + (items || empty) + '</div>';
+        return '<section class="yd-welcome"><div><h1>User Permissions</h1><p>' + description + '</p></div>' + badge + '</section>' + (users.length ? '<div class="yd-permission-columns"><span></span><div class="yd-permission-columns-controls"><span>Permitted</span><span>User Enabled</span><span>Forced State</span></div></div>' : '') + '<div class="yd-accordion-list">' + (items || empty) + '</div>';
     };
 
     const filterAllowedUsersMenu = (menu, query) => {
