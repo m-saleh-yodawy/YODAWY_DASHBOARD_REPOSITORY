@@ -1372,6 +1372,10 @@ body > .yd-modal-backdrop .yd-danger:hover, #yd-dashboard-root .yd-danger:hover 
     transition: border-color .15s, box-shadow .15s;
 }
 #yd-dashboard-root .yd-search { flex: 0 1 340px; max-width: 100%; }
+#yd-dashboard-root .yd-portal-search-wrap { position: relative; width: 100%; margin: 0 0 16px; }
+#yd-dashboard-root .yd-portal-search-wrap > i { position: absolute; top: 50%; left: 13px; color: var(--muted); font-size: 13px; transform: translateY(-50%); pointer-events: none; }
+#yd-dashboard-root .yd-portal-search-wrap .yd-search { width: 100%; max-width: 100%; min-height: 40px; padding: 8px 12px 8px 36px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--ink); font-size: 13px; }
+#yd-dashboard-root .yd-portal-search-wrap .yd-search:focus { border-color: var(--brand); }
 #yd-dashboard-root .yd-search::placeholder, #yd-dashboard-root input::placeholder { color: #aaa3ad; }
 #yd-dashboard-root .yd-search:focus, #yd-dashboard-root input:focus {
     outline: none !important;
@@ -3561,8 +3565,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     const renderAccounts = () => {
         if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
         const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
-        const group = (title, icon, rows) => '<section class="yd-card" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + icon + '"></i></span><span>' + title + '</span><span class="yd-pill">' + rows.length + '</span></div>' + (rows.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + rows.map(a => '<tr><td><strong>' + escapeHTML(a.label || '—') + '</strong></td><td>' + escapeHTML(a.username || '—') + '</td><td>' + escapeHTML(a.odooKey || '—') + '</td><td>' + escapeHTML(a.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>No accounts yet</strong></div>') + '</section>';
-        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Personal and non-personal accounts assigned to your Dashboard user.</p></div><div class="yd-welcome-actions">' + (String(context?.userRole || '').toUpperCase() === 'SUPER_ADMIN' ? '<button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '') + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : group('Personal Accounts', 'fa-user-lock', accounts.filter(a => a.accountType === 'PERSONAL')) + group('Non-Personal Accounts', 'fa-users', accounts.filter(a => a.accountType === 'NON-PERSONAL')));
+        const group = (title, icon, rows) => '<section class="yd-card yd-portal-search-group" style="margin-bottom:16px"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid ' + icon + '"></i></span><span>' + title + '</span><span class="yd-pill">' + rows.length + '</span></div>' + (rows.length ? '<div class="yd-table-wrap"><table><thead><tr><th>Company</th><th>Username</th><th>Odoo Key</th><th>Provider</th></tr></thead><tbody>' + rows.map(a => '<tr data-portal-search="' + escapeHTML([a.payer, a.provider, a.label, a.username, a.password, a.odooKey].filter(Boolean).join(' ').toLocaleLowerCase()) + '"><td><strong>' + escapeHTML(a.label || '—') + '</strong></td><td>' + escapeHTML(a.username || '—') + '</td><td>' + escapeHTML(a.odooKey || '—') + '</td><td>' + escapeHTML(a.provider || 'PORTAL') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="yd-empty-state"><i class="fa-solid fa-folder-open"></i><strong>No accounts yet</strong></div>') + '</section>';
+        return '<section class="yd-welcome"><div><h1>Portal Accounts</h1><p>Personal and non-personal accounts assigned to your Dashboard user.</p></div><div class="yd-welcome-actions">' + (String(context?.userRole || '').toUpperCase() === 'SUPER_ADMIN' ? '<button type="button" class="yd-primary" data-action="import-portal-accounts"><i class="fa-solid fa-file-import"></i><span>Import Accounts</span></button>' : '') + '<button type="button" class="yd-secondary" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<div class="yd-portal-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><div class="yd-empty yd-portal-search-empty" hidden>No matching portal accounts found.</div>' + group('Personal Accounts', 'fa-user-lock', accounts.filter(a => a.accountType === 'PERSONAL')) + group('Non-Personal Accounts', 'fa-users', accounts.filter(a => a.accountType === 'NON-PERSONAL')));
     };
 
     const openPortalAccountsImport = () => {
@@ -4781,7 +4785,25 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         });
 
         root.addEventListener('input', event => {
-            if (event.target.id === 'yd-user-search' || event.target.id === 'yd-tool-search') {
+            if (event.target.id === 'yd-portal-search') {
+                const query = event.target.value.trim().toLocaleLowerCase();
+                let totalVisible = 0;
+                root.querySelectorAll('.yd-portal-search-group').forEach(section => {
+                    const rows = [...section.querySelectorAll('tbody tr[data-portal-search]')];
+                    let visible = 0;
+                    rows.forEach(row => {
+                        const matches = !query || String(row.dataset.portalSearch || '').includes(query);
+                        row.hidden = !matches;
+                        if (matches) visible++;
+                    });
+                    section.hidden = visible === 0;
+                    const count = section.querySelector('.yd-card-title .yd-pill');
+                    if (count) count.textContent = String(visible);
+                    totalVisible += visible;
+                });
+                const empty = root.querySelector('.yd-portal-search-empty');
+                if (empty) empty.hidden = totalVisible !== 0;
+            } else if (event.target.id === 'yd-user-search' || event.target.id === 'yd-tool-search') {
                 const query = event.target.value.toLowerCase();
                 root.querySelectorAll('tbody tr, .yd-tool-accordion-item').forEach(row => {
                     row.hidden = !row.textContent.toLowerCase().includes(query);
