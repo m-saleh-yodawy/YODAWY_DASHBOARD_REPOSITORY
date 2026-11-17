@@ -3093,7 +3093,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
-                        '<div class="yd-header-actions">'
+                        '<div class="yd-header-actions">' +
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
