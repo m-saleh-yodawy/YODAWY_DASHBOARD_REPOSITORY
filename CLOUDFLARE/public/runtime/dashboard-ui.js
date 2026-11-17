@@ -917,17 +917,16 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     padding: 6px 8px;
     border: 0;
     border-radius: 7px;
-    background: transparent;
+    background: #e1e1e1;
     color: var(--text);
     font-size: 11px;
     cursor: pointer;
     text-align: left;
     transition: background-color .18s ease, color .18s ease, transform .18s ease;
 }
-#yd-dashboard-root .yd-dropdown-action:hover { background: var(--brand-soft); color: var(--brand-dark); }
-#yd-dashboard-root .yd-profile-menu .yd-dropdown-action:hover,
+#yd-dashboard-root .yd-dropdown-action:hover,
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible {
-    background: #e9dfea !important;
+    background: #e1e1e1 !important;
     color: #68465f !important;
     outline: none !important;
 }
