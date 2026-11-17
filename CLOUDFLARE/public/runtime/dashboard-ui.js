@@ -989,7 +989,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     overflow: hidden !important;
     border: 0 !important;
     border-radius: 50% !important;
-    background: #e1e1e1 !important;
+    background: #875A7B !important;
     box-shadow: none !important;
 }
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
