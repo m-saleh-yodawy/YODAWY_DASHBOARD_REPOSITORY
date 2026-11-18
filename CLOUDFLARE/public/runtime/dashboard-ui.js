@@ -1185,6 +1185,67 @@ body > .yd-modal-backdrop .yd-modal {
     animation: yd-modal-enter .18s cubic-bezier(.2, .8, .2, 1) both;
 }
 body > .yd-modal-backdrop .yd-modal h3 { margin: 0 0 14px; color: var(--ink); font-size: 16px; font-weight: 700 !important; letter-spacing: -.02em; }
+
+body > .yd-modal-backdrop .yd-user-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: min(440px, 100%);
+}
+body > .yd-modal-backdrop .yd-user-form .yd-form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 13px;
+    margin-top: 8px;
+}
+body > .yd-modal-backdrop .yd-user-form .yd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+}
+body > .yd-modal-backdrop .yd-user-form .yd-field label {
+    display: block;
+    margin: 0;
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 600 !important;
+    line-height: 1.4;
+}
+body > .yd-modal-backdrop .yd-user-form .yd-field input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    background: #fff;
+    color: var(--ink);
+    font: 400 12px/1.4 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+    transition: border-color .15s, box-shadow .15s;
+}
+body > .yd-modal-backdrop .yd-user-form .yd-field input::placeholder {
+    color: #aaa3ad;
+    opacity: 1;
+}
+body > .yd-modal-backdrop .yd-user-form .yd-field input:focus {
+    border-color: var(--brand);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--brand-ring);
+}
+body > .yd-modal-backdrop .yd-user-form .yd-dropdown {
+    width: 100%;
+}
+@media (max-width: 520px) {
+    body > .yd-modal-backdrop .yd-user-form { padding: 18px; }
+}
+
 body > .yd-modal-backdrop .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
 body > .yd-modal-backdrop .yd-confirm-modal { width: min(430px, 100%); padding: 22px; }
 body > .yd-modal-backdrop .yd-confirm-modal p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
