@@ -27,7 +27,13 @@
   Timing-Allow-Origin: *
 
 /launcher.js
+  Cache-Control: no-cache, must-revalidate
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Timing-Allow-Origin: *
+
 /bookmark-bootstrap.js
   Cache-Control: no-cache, must-revalidate
   Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
   Timing-Allow-Origin: *
