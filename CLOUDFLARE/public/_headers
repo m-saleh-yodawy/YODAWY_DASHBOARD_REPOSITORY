@@ -25,3 +25,9 @@
   Cache-Control: no-cache, must-revalidate
   Access-Control-Allow-Origin: *
   Timing-Allow-Origin: *
+
+/launcher.js
+/bookmark-bootstrap.js
+  Cache-Control: no-cache, must-revalidate
+  Access-Control-Allow-Origin: *
+  Timing-Allow-Origin: *
