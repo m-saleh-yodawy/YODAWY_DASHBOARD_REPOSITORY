@@ -7,6 +7,10 @@
     const script = document.createElement('script');
     script.src = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev/bookmark-bootstrap.js?v=1';
     script.async = true;
+    script.onload = () => {
+        window.__YD_CLOUD_LAUNCHER__ = false;
+        script.remove();
+    };
     script.onerror = () => {
         window.__YD_CLOUD_LAUNCHER__ = false;
         script.remove();
