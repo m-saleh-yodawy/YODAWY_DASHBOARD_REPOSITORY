@@ -207,6 +207,7 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         if (toolSyncFailures.length) PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-tools-sync-error', { detail: { failures: toolSyncFailures } }));
         PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-cloud-ready', { detail: { user, data } }));
     } catch (error) {
+        PAGE.__YD_CLOUD_LOADER__ = false;
         showError(error);
     }
 
