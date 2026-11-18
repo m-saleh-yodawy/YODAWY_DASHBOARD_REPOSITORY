@@ -1,2 +1,3 @@
 Deployment trigger for the main production branch.
 Official tools assets synchronized: 14 tools, registry migration 0013.
+Bookmark launcher release: launcher.js and bookmark-bootstrap.js.
