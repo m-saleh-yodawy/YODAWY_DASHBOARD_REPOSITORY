@@ -1186,26 +1186,26 @@ body > .yd-modal-backdrop .yd-modal {
 }
 body > .yd-modal-backdrop .yd-modal h3 { margin: 0 0 14px; color: var(--ink); font-size: 16px; font-weight: 700 !important; letter-spacing: -.02em; }
 
-body > .yd-modal-backdrop .yd-user-form {
+body > .yd-modal-backdrop #yd-user-form {
     display: flex;
     flex-direction: column;
     gap: 0;
     width: min(440px, 100%);
 }
-body > .yd-modal-backdrop .yd-user-form .yd-form-grid {
+body > .yd-modal-backdrop #yd-user-form .yd-form-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 13px;
     margin-top: 8px;
 }
-body > .yd-modal-backdrop .yd-user-form .yd-field {
+body > .yd-modal-backdrop #yd-user-form .yd-field {
     display: flex;
     flex-direction: column;
     gap: 6px;
     min-width: 0;
     width: 100%;
 }
-body > .yd-modal-backdrop .yd-user-form .yd-field label {
+body > .yd-modal-backdrop #yd-user-form .yd-field label {
     display: block;
     margin: 0;
     color: var(--text);
@@ -1213,7 +1213,7 @@ body > .yd-modal-backdrop .yd-user-form .yd-field label {
     font-weight: 600 !important;
     line-height: 1.4;
 }
-body > .yd-modal-backdrop .yd-user-form .yd-field input {
+body > .yd-modal-backdrop #yd-user-form .yd-field input {
     display: block;
     box-sizing: border-box;
     width: 100%;
@@ -1230,20 +1230,20 @@ body > .yd-modal-backdrop .yd-user-form .yd-field input {
     font: 400 12px/1.4 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
     transition: border-color .15s, box-shadow .15s;
 }
-body > .yd-modal-backdrop .yd-user-form .yd-field input::placeholder {
+body > .yd-modal-backdrop #yd-user-form .yd-field input::placeholder {
     color: #aaa3ad;
     opacity: 1;
 }
-body > .yd-modal-backdrop .yd-user-form .yd-field input:focus {
+body > .yd-modal-backdrop #yd-user-form .yd-field input:focus {
     border-color: var(--brand);
     outline: none;
     box-shadow: 0 0 0 2px var(--brand-ring);
 }
-body > .yd-modal-backdrop .yd-user-form .yd-dropdown {
+body > .yd-modal-backdrop #yd-user-form .yd-dropdown {
     width: 100%;
 }
 @media (max-width: 520px) {
-    body > .yd-modal-backdrop .yd-user-form { padding: 18px; }
+    body > .yd-modal-backdrop #yd-user-form { padding: 18px; }
 }
 
 body > .yd-modal-backdrop .yd-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
