@@ -1951,8 +1951,9 @@ const api = {
     }
 };
 
-window[INSTANCE_KEY] =
-    api;
+const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+registry['TOOL-012'] = api;
+window[INSTANCE_KEY] = api;
 
 function init() {
     if (destroyed) {
