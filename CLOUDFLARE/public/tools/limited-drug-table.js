@@ -784,6 +784,7 @@ const instance = {
 
     async suspend() {
         if (!state.initialized) return true;
+        if (state.dialogs.size || document.querySelector('.yodawy-accordion-body.open')) return false;
         await this.destroy();
         state.destroyed = false;
         return true;
