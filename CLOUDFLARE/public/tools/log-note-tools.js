@@ -77,7 +77,7 @@
 
             const observer=new MutationObserver(addButtons);
             const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-            registry['ODOO-LOG-NOTE-TOOLS']={
+            registry['TOOL-010']={
                 suspend(){observer.disconnect();document.querySelectorAll('.o_Message').forEach(message=>{message.querySelectorAll('.o_Message_commands span').forEach(button=>{if(['Edit','Delete'].includes(button.textContent.trim()))button.remove();});delete message.dataset.toolsAdded;});return true;},
                 resume(){addButtons();observer.observe(document.body,{childList:true,subtree:true});return true;}
             };
