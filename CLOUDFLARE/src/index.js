@@ -323,6 +323,7 @@ const dashboardRoutes = async (request, env, path) => {
         const filename = String(tool.path || "").split("/").pop();
         if (!/^[a-z0-9-]+\.js$/i.test(filename)) throw new Error("INVALID_TOOL_ASSET_PATH: " + tool.id);
         const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
+        assetUrl.searchParams.set("v", env.CF_VERSION_METADATA?.id || "latest");
         const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET", cache: "no-store" }));
         if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) throw new Error("TOOL_ASSET_UNAVAILABLE: " + filename);
         const source = await asset.arrayBuffer();
