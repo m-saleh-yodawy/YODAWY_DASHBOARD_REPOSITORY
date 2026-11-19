@@ -54,9 +54,10 @@
         const updated = loaded.filter(tool => previousLoaded.get(tool.id) !== tool.sha256).map(tool => tool.id);
         const removed = [...previousLoaded.keys()].filter(id => !nextLoaded.has(id));
         const syncFailures = app.tools.getSyncFailures?.() || [];
-        if (previousManifest !== nextManifest || updated.length || removed.length) {
+        const unavailable = app.tools.getUnavailableTools?.() || [];
+        if (previousManifest !== nextManifest || updated.length || removed.length || unavailable.length) {
             lastToolUpdate = Date.now();
-            emit('yodawy-live-updated', { type: 'tools', version: sourceVersion || version, updated, removed, failures: syncFailures });
+            emit('yodawy-live-updated', { type: 'tools', version: sourceVersion || version, updated, removed, unavailable, failures: syncFailures });
         }
         if (syncFailures.length) {
             lastError = syncFailures[0].message || 'TOOL_SYNC_FAILED';
