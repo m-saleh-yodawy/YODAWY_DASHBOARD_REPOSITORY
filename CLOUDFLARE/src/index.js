@@ -319,18 +319,24 @@ const dashboardRoutes = async (request, env, path) => {
     if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
     try {
       const result = await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
-      const tools = await Promise.all((result.results || []).map(async tool => {
-        const filename = String(tool.path || "").split("/").pop();
-        if (!/^[a-z0-9-]+\.js$/i.test(filename)) throw new Error("INVALID_TOOL_ASSET_PATH: " + tool.id);
-        const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
-        assetUrl.searchParams.set("v", env.CF_VERSION_METADATA?.id || "latest");
-        const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET", cache: "no-store" }));
-        if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) throw new Error("TOOL_ASSET_UNAVAILABLE: " + filename);
-        const source = await asset.arrayBuffer();
-        const sha256 = hex(await crypto.subtle.digest("SHA-256", source));
-        return { ...tool, sha256 };
+      const resolved = await Promise.all((result.results || []).map(async tool => {
+        try {
+          const filename = String(tool.path || "").split("/").pop();
+          if (!/^[a-z0-9-]+\.js$/i.test(filename)) return { unavailable: { id: tool.id, name: tool.name, path: tool.path, reason: "INVALID_TOOL_ASSET_PATH" } };
+          const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
+          assetUrl.searchParams.set("v", env.CF_VERSION_METADATA?.id || "latest");
+          const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET", cache: "no-store" }));
+          if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) return { unavailable: { id: tool.id, name: tool.name, path: tool.path, reason: "TOOL_ASSET_UNAVAILABLE" } };
+          const source = await asset.arrayBuffer();
+          const sha256 = hex(await crypto.subtle.digest("SHA-256", source));
+          return { tool: { ...tool, sha256 } };
+        } catch {
+          return { unavailable: { id: tool.id, name: tool.name, path: tool.path, reason: "TOOL_ASSET_CHECK_FAILED" } };
+        }
       }));
-      return respond(request, env, { success: true, tools, generatedAt: now });
+      const tools = resolved.filter(item => item.tool).map(item => item.tool);
+      const unavailable = resolved.filter(item => item.unavailable).map(item => item.unavailable);
+      return respond(request, env, { success: true, tools, unavailable, generatedAt: now });
     } catch (error) {
       return respond(request, env, { success: false, error: error.message || "TOOL_MANIFEST_FAILED" }, 503);
     }
