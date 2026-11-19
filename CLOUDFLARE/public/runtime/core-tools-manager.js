@@ -13,6 +13,7 @@
     const pendingTools = new Map();
 
     let manifest = [];
+    let unavailableTools = [];
     let initialized = false;
     let syncing = false;
 
@@ -115,6 +116,9 @@
         const data = await API.get('/api/dashboard/tools/manifest');
         if (data?.success !== true || !Array.isArray(data.tools)) throw createError(data?.error || 'Live tools manifest is unavailable');
         manifest = validateManifest(data);
+        unavailableTools = Array.isArray(data.unavailable)
+            ? data.unavailable.filter(item => item && typeof item.id === 'string' && item.id.trim()).map(item => ({ ...item, id: item.id.trim() }))
+            : [];
         initialized = true;
         return getManifest();
     };
@@ -266,7 +270,7 @@
 
         try {
             const dependencies = getDependencies();
-            const activeIds = new Set(manifest.map(tool => tool.id));
+            const activeIds = new Set([...manifest.map(tool => tool.id), ...unavailableTools.map(tool => tool.id)]);
             for (const id of [...loadedTools.keys()]) {
                 if (!activeIds.has(id)) {
                     try {
@@ -337,6 +341,7 @@
         getManifest,
         getLoadedTools,
         getSyncFailures: () => syncFailures.map(item => ({ ...item })),
+        getUnavailableTools: () => unavailableTools.map(item => ({ ...item })),
         getStatus,
         isLoaded,
         isInitialized: () => initialized
