@@ -192,7 +192,7 @@
         }),
         SUPER_ADMIN: Object.freeze({
             pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'accounts', 'account']),
-            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'view-user-password', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
             canManageAnnouncements: true,
             canManageUsers: true,
             canEditUsers: true,
@@ -3355,6 +3355,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
 
     const editActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" fill="none" stroke="currentColor"></path><path d="m16.5 3.5 4 4L8 20l-5 1 1-5Z" fill="none" stroke="currentColor"></path></svg>';
     const deleteActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18" fill="none" stroke="currentColor"></path><path d="M8 6V4h8v2" fill="none" stroke="currentColor"></path><path d="m19 6-1 14H6L5 6" fill="none" stroke="currentColor"></path><path d="M10 11v6M14 11v6" fill="none" stroke="currentColor"></path></svg>';
+    const viewPasswordActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
 
     const renderUsers = () => {
         const baseUsers = getUsers();
@@ -3387,10 +3388,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const deleteButton = canDelete
                 ? '<button type="button" class="yd-icon-btn danger" data-action="delete-user" data-id="' + escapeHTML(id) + '" title="Delete user" aria-label="Delete user"' + (pending ? ' disabled' : '') + '>' + deleteActionIcon + '</button>'
                 : '';
+            const viewPasswordButton = context.userRole === 'SUPER_ADMIN' && !user._pending
+                ? '<button type="button" class="yd-icon-btn" data-action="view-user-password" data-id="' + escapeHTML(id) + '" title="View user password" aria-label="View user password"' + (pending ? ' disabled' : '') + '>' + viewPasswordActionIcon + '</button>'
+                : '';
             const status = pending ? renderPendingBadge(pendingLabel) : '<span class="yd-pill ' + (String(user.status).toLowerCase() === 'active' ? 'green' : 'red') + '">' + escapeHTML(user.status) + '</span>';
             const repository = user._pending ? 'QUEUED' : String(user.repository || 'Provisioning').toUpperCase();
             const roleMarkup = isAdmin && String(user.role || '').toUpperCase() === 'SUPER_ADMIN' ? '' : renderRolePill(user.role);
-            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + roleMarkup + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + '</div></td></tr>';
+            return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + roleMarkup + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + viewPasswordButton + '</div></td></tr>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div>' + (getRoleAccess().canManageUsers ? '<button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button>' : '') + '</section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
@@ -4124,6 +4128,44 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         });
     };
 
+    const openUserPasswordModal = async user => {
+        if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><strong>' + escapeHTML(formatName(user.name)) + '</strong><span>' + escapeHTML(user.id) + '</span><span>' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</span></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary" data-action="copy-user-password" disabled>Copy</button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        mountModalOverlay(overlay);
+        const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
+        overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
+        const message = overlay.querySelector('.yd-user-password-message');
+        const input = overlay.querySelector('#yd-revealed-user-password');
+        const copy = overlay.querySelector('[data-action="copy-user-password"]');
+        try {
+            const result = await context.api.getUserPassword(user.id);
+            if (!overlay.isConnected) return;
+            if (result?.success !== true || typeof result.password !== 'string') throw new Error(result?.message || result?.error || 'Unable to retrieve this password.');
+            input.value = result.password;
+            copy.disabled = !result.password;
+            message.textContent = 'Password retrieved securely. This access has been recorded.';
+        } catch (error) {
+            if (!overlay.isConnected) return;
+            input.value = '';
+            message.textContent = error?.message || 'Unable to retrieve this password.';
+        }
+        overlay.addEventListener('click', async event => {
+            const button = event.target.closest('[data-action="copy-user-password"]');
+            if (!button || button.disabled || !input.value) return;
+            try {
+                await navigator.clipboard.writeText(input.value);
+                button.textContent = 'Copied';
+                setTimeout(() => { if (button.isConnected) button.textContent = 'Copy'; }, 1200);
+            } catch {
+                message.textContent = 'Clipboard access is unavailable. Select and copy the password manually.';
+                input.focus();
+                input.select();
+            }
+        });
+    };
+
     const openUserModal = user => {
         const editing = Boolean(user);
         const overlay = document.createElement('div');
@@ -4347,6 +4389,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             } else if (action === 'edit-user') {
                 if (getPendingUser({ id: button.dataset.id })) return;
                 openUserModal(getUsers().find(user => user.id === button.dataset.id));
+            } else if (action === 'view-user-password') {
+                if (context.userRole !== 'SUPER_ADMIN' || getPendingUser({ id: button.dataset.id })) return;
+                setButtonLoading(button, 'Loading');
+                await openUserPasswordModal(getUsers().find(user => String(user.id).toUpperCase() === String(button.dataset.id).toUpperCase()));
             } else if (action === 'delete-user') {
                 const user = getUsers().find(item => String(item.id).toUpperCase() === String(button.dataset.id).toUpperCase());
                 if (getPendingUser(user)) return;
