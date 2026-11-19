@@ -1274,21 +1274,49 @@ body > .yd-modal-backdrop .yd-user-password-modal .yd-field label {
     font-weight: 600 !important;
 }
 body > .yd-modal-backdrop .yd-user-password-identity {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 7px 10px;
-    min-height: 36px;
-    padding: 9px 11px;
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    direction: ltr;
+}
+body > .yd-modal-backdrop .yd-user-password-identity input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    padding: 0 11px;
     border: 1px solid var(--border);
     border-radius: 8px;
+    outline: none;
     background: #f8f5f7;
-    color: var(--text);
-    font-size: 12px;
-}
-body > .yd-modal-backdrop .yd-user-password-identity strong {
     color: var(--ink);
-    font-weight: 700 !important;
+    font: 600 12px/1.4 'Nunito Sans', 'Cairo', system-ui, sans-serif;
+    text-align: left;
+    direction: ltr;
+}
+body > .yd-modal-backdrop .yd-user-password-id {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+body > .yd-modal-backdrop .yd-user-password-id input {
+    font-weight: 500;
+}
+body > .yd-modal-backdrop .yd-user-password-id span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+@media (max-width: 520px) {
+    body > .yd-modal-backdrop .yd-user-password-identity {
+        grid-template-columns: minmax(0, 3fr) minmax(76px, 1fr);
+    }
 }
 body > .yd-modal-backdrop .yd-user-password-value {
     display: flex;
@@ -4206,7 +4234,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><strong>' + escapeHTML(formatName(user.name)) + '</strong><span>' + escapeHTML(user.id) + '</span><span>' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</span></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary" data-action="copy-user-password" disabled>Copy</button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"><span>' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</span></div></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary" data-action="copy-user-password" disabled>Copy</button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
         mountModalOverlay(overlay);
         const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
         overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
@@ -4466,7 +4494,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             } else if (action === 'view-user-password') {
                 if (context.userRole !== 'SUPER_ADMIN' || getPendingUser({ id: button.dataset.id })) return;
                 setButtonLoading(button, 'Loading');
-                await openUserPasswordModal(getUsers().find(user => String(user.id).toUpperCase() === String(button.dataset.id).toUpperCase()));
+                try {
+                    await openUserPasswordModal(getUsers().find(user => String(user.id).toUpperCase() === String(button.dataset.id).toUpperCase()));
+                } finally {
+                    if (button.isConnected) {
+                        button.disabled = false;
+                        button.removeAttribute('aria-busy');
+                        button.classList.remove('yd-button-loading');
+                    }
+                }
             } else if (action === 'delete-user') {
                 const user = getUsers().find(item => String(item.id).toUpperCase() === String(button.dataset.id).toUpperCase());
                 if (getPendingUser(user)) return;
