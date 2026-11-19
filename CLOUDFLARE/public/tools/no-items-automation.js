@@ -211,16 +211,16 @@ const isRecentFetchMessage=message=>{
     return Number.isFinite(timestamp)&&age>=-120000&&age<=120000;
 };
 
-const isTableFetchMessage=body=>/<table[\\s>]/i.test(String(body||''));
+const isTableFetchMessage=body=>/<table[\s>]/i.test(String(body||''));
 const isNoItemsFetchMessage=body=>/No items need to check/i.test(String(body||''));
 
 const isFetchPayloadMessage=(body,ticketId)=>{
-    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\\s+/g,' ').trim().toLowerCase();
-    const ticketPattern=new RegExp(`["']?ticket(?:_id)?["']?\\\\s*[:=]\\\\s*["']?${ticketId}(?:\\\\D|$)`,'i');
-    return ticketPattern.test(text)&&['payer','corporate','identifier','drugs'].every(key=>new RegExp(`["']${key}["']\\\\s*:`).test(text));
+    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\s+/g,' ').trim().toLowerCase();
+    const ticketPattern=new RegExp(`["']?ticket(?:_id)?["']?\\s*[:=]\\s*["']?${ticketId}(?:\\D|$)`,'i');
+    return ticketPattern.test(text)&&['payer','corporate','identifier','drugs'].every(key=>new RegExp(`["']${key}["']\\s*:`).test(text));
 };
 
-const getFetchDrugIds=body=>[...String(body||'').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").matchAll(/["']id["']\\s*:\\s*(\\d+)/g)].map(match=>match[1]);
+const getFetchDrugIds=body=>[...String(body||'').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").matchAll(/["']id["']\s*:\s*(\d+)/g)].map(match=>match[1]);
 
 const deleteGeneratedLogs=async(ticketId,baseline)=>{
     if(!baseline||!Number.isSafeInteger(baseline.id)||!baseline.partnerId)return 0;
@@ -230,29 +230,27 @@ const deleteGeneratedLogs=async(ticketId,baseline)=>{
         isRecentFetchMessage(message)
     );
     if(!messages.length)return 0;
-    const payloads=messages.filter(message=>isFetchPayloadMessage(message.body,ticketId));
+    const payloads=messages
+        .filter(message=>isFetchPayloadMessage(message.body,ticketId))
+        .map(message=>({message,ids:getFetchDrugIds(message.body),time:getMessageTimestamp(message)}))
+        .filter(item=>item.ids.length&&Number.isFinite(item.time));
+    const outputs=messages.filter(message=>isTableFetchMessage(message.body)||isNoItemsFetchMessage(message.body));
     const pairs=[];
-    for(const payload of payloads){
-        const payloadId=Number(payload.id);
-        const payloadTime=getMessageTimestamp(payload);
-        const drugIds=getFetchDrugIds(payload.body);
-        if(!Number.isFinite(payloadTime)||!drugIds.length)continue;
-        for(const output of messages){
-            const outputId=Number(output.id);
-            const outputTime=getMessageTimestamp(output);
-            if(!Number.isSafeInteger(outputId)||outputId<=payloadId||!Number.isFinite(outputTime))continue;
-            if(Math.abs(outputTime-payloadTime)>120000)continue;
-            const body=String(output.body||'');
-            if(!isTableFetchMessage(body)&&!isNoItemsFetchMessage(body))continue;
-            if(isTableFetchMessage(body)){
-                const tableText=body.replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ');
-                if(!drugIds.some(id=>new RegExp(`(?:^|\\\\D)${id}(?:\\\\D|$)`).test(tableText)))continue;
-            }
-            pairs.push({payload,output,outputTime});
-        }
+    for(const output of outputs){
+        const outputId=Number(output.id);
+        const outputTime=getMessageTimestamp(output);
+        if(!Number.isSafeInteger(outputId)||!Number.isFinite(outputTime))continue;
+        const matches=payloads.filter(item=>{
+            const payloadId=Number(item.message.id);
+            if(payloadId>=outputId||outputTime<item.time||outputTime-item.time>120000)return false;
+            if(isNoItemsFetchMessage(output.body))return true;
+            const tableText=String(output.body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ');
+            return item.ids.some(id=>new RegExp(`(?:^|\\\\D)${id}(?:\\\\D|$)`).test(tableText));
+        }).sort((x,y)=>y.time-x.time||Number(y.message.id)-Number(x.message.id));
+        if(matches.length)pairs.push({payload:matches[0].message,output,outputTime});
     }
     if(!pairs.length)return 0;
-    pairs.sort((a,b)=>b.outputTime-a.outputTime||Number(b.output.id)-Number(a.output.id));
+    pairs.sort((x,y)=>y.outputTime-x.outputTime||Number(y.output.id)-Number(x.output.id));
     const pair=pairs[0];
     if(!isRecentFetchMessage(pair.payload)||!isRecentFetchMessage(pair.output))return 0;
     const ids=[Number(pair.payload.id),Number(pair.output.id)];
