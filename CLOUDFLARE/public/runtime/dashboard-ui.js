@@ -1335,6 +1335,7 @@ body > .yd-modal-backdrop .yd-user-password-value input {
     color: var(--ink);
     font: 400 12px/1.4 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
 }
+.yd-user-password-copy { display: inline-flex !important; flex: 0 0 36px; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; font-size: 15px; }
 body > .yd-modal-backdrop .yd-user-password-value input:focus {
     border-color: var(--brand);
     box-shadow: 0 0 0 2px var(--brand-ring);
@@ -4234,7 +4235,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"><span>' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</span></div></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary" data-action="copy-user-password" disabled>Copy</button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"><span>' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</span></div></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><i class="fa-regular fa-copy" aria-hidden="true"></i></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
         mountModalOverlay(overlay);
         const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
         overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
@@ -4258,8 +4259,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             if (!button || button.disabled || !input.value) return;
             try {
                 await navigator.clipboard.writeText(input.value);
-                button.textContent = 'Copied';
-                setTimeout(() => { if (button.isConnected) button.textContent = 'Copy'; }, 1200);
+                button.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+                button.setAttribute('aria-label', 'Copied');
+                button.title = 'Copied';
+                setTimeout(() => {
+                    if (!button.isConnected) return;
+                    button.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
+                    button.setAttribute('aria-label', 'Copy password');
+                    button.title = 'Copy password';
+                }, 1200);
             } catch {
                 message.textContent = 'Clipboard access is unavailable. Select and copy the password manually.';
                 input.focus();
