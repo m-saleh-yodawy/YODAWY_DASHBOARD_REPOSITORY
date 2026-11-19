@@ -5274,6 +5274,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         document.body.appendChild(root);
         render();
         bindEvents(root);
+        const main = root.querySelector('#yd-main');
+        if (main) { main.scrollTop = Number(uiState.scrollTop) || 0; main.scrollLeft = Number(uiState.scrollLeft) || 0; }
         resumePendingTransactions();
         refreshTimer = null;
         return true;
@@ -5313,9 +5315,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         return true;
     };
 
+    const getHotState = () => {
+        const root = rootElement;
+        const main = root?.querySelector('#yd-main');
+        return { activePage, expandedUsers: [...expandedUsers], expandedTools: [...expandedTools], isOpen, profileOpen, scrollTop: main?.scrollTop || 0, scrollLeft: main?.scrollLeft || 0 };
+    };
+
     const dashboardUI = Object.freeze({
-        version: 1,
+        version: 2,
         init,
+        getHotState,
         render,
         refresh,
         destroy,
