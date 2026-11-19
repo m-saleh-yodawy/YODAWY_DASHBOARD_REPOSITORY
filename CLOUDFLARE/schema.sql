@@ -7,6 +7,8 @@ CREATE TABLE users (
   status TEXT NOT NULL DEFAULT 'Active',
   personal_repository TEXT NOT NULL,
   password_hash TEXT,
+  password_ciphertext TEXT,
+  password_encryption_iv TEXT,
   password_changed_at INTEGER,
   failed_login_count INTEGER NOT NULL DEFAULT 0,
   locked_until INTEGER NOT NULL DEFAULT 0,
