@@ -315,6 +315,25 @@ const dashboardRoutes = async (request, env, path) => {
   const now = new Date().toISOString();
   const body = request.method === "GET" ? {} : await readBody(request);
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
+  if (path === "/api/dashboard/tools/manifest" && request.method === "GET") {
+    if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
+    try {
+      const result = await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
+      const tools = await Promise.all((result.results || []).map(async tool => {
+        const filename = String(tool.path || "").split("/").pop();
+        if (!/^[a-z0-9-]+\\.js$/i.test(filename)) throw new Error("INVALID_TOOL_ASSET_PATH: " + tool.id);
+        const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
+        const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET" }));
+        if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) throw new Error("TOOL_ASSET_UNAVAILABLE: " + filename);
+        const source = await asset.arrayBuffer();
+        const sha256 = hex(await crypto.subtle.digest("SHA-256", source));
+        return { ...tool, sha256 };
+      }));
+      return respond(request, env, { success: true, tools, generatedAt: now });
+    } catch (error) {
+      return respond(request, env, { success: false, error: error.message || "TOOL_MANIFEST_FAILED" }, 503);
+    }
+  }
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
       env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all(),
