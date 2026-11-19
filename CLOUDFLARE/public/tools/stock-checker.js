@@ -598,7 +598,7 @@ function createUI(){
             lookupId++;
             insertObserver?.disconnect();
             insertObserver=null;
-            panel.remove();
+            host.remove();
             systrayItem.remove();
             return true;
         },
