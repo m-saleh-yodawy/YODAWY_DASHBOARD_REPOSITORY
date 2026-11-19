@@ -327,7 +327,7 @@
     };
 
     global.YODAWY_TOOLS_MANAGER = Object.freeze({
-        version: 2,
+        version: 3,
         loadManifest,
         sync,
         syncTool,
