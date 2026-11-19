@@ -168,7 +168,7 @@
     const instance = {
         destroy() {
             if (destroyed) return true;
-            if (processing || timers.size) return false;
+            if (processing || timers.size || document.activeElement?.matches?.('#txtPolicy,#txtReference')) return false;
             destroyed = true;
             memberIndex = null;
             processing = false;
