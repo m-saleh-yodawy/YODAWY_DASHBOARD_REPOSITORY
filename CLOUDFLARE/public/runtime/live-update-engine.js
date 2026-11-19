@@ -4,7 +4,7 @@
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const INTERVAL = 15000;
     const MAX_INTERVAL = 120000;
-    const FALLBACK_INTERVAL = 60000;
+    const MANIFEST_INTERVAL = 60000;
     let timer = null;
     let running = false;
     let stopped = true;
@@ -136,7 +136,8 @@
                     pendingToolsVersion = currentVersion;
                     pendingUIVersion = currentVersion;
                 }
-            } else if (Date.now() - lastManifestCheck >= FALLBACK_INTERVAL) {
+                if (!pendingToolsVersion && Date.now() - lastManifestCheck >= MANIFEST_INTERVAL) pendingToolsVersion = currentVersion;
+            } else if (Date.now() - lastManifestCheck >= MANIFEST_INTERVAL) {
                 pendingToolsVersion = currentVersion || 'unversioned';
             }
             if (pendingToolsVersion) {
