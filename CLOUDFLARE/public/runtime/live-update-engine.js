@@ -73,7 +73,6 @@
                     const nextVersion = current.version;
                     if (await hotSwapUI(nextVersion)) {
                         version = nextVersion;
-                        await refreshData();
                     }
                 }
             }
