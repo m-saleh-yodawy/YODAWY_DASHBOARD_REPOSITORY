@@ -1337,8 +1337,7 @@ body > .yd-modal-backdrop .yd-user-password-value input {
 }
 body > .yd-modal-backdrop .yd-user-password-copy { display: inline-flex !important; flex: 0 0 36px; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; }
 body > .yd-modal-backdrop .yd-user-password-copy svg { display: block !important; visibility: visible !important; opacity: 1 !important; width: 18px !important; height: 18px !important; min-width: 18px !important; min-height: 18px !important; overflow: visible !important; }
-body > .yd-modal-backdrop .yd-user-password-copy.is-copied svg { display: none; }
-body > .yd-modal-backdrop .yd-user-password-copy.is-copied::after { content: "✓"; font: 700 18px/1 Arial, sans-serif; }
+body > .yd-modal-backdrop .yd-user-password-copy.is-copied { color: var(--success); }
 body > .yd-modal-backdrop .yd-user-password-copy i { display: none; }
 body > .yd-modal-backdrop .yd-user-password-modal input { background: #e1e1e1 !important; }
 body > .yd-modal-backdrop .yd-user-password-value input:focus {
@@ -4247,6 +4246,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const message = overlay.querySelector('.yd-user-password-message');
         const input = overlay.querySelector('#yd-revealed-user-password');
         const copy = overlay.querySelector('[data-action="copy-user-password"]');
+        const copyIcon = copy.innerHTML;
         try {
             const result = await context.api.getUserPassword(user.id);
             if (!overlay.isConnected) return;
@@ -4264,15 +4264,19 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             if (!button || button.disabled || !input.value) return;
             try {
                 await navigator.clipboard.writeText(input.value);
+                clearTimeout(button._ydCopyTimer);
+                button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#68465f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
                 button.classList.add('is-copied');
                 button.setAttribute('aria-label', 'Copied');
                 button.title = 'Copied';
-                setTimeout(() => {
+                button._ydCopyTimer = setTimeout(() => {
                     if (!button.isConnected) return;
+                    button.innerHTML = copyIcon;
                     button.classList.remove('is-copied');
                     button.setAttribute('aria-label', 'Copy password');
                     button.title = 'Copy password';
-                }, 1200);
+                    button._ydCopyTimer = null;
+                }, 1000);
             } catch {
                 message.textContent = 'Clipboard access is unavailable. Select and copy the password manually.';
                 input.focus();
