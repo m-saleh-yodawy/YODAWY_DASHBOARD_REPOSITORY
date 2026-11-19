@@ -187,7 +187,8 @@
         const { LOADER } = getDependencies();
 
         try {
-            await shutdown.call(registered);
+            const stopped = await shutdown.call(registered);
+            if (stopped === false) return false;
             if (registry?.[toolId] === registered) delete registry[toolId];
             LOADER.clear(instance.path);
 
