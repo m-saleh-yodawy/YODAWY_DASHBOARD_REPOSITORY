@@ -2947,8 +2947,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-copy:focus,
 #yd-dashboard-root .yd-portal-copy:focus-visible,
 #yd-dashboard-root .yd-portal-copy:active { background: #fff !important; }
-#yd-dashboard-root .yd-portal-copy.is-copied i { display: none; }
-#yd-dashboard-root .yd-portal-copy.is-copied::after { content: "✓"; font-family: Arial, sans-serif; font-size: 19px; font-weight: 700; line-height: 1; }
+#yd-dashboard-root .yd-portal-copy i { display: inline-block; }
+#yd-dashboard-root .yd-portal-copy.is-copied { color: var(--success); }
 
 #yd-dashboard-root .yd-portal-search-wrap { position: relative; width: 100%; margin: 0 0 16px; }
 #yd-dashboard-root .yd-portal-search-wrap > i { position: absolute; top: 50%; left: 13px; color: var(--muted); font-size: 13px; transform: translateY(-50%); pointer-events: none; }
@@ -5058,15 +5058,20 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 try {
                     await navigator.clipboard.writeText(value);
                     clearTimeout(actionButton._ydCopyTimer);
+                    const icon = actionButton.querySelector('i');
+                    icon?.classList.remove('fa-copy');
+                    icon?.classList.add('fa-check');
                     actionButton.classList.add('is-copied');
                     actionButton.setAttribute('aria-label', 'Copied');
                     actionButton._ydCopyTimer = setTimeout(() => {
                         if (actionButton.isConnected) {
+                            icon?.classList.remove('fa-check');
+                            icon?.classList.add('fa-copy');
                             actionButton.classList.remove('is-copied');
                             actionButton.setAttribute('aria-label', actionButton.dataset.field === 'username' ? 'Copy username' : 'Copy password');
                         }
                         actionButton._ydCopyTimer = null;
-                    }, 1200);
+                    }, 1000);
                 } catch {
                     showMessageDialog('Copy Failed', 'Unable to copy this value. Check browser clipboard permissions.');
                 }
