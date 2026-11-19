@@ -1336,8 +1336,13 @@ body > .yd-modal-backdrop .yd-user-password-value input {
     font: 400 12px/1.4 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
 }
 .yd-user-password-copy { display: inline-flex !important; flex: 0 0 36px; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; font-size: 21px; }
-body > .yd-modal-backdrop .yd-user-password-copy::before { content: "⧉"; line-height: 1; }
-body > .yd-modal-backdrop .yd-user-password-copy.is-copied::before { content: "✓"; }
+body > .yd-modal-backdrop .yd-user-password-copy { position: relative; }
+body > .yd-modal-backdrop .yd-user-password-copy::before,
+body > .yd-modal-backdrop .yd-user-password-copy::after { position: absolute; width: 10px; height: 12px; border: 1.5px solid currentColor; border-radius: 2px; content: ""; }
+body > .yd-modal-backdrop .yd-user-password-copy::before { top: 9px; left: 11px; }
+body > .yd-modal-backdrop .yd-user-password-copy::after { top: 13px; left: 15px; background: #fff; }
+body > .yd-modal-backdrop .yd-user-password-copy.is-copied::before { display: none; }
+body > .yd-modal-backdrop .yd-user-password-copy.is-copied::after { top: 7px; left: 0; width: 100%; height: 100%; border: 0; background: transparent; content: "✓"; font: 700 18px/36px Arial, sans-serif; }
 body > .yd-modal-backdrop .yd-user-password-copy i { display: none; }
 body > .yd-modal-backdrop .yd-user-password-modal input { background: #e1e1e1 !important; }
 body > .yd-modal-backdrop .yd-user-password-value input:focus {
