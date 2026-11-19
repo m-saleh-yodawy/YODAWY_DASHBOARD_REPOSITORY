@@ -874,25 +874,19 @@ const processCurrentTicket=async()=>{
     return confirmed;
 };
 
-const processTicket=async(ticketId,index,totalTargets)=>{
+const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
     let opened=false;
     let popup=null;
     let popupClosed=false;
     let suspended=[];
     try{
         opened=await openTicket(ticketId);
-        if(!opened){
-            addReport(ticketId,'OPEN TICKET FAILED');
-            return;
-        }
+        if(!opened)throw new Error('OPEN TICKET FAILED');
         setStatus(`FETCH ${index} OF ${totalTargets}`);
         const baseline=await getMessageBaseline(ticketId);
         if(!baseline)throw new Error('FETCH BASELINE FAILED');
         const clicked=await clickFetch();
-        if(!clicked){
-            addReport(ticketId,'FETCH BUTTON NOT FOUND');
-            return;
-        }
+        if(!clicked)throw new Error('FETCH BUTTON NOT FOUND');
         state.fetchProgress++;
         updateStats();
         popup=await waitForPopup();
@@ -909,18 +903,12 @@ const processTicket=async(ticketId,index,totalTargets)=>{
         const blob=await takeScreenshot();
         await closePopup(popup);
         popupClosed=true;
-        if(!blob){
-            addReport(ticketId,'SCREENSHOT FAILED');
-            return;
-        }
+        if(!blob)throw new Error('SCREENSHOT FAILED');
         const deleted=await deleteGeneratedLogs(ticketId,baseline);
         if(deleted)state.deletedLogs++;
         setStatus(`LOG NOTE • NO ITEM ${index} OF ${totalTargets}`);
         const saved=await saveScreenshotManual(blob);
-        if(!saved){
-            addReport(ticketId,'LOG NOTE FAILED');
-            return;
-        }
+        if(!saved)throw new Error('LOG NOTE FAILED');
         if(!state.confirm){
             addReport(ticketId,'SCREENSHOT + LOG NOTE');
             return;
@@ -929,13 +917,31 @@ const processTicket=async(ticketId,index,totalTargets)=>{
         const confirmed=await confirmSaleOrder();
         addReport(ticketId,confirmed?'SCREENSHOT + LOG NOTE + CONFIRMED':'SCREENSHOT + LOG NOTE + CONFIRM FAILED');
     }catch(error){
-        addReport(ticketId,'PROCESS FAILED');
+        throw error;
     }finally{
         if(popup&&!popupClosed)await closePopup(popup);
         await resumeTools(suspended);
         if(opened)await backToList();
-        state.screenshotProgress++;
-        updateStats();
+    }
+};
+
+const processTicket=async(ticketId,index,totalTargets)=>{
+    for(let attempt=1;attempt<=2;attempt++){
+        try{
+            await processTicketAttempt(ticketId,index,totalTargets,attempt);
+            state.screenshotProgress++;
+            updateStats();
+            return;
+        }catch(error){
+            if(attempt===2){
+                addReport(ticketId,'PROCESS FAILED AFTER RETRY');
+                state.screenshotProgress++;
+                updateStats();
+                return;
+            }
+            setStatus(`RETRY #${ticketId} • 2/2`);
+            await sleep(250);
+        }
     }
 };
 
