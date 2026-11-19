@@ -17,6 +17,23 @@ const verifyPassword = async (password, stored) => {
   const actual = await passwordKey(password, salt);
   return actual.length === expected.length && [...actual].every((value, index) => value === expected[index]);
 };
+const userPasswordKey = async env => {
+  const secret = String(env.AUTH_SECRET || "");
+  if (secret.length < 32) throw new Error("AUTH_SECRET_TOO_SHORT");
+  const material = await crypto.subtle.importKey("raw", encoder.encode(secret), "HKDF", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: encoder.encode("YODAWY_DASHBOARD_PASSWORDS_V1"), info: encoder.encode("USER_PASSWORD_ENCRYPTION_V1") }, material, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+};
+const encryptUserPassword = async (env, password) => {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await userPasswordKey(env);
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoder.encode(password));
+  return { iv: btoa(String.fromCharCode(...iv)), ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))) };
+};
+const decryptUserPassword = async (env, ciphertext, iv) => {
+  const key = await userPasswordKey(env);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: Uint8Array.from(atob(iv), char => char.charCodeAt(0)) }, key, Uint8Array.from(atob(ciphertext), char => char.charCodeAt(0)));
+  return new TextDecoder().decode(plain);
+};
 const sign = async (payload, secret) => {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const body = btoa(String.fromCharCode(...encoder.encode(JSON.stringify(payload)))).replace(/=/g, "").replaceAll("+", "-").replaceAll("/", "_");
@@ -75,7 +92,8 @@ const authRoutes = async (request, env, path) => {
     if (!env.SETUP_SECRET || setupSecret !== env.SETUP_SECRET) return respond(request, env, { success: false, error: "SETUP_FORBIDDEN" }, 403);
     if (!/^Q-[0-9]{3,}$/.test(userId) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_SETUP_DATA" }, 400);
     const hash = await createPasswordHash(password);
-    const result = await env.DB.prepare("UPDATE users SET password_hash = ?, password_changed_at = ? WHERE user_id = ? AND status = 'Active' AND password_hash IS NULL").bind(hash, Math.floor(Date.now() / 1000), userId).run();
+    const encrypted = await encryptUserPassword(env, password);
+    const result = await env.DB.prepare("UPDATE users SET password_hash = ?, password_ciphertext = ?, password_encryption_iv = ?, password_changed_at = ? WHERE user_id = ? AND status = 'Active' AND password_hash IS NULL").bind(hash, encrypted.ciphertext, encrypted.iv, Math.floor(Date.now() / 1000), userId).run();
     return result.meta?.changes === 1 ? respond(request, env, { success: true, userId }) : respond(request, env, { success: false, error: "USER_ALREADY_INITIALIZED_OR_NOT_FOUND" }, 409);
   }
   if (path === "/api/auth/login" && request.method === "POST") {
@@ -114,8 +132,9 @@ const authRoutes = async (request, env, path) => {
     const record = await env.DB.prepare("SELECT password_hash FROM users WHERE user_id = ?").bind(user.user_id).first();
     if (!await verifyPassword(String(body.currentPassword || ""), record?.password_hash)) return respond(request, env, { success: false, error: "CURRENT_PASSWORD_INVALID" }, 401);
     const hash = await createPasswordHash(next);
+    const encrypted = await encryptUserPassword(env, next);
     const now = Math.floor(Date.now() / 1000);
-    await env.DB.batch([env.DB.prepare("UPDATE users SET password_hash = ?, password_changed_at = ?, failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(hash, now, user.user_id), env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(now, user.user_id)]);
+    await env.DB.batch([env.DB.prepare("UPDATE users SET password_hash = ?, password_ciphertext = ?, password_encryption_iv = ?, password_changed_at = ?, failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(hash, encrypted.ciphertext, encrypted.iv, now, user.user_id), env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(now, user.user_id)]);
     return respond(request, env, { success: true, message: "PASSWORD_CHANGED" });
   }
   if (path === "/api/auth/logout" && request.method === "POST") {
@@ -412,9 +431,24 @@ const dashboardRoutes = async (request, env, path) => {
     const userId = "Q-" + String(sequence?.next_id || 1).padStart(3, "0");
     const repository = userId + "_" + name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
     const passwordHash = await createPasswordHash(password);
+    const encrypted = await encryptUserPassword(env, password);
     const passwordChangedAt = Math.floor(Date.now() / 1000);
-    await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, password_hash, password_changed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(userId, name, newRole, status, repository, passwordHash, passwordChangedAt, now, now).run();
+    await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, password_hash, password_ciphertext, password_encryption_iv, password_changed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(userId, name, newRole, status, repository, passwordHash, encrypted.ciphertext, encrypted.iv, passwordChangedAt, now, now).run();
     return respond(request, env, { success: true, user: { id: userId, name, role: newRole, status, repository } }, 201);
+  }
+  if (path.startsWith("/api/dashboard/users/") && path.endsWith("/password") && request.method === "GET") {
+    if (!isSuper) return forbidden();
+    const userId = decodeURIComponent(path.split("/").slice(-2, -1)[0]).trim().toUpperCase();
+    const target = await env.DB.prepare("SELECT user_id, name, role, password_ciphertext, password_encryption_iv FROM users WHERE user_id = ?").bind(userId).first();
+    if (!target) return respond(request, env, { success: false, error: "USER_NOT_FOUND" }, 404);
+    if (!target.password_ciphertext || !target.password_encryption_iv) return respond(request, env, { success: false, error: "PASSWORD_NOT_AVAILABLE", message: "This password was created before password recovery was enabled. Reset it to make it viewable." }, 409);
+    try {
+      const password = await decryptUserPassword(env, target.password_ciphertext, target.password_encryption_iv);
+      await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'VIEW_USER_PASSWORD', 'USER', ?, ?, ?)").bind(actor.user_id, userId, JSON.stringify({ targetName: target.name, targetRole: target.role }), now).run();
+      return respond(request, env, { success: true, user: { id: target.user_id, name: target.name, role: target.role }, password });
+    } catch {
+      return respond(request, env, { success: false, error: "PASSWORD_DECRYPTION_FAILED" }, 503);
+    }
   }
   if (path.startsWith("/api/dashboard/users/") && path.endsWith("/password") && request.method === "POST") {
     if (!isAdmin) return forbidden();
@@ -424,9 +458,10 @@ const dashboardRoutes = async (request, env, path) => {
     if (!target || target.status !== "Active" || (role === "ADMIN" && target.role !== "USER")) return forbidden();
     if (password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "PASSWORD_REQUIREMENTS" }, 400);
     const hash = await createPasswordHash(password);
+    const encrypted = await encryptUserPassword(env, password);
     const timestamp = Math.floor(Date.now() / 1000);
     await env.DB.batch([
-      env.DB.prepare("UPDATE users SET password_hash = ?, password_changed_at = ?, failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(hash, timestamp, userId),
+      env.DB.prepare("UPDATE users SET password_hash = ?, password_ciphertext = ?, password_encryption_iv = ?, password_changed_at = ?, failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(hash, encrypted.ciphertext, encrypted.iv, timestamp, userId),
       env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(timestamp, userId)
     ]);
     return respond(request, env, { success: true, userId });
