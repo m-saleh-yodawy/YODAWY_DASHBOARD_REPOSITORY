@@ -1938,7 +1938,8 @@ function destroy() {
 const api = {
     destroy,
     async suspend() {
-        if (running) return false;
+        const panel = document.getElementById('ordered-panel');
+        if (running || panel?.classList.contains('open') || panel?.contains(document.activeElement)) return false;
         if (destroyed) return true;
         destroy();
         return true;
