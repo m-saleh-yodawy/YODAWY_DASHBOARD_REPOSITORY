@@ -200,7 +200,9 @@
     };
 
     const start = async tool => {
-        if (loadedTools.has(tool.id)) return true;
+        const existing = loadedTools.get(tool.id);
+        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) return true;
+        if (existing && !await stop(tool.id)) throw createError('Tool ' + tool.id + ' cannot be safely replaced because it has no destroy method');
 
         if (pendingTools.has(tool.id)) {
             return pendingTools.get(tool.id);
@@ -220,6 +222,7 @@
                 id: tool.id,
                 name: tool.name,
                 path: tool.path,
+                sha256: tool.sha256,
                 loadedAt: result.loadedAt,
                 registered: result.registered,
                 destroyable: result.destroyable
