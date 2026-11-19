@@ -197,9 +197,10 @@ const getMessageBaseline=async ticketId=>{
 
 const isTableFetchMessage=body=>/<table[\s>]/i.test(String(body||''));
 const isNoItemsFetchMessage=body=>/No items need to check/i.test(String(body||''));
+const isFetchOutputMessage=body=>isTableFetchMessage(body)||isNoItemsFetchMessage(body)||/fetch suitable alternatives/i.test(String(body||''));
 
 const isFetchPayloadMessage=(body,ticketId)=>{
-    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\\s+/g,' ').trim().toLowerCase();
+    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\s+/g,' ').trim().toLowerCase();
     const ticketPattern=new RegExp(`["']?ticket(?:_id)?["']?\\s*[:=]\\s*["']?${ticketId}(?:\\D|$)`,'i');
     return ticketPattern.test(text)&&['payer','corporate','identifier','drugs'].every(key=>new RegExp(`["']${key}["']\\s*:`).test(text));
 };
@@ -212,18 +213,12 @@ const deleteGeneratedLogs=async(ticketId,baseline)=>{
     const ids=new Set(payloads.map(message=>Number(message.id)));
     for(const payload of payloads){
         const payloadId=Number(payload.id);
-        const drugIds=[...String(payload.body||'').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").matchAll(/["']id["']\\s*:\\s*(\\d+)/g)].map(match=>match[1]);
         const output=messages
             .filter(message=>{
                 const id=Number(message.id);
-                if(!Number.isSafeInteger(id)||id===payloadId||Math.abs(id-payloadId)>5)return false;
-                if(!isTableFetchMessage(message.body)&&!isNoItemsFetchMessage(message.body))return false;
-                if(isNoItemsFetchMessage(message.body))return true;
-                if(!drugIds.length)return Math.abs(id-payloadId)<=2;
-                const body=String(message.body||'').replace(/<[^>]*>/g,' ');
-                return drugIds.some(drugId=>new RegExp(`(?:^|\\\\D)${drugId}(?:\\\\D|$)`).test(body));
+                return Number.isSafeInteger(id)&&id>payloadId&&id-payloadId<=3&&isFetchOutputMessage(message.body);
             })
-            .sort((a,b)=>Math.abs(Number(a.id)-payloadId)-Math.abs(Number(b.id)-payloadId))[0];
+            .sort((a,b)=>Number(a.id)-Number(b.id))[0];
         if(output)ids.add(Number(output.id));
     }
     const validIds=[...ids].filter(id=>Number.isSafeInteger(id)&&id>baseline.id);
