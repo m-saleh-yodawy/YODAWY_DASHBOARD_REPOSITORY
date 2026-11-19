@@ -112,12 +112,10 @@
 
     const loadManifest = async () => {
         const { API } = getDependencies();
-        const content = await API.getFileContent(CONFIG.MANIFEST_PATH);
-        const data = JSON.parse(content);
-
+        const data = await API.get('/api/dashboard/tools/manifest');
+        if (data?.success !== true || !Array.isArray(data.tools)) throw createError(data?.error || 'Live tools manifest is unavailable');
         manifest = validateManifest(data);
         initialized = true;
-
         return getManifest();
     };
 
@@ -175,7 +173,13 @@
         const registry = getRegistry();
         const registered = registry?.[toolId];
 
-        if (typeof registered?.destroy !== 'function') {
+        const shutdown = typeof registered?.destroy === 'function'
+            ? registered.destroy
+            : typeof registered?.suspend === 'function'
+                ? registered.suspend
+                : null;
+
+        if (!shutdown) {
             instance.destroyable = false;
             return false;
         }
@@ -183,12 +187,8 @@
         const { LOADER } = getDependencies();
 
         try {
-            await registered.destroy();
-
-            if (registry[toolId] === registered) {
-                delete registry[toolId];
-            }
-
+            await shutdown.call(registered);
+            if (registry?.[toolId] === registered) delete registry[toolId];
             LOADER.clear(instance.path);
 
             loadedTools.delete(toolId);
