@@ -68,19 +68,21 @@
         running = true;
         try {
             const current = await request('/api/version');
+            const app = global.YODAWY;
             if (current.success && current.version && current.version !== 'unversioned') {
                 if (!version) version = current.version;
                 else if (version !== current.version) {
                     version = current.version;
                     pendingUIVersion = current.version;
-                    const app = global.YODAWY;
-                    if (app?.tools?.loadManifest && app?.tools?.sync) {
-                        await app.tools.loadManifest();
-                        await app.tools.sync();
-                        global.dispatchEvent(new CustomEvent('yodawy-live-updated', { detail: { type: 'tools', version } }));
-                    }
                 }
                 if (pendingUIVersion && await hotSwapUI(pendingUIVersion)) pendingUIVersion = '';
+            }
+            if (app?.tools?.loadManifest && app?.tools?.sync && document.visibilityState === 'visible') {
+                const before = JSON.stringify(app.tools.getManifest?.() || []);
+                await app.tools.loadManifest();
+                const after = JSON.stringify(app.tools.getManifest?.() || []);
+                await app.tools.sync();
+                if (before !== after) global.dispatchEvent(new CustomEvent('yodawy-live-updated', { detail: { type: 'tools', version: current.version || '' } }));
             }
             await refreshData();
             failures = 0;
