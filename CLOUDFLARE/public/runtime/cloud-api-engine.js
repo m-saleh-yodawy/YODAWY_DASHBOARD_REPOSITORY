@@ -157,7 +157,8 @@
     const importPortalAccounts = async payload => { const result = await call('/api/portal-accounts/import', 'POST', payload); if (result?.success) { portalAccountsCache = null; portalAccountsRequest = null; } return result; };
     const recordActivity = async activity => call('/api/dashboard/activity', 'POST', activity);
     const setUserPassword = async (userId, password) => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password', 'POST', { password });
+    const getUserPassword = async userId => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password');
     const getRepository = async () => ({ default_branch: 'cloudflare' });
     const getConfig = () => Object.freeze({ owner: 'cloudflare', repo: 'yodawy-dashboard', branch: 'cloudflare', configured: true });
-    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, clearToken: () => true, getConfig });
+    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
 })(window);
