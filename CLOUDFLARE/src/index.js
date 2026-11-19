@@ -321,7 +321,7 @@ const dashboardRoutes = async (request, env, path) => {
       const result = await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
       const tools = await Promise.all((result.results || []).map(async tool => {
         const filename = String(tool.path || "").split("/").pop();
-        if (!/^[a-z0-9-]+\\.js$/i.test(filename)) throw new Error("INVALID_TOOL_ASSET_PATH: " + tool.id);
+        if (!/^[a-z0-9-]+\.js$/i.test(filename)) throw new Error("INVALID_TOOL_ASSET_PATH: " + tool.id);
         const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
         const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET" }));
         if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) throw new Error("TOOL_ASSET_UNAVAILABLE: " + filename);
