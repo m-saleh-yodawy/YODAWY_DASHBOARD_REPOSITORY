@@ -1028,4 +1028,18 @@ const run=async()=>{
 updateConfirmUI();
 updateStats();
 
+const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+const instance=Object.freeze({
+    async destroy(){
+        if(state.running)return false;
+        clearInterval(systrayTimer);
+        panel.remove();
+        systray.remove();
+        style.remove();
+        if(registry['TOOL-008']===instance)delete registry['TOOL-008'];
+        return true;
+    }
+});
+registry['TOOL-008']=instance;
+
 })();
