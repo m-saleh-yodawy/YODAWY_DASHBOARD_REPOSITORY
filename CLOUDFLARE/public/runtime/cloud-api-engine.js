@@ -107,13 +107,15 @@
         return { ok: true, status: 200, data: result, headers: new Headers() };
     };
     const put = (path, body, options = {}) => request(path, { ...options, method: 'PUT', body });
-    const getFileContent = async path => {
+    const getFileContent = async (path, options = {}) => {
         const clean = String(path || '').replace(/^\/+/, '');
         const data = snapshot();
         if (clean.startsWith('TOOLS_CACHE/TOOLS/') || clean.startsWith('TOOLS/')) {
             const name = clean.split('/').pop();
             if (!/^[a-z0-9-]+\.js$/i.test(name)) throw fail('Invalid tool asset path', 400);
-            const response = await fetch('https://yodawy-dashboard.m-saleh-yodawy.workers.dev/tools/' + encodeURIComponent(name), { cache: 'no-store', credentials: 'omit' });
+            const hash = String(options.sha256 || '').trim().toLowerCase();
+            const version = /^[a-f0-9]{64}$/.test(hash) ? '?v=' + hash : '';
+            const response = await fetch('https://yodawy-dashboard.m-saleh-yodawy.workers.dev/tools/' + encodeURIComponent(name) + version, { cache: 'no-store', credentials: 'omit' });
             if (!response.ok) throw fail('Tool asset unavailable: ' + name, response.status);
             return response.text();
         }
