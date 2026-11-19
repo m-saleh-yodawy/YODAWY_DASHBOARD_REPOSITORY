@@ -24,6 +24,7 @@ const state={
     screenshotTotal:0,
     confirm:false,
     report:[],
+    noItemTickets:new Set(),
     pausedStatus:''
 };
 
@@ -67,7 +68,31 @@ const rpc=async(url,model,method,args,kwargs={})=>{
             id:Date.now()+Math.random()
         })
     });
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
     return response.json();
+};
+
+const fetchTicket=id=>rpc(
+    '/web/dataset/call_button',
+    'helpdesk.ticket',
+    'action_fetch_suitable_alternatives',
+    [[id]],
+    {context:getContext(id)}
+);
+
+const hasNoItems=result=>{
+    try{return /No items need to check/i.test(JSON.stringify(result||{}));}
+    catch{return false;}
+};
+
+const getRpcErrorMessage=result=>{
+    const error=result?.error;
+    return String(
+        error?.data?.message||
+        error?.data?.arguments?.[0]||
+        error?.message||
+        'Fetch request failed'
+    );
 };
 
 const getRows=()=>document.querySelectorAll('tr.o_data_row');
@@ -373,16 +398,12 @@ const waitForLogSaved=async()=>{
     );
 };
 
-const saveScreenshotManual=async blob=>{
+const saveScreenshotManual=async(blob,message='No items need to check')=>{
     const textarea=await openLogNote();
     if(!textarea)return false;
-
     if(!await attachFileToLogNote(blobToFile(blob)))return false;
-
-    if(!typeLogNote(textarea,'No items need to check'))return false;
-
+    if(!typeLogNote(textarea,message))return false;
     if(!await clickLog())return false;
-
     return waitForLogSaved();
 };
 
@@ -874,50 +895,72 @@ const processCurrentTicket=async()=>{
     return confirmed;
 };
 
+const suspendTools=async()=>{
+    const registry=window.YODAWY_TOOL_INSTANCES||{};
+    const suspended=[];
+    for(const instance of Object.values(registry)){
+        if(typeof instance?.suspend!=='function')continue;
+        try{if(await instance.suspend()!==false)suspended.push(instance);}catch{}
+    }
+    const ordered=window.__MS_ORDERED_BY_WH__;
+    if(typeof ordered?.suspend==='function'){
+        try{if(await ordered.suspend()!==false)suspended.push(ordered);}catch{}
+    }
+    return suspended;
+};
+
+const resumeTools=async suspended=>{
+    for(const instance of suspended.reverse()){
+        try{await instance.resume?.();}catch{}
+    }
+};
+
 const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
     let opened=false;
     let popup=null;
     let popupClosed=false;
     let suspended=[];
     try{
-        opened=await openTicket(ticketId);
-        if(!opened)throw new Error('OPEN TICKET FAILED');
-        setStatus(`FETCH ${index} OF ${totalTargets}`);
+        setStatus(`FETCHING #${ticketId} • ${index}/${totalTargets}`);
         const baseline=await getMessageBaseline(ticketId);
         if(!baseline)throw new Error('FETCH BASELINE FAILED');
-        const clicked=await clickFetch();
-        if(!clicked)throw new Error('FETCH BUTTON NOT FOUND');
+        const result=await fetchTicket(ticketId);
+        const noItems=hasNoItems(result);
+        if(result?.error&&!noItems)throw new Error(getRpcErrorMessage(result));
         state.fetchProgress++;
         updateStats();
-        popup=await waitForPopup();
-        if(!popup){
+        if(!noItems){
             const deleted=await deleteGeneratedLogs(ticketId,baseline);
             if(deleted)state.deletedLogs++;
             addReport(ticketId,'ITEMS FOUND');
             return;
         }
-        state.noItems++;
-        updateStats();
+        if(!state.noItemTickets.has(ticketId)){
+            state.noItemTickets.add(ticketId);
+            state.noItems++;
+            updateStats();
+        }
+        opened=await openTicket(ticketId);
+        if(!opened)throw new Error('OPEN NO-ITEM TICKET FAILED');
         suspended=await suspendTools();
-        setStatus(`CAPTURING • NO ITEM ${index} OF ${totalTargets}`);
+        setStatus(`CAPTURING • NO ITEM #${ticketId}`);
+        if(!await clickFetch())throw new Error('NO-ITEM SCREEN MESSAGE FAILED');
+        popup=await waitForPopup();
+        if(!popup)throw new Error('NO-ITEM POPUP NOT FOUND');
         const blob=await takeScreenshot();
         await closePopup(popup);
         popupClosed=true;
         if(!blob)throw new Error('SCREENSHOT FAILED');
-        const deleted=await deleteGeneratedLogs(ticketId,baseline);
-        if(deleted)state.deletedLogs++;
-        setStatus(`LOG NOTE • NO ITEM ${index} OF ${totalTargets}`);
+        setStatus(`ADDING SCREENSHOT • #${ticketId}`);
         const saved=await saveScreenshotManual(blob);
         if(!saved)throw new Error('LOG NOTE FAILED');
         if(!state.confirm){
             addReport(ticketId,'SCREENSHOT + LOG NOTE');
             return;
         }
-        setStatus(`CONFIRMING • NO ITEM ${index} OF ${totalTargets}`);
+        setStatus(`CONFIRMING • #${ticketId}`);
         const confirmed=await confirmSaleOrder();
         addReport(ticketId,confirmed?'SCREENSHOT + LOG NOTE + CONFIRMED':'SCREENSHOT + LOG NOTE + CONFIRM FAILED');
-    }catch(error){
-        throw error;
     }finally{
         if(popup&&!popupClosed)await closePopup(popup);
         await resumeTools(suspended);
@@ -925,7 +968,27 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
     }
 };
 
+const captureFailureEvidence=async(ticketId,error)=>{
+    let opened=false;
+    let suspended=[];
+    try{
+        opened=await openTicket(ticketId);
+        if(!opened)return false;
+        suspended=await suspendTools();
+        const blob=await takeScreenshot();
+        if(!blob)return false;
+        const message=`Automation error after retry: ${String(error?.message||error||'Unknown error').slice(0,500)}`;
+        return await saveScreenshotManual(blob,message);
+    }catch{
+        return false;
+    }finally{
+        await resumeTools(suspended);
+        if(opened)await backToList();
+    }
+};
+
 const processTicket=async(ticketId,index,totalTargets)=>{
+    let lastError=null;
     for(let attempt=1;attempt<=2;attempt++){
         try{
             await processTicketAttempt(ticketId,index,totalTargets,attempt);
@@ -933,16 +996,17 @@ const processTicket=async(ticketId,index,totalTargets)=>{
             updateStats();
             return;
         }catch(error){
-            if(attempt===2){
-                addReport(ticketId,'PROCESS FAILED AFTER RETRY');
-                state.screenshotProgress++;
-                updateStats();
-                return;
+            lastError=error;
+            if(attempt===1){
+                setStatus(`RETRY #${ticketId} • 2/2`);
+                await sleep(250);
             }
-            setStatus(`RETRY #${ticketId} • 2/2`);
-            await sleep(250);
         }
     }
+    const captured=await captureFailureEvidence(ticketId,lastError);
+    addReport(ticketId,captured?'ERROR SCREENSHOT + LOG NOTE':'PROCESS FAILED AFTER RETRY');
+    state.screenshotProgress++;
+    updateStats();
 };
 
 const runListAutomation=async tickets=>{
@@ -950,6 +1014,7 @@ const runListAutomation=async tickets=>{
     state.screenshotProgress=0;
     state.screenshotTotal=tickets.length;
     state.noItems=0;
+    state.noItemTickets.clear();
     updateStats();
     for(let index=0;index<tickets.length;index++){
         while(state.paused)await sleep(100);
@@ -983,6 +1048,7 @@ const run=async()=>{
     state.screenshotProgress=0;
     state.screenshotTotal=0;
     state.report=[];
+    state.noItemTickets.clear();
 
     startButton.disabled=true;
     pauseButton.disabled=false;
@@ -992,13 +1058,6 @@ const run=async()=>{
     panel.classList.add('open');
 
     updateStats();
-
-    if(isFormView()){
-        await processCurrentTicket();
-        downloadExcelReport();
-        finish();
-        return;
-    }
 
     if(!isListView()){
         setStatus('OPEN LIST VIEW OR TICKET');
