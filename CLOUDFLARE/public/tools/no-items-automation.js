@@ -183,7 +183,7 @@ const confirmSaleOrder=async()=>{
 const getFetchMessages=async(ticketId,baseline)=>{
     const domain=[['model','=','helpdesk.ticket'],['res_id','=',ticketId]];
     if(baseline&&Number.isSafeInteger(baseline.id))domain.push(['id','>',baseline.id]);
-    const result=await rpc('/web/dataset/call_kw/mail.message/search_read','mail.message','search_read',[domain],{fields:['id','body','date','author_id'],order:'id asc',limit:50,context:getContext(ticketId)});
+    const result=await rpc('/web/dataset/call_kw/mail.message/search_read','mail.message','search_read',[domain],{fields:['id','body','date','author_id'],order:'id asc',limit:100,context:getContext(ticketId)});
     if(result?.error)throw new Error('Could not read Fetch messages');
     return result?.result||[];
 };
@@ -195,37 +195,71 @@ const getMessageBaseline=async ticketId=>{
     return {id:Math.max(0,...messages.map(message=>Number(message.id)||0)),partnerId,startedAt:Date.now()};
 };
 
-const isTableFetchMessage=body=>/<table[\s>]/i.test(String(body||''));
+const getMessageAuthorId=message=>Number(Array.isArray(message?.author_id)?message.author_id[0]:message?.author_id||0);
+
+const getMessageTimestamp=message=>{
+    const value=String(message?.date||'').trim();
+    if(!value)return NaN;
+    const normalized=value.includes('T')?value:value.replace(' ','T')+'Z';
+    const timestamp=Date.parse(normalized);
+    return Number.isFinite(timestamp)?timestamp:NaN;
+};
+
+const isRecentFetchMessage=message=>{
+    const timestamp=getMessageTimestamp(message);
+    const age=Date.now()-timestamp;
+    return Number.isFinite(timestamp)&&age>=-120000&&age<=120000;
+};
+
+const isTableFetchMessage=body=>/<table[\\s>]/i.test(String(body||''));
 const isNoItemsFetchMessage=body=>/No items need to check/i.test(String(body||''));
-const isFetchOutputMessage=body=>isTableFetchMessage(body)||isNoItemsFetchMessage(body)||/fetch suitable alternatives/i.test(String(body||''));
 
 const isFetchPayloadMessage=(body,ticketId)=>{
-    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\s+/g,' ').trim().toLowerCase();
-    const ticketPattern=new RegExp(`["']?ticket(?:_id)?["']?\\s*[:=]\\s*["']?${ticketId}(?:\\D|$)`,'i');
-    return ticketPattern.test(text)&&['payer','corporate','identifier','drugs'].every(key=>new RegExp(`["']${key}["']\\s*:`).test(text));
+    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\\s+/g,' ').trim().toLowerCase();
+    const ticketPattern=new RegExp(`["']?ticket(?:_id)?["']?\\\\s*[:=]\\\\s*["']?${ticketId}(?:\\\\D|$)`,'i');
+    return ticketPattern.test(text)&&['payer','corporate','identifier','drugs'].every(key=>new RegExp(`["']${key}["']\\\\s*:`).test(text));
 };
+
+const getFetchDrugIds=body=>[...String(body||'').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").matchAll(/["']id["']\\s*:\\s*(\\d+)/g)].map(match=>match[1]);
 
 const deleteGeneratedLogs=async(ticketId,baseline)=>{
     if(!baseline||!Number.isSafeInteger(baseline.id)||!baseline.partnerId)return 0;
-    const messages=(await getFetchMessages(ticketId,baseline)).filter(message=>Number(message.id)>baseline.id);
+    const messages=(await getFetchMessages(ticketId,baseline)).filter(message=>
+        Number(message.id)>baseline.id&&
+        getMessageAuthorId(message)===baseline.partnerId&&
+        isRecentFetchMessage(message)
+    );
+    if(!messages.length)return 0;
     const payloads=messages.filter(message=>isFetchPayloadMessage(message.body,ticketId));
-    if(!payloads.length)return 0;
-    const ids=new Set(payloads.map(message=>Number(message.id)));
+    const pairs=[];
     for(const payload of payloads){
         const payloadId=Number(payload.id);
-        const output=messages
-            .filter(message=>{
-                const id=Number(message.id);
-                return Number.isSafeInteger(id)&&id>payloadId&&id-payloadId<=3&&isFetchOutputMessage(message.body);
-            })
-            .sort((a,b)=>Number(a.id)-Number(b.id))[0];
-        if(output)ids.add(Number(output.id));
+        const payloadTime=getMessageTimestamp(payload);
+        const drugIds=getFetchDrugIds(payload.body);
+        if(!Number.isFinite(payloadTime)||!drugIds.length)continue;
+        for(const output of messages){
+            const outputId=Number(output.id);
+            const outputTime=getMessageTimestamp(output);
+            if(!Number.isSafeInteger(outputId)||outputId<=payloadId||!Number.isFinite(outputTime))continue;
+            if(Math.abs(outputTime-payloadTime)>120000)continue;
+            const body=String(output.body||'');
+            if(!isTableFetchMessage(body)&&!isNoItemsFetchMessage(body))continue;
+            if(isTableFetchMessage(body)){
+                const tableText=body.replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ');
+                if(!drugIds.some(id=>new RegExp(`(?:^|\\\\D)${id}(?:\\\\D|$)`).test(tableText)))continue;
+            }
+            pairs.push({payload,output,outputTime});
+        }
     }
-    const validIds=[...ids].filter(id=>Number.isSafeInteger(id)&&id>baseline.id);
-    if(!validIds.length)return 0;
-    const result=await rpc('/web/dataset/call_kw/mail.message/unlink','mail.message','unlink',[validIds],{context:getContext(ticketId)});
+    if(!pairs.length)return 0;
+    pairs.sort((a,b)=>b.outputTime-a.outputTime||Number(b.output.id)-Number(a.output.id));
+    const pair=pairs[0];
+    if(!isRecentFetchMessage(pair.payload)||!isRecentFetchMessage(pair.output))return 0;
+    const ids=[Number(pair.payload.id),Number(pair.output.id)];
+    if(ids.some(id=>!Number.isSafeInteger(id)||id<=baseline.id))return 0;
+    const result=await rpc('/web/dataset/call_kw/mail.message/unlink','mail.message','unlink',[ids],{context:getContext(ticketId)});
     if(result?.error||result?.result!==true)throw new Error('FETCH LOG CLEANUP FAILED');
-    return validIds.length;
+    return ids.length;
 };
 
 const openTicket=async id=>{
