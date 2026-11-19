@@ -168,6 +168,7 @@
     const instance = {
         destroy() {
             if (destroyed) return true;
+            if (processing || timers.size) return false;
             destroyed = true;
             memberIndex = null;
             processing = false;
