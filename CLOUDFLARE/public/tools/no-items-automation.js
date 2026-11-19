@@ -183,7 +183,6 @@ const confirmSaleOrder=async()=>{
 const getFetchMessages=async(ticketId,baseline)=>{
     const domain=[['model','=','helpdesk.ticket'],['res_id','=',ticketId]];
     if(baseline&&Number.isSafeInteger(baseline.id))domain.push(['id','>',baseline.id]);
-    if(baseline?.partnerId)domain.push(['author_id','=',baseline.partnerId]);
     const result=await rpc('/web/dataset/call_kw/mail.message/search_read','mail.message','search_read',[domain],{fields:['id','body','date','author_id'],order:'id asc',limit:50,context:getContext(ticketId)});
     if(result?.error)throw new Error('Could not read Fetch messages');
     return result?.result||[];
@@ -196,28 +195,42 @@ const getMessageBaseline=async ticketId=>{
     return {id:Math.max(0,...messages.map(message=>Number(message.id)||0)),partnerId,startedAt:Date.now()};
 };
 
-const isTableFetchMessage=body=>/<table[\s>]/i.test(String(body||''))&&!/No items need to check/i.test(String(body||''));
+const isTableFetchMessage=body=>/<table[\s>]/i.test(String(body||''));
+const isNoItemsFetchMessage=body=>/No items need to check/i.test(String(body||''));
 
 const isFetchPayloadMessage=(body,ticketId)=>{
-    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
-    return text.includes(`ticket:${ticketId}`)&&['payer','corporate','identifier','drugs'].every(key=>text.includes(`'${key}'`)||text.includes(`"${key}"`));
+    const text=String(body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/\\s+/g,' ').trim().toLowerCase();
+    const ticketPattern=new RegExp(`["']?ticket(?:_id)?["']?\\s*[:=]\\s*["']?${ticketId}(?:\\D|$)`,'i');
+    return ticketPattern.test(text)&&['payer','corporate','identifier','drugs'].every(key=>new RegExp(`["']${key}["']\\s*:`).test(text));
 };
 
 const deleteGeneratedLogs=async(ticketId,baseline)=>{
-    if(!baseline||!Number.isSafeInteger(baseline.id)||!baseline.partnerId)return false;
-    const messages=await getFetchMessages(ticketId,baseline);
-    const tables=messages.filter(message=>isTableFetchMessage(message.body));
+    if(!baseline||!Number.isSafeInteger(baseline.id)||!baseline.partnerId)return 0;
+    const messages=(await getFetchMessages(ticketId,baseline)).filter(message=>Number(message.id)>baseline.id);
     const payloads=messages.filter(message=>isFetchPayloadMessage(message.body,ticketId));
-    if(messages.length!==2||tables.length!==1||payloads.length!==1)return false;
-    const table=tables[0],payload=payloads[0];
-    if(Number(table.id)!==Number(payload.id)+1)return false;
-    const drugIds=[...String(payload.body||'').matchAll(/['"]id['"]\s*:\s*(\d+)/g)].map(match=>match[1]);
-    const tableText=String(table.body||'').replace(/<[^>]*>/g,' ');
-    if(!drugIds.length||!drugIds.some(id=>new RegExp(`(?:^|\D)${id}(?:\D|$)`).test(tableText)))return false;
-    const ids=[Number(table.id),Number(payload.id)];
-    if(ids.some(id=>!Number.isSafeInteger(id)||id<=baseline.id))return false;
-    const result=await rpc('/web/dataset/call_kw/mail.message/unlink','mail.message','unlink',[ids],{context:getContext(ticketId)});
-    return !result?.error&&result?.result===true;
+    if(!payloads.length)return 0;
+    const ids=new Set(payloads.map(message=>Number(message.id)));
+    for(const payload of payloads){
+        const payloadId=Number(payload.id);
+        const drugIds=[...String(payload.body||'').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").matchAll(/["']id["']\\s*:\\s*(\\d+)/g)].map(match=>match[1]);
+        const output=messages
+            .filter(message=>{
+                const id=Number(message.id);
+                if(!Number.isSafeInteger(id)||id===payloadId||Math.abs(id-payloadId)>5)return false;
+                if(!isTableFetchMessage(message.body)&&!isNoItemsFetchMessage(message.body))return false;
+                if(isNoItemsFetchMessage(message.body))return true;
+                if(!drugIds.length)return Math.abs(id-payloadId)<=2;
+                const body=String(message.body||'').replace(/<[^>]*>/g,' ');
+                return drugIds.some(drugId=>new RegExp(`(?:^|\\\\D)${drugId}(?:\\\\D|$)`).test(body));
+            })
+            .sort((a,b)=>Math.abs(Number(a.id)-payloadId)-Math.abs(Number(b.id)-payloadId))[0];
+        if(output)ids.add(Number(output.id));
+    }
+    const validIds=[...ids].filter(id=>Number.isSafeInteger(id)&&id>baseline.id);
+    if(!validIds.length)return 0;
+    const result=await rpc('/web/dataset/call_kw/mail.message/unlink','mail.message','unlink',[validIds],{context:getContext(ticketId)});
+    if(result?.error||result?.result!==true)throw new Error('FETCH LOG CLEANUP FAILED');
+    return validIds.length;
 };
 
 const openTicket=async id=>{
@@ -401,33 +414,69 @@ const saveScreenshotManual=async(blob,message='No items need to check')=>{
 };
 
 const takeScreenshot=async()=>{
-    const width=window.innerWidth;
-    const height=window.innerHeight;
-
-    const canvas=await html2canvas(document.documentElement,{
-        backgroundColor:'#fff',
-        scale:1,
-        useCORS:true,
-        logging:false,
-        imageTimeout:0,
-        x:window.scrollX,
-        y:window.scrollY,
-        width,
-        height,
-        windowWidth:width,
-        windowHeight:height,
-        scrollX:window.scrollX,
-        scrollY:window.scrollY,
-        ignoreElements:element=>
-            element.id==='noitems-panel'||
-            element.id==='noitems-systray-item'||
-            element.matches?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')||
-            element.closest?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')
+    const root=document.documentElement;
+    const body=document.body;
+    const fixed=[];
+    const markers=[];
+    const scrollables=[...document.querySelectorAll('body *')].filter(element=>{
+        const style=getComputedStyle(element);
+        return element.scrollHeight>element.clientHeight+20&&['auto','scroll'].includes(style.overflowY);
     });
-
-    return new Promise(resolve=>{
-        canvas.toBlob(resolve,'image/png',0.9);
-    });
+    const width=Math.max(root.scrollWidth,body.scrollWidth,window.innerWidth,...scrollables.map(element=>element.scrollWidth+Math.max(0,element.getBoundingClientRect().left+window.scrollX)));
+    const height=Math.max(root.scrollHeight,body.scrollHeight,window.innerHeight,...scrollables.map(element=>element.scrollHeight+Math.max(0,element.getBoundingClientRect().top+window.scrollY)));
+    for(const element of document.querySelectorAll('body *')){
+        const style=getComputedStyle(element);
+        if(style.position!=='fixed'&&style.position!=='sticky')continue;
+        const rect=element.getBoundingClientRect();
+        if(!rect.width||!rect.height)continue;
+        const marker=`noitems-${markers.length}`;
+        element.setAttribute('data-noitems-capture',marker);
+        markers.push({element,marker});
+        fixed.push({marker,left:rect.left+window.scrollX,top:rect.top+window.scrollY});
+    }
+    try{
+        const canvas=await html2canvas(root,{
+            backgroundColor:'#fff',
+            scale:1,
+            useCORS:true,
+            logging:false,
+            imageTimeout:0,
+            x:0,
+            y:0,
+            width,
+            height,
+            windowWidth:width,
+            windowHeight:window.innerHeight,
+            scrollX:0,
+            scrollY:0,
+            onclone:clonedDocument=>{
+                const selectors='.o_web_client,.o_action_manager,.o_content,.o_form_view,.o_form_sheet_bg,.o_chatter,.o-mail-ChatterContainer';
+                clonedDocument.querySelectorAll(selectors).forEach(element=>{
+                    element.style.setProperty('height','auto','important');
+                    element.style.setProperty('max-height','none','important');
+                    element.style.setProperty('overflow','visible','important');
+                });
+                clonedDocument.querySelectorAll('[data-noitems-capture]').forEach(element=>{
+                    const item=fixed.find(entry=>entry.marker===element.getAttribute('data-noitems-capture'));
+                    if(!item)return;
+                    element.style.setProperty('position','absolute','important');
+                    element.style.setProperty('left',`${item.left}px`,'important');
+                    element.style.setProperty('top',`${item.top}px`,'important');
+                    element.style.setProperty('right','auto','important');
+                    element.style.setProperty('bottom','auto','important');
+                    element.style.setProperty('transform','none','important');
+                });
+            },
+            ignoreElements:element=>
+                element.id==='noitems-panel'||
+                element.id==='noitems-systray-item'||
+                element.matches?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')||
+                element.closest?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')
+        });
+        return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.9));
+    }finally{
+        markers.forEach(({element})=>element.removeAttribute('data-noitems-capture'));
+    }
 };
 
 const downloadExcelReport=()=>{
@@ -913,9 +962,10 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
     let popup=null;
     let popupClosed=false;
     let suspended=[];
+    let baseline=null;
     try{
         setStatus(`FETCHING #${ticketId} • ${index}/${totalTargets}`);
-        const baseline=await getMessageBaseline(ticketId);
+        baseline=await getMessageBaseline(ticketId);
         if(!baseline)throw new Error('FETCH BASELINE FAILED');
         const result=await fetchTicket(ticketId);
         const noItems=hasNoItems(result);
@@ -923,8 +973,6 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
         state.fetchProgress++;
         updateStats();
         if(!noItems){
-            const deleted=await deleteGeneratedLogs(ticketId,baseline);
-            if(deleted)state.deletedLogs++;
             addReport(ticketId,'ITEMS FOUND');
             return;
         }
@@ -937,25 +985,32 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
         if(!opened||getCurrentTicketId()!==ticketId)throw new Error('OPEN NO-ITEM TICKET FAILED');
         suspended=await suspendTools();
         setStatus(`CAPTURING • NO ITEM #${ticketId}`);
-        if(!await clickFetch())throw new Error('NO-ITEM SCREEN MESSAGE FAILED');
+        if(!await clickFetch())throw new Error('NO-ITEM FETCH DISPLAY FAILED');
         popup=await waitForPopup();
-        if(!popup)throw new Error('NO-ITEM POPUP NOT FOUND');
+        if(!popup)throw new Error('NO-ITEM FETCH RESULT NOT FOUND');
         const blob=await takeScreenshot();
+        if(!blob)throw new Error('FULL PAGE SCREENSHOT FAILED');
         await closePopup(popup);
         popupClosed=true;
-        if(!blob)throw new Error('SCREENSHOT FAILED');
         setStatus(`ADDING SCREENSHOT • #${ticketId}`);
         const saved=await saveScreenshotManual(blob);
         if(!saved)throw new Error('LOG NOTE FAILED');
         if(!state.confirm){
-            addReport(ticketId,'SCREENSHOT + LOG NOTE');
+            addReport(ticketId,'FULL PAGE SCREENSHOT + LOG NOTE');
             return;
         }
         setStatus(`CONFIRMING • #${ticketId}`);
         const confirmed=await confirmSaleOrder();
-        addReport(ticketId,confirmed?'SCREENSHOT + LOG NOTE + CONFIRMED':'SCREENSHOT + LOG NOTE + CONFIRM FAILED');
+        addReport(ticketId,confirmed?'FULL PAGE SCREENSHOT + LOG NOTE + CONFIRMED':'FULL PAGE SCREENSHOT + LOG NOTE + CONFIRM FAILED');
     }finally{
         if(popup&&!popupClosed)await closePopup(popup);
+        if(baseline){
+            const deleted=await deleteGeneratedLogs(ticketId,baseline);
+            if(deleted){
+                state.deletedLogs+=deleted;
+                updateStats();
+            }
+        }
         await resumeTools(suspended);
         if(opened)await backToList();
     }
