@@ -1,3 +1,3 @@
 Deployment trigger for the main production branch.
-Live Hot Swap Engine v3 release: 20261119-live-hot-swap-8.
-Live tool manifest hashes deployed assets and isolates unavailable records without blocking available tools.
+Cross-platform bootstrap release: 20261119-cross-platform-1.
+Tampermonkey and Chrome bookmark launchers use the same dashboard UI, tools, and live update engine.
