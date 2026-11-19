@@ -1197,6 +1197,7 @@
     });
     const initTimers = [500,1500,3000,5000].map(delay => setTimeout(() => { if (!suspended) init(); }, delay));
     const suspend = () => {
+        if (fetchRunning) return false;
         suspended = true;
         initTimers.forEach(clearTimeout);
         observer.disconnect();
