@@ -13,7 +13,7 @@
 (() => {
     'use strict';
 
-    const TOOL_ID = 'TOOL-002';
+    const TOOL_ID = 'TOOL-009';
     const TOOL_PATH = 'TOOLS/open-erx.js';
     const ACCOUNTS_GLOBAL = 'YODAWY_API_ENGINE';
     const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
