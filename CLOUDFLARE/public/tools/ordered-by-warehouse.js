@@ -1938,10 +1938,9 @@ function destroy() {
 const api = {
     destroy,
     async suspend() {
+        if (running) return false;
         if (destroyed) return true;
         destroy();
-        destroyed = false;
-        window[INSTANCE_KEY] = api;
         return true;
     },
     async resume() {
