@@ -107,7 +107,8 @@
 
             const source = await API.getFileContent(modulePath, {
                 token: options.token,
-                timeout: options.timeout
+                timeout: options.timeout,
+                sha256: options.sha256
             });
 
             if (typeof source !== 'string' || !source.trim()) {
