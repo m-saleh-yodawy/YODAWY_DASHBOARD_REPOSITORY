@@ -592,7 +592,7 @@ function createUI(){
     const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
     registry['TOOL-014']={
         suspend(){
-            if(searching)return false;
+            if(searching||panel.classList.contains('open')||host.contains(document.activeElement))return false;
             clearTimeout(lookupTimer);
             clearTimeout(blurTimer);
             lookupId++;
