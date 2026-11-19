@@ -73,7 +73,7 @@
 
             const observer=new MutationObserver(move);
             const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-            registry['TOOL-011']={
+            registry['ODOO-MOVE-COMMUNICATION']={
                 suspend(){
                     observer.disconnect();
                     for(const [element,snapshot] of original){

@@ -35,6 +35,36 @@
 
     let report = [];
 
+    let xlsxPromise = null;
+
+    async function ensureXLSX() {
+        if (window.XLSX?.read && window.XLSX?.utils?.sheet_to_json) return window.XLSX;
+        if (!xlsxPromise) {
+            xlsxPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                const finish = error => {
+                    script.onload = null;
+                    script.onerror = null;
+                    if (error) {
+                        xlsxPromise = null;
+                        script.remove();
+                        reject(error);
+                    } else {
+                        resolve(window.XLSX);
+                    }
+                };
+                script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                script.async = true;
+                script.onload = () => window.XLSX?.read && window.XLSX?.utils?.sheet_to_json
+                    ? finish()
+                    : finish(new Error('Excel library loaded but is unavailable'));
+                script.onerror = () => finish(new Error('Unable to load Excel library. Check the network connection and try again.'));
+                (document.head || document.documentElement).appendChild(script);
+            });
+        }
+        return xlsxPromise;
+    }
+
     let alternativeLineModel = null;
     let systrayTimer = null;
 
@@ -281,13 +311,14 @@
         }
     }
 
-    function downloadReport() {
+    async function downloadReport() {
         if (!report.length) {
             return;
         }
 
+        const library = await ensureXLSX();
         const worksheet =
-              XLSX.utils.json_to_sheet(
+              library.utils.json_to_sheet(
                   report
               );
 
@@ -298,9 +329,9 @@
         ];
 
         const workbook =
-              XLSX.utils.book_new();
+              library.utils.book_new();
 
-        XLSX.utils.book_append_sheet(
+        library.utils.book_append_sheet(
             workbook,
             worksheet,
             'Ordered'
@@ -326,7 +357,7 @@
         const fileName =
               `ORDERED_BY_WH_${date}_${time}.xlsx`;
 
-        XLSX.writeFile(
+        library.writeFile(
             workbook,
             fileName
         );
@@ -695,6 +726,13 @@
 
         try {
             updateStatus(
+                'LOADING EXCEL LIBRARY'
+            );
+
+            const library = await ensureXLSX();
+            if (destroyed) return;
+
+            updateStatus(
                 'READING EXCEL'
             );
 
@@ -702,7 +740,7 @@
                   await file.arrayBuffer();
 
             const workbook =
-                  XLSX.read(
+                  library.read(
                       buffer,
                       {
                           type: 'array'
@@ -724,7 +762,7 @@
                   ];
 
             const rows =
-                  XLSX.utils.sheet_to_json(
+                  library.utils.sheet_to_json(
                       sheet,
                       {
                           header: 1,
@@ -1848,7 +1886,7 @@ async function runQueue() {
 
         updateControls();
 
-        downloadReport();
+        await downloadReport();
     }
 
     processing = false;
@@ -1938,10 +1976,10 @@ function destroy() {
 const api = {
     destroy,
     async suspend() {
-        const panel = document.getElementById('ordered-panel');
-        if (running || panel?.classList.contains('open') || panel?.contains(document.activeElement)) return false;
         if (destroyed) return true;
         destroy();
+        destroyed = false;
+        window[INSTANCE_KEY] = api;
         return true;
     },
     async resume() {
@@ -1951,9 +1989,8 @@ const api = {
     }
 };
 
-const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-registry['TOOL-012'] = api;
-window[INSTANCE_KEY] = api;
+window[INSTANCE_KEY] =
+    api;
 
 function init() {
     if (destroyed) {

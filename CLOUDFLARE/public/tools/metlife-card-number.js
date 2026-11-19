@@ -12,18 +12,6 @@
 
     let memberIndex = null;
     let processing = false;
-    let destroyed = false;
-    const timers = new Set();
-    const controller = new AbortController();
-    let observer = null;
-    const schedule = (callback, delay) => {
-        const timer = setTimeout(() => {
-            timers.delete(timer);
-            if (!destroyed) callback();
-        }, delay);
-        timers.add(timer);
-        return timer;
-    };
 
     function getFields() {
         return {
@@ -38,7 +26,7 @@
         );
 
         if (!submit) {
-            schedule(clickSubmit, 100);
+            setTimeout(clickSubmit, 100);
             return;
         }
 
@@ -49,12 +37,12 @@
         const yesButton = document.querySelector('#jqi_state0_buttonYes');
 
         if (!yesButton) {
-            schedule(clickYes, 100);
+            setTimeout(clickYes, 100);
             return;
         }
 
         yesButton.click();
-        schedule(clickSubmit, 500);
+        setTimeout(clickSubmit, 500);
     }
 
     function chooseMember() {
@@ -65,7 +53,7 @@
         );
 
         if (!items.length) {
-            schedule(chooseMember, 100);
+            setTimeout(chooseMember, 100);
             return;
         }
 
@@ -80,7 +68,7 @@
         const onclick = member.getAttribute('onclick');
 
         if (!onclick) {
-            schedule(chooseMember, 100);
+            setTimeout(chooseMember, 100);
             return;
         }
 
@@ -92,12 +80,12 @@
             member.click();
         }
 
-        schedule(clickYes, 500);
+        setTimeout(clickYes, 500);
         processing = false;
     }
 
     function triggerEligibility(certificate) {
-        schedule(() => {
+        setTimeout(() => {
             if (typeof certificate.onkeypress === 'function') {
                 certificate.onkeypress.call(certificate, {
                     keyCode: 13,
@@ -114,7 +102,7 @@
                 );
             }
 
-            schedule(chooseMember, 300);
+            setTimeout(chooseMember, 300);
         }, 100);
     }
 
@@ -158,35 +146,33 @@
         policy.dataset.metlifeReady = '1';
         certificate.dataset.metlifeReady = '1';
 
-        policy.addEventListener('paste', () => schedule(() => processCard(policy.value), 50), { signal: controller.signal });
-        certificate.addEventListener('paste', () => schedule(() => processCard(certificate.value), 50), { signal: controller.signal });
-        policy.addEventListener('input', () => processCard(policy.value), { signal: controller.signal });
-        certificate.addEventListener('input', () => processCard(certificate.value), { signal: controller.signal });
+        policy.addEventListener('paste', () => {
+            setTimeout(() => processCard(policy.value), 50);
+        });
+
+        certificate.addEventListener('paste', () => {
+            setTimeout(() => processCard(certificate.value), 50);
+        });
+
+        policy.addEventListener('input', () => {
+            processCard(policy.value);
+        });
+
+        certificate.addEventListener('input', () => {
+            processCard(certificate.value);
+        });
     }
 
-    const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-    const instance = {
-        destroy() {
-            if (destroyed) return true;
-            if (processing || timers.size || document.activeElement?.matches?.('#txtPolicy,#txtReference')) return false;
-            destroyed = true;
-            memberIndex = null;
-            processing = false;
-            timers.forEach(clearTimeout);
-            timers.clear();
-            observer?.disconnect();
-            controller.abort();
-            document.querySelectorAll('#txtPolicy,#txtReference').forEach(field => delete field.dataset.metlifeReady);
-            if (registry['TOOL-007'] === instance) delete registry['TOOL-007'];
-            return true;
-        }
-    };
-    registry['TOOL-007'] = instance;
     setup();
-    observer = new MutationObserver(() => {
-        if (destroyed) return;
+
+    new MutationObserver(() => {
         setup();
-        if (memberIndex !== null) chooseMember();
+
+        if (memberIndex !== null) {
+            chooseMember();
+        }
+    }).observe(document.documentElement, {
+        childList: true,
+        subtree: true
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
