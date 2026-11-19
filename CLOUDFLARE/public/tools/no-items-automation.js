@@ -245,7 +245,7 @@ const deleteGeneratedLogs=async(ticketId,baseline)=>{
             if(payloadId>=outputId||outputTime<item.time||outputTime-item.time>120000)return false;
             if(isNoItemsFetchMessage(output.body))return true;
             const tableText=String(output.body||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/gi,' ');
-            return item.ids.some(id=>new RegExp(`(?:^|\\\\D)${id}(?:\\\\D|$)`).test(tableText));
+            return item.ids.some(id=>new RegExp(`(?:^|\\D)${id}(?:\\D|$)`).test(tableText));
         }).sort((x,y)=>y.time-x.time||Number(y.message.id)-Number(x.message.id));
         if(matches.length)pairs.push({payload:matches[0].message,output,outputTime});
     }
