@@ -335,6 +335,8 @@ function createUI(){
 
     let searching=false;
     let lookupTimer=null;
+    let blurTimer=null;
+    let insertObserver=null;
     let lookupId=0;
     let products=[];
     let selectedProduct=null;
@@ -522,7 +524,7 @@ function createUI(){
         }
     });
 
-    input.addEventListener('blur',()=>setTimeout(closeDropdown,250));
+    input.addEventListener('blur',()=>{clearTimeout(blurTimer);blurTimer=setTimeout(closeDropdown,250);});
 
     dropdown.addEventListener('mousedown',e=>{
         const item=e.target.closest('.ms-stock-product');
@@ -579,14 +581,27 @@ function createUI(){
     };
 
     if(!insertSystray()){
-        const observer=new MutationObserver(()=>{
-            if(insertSystray())observer.disconnect();
+        insertObserver=new MutationObserver(()=>{
+            if(insertSystray()){
+                insertObserver.disconnect();
+                insertObserver=null;
+            }
         });
-        observer.observe(document.body,{childList:true,subtree:true});
+        insertObserver.observe(document.body,{childList:true,subtree:true});
     }
     const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
     registry['TOOL-014']={
-        suspend(){clearTimeout(lookupTimer);lookupId++;panel.remove();systrayItem.remove();return true;},
+        suspend(){
+            if(searching)return false;
+            clearTimeout(lookupTimer);
+            clearTimeout(blurTimer);
+            lookupId++;
+            insertObserver?.disconnect();
+            insertObserver=null;
+            panel.remove();
+            systrayItem.remove();
+            return true;
+        },
         resume(){if(!document.getElementById(ID))createUI();return true;}
     };
 }
