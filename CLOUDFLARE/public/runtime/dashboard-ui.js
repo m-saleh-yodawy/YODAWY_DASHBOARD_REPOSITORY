@@ -4202,6 +4202,44 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         });
     };
 
+    const openUserPasswordModal = async user => {
+        if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><strong>' + escapeHTML(formatName(user.name)) + '</strong><span>' + escapeHTML(user.id) + '</span><span>' + escapeHTML(String(user.role || 'USER').replace(/_/g, ' ')) + '</span></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary" data-action="copy-user-password" disabled>Copy</button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        mountModalOverlay(overlay);
+        const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
+        overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
+        const message = overlay.querySelector('.yd-user-password-message');
+        const input = overlay.querySelector('#yd-revealed-user-password');
+        const copy = overlay.querySelector('[data-action="copy-user-password"]');
+        try {
+            const result = await context.api.getUserPassword(user.id);
+            if (!overlay.isConnected) return;
+            if (result?.success !== true || typeof result.password !== 'string') throw new Error(result?.message || result?.error || 'Unable to retrieve this password.');
+            input.value = result.password;
+            copy.disabled = !result.password;
+            message.textContent = 'Password retrieved securely. This access has been recorded.';
+        } catch (error) {
+            if (!overlay.isConnected) return;
+            input.value = '';
+            message.textContent = error?.message || 'Unable to retrieve this password.';
+        }
+        overlay.addEventListener('click', async event => {
+            const button = event.target.closest('[data-action="copy-user-password"]');
+            if (!button || button.disabled || !input.value) return;
+            try {
+                await navigator.clipboard.writeText(input.value);
+                button.textContent = 'Copied';
+                setTimeout(() => { if (button.isConnected) button.textContent = 'Copy'; }, 1200);
+            } catch {
+                message.textContent = 'Clipboard access is unavailable. Select and copy the password manually.';
+                input.focus();
+                input.select();
+            }
+        });
+    };
+
     const openUserModal = user => {
         const editing = Boolean(user);
         const overlay = document.createElement('div');
@@ -4425,6 +4463,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             } else if (action === 'edit-user') {
                 if (getPendingUser({ id: button.dataset.id })) return;
                 openUserModal(getUsers().find(user => user.id === button.dataset.id));
+            } else if (action === 'view-user-password') {
+                if (context.userRole !== 'SUPER_ADMIN' || getPendingUser({ id: button.dataset.id })) return;
+                setButtonLoading(button, 'Loading');
+                await openUserPasswordModal(getUsers().find(user => String(user.id).toUpperCase() === String(button.dataset.id).toUpperCase()));
             } else if (action === 'delete-user') {
                 const user = getUsers().find(item => String(item.id).toUpperCase() === String(button.dataset.id).toUpperCase());
                 if (getPendingUser(user)) return;
