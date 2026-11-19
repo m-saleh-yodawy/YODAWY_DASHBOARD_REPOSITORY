@@ -4,7 +4,7 @@
     PAGE.__YD_CLOUD_LOADER__ = true;
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261117-per-user-bulk-permissions-33';
+    const ASSET_VERSION = '20261119-cross-platform-1';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -203,6 +203,8 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         if (!engine || typeof YODAWY.init !== 'function') throw new Error('ROLE_ENGINE_UNAVAILABLE');
         await YODAWY.init();
         await YODAWY.tools.sync();
+        await loadScript('live-update-engine.js');
+        await PAGE.YODAWY_LIVE_UPDATE_ENGINE?.start?.();
         const toolSyncFailures = YODAWY.tools.getSyncFailures?.() || [];
         if (toolSyncFailures.length) PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-tools-sync-error', { detail: { failures: toolSyncFailures } }));
         PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-cloud-ready', { detail: { user, data } }));
