@@ -142,7 +142,7 @@
                 path: modulePath,
                 loadedAt: Date.now(),
                 registered: Boolean(instance),
-                destroyable: typeof instance?.destroy === 'function'
+                destroyable: typeof instance?.destroy === 'function' || typeof instance?.suspend === 'function'
             });
 
             loadedModules.set(modulePath, result);
