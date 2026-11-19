@@ -201,6 +201,8 @@ return (async function (PAGE, STORE) {
         if (!engine || typeof YODAWY.init !== 'function') throw new Error('ROLE_ENGINE_UNAVAILABLE');
         await YODAWY.init();
         await YODAWY.tools.sync();
+        await loadScript('live-update-engine.js');
+        await PAGE.YODAWY_LIVE_UPDATE_ENGINE?.start?.();
         const toolSyncFailures = YODAWY.tools.getSyncFailures?.() || [];
         if (toolSyncFailures.length) PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-tools-sync-error', { detail: { failures: toolSyncFailures } }));
         PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-cloud-ready', { detail: { user, data } }));
