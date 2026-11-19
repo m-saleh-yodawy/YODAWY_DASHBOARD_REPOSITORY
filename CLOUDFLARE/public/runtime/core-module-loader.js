@@ -221,7 +221,7 @@
     };
 
     global.YODAWY_MODULE_LOADER = Object.freeze({
-        version: 2,
+        version: 3,
         load,
         loadMany,
         isLoaded,
