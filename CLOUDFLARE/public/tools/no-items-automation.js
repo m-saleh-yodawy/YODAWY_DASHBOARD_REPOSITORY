@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         No Items Automation
 // @namespace    https://odoo.yodawy.com/
+// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle
@@ -222,12 +223,10 @@ const deleteGeneratedLogs=async(ticketId,baseline)=>{
 const openTicket=async id=>{
     const row=getRow(id);
     if(!row)return false;
-
     const link=row.querySelector('a[href*="id="]')||row.querySelector('.o_data_cell');
     if(link)link.click();
     else row.click();
-
-    return !!await waitFor(()=>isFormView(),7000,25);
+    return !!await waitFor(()=>isFormView()&&getCurrentTicketId()===id,7000,25);
 };
 
 const backToList=async()=>{
@@ -266,45 +265,37 @@ const clickFetch=async()=>{
     return true;
 };
 
-const waitForPopup=async()=>{
-    return waitFor(()=>{
-        const nodes=document.querySelectorAll(
-            '.modal,.modal-dialog,[role="dialog"]'
-        );
-
-        for(const element of nodes){
-            if(/No items need to check/i.test(element.innerText||'')){
-                return element;
-            }
-        }
-
-        return null;
-    },7000,25);
+const isVisible=element=>{
+    if(!element)return false;
+    const rect=element.getBoundingClientRect();
+    const style=getComputedStyle(element);
+    return rect.width>0&&rect.height>0&&style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)!==0;
 };
+
+const findNoItemsPopup=()=>{
+    const selector='.modal,.modal-dialog,[role="dialog"],.o_dialog,.o_notification,.o_notification_content,.swal2-popup,.alert,.toast';
+    for(const element of document.querySelectorAll(selector)){
+        if(isVisible(element)&&/No items need to check/i.test(element.innerText||''))return element;
+    }
+    for(const element of document.querySelectorAll('body *')){
+        if(!isVisible(element)||!/No items need to check/i.test(element.innerText||''))continue;
+        if([...element.children].some(child=>/No items need to check/i.test(child.innerText||'')))continue;
+        return element.closest('.modal,.modal-dialog,[role="dialog"],.o_dialog,.o_notification,.swal2-popup,.alert,.toast')||element.parentElement||element;
+    }
+    return null;
+};
+
+const waitForPopup=async()=>waitFor(findNoItemsPopup,10000,25);
 
 const closePopup=async popup=>{
     if(!popup)return;
-
-    const close=
-        popup.querySelector('.close')||
-        popup.querySelector('[data-dismiss="modal"]')||
-        popup.querySelector('button.btn-secondary');
-
+    const root=popup.closest?.('.modal,.modal-dialog,[role="dialog"],.o_dialog,.o_notification,.swal2-popup,.alert,.toast')||popup;
+    const close=root.querySelector?.('.close,[data-dismiss="modal"],[aria-label="Close"],.o_notification_close,.btn-close,button.btn-secondary');
     if(close)close.click();
-    else{
-        document.dispatchEvent(new KeyboardEvent('keydown',{
-            key:'Escape',
-            keyCode:27,
-            which:27,
-            bubbles:true
-        }));
+    else if(root.matches?.('.modal,.modal-dialog,[role="dialog"],.o_dialog,.swal2-popup')){
+        document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',keyCode:27,which:27,bubbles:true}));
     }
-
-    await waitFor(
-        ()=>!document.querySelector('.modal.show,.modal-dialog[aria-modal="true"]'),
-        1500,
-        25
-    );
+    await waitFor(()=>!findNoItemsPopup(),2000,25);
 };
 
 const blobToFile=blob=>new File(
@@ -382,7 +373,7 @@ const clickLog=async()=>{
         }
 
         return null;
-    },3000,25);
+    },10000,25);
 
     if(!button)return false;
 
@@ -399,10 +390,12 @@ const waitForLogSaved=async()=>{
 };
 
 const saveScreenshotManual=async(blob,message='No items need to check')=>{
-    const textarea=await openLogNote();
-    if(!textarea)return false;
+    if(!blob)return false;
+    if(!await openLogNote())return false;
     if(!await attachFileToLogNote(blobToFile(blob)))return false;
-    if(!typeLogNote(textarea,message))return false;
+    await sleep(300);
+    const textarea=await waitFor(()=>document.querySelector('.o_ComposerTextInput_textarea'),5000,25);
+    if(!textarea||!typeLogNote(textarea,message))return false;
     if(!await clickLog())return false;
     return waitForLogSaved();
 };
@@ -941,7 +934,7 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
             updateStats();
         }
         opened=await openTicket(ticketId);
-        if(!opened)throw new Error('OPEN NO-ITEM TICKET FAILED');
+        if(!opened||getCurrentTicketId()!==ticketId)throw new Error('OPEN NO-ITEM TICKET FAILED');
         suspended=await suspendTools();
         setStatus(`CAPTURING • NO ITEM #${ticketId}`);
         if(!await clickFetch())throw new Error('NO-ITEM SCREEN MESSAGE FAILED');
