@@ -305,7 +305,7 @@ const observer=new MutationObserver(mutations=>{
 injectStyles();
 
 const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-registry['ALTERNATIVE-QUANTITY-WARNING']={
+registry['TOOL-006']={
     suspend(){
         observer.disconnect();
         clearTimeout(scanTimer);
