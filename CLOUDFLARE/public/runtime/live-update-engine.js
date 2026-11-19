@@ -1,22 +1,69 @@
 (function (global) {
     'use strict';
-    if (global.YODAWY_LIVE_UPDATE_ENGINE) return;
+    if (global.YODAWY_LIVE_UPDATE_ENGINE?.version >= 3) return;
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const INTERVAL = 15000;
+    const MAX_INTERVAL = 120000;
+    const FALLBACK_INTERVAL = 60000;
     let timer = null;
     let running = false;
+    let stopped = true;
     let version = '';
+    let pendingToolsVersion = '';
     let pendingUIVersion = '';
     let failures = 0;
+    let lastCheck = 0;
+    let lastManifestCheck = 0;
+    let lastToolUpdate = 0;
+    let lastUIUpdate = 0;
+    let lastError = '';
+    const emit = (name, detail = {}) => global.dispatchEvent(new CustomEvent(name, { detail }));
     const request = async path => {
         const response = await fetch(API + path, { cache: 'no-store', credentials: 'omit' });
-        if (!response.ok) throw new Error('LIVE_UPDATE_REQUEST_FAILED');
-        return response.json();
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data || typeof data !== 'object') {
+            const error = new Error(data.error || 'LIVE_UPDATE_REQUEST_FAILED');
+            error.status = response.status;
+            throw error;
+        }
+        return data;
     };
     const hasActiveWork = () => {
         const root = document.getElementById('yd-dashboard-root');
         const active = document.activeElement;
-        return Boolean(root && ((active && root.contains(active) && active.matches('input,textarea,select,[contenteditable="true"]')) || root.querySelector('.yd-modal-backdrop')));
+        const modal = document.querySelector('body > .yd-modal-backdrop, .yd-modal-backdrop[aria-modal="true"]');
+        const editing = active?.matches?.('input,textarea,select,[contenteditable="true"]');
+        return Boolean(modal || (editing && (root?.contains(active) || modal?.contains(active))));
+    };
+    const getRoleEngine = app => app.userRole === 'SUPER_ADMIN'
+        ? global.YODAWY_SUPER_ADMIN_ENGINE
+        : app.userRole === 'ADMIN'
+            ? global.YODAWY_ADMIN_ENGINE
+            : global.YODAWY_USER_ENGINE;
+    const syncTools = async sourceVersion => {
+        const app = global.YODAWY;
+        if (!app?.tools?.loadManifest || !app?.tools?.sync) return false;
+        lastManifestCheck = Date.now();
+        const previousManifest = JSON.stringify(app.tools.getManifest?.() || []);
+        const previousLoaded = new Map((app.tools.getLoadedTools?.() || []).map(tool => [tool.id, tool.sha256]));
+        await app.tools.loadManifest();
+        const nextManifest = JSON.stringify(app.tools.getManifest?.() || []);
+        await app.tools.sync();
+        const loaded = app.tools.getLoadedTools?.() || [];
+        const nextLoaded = new Map(loaded.map(tool => [tool.id, tool.sha256]));
+        const updated = loaded.filter(tool => previousLoaded.get(tool.id) !== tool.sha256).map(tool => tool.id);
+        const removed = [...previousLoaded.keys()].filter(id => !nextLoaded.has(id));
+        const syncFailures = app.tools.getSyncFailures?.() || [];
+        if (previousManifest !== nextManifest || updated.length || removed.length) {
+            lastToolUpdate = Date.now();
+            emit('yodawy-live-updated', { type: 'tools', version: sourceVersion || version, updated, removed, failures: syncFailures });
+        }
+        if (syncFailures.length) {
+            lastError = syncFailures[0].message || 'TOOL_SYNC_FAILED';
+            emit('yodawy-tools-sync-error', { failures: syncFailures, version: sourceVersion || version });
+            return false;
+        }
+        return true;
     };
     const refreshData = async () => {
         const app = global.YODAWY;
@@ -25,20 +72,31 @@
         await app.api.refresh();
         const current = JSON.stringify(global.YODAWY_CLOUD_CONTEXT?.data || {});
         if (previous === current) return false;
-        const engine = app.userRole === 'SUPER_ADMIN' ? global.YODAWY_SUPER_ADMIN_ENGINE : app.userRole === 'ADMIN' ? global.YODAWY_ADMIN_ENGINE : global.YODAWY_USER_ENGINE;
-        await Promise.all([app.permissions?.load?.(), app.visibility?.load?.(), app.settings?.load?.(), app.announcements?.load?.(), engine?.refresh?.()]);
-        await app.tools.loadManifest();
-        await app.tools.sync();
-        await app.ui.refresh();
-        global.dispatchEvent(new CustomEvent('yodawy-live-updated', { detail: { type: 'data-tools' } }));
+        const engine = getRoleEngine(app);
+        await Promise.all([
+            app.permissions?.load?.(),
+            app.visibility?.load?.(),
+            app.settings?.load?.(),
+            app.announcements?.load?.(),
+            engine?.refresh?.()
+        ]);
+        await syncTools(version);
+        await app.ui?.refresh?.();
+        emit('yodawy-live-updated', { type: 'data', version });
         return true;
     };
-    const loadUI = version => new Promise((resolve, reject) => {
+    const loadUI = nextVersion => new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = API + '/runtime/dashboard-ui.js?v=' + encodeURIComponent(version);
-        script.async = false;
-        script.onload = () => { script.remove(); resolve(global.YODAWY_DASHBOARD_UI); };
-        script.onerror = () => { script.remove(); reject(new Error('DASHBOARD_UI_UPDATE_FAILED')); };
+        script.src = API + '/runtime/dashboard-ui.js?v=' + encodeURIComponent(nextVersion) + '&t=' + Date.now();
+        script.async = true;
+        script.onload = () => {
+            script.remove();
+            resolve(global.YODAWY_DASHBOARD_UI);
+        };
+        script.onerror = () => {
+            script.remove();
+            reject(new Error('DASHBOARD_UI_UPDATE_FAILED'));
+        };
         (document.head || document.documentElement).append(script);
     });
     const hotSwapUI = async nextVersion => {
@@ -46,14 +104,16 @@
         const previous = app?.ui;
         if (!app || !previous || typeof previous.getHotState !== 'function' || typeof previous.destroy !== 'function' || hasActiveWork()) return false;
         const state = previous.getHotState();
-        await previous.destroy();
+        const stoppedUI = await previous.destroy();
+        if (stoppedUI === false) return false;
         delete global.YODAWY_DASHBOARD_UI;
         try {
             const next = await loadUI(nextVersion);
-            if (!next || typeof next.init !== 'function') throw new Error('DASHBOARD_UI_UPDATE_FAILED');
+            if (!next || next === previous || typeof next.init !== 'function') throw new Error('DASHBOARD_UI_UPDATE_FAILED');
             app.ui = next;
             await next.init({ ...app, uiState: state });
-            global.dispatchEvent(new CustomEvent('yodawy-live-updated', { detail: { type: 'dashboard-ui', version: nextVersion } }));
+            lastUIUpdate = Date.now();
+            emit('yodawy-live-updated', { type: 'dashboard-ui', version: nextVersion });
             return true;
         } catch (error) {
             delete global.YODAWY_DASHBOARD_UI;
@@ -64,39 +124,84 @@
         }
     };
     const check = async () => {
-        if (running || document.visibilityState === 'hidden') return;
+        if (running || stopped || document.visibilityState === 'hidden') return false;
         running = true;
         try {
             const current = await request('/api/version');
-            const app = global.YODAWY;
-            if (current.success && current.version && current.version !== 'unversioned') {
-                if (!version) version = current.version;
-                else if (version !== current.version) {
-                    version = current.version;
-                    pendingUIVersion = current.version;
+            const currentVersion = String(current.version || '');
+            if (current.success && currentVersion && currentVersion !== 'unversioned') {
+                if (!version) version = currentVersion;
+                else if (version !== currentVersion) {
+                    version = currentVersion;
+                    pendingToolsVersion = currentVersion;
+                    pendingUIVersion = currentVersion;
                 }
-                if (pendingUIVersion && await hotSwapUI(pendingUIVersion)) pendingUIVersion = '';
+            } else if (Date.now() - lastManifestCheck >= FALLBACK_INTERVAL) {
+                pendingToolsVersion = currentVersion || 'unversioned';
             }
-            if (app?.tools?.loadManifest && app?.tools?.sync && document.visibilityState === 'visible') {
-                const before = JSON.stringify(app.tools.getManifest?.() || []);
-                await app.tools.loadManifest();
-                const after = JSON.stringify(app.tools.getManifest?.() || []);
-                await app.tools.sync();
-                if (before !== after) global.dispatchEvent(new CustomEvent('yodawy-live-updated', { detail: { type: 'tools', version: current.version || '' } }));
+            if (pendingToolsVersion) {
+                if (await syncTools(pendingToolsVersion)) pendingToolsVersion = '';
             }
+            if (pendingUIVersion && await hotSwapUI(pendingUIVersion)) pendingUIVersion = '';
             await refreshData();
+            lastCheck = Date.now();
             failures = 0;
-        } catch { failures = Math.min(failures + 1, 8); }
-        finally { running = false; }
+            if (!lastError || !pendingToolsVersion) lastError = '';
+            emit('yodawy-live-update-status', getStatus());
+            return true;
+        } catch (error) {
+            failures = Math.min(failures + 1, 8);
+            lastError = error?.message || 'LIVE_UPDATE_FAILED';
+            emit('yodawy-live-update-error', { message: lastError, failures });
+            if (!version) lastManifestCheck = 0;
+            return false;
+        } finally {
+            running = false;
+        }
     };
+    const nextDelay = () => Math.min(INTERVAL * (2 ** failures), MAX_INTERVAL);
+    const scheduleNext = () => {
+        if (stopped) return;
+        clearTimeout(timer);
+        timer = setTimeout(async () => {
+            timer = null;
+            await check();
+            scheduleNext();
+        }, nextDelay());
+    };
+    const onOnline = () => { check(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') check(); };
     const start = async () => {
-        if (timer) return true;
+        if (!stopped) return true;
+        stopped = false;
+        global.addEventListener('online', onOnline);
+        document.addEventListener('visibilitychange', onVisibility);
         await check();
-        timer = setInterval(check, Math.min(INTERVAL * (2 ** failures), 120000));
-        global.addEventListener('online', check);
-        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+        scheduleNext();
         return true;
     };
-    const stop = () => { if (timer) clearInterval(timer); timer = null; global.removeEventListener('online', check); return true; };
-    global.YODAWY_LIVE_UPDATE_ENGINE = Object.freeze({ version: 1, start, stop, check });
+    const stop = () => {
+        stopped = true;
+        clearTimeout(timer);
+        timer = null;
+        global.removeEventListener('online', onOnline);
+        document.removeEventListener('visibilitychange', onVisibility);
+        return true;
+    };
+    function getStatus() {
+        return {
+            running: !stopped,
+            checking: running,
+            version,
+            pendingToolsVersion,
+            pendingUIVersion,
+            failures,
+            lastCheck,
+            lastManifestCheck,
+            lastToolUpdate,
+            lastUIUpdate,
+            lastError
+        };
+    }
+    global.YODAWY_LIVE_UPDATE_ENGINE = Object.freeze({ version: 3, start, stop, check, getStatus });
 })(window);
