@@ -1335,14 +1335,10 @@ body > .yd-modal-backdrop .yd-user-password-value input {
     color: var(--ink);
     font: 400 12px/1.4 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
 }
-.yd-user-password-copy { display: inline-flex !important; flex: 0 0 36px; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; font-size: 21px; }
-body > .yd-modal-backdrop .yd-user-password-copy { position: relative; }
-body > .yd-modal-backdrop .yd-user-password-copy::before,
-body > .yd-modal-backdrop .yd-user-password-copy::after { position: absolute; width: 10px; height: 12px; border: 1.5px solid currentColor; border-radius: 2px; content: ""; }
-body > .yd-modal-backdrop .yd-user-password-copy::before { top: 9px; left: 11px; }
-body > .yd-modal-backdrop .yd-user-password-copy::after { top: 13px; left: 15px; background: #fff; }
-body > .yd-modal-backdrop .yd-user-password-copy.is-copied::before { display: none; }
-body > .yd-modal-backdrop .yd-user-password-copy.is-copied::after { top: 7px; left: 0; width: 100%; height: 100%; border: 0; background: transparent; content: "✓"; font: 700 18px/36px Arial, sans-serif; }
+body > .yd-modal-backdrop .yd-user-password-copy { display: inline-flex !important; flex: 0 0 36px; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; }
+body > .yd-modal-backdrop .yd-user-password-copy svg { display: block; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+body > .yd-modal-backdrop .yd-user-password-copy.is-copied svg { display: none; }
+body > .yd-modal-backdrop .yd-user-password-copy.is-copied::after { content: "✓"; font: 700 18px/1 Arial, sans-serif; }
 body > .yd-modal-backdrop .yd-user-password-copy i { display: none; }
 body > .yd-modal-backdrop .yd-user-password-modal input { background: #e1e1e1 !important; }
 body > .yd-modal-backdrop .yd-user-password-value input:focus {
@@ -4244,7 +4240,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
         mountModalOverlay(overlay);
         const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
         overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
