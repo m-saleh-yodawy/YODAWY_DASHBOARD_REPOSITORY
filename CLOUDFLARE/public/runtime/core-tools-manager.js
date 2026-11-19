@@ -265,6 +265,16 @@
 
         try {
             const dependencies = getDependencies();
+            const activeIds = new Set(manifest.map(tool => tool.id));
+            for (const id of [...loadedTools.keys()]) {
+                if (!activeIds.has(id)) {
+                    try {
+                        if (!await stop(id)) throw createError('Tool ' + id + ' cannot be safely removed');
+                    } catch (error) {
+                        syncFailures.push({ id, name: id, message: error?.message || 'Tool removal failed' });
+                    }
+                }
+            }
 
             for (const tool of manifest) {
                 try {
