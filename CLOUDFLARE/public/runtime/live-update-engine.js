@@ -6,6 +6,7 @@
     let timer = null;
     let running = false;
     let version = '';
+    let pendingUIVersion = '';
     let failures = 0;
     const request = async path => {
         const response = await fetch(API + path, { cache: 'no-store', credentials: 'omit' });
@@ -70,11 +71,16 @@
             if (current.success && current.version && current.version !== 'unversioned') {
                 if (!version) version = current.version;
                 else if (version !== current.version) {
-                    const nextVersion = current.version;
-                    if (await hotSwapUI(nextVersion)) {
-                        version = nextVersion;
+                    version = current.version;
+                    pendingUIVersion = current.version;
+                    const app = global.YODAWY;
+                    if (app?.tools?.loadManifest && app?.tools?.sync) {
+                        await app.tools.loadManifest();
+                        await app.tools.sync();
+                        global.dispatchEvent(new CustomEvent('yodawy-live-updated', { detail: { type: 'tools', version } }));
                     }
                 }
+                if (pendingUIVersion && await hotSwapUI(pendingUIVersion)) pendingUIVersion = '';
             }
             await refreshData();
             failures = 0;
