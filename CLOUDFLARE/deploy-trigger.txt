@@ -1,4 +1,3 @@
 Deployment trigger for the main production branch.
-Live Hot Swap Engine v3 deployed assets manifest and SHA-256 verification.
-Tool updates use cache-busted asset URLs and safe suspend/destroy lifecycle replacement.
-Runtime release: 20261119-live-hot-swap-4.
+Live Hot Swap Engine v3 release: 20261119-live-hot-swap-5.
+Deployed asset manifest uses live SHA-256 hashes, versioned asset URLs, and safe tool lifecycle replacement.
