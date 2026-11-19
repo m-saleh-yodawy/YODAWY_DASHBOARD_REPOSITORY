@@ -585,7 +585,7 @@ function createUI(){
         observer.observe(document.body,{childList:true,subtree:true});
     }
     const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-    registry['STOCK-HZB-CHECKER']={
+    registry['TOOL-014']={
         suspend(){clearTimeout(lookupTimer);lookupId++;panel.remove();systrayItem.remove();return true;},
         resume(){if(!document.getElementById(ID))createUI();return true;}
     };
