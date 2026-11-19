@@ -1,4 +1,4 @@
 Deployment trigger for the main production branch.
-Official tools assets synchronized: 14 tools, registry migration 0013.
-Bookmark launcher release: launcher.js and bookmark-bootstrap.js.
-CORS headers fix for bookmark launcher assets.
+Live Hot Swap Engine v3 deployed assets manifest and SHA-256 verification.
+Tool updates use cache-busted asset URLs and safe suspend/destroy lifecycle replacement.
+Runtime release: 20261119-live-hot-swap-4.
