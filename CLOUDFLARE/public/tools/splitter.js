@@ -22,6 +22,7 @@
     };
 
     let fetchRunning = false;
+    const keyHandlers = new Set();
 
     const normalizeText = text =>
         String(text || '')
@@ -892,6 +893,7 @@
         function closeDialog() {
             document.getElementById(CONFIG.DIALOG_ID)?.remove();
             document.removeEventListener('keydown', keyboardHandler);
+            keyHandlers.delete(keyboardHandler);
             stopDOMCleanup();
         }
 
@@ -929,6 +931,7 @@
             .addEventListener('click', closeDialog);
 
         document.addEventListener('keydown', keyboardHandler);
+        keyHandlers.add(keyboardHandler);
 
         splitButton.addEventListener('click', async () => {
             const selected = checkboxes
@@ -996,6 +999,7 @@
         const close = () => {
             overlay.remove();
             document.removeEventListener('keydown', escape);
+            keyHandlers.delete(escape);
         };
 
         const escape = event => {
@@ -1006,6 +1010,7 @@
             .addEventListener('click', close);
 
         document.addEventListener('keydown', escape);
+        keyHandlers.add(escape);
     }
 
     function showFetchRequiredModal(message) {
@@ -1201,6 +1206,8 @@
         suspended = true;
         initTimers.forEach(clearTimeout);
         observer.disconnect();
+        keyHandlers.forEach(handler => document.removeEventListener('keydown', handler));
+        keyHandlers.clear();
         document.getElementById(CONFIG.BUTTON_ID)?.remove();
         document.querySelectorAll('#tmSplitDialog,#tmSupportOverlay,#tmFetchRequiredOverlay').forEach(element => element.remove());
         return true;
