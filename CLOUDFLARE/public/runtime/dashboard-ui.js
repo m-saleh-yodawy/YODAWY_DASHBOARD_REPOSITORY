@@ -1282,7 +1282,7 @@ body > .yd-modal-backdrop .yd-user-password-identity {
     padding: 9px 11px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: var(--surface-soft);
+    background: #f8f5f7;
     color: var(--text);
     font-size: 12px;
 }
