@@ -173,10 +173,10 @@
         const registry = getRegistry();
         const registered = registry?.[toolId];
 
-        const shutdown = typeof registered?.destroy === 'function'
-            ? registered.destroy
-            : typeof registered?.suspend === 'function'
-                ? registered.suspend
+        const shutdown = typeof registered?.suspend === 'function'
+            ? registered.suspend
+            : typeof registered?.destroy === 'function'
+                ? registered.destroy
                 : null;
 
         if (!shutdown) {
