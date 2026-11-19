@@ -1031,7 +1031,7 @@ updateStats();
 const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
 const instance=Object.freeze({
     async destroy(){
-        if(state.running)return false;
+        if(state.running||panel.classList.contains('open'))return false;
         clearInterval(systrayTimer);
         panel.remove();
         systray.remove();
