@@ -212,7 +212,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const accountId = String(body.accountId || "").trim();
     const prescriptionId = String(body.prescriptionId || "").trim();
     const action = String(body.action || "").trim();
-    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !/^[0-9a-f-]{36}$/i.test(prescriptionId) || !["search","validate","save","details"].includes(action)) return respond(request, env, { success: false, error: "INVALID_ERX_EDIT_REQUEST" }, 400);
+    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !["search","validate","save","details"].includes(action) || (action !== "search" && !/^[0-9a-f-]{36}$/i.test(prescriptionId))) return respond(request, env, { success: false, error: action === "search" ? "INVALID_ERX_EDIT_ACCOUNT" : "INVALID_ERX_EDIT_REQUEST" }, 400);
     const account = await env.DB.prepare("SELECT account_id, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1").bind(accountId, actor.user_id).first();
     if (!account) return forbidden();
     let password;
