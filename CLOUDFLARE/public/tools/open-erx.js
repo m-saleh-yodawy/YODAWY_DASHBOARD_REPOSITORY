@@ -52,7 +52,7 @@
         const payload = await response.json();
         const url = payload?.result?.url;
         if (!url) throw new Error(payload?.error?.data?.message || 'Odoo could not resolve the ERX link.');
-        const match = url.match(/\\/OdooRoute\\/\\.\\/([0-9a-f-]{36})\\/([^/?#]+)/i);
+        const match = url.match(/\/OdooRoute\/\.\/([0-9a-f-]{36})\/([^/?#]+)/i);
         if (!match) throw new Error('The Odoo ERX link format was not recognized.');
         return { prescriptionId: match[1], cardNumber: decodeURIComponent(match[2]) };
     };
