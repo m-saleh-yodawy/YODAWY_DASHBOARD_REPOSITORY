@@ -4431,7 +4431,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     };
 
     let activeMessageDialog = null;
-    let messageDialogTimer = null;
     const showMessageDialog = (title, message, type = 'error') => {
         if (!isCurrentUI()) return;
         const root = document.getElementById(CONFIG.ID);
@@ -4459,14 +4458,22 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         document.body.appendChild(overlay);
         activeMessageDialog = overlay;
         const closeButton = overlay.querySelector('[data-message-close]');
-        if (closeButton) {
-            closeButton.disabled = true;
-            closeButton.textContent = 'Please wait 10 seconds';
-        }
-        messageDialogTimer = setTimeout(() => {
+        const close = () => {
             overlay.remove();
             if (activeMessageDialog === overlay) activeMessageDialog = null;
-        }, 10000);
+            document.removeEventListener('keydown', onKeydown, true);
+        };
+        const onKeydown = event => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            close();
+        };
+        closeButton?.addEventListener('click', close);
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) close();
+        });
+        document.addEventListener('keydown', onKeydown, true);
+        closeButton?.focus();
     };
 
     let activeDashboardConfirmDialog = null;
