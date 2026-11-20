@@ -42,10 +42,20 @@
             company,
             companyRaw,
             cardNumber: normalize(card?.innerText || card?.textContent || ''),
-            formNumber: getField('prescription_number')
+            formNumber: getField('prescription_number'), ticketId: Number(new URL(location.href).searchParams.get('id') || 0)
         };
     };
     const getApi = () => window.YODAWY_API_ENGINE;
+    const getPrescriptionId = async ticketId => {
+        if (!Number.isInteger(ticketId) || ticketId <= 0) throw new Error('Odoo ticket ID is unavailable.');
+        const response = await fetch('/web/dataset/call_button', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { args: [[ticketId]], kwargs: { context: {} }, method: 'open_erx_link', model: 'helpdesk.ticket' }, id: Date.now() }) });
+        const payload = await response.json();
+        const url = payload?.result?.url;
+        if (!url) throw new Error(payload?.error?.data?.message || 'Odoo could not resolve the ERX link.');
+        const match = url.match(/\\/OdooRoute\\/\\.\\/([0-9a-f-]{36})\\/([^/?#]+)/i);
+        if (!match) throw new Error('The Odoo ERX link format was not recognized.');
+        return { prescriptionId: match[1], cardNumber: decodeURIComponent(match[2]) };
+    };
     const waitForApi = async () => {
         const started = Date.now();
         while (Date.now() - started < 15000) {
@@ -144,12 +154,14 @@
         try { api = await waitForApi(); }
         catch (error) { return showFailure(error?.message || 'Dashboard API is not ready.'); }
         const data = state.ticket;
-        if (!data?.cardNumber || !data?.formNumber) return showFailure('Card Number or Form Number is missing from the Odoo ticket.');
+        if (!data?.cardNumber || !data?.ticketId) return showFailure('Card Number or Odoo Ticket ID is missing.');
+        let erx;
+        try { erx = await getPrescriptionId(data.ticketId); } catch (error) { return showFailure(error?.message || 'Could not resolve the Odoo ERX link.'); }
         const result = state.modal?.querySelector('[data-open-erx-result]');
         if (result) { result.hidden = true; result.innerHTML = ''; }
-        setBusy(true, 'Signing in, validating the card and matching the exact Form Number...');
+        setBusy(true, 'Resolving the Odoo prescription, signing in and validating the card...');
         try {
-            const response = await api.runOpenErx(selected, data.cardNumber, data.formNumber);
+            const response = await api.runOpenErx(selected, erx.cardNumber || data.cardNumber, erx.prescriptionId);
             if (response?.success !== true) {
                 showFailure(response?.message || response?.error || 'Open ERX request failed.', response?.error || '');
                 return;
@@ -240,7 +252,7 @@
                 event.preventDefault();
                 event.stopPropagation();
                 const data = getTicketData(card);
-                if (!data.company || !data.cardNumber || !data.formNumber) {
+                if (!data.company || !data.cardNumber || !data.ticketId) {
                     openModal({
                         company: data.company || data.companyRaw || 'Unsupported Company',
                         cardNumber: data.cardNumber || 'Unavailable',
