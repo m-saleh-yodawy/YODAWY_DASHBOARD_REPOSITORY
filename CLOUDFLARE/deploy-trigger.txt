@@ -23,3 +23,4 @@ Open ERX require complete Portal mutation identity: 20261120-open-erx-required-c
 Open ERX match successful Portal validation and mutation payload: 20261120-open-erx-portal-parity-1.
 Open ERX preserve Odoo active company context for ticket action: 20261120-open-erx-odoo-user-context-1.
 Open ERX retrieve Odoo context from authenticated session endpoint: 20261120-open-erx-session-context-endpoint-1.
+Open ERX parse Odoo 14 company tuple context: 20261120-open-erx-company-tuple-context-1.
