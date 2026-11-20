@@ -42,6 +42,7 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
             const error = new Error(data.error || 'REQUEST_FAILED');
             error.code = data.error || 'REQUEST_FAILED';
             error.status = response.status;
+            error.data = data;
             throw error;
         }
         return data;
