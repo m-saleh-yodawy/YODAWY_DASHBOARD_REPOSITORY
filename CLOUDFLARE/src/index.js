@@ -241,7 +241,7 @@ const portalAccountRoutes = async (request, env, path) => {
       }
       if (action === "save") {
         const query = "mutation UpdatePrescriptionMedicationsQuantities ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
-        const input = { PrescriptionId: prescriptionId, Medications: Array.isArray(body.medications) ? body.medications : [], MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, Diagnosis: Array.isArray(body.Diagnosis) ? body.Diagnosis : [], ApprovalNumber: String(body.ApprovalNumber ?? "") };
+        const input = { PrescriptionId: prescriptionId, Medications: (Array.isArray(body.medications) ? body.medications : []).map(m => { const item = { ...(m && typeof m === "object" ? m : {}) }; if (!item.ReplacementId) delete item.ReplacementId; if (!Number.isInteger(item.ReplacementIndex) || item.ReplacementIndex < 0) delete item.ReplacementIndex; return item; }), MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, Diagnosis: Array.isArray(body.Diagnosis) ? body.Diagnosis : [], ApprovalNumber: String(body.ApprovalNumber ?? "") };
         const result = await gql("UpdatePrescriptionMedicationsQuantities", query, { input });
         login.token = "";
         return respond(request, env, { success: true, result: result.UpdatePrescriptionMedicationsQuantities || null });
