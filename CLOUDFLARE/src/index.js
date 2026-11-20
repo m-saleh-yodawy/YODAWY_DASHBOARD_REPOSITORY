@@ -207,6 +207,51 @@ const portalAccountRoutes = async (request, env, path) => {
     }));
     return respond(request, env, { success: true, accounts });
   }
+  if (path === "/api/open-erx/edit" && request.method === "POST") {
+    const body = await readBody(request);
+    const accountId = String(body.accountId || "").trim();
+    const prescriptionId = String(body.prescriptionId || "").trim();
+    const action = String(body.action || "").trim();
+    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !/^[0-9a-f-]{36}$/i.test(prescriptionId) || !["search","validate","save","details"].includes(action)) return respond(request, env, { success: false, error: "INVALID_ERX_EDIT_REQUEST" }, 400);
+    const account = await env.DB.prepare("SELECT account_id, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1").bind(accountId, actor.user_id).first();
+    if (!account) return forbidden();
+    let password;
+    try { password = await decryptPortalPassword(env, account.encrypted_password, account.encryption_iv); } catch { return respond(request, env, { success: false, error: "PORTAL_CREDENTIALS_UNAVAILABLE" }, 503); }
+    const loginQuery = "query Index {ViewerQuery {...F0}} fragment F0 on Viewer {_OpenErxLogin:CallCenterLogIn(username:" + JSON.stringify(account.username) + ",password:" + JSON.stringify(password) + ") {token,id,groupId,isAdmin,isKsysAdmin,userName,groupName,branchId,insuranceAgencyId,agentType,insuranceAgencyName,channel,newPharmacyPortal}}";
+    let login;
+    try { login = (await upstreamGraphql("https://aws.yodawy.com/MobileWCF.svc/api/secure/GraphQl", loginQuery, {}, "Index"))?.ViewerQuery?._OpenErxLogin; } catch { password = ""; return respond(request, env, { success: false, error: "PORTAL_LOGIN_REQUEST_FAILED" }, 502); }
+    password = "";
+    if (!login?.token || !login?.insuranceAgencyId || !login?.agentType) return respond(request, env, { success: false, error: "PORTAL_LOGIN_FAILED" }, 401);
+    const gql = async (operationName, query, variables = {}) => {
+      const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 18000);
+      try { const response = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName, query, variables }), signal: controller.signal }); const data = await response.json().catch(() => null); if (!response.ok || !data || data.errors?.length) throw new Error("CHRONIC_GRAPHQL_FAILED"); return data.data || {}; } finally { clearTimeout(timeout); }
+    };
+    try {
+      if (action === "search") {
+        const query = "query GetUniversalDrugs($filter: SearchFilter!) { GetUniversalDrugs(filter: $filter) { id drugName drugNameandForm form subform price mainQuantity subformQuantity mainForm { name } drug_dosage_form_id subformSoldInPart drugSubForm { name } medicalFormKey medicalForm } }";
+        const result = await gql("GetUniversalDrugs", query, { filter: { InsuranceAgencyId: login.insuranceAgencyId, Text: String(body.text || "").slice(0,100) } });
+        login.token = "";
+        return respond(request, env, { success: true, drugs: result.GetUniversalDrugs || [] });
+      }
+      if (action === "validate") {
+        const query = "mutation CheckEditMatchingPrescription($input: PrescriptionEditCheck!) { CheckEditMatchingPrescription(input: $input) { message isSuccess } }";
+        const result = await gql("CheckEditMatchingPrescription", query, { input: { PrescriptionId: prescriptionId, Medications: Array.isArray(body.medications) ? body.medications : [] } });
+        login.token = "";
+        return respond(request, env, { success: true, validation: result.CheckEditMatchingPrescription || null });
+      }
+      if (action === "save") {
+        const query = "mutation example ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
+        const input = { PrescriptionId: prescriptionId, Medications: Array.isArray(body.medications) ? body.medications : [], MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, Diagnosis: Array.isArray(body.Diagnosis) ? body.Diagnosis : [], ApprovalNumber: String(body.ApprovalNumber ?? "") };
+        const result = await gql("UpdatePrescriptionMedicationsQuantities", query, { input });
+        login.token = "";
+        return respond(request, env, { success: true, result: result.UpdatePrescriptionMedicationsQuantities || null });
+      }
+      const query = "query EditPrescriptionDetails { GetPrescriptionDetails(ePrescriptionId:" + JSON.stringify(prescriptionId) + ") { id Medications { DrugId DrugName Form SubForm { id Name } Quantity IsDisposed DisposedQuantity Price ActiveIngred DrugForm { id Key Name } SubFormQuantity QuantityType SubformSoldInPart FormSoldInPart FormQuantity MainForm Note CombinedSentence DrugTotal IsRejected DispensePrice MRFHIRReference Drug_Dosage_Form_Id } CoPayment Note ApprovalNumber IssuingDate IsChronic Tags RelativeDocumentId ApprovalResponse BranchId BranchName DoctorName Source PrescriptionSerial ClaimFormType InsuranceCardNumber PatientNameEn PatientName CreationDate ExpiryDate PrescriptionNumber StartDate MobileNumber Status { id StatusName } FHIRReference } }";
+      const result = await gql("EditPrescriptionDetails", query);
+      login.token = "";
+      return respond(request, env, { success: true, prescription: result.GetPrescriptionDetails || null });
+    } catch (error) { login.token = ""; return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED" }, 502); }
+  }
   if (path === "/api/open-erx/run" && request.method === "POST") {
     const body = await readBody(request);
     const accountId = String(body.accountId || "").trim();
