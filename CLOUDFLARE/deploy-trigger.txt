@@ -13,3 +13,4 @@ Open ERX prescription metadata mapping fix: 20261120-open-erx-metadata-save-1.
 Open ERX resolver error path display: 20261120-open-erx-resolver-diagnostics-1.
 Open ERX preserve prescription disposing maximum: 20261120-open-erx-max-amount-1.
 Open ERX save payload schema diagnostics: 20261120-open-erx-schema-diagnostics-1.
+Open ERX preserve medication prices in save payload: 20261120-open-erx-medication-prices-1.
