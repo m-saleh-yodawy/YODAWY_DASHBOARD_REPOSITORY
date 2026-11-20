@@ -172,7 +172,11 @@ const portalAccountRoutes = async (request, env, path) => {
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
   if (path === "/api/portal-accounts" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT account_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY account_type, odoo_key, label").bind(actor.user_id).all();
+    const requestedUserId = String(new URL(request.url).searchParams.get("userId") || "").trim().toUpperCase();
+    const targetUserId = requestedUserId || actor.user_id;
+    if (targetUserId !== actor.user_id && !isSuper) return forbidden();
+    if (!/^Q-[0-9]{3,}$/.test(targetUserId) || !await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(targetUserId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
+    const rows = await env.DB.prepare("SELECT account_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv FROM portal_accounts WHERE owner_user_id = ? AND enabled = 1 ORDER BY account_type, odoo_key, label").bind(targetUserId).all();
     try {
       const accounts = await Promise.all((rows.results || []).map(async row => ({
         id: row.account_id,
@@ -184,10 +188,36 @@ const portalAccountRoutes = async (request, env, path) => {
         password: await decryptPortalPassword(env, row.encrypted_password, row.encryption_iv),
         isPersonal: row.account_type === "PERSONAL"
       })));
-      return respond(request, env, { success: true, accounts });
+      return respond(request, env, { success: true, targetUserId, accounts });
     } catch (error) {
       return respond(request, env, { success: false, error: error.message }, 503);
     }
+  }
+  if (path === "/api/portal-accounts/delete-all" && request.method === "POST") {
+    if (!isSuper) return forbidden();
+    let body;
+    try { body = await readBody(request); }
+    catch { return respond(request, env, { success: false, error: "INVALID_DELETE_REQUEST" }, 400); }
+    const targetUserId = String(body.targetUserId || "").trim().toUpperCase();
+    const password = String(body.password || "");
+    const passwordConfirm = String(body.passwordConfirm || "");
+    if (!/^Q-[0-9]{3,}$/.test(targetUserId) || password.length < 1 || password.length > 128 || password !== passwordConfirm) return respond(request, env, { success: false, error: password !== passwordConfirm ? "PASSWORDS_DO_NOT_MATCH" : "INVALID_DELETE_REQUEST" }, 400);
+    if (!await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(targetUserId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
+    const admin = await env.DB.prepare("SELECT password_hash, failed_login_count, locked_until FROM users WHERE user_id = ? AND status = 'Active'").bind(actor.user_id).first();
+    const timestamp = Math.floor(Date.now() / 1000);
+    if (!admin || Number(admin.locked_until || 0) > timestamp) return respond(request, env, { success: false, error: "ACCOUNT_TEMPORARILY_LOCKED" }, 423);
+    if (!admin.password_hash || !await verifyPassword(password, admin.password_hash)) {
+      await env.DB.prepare("UPDATE users SET failed_login_count = failed_login_count + 1, locked_until = CASE WHEN failed_login_count + 1 >= 8 THEN ? ELSE locked_until END WHERE user_id = ?").bind(timestamp + 900, actor.user_id).run();
+      return respond(request, env, { success: false, error: "INVALID_ADMIN_PASSWORD" }, 401);
+    }
+    await env.DB.prepare("UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(actor.user_id).run();
+    const count = await env.DB.prepare("SELECT COUNT(*) AS total FROM portal_accounts WHERE owner_user_id = ?").bind(targetUserId).first();
+    const total = Number(count?.total || 0);
+    const deletedAt = new Date().toISOString();
+    const deletion = env.DB.prepare("DELETE FROM portal_accounts WHERE owner_user_id = ?").bind(targetUserId);
+    const audit = env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'PORTAL_ACCOUNT_DELETE_ALL', 'PORTAL_ACCOUNT', ?, ?, ?)").bind(actor.user_id, targetUserId, JSON.stringify({ deleted: total }), deletedAt);
+    await env.DB.batch([deletion, audit]);
+    return respond(request, env, { success: true, targetUserId, deleted: total });
   }
   if (path === "/api/portal-accounts" && request.method === "POST") {
     const body = await readBody(request);
