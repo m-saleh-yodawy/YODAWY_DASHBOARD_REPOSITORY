@@ -224,7 +224,7 @@ const portalAccountRoutes = async (request, env, path) => {
     if (!login?.token || !login?.insuranceAgencyId || !login?.agentType) return respond(request, env, { success: false, error: "PORTAL_LOGIN_FAILED" }, 401);
     const gql = async (operationName, query, variables = {}) => {
       const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 18000);
-      try { const response = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName, query, variables }), signal: controller.signal }); const data = await response.json().catch(() => null); if (!response.ok || !data || data.errors?.length) throw new Error("CHRONIC_GRAPHQL_FAILED"); return data.data || {}; } finally { clearTimeout(timeout); }
+      try { const response = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName, query, variables }), signal: controller.signal }); const data = await response.json().catch(() => null); if (!response.ok || !data || data.errors?.length) { const error = new Error("CHRONIC_GRAPHQL_FAILED"); error.details = { status: response.status, errors: Array.isArray(data?.errors) ? data.errors.map(e => ({ message: String(e?.message || "GraphQL error").slice(0,300), code: e?.extensions?.code || null })) : null }; throw error; } return data.data || {}; } finally { clearTimeout(timeout); }
     };
     try {
       if (action === "search") {
@@ -250,7 +250,7 @@ const portalAccountRoutes = async (request, env, path) => {
       const result = await gql("EditPrescriptionDetails", query);
       login.token = "";
       return respond(request, env, { success: true, prescription: result.GetPrescriptionDetails || null });
-    } catch (error) { login.token = ""; return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED" }, 502); }
+    } catch (error) { login.token = ""; return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(action === "validate" && error.details ? { details: error.details } : {}) }, 502); }
   }
   if (path === "/api/open-erx/run" && request.method === "POST") {
     const body = await readBody(request);
