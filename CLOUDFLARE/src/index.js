@@ -792,7 +792,7 @@ export default {
           return respond(request, env, { success: ready, database: ready ? "connected" : "schema_incomplete", missingTables: missing }, ready ? 200 : 503);
         } catch { return respond(request, env, { success: false, database: "unavailable" }, 503); }
       }
-      if (url.pathname.startsWith("/api/portal-accounts")) {
+      if (url.pathname.startsWith("/api/portal-accounts") || url.pathname.startsWith("/api/open-erx/")) {
         const accounts = await portalAccountRoutes(request, env, url.pathname);
         if (accounts) return accounts;
       }
