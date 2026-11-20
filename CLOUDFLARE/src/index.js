@@ -213,7 +213,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const prescriptionId = String(body.prescriptionId || "").trim();
     const action = String(body.action || "").trim();
     if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !["search","validate","save","details"].includes(action) || (action !== "search" && (!prescriptionId || prescriptionId.length > 128))) return respond(request, env, { success: false, error: action === "search" ? "INVALID_ERX_EDIT_ACCOUNT" : "INVALID_ERX_EDIT_REQUEST" }, 400);
-    const account = await env.DB.prepare("SELECT account_id, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1").bind(accountId, actor.user_id).first();
+    const account = await env.DB.prepare("SELECT account_id, label, odoo_key, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1").bind(accountId, actor.user_id).first();
     if (!account) return forbidden();
     let password;
     try { password = await decryptPortalPassword(env, account.encrypted_password, account.encryption_iv); } catch { return respond(request, env, { success: false, error: "PORTAL_CREDENTIALS_UNAVAILABLE" }, 503); }
@@ -226,6 +226,7 @@ const portalAccountRoutes = async (request, env, path) => {
       const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 18000);
       try { const response = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName, query, variables }), signal: controller.signal }); const raw = await response.text().catch(() => ""); let data = null; try { data = raw ? JSON.parse(raw) : null; } catch {} const errors = Array.isArray(data?.errors) ? data.errors.map(e => ({ message: String(e?.message || "GraphQL error").slice(0,300), code: e?.extensions?.code || null, path: Array.isArray(e?.path) ? e.path.join(".").slice(0,200) : null, reason: String(e?.extensions?.exception?.message || e?.extensions?.originalError?.message || "").slice(0,300) || null, exception: String(e?.extensions?.exception?.name || e?.extensions?.exception?.type || "").slice(0,120) || null, stack: Array.isArray(e?.extensions?.exception?.stacktrace) ? e.extensions.exception.stacktrace.slice(0,4).map(x => String(x).slice(0,240)) : null })) : []; if (!response.ok || !data || errors.length || !data.data) { const error = new Error("CHRONIC_GRAPHQL_FAILED"); error.details = { operation: operationName, status: response.status, statusText: String(response.statusText || "").slice(0,120), contentType: response.headers.get("content-type") || "", message: String(data?.message || data?.error || "").slice(0,300), errors, response: data ? "" : raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0,500) }; throw error; } return data.data; } finally { clearTimeout(timeout); }
     };
+    let saveContext = null;
     try {
       if (action === "search") {
         const query = "query GetUniversalDrugs($filter: SearchFilter!) { GetUniversalDrugs(filter: $filter) { id drugName drugNameandForm form subform price mainQuantity subformQuantity mainForm { name } drug_dosage_form_id subformSoldInPart drugSubForm { name } medicalFormKey medicalForm } }";
@@ -241,7 +242,12 @@ const portalAccountRoutes = async (request, env, path) => {
       }
       if (action === "save") {
         const query = "mutation UpdatePrescriptionMedicationsQuantities ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
-        const input = { PrescriptionId: prescriptionId, Medications: (Array.isArray(body.medications) ? body.medications : []).map(m => { const item = { ...(m && typeof m === "object" ? m : {}) }; if (!item.ReplacementId) delete item.ReplacementId; if (!Number.isInteger(item.ReplacementIndex) || item.ReplacementIndex < 0) delete item.ReplacementIndex; return item; }), MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, ApprovalNumber: body.ApprovalNumber == null ? null : String(body.ApprovalNumber), ...(body.Status ? { Status: String(body.Status) } : {}), ...(login.id != null && String(login.id) ? { MobileUserId: String(login.id) } : {}), ...(login.insuranceAgencyName ? { InsuranceCompanyName: String(login.insuranceAgencyName) } : {}), ...(Array.isArray(body.Diagnosis) && body.Diagnosis.length ? { Diagnosis: body.Diagnosis } : {}) };
+        const mobileUserId = String(login.id ?? "").trim();
+        const insuranceCompanyName = String(login.insuranceAgencyName || account.label || account.odoo_key || "").trim();
+        if (!mobileUserId) throw new Error("PORTAL_MOBILE_USER_ID_MISSING");
+        if (!insuranceCompanyName) throw new Error("PORTAL_INSURANCE_COMPANY_NAME_MISSING");
+        const input = { PrescriptionId: prescriptionId, Medications: (Array.isArray(body.medications) ? body.medications : []).map(m => { const item = { ...(m && typeof m === "object" ? m : {}) }; if (!item.ReplacementId) delete item.ReplacementId; if (!Number.isInteger(item.ReplacementIndex) || item.ReplacementIndex < 0) delete item.ReplacementIndex; return item; }), MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, ApprovalNumber: body.ApprovalNumber == null ? null : String(body.ApprovalNumber), ...(body.Status ? { Status: String(body.Status) } : {}), MobileUserId: mobileUserId, InsuranceCompanyName: insuranceCompanyName, ...(Array.isArray(body.Diagnosis) && body.Diagnosis.length ? { Diagnosis: body.Diagnosis } : {}) };
+        saveContext = { inputKeys: Object.keys(input).sort(), mobileUserIdPresent: Boolean(input.MobileUserId), insuranceCompanyNamePresent: Boolean(input.InsuranceCompanyName), prescriptionIdLength: prescriptionId.length, prescriptionIdIsObjectId: /^[a-f0-9]{24}$/i.test(prescriptionId), prescriptionIdIsUuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prescriptionId), diagnosisCount: Array.isArray(input.Diagnosis) ? input.Diagnosis.length : null, medicationCount: input.Medications.length };
         const result = await gql("UpdatePrescriptionMedicationsQuantities", query, { input });
         login.token = "";
         return respond(request, env, { success: true, result: result.UpdatePrescriptionMedicationsQuantities || null });
@@ -303,6 +309,7 @@ const portalAccountRoutes = async (request, env, path) => {
         } catch (schemaError) {
           details.schema = { available: false, error: String(schemaError?.message || "SCHEMA_INTROSPECTION_FAILED").slice(0, 200) };
         }
+        details.mutationContext = saveContext;
         details.payload = {
           medicationCount: medications.length,
           deletedCount: medications.filter(item => item?.DeleteIt === true).length,
