@@ -148,6 +148,24 @@
         }).finally(() => { portalAccountsRequest = null; });
         return portalAccountsRequest;
     };
+    const getPortalAccountsForUser = async userId => {
+        const id = String(userId || '').trim().toUpperCase();
+        if (!/^Q-[0-9]{3,}$/.test(id)) throw fail('Invalid portal account target', 400);
+        return call('/api/portal-accounts?userId=' + encodeURIComponent(id));
+    };
+    const deletePortalAccountsForUser = async (userId, password, passwordConfirm) => {
+        const id = String(userId || '').trim().toUpperCase();
+        const result = await call('/api/portal-accounts/delete-all', 'POST', {
+            targetUserId: id,
+            password: String(password || ''),
+            passwordConfirm: String(passwordConfirm || '')
+        });
+        if (result?.success === true) {
+            portalAccountsCache = null;
+            portalAccountsRequest = null;
+        }
+        return result;
+    };
     const getPortalCredentials = async accountId => {
         const response = await getPortalAccounts();
         const account = (response.accounts || []).find(item => item.id === accountId);
@@ -162,5 +180,5 @@
     const getUserPassword = async userId => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password');
     const getRepository = async () => ({ default_branch: 'cloudflare' });
     const getConfig = () => Object.freeze({ owner: 'cloudflare', repo: 'yodawy-dashboard', branch: 'cloudflare', configured: true });
-    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
+    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, getPortalAccountsForUser, deletePortalAccountsForUser, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
 })(window);
