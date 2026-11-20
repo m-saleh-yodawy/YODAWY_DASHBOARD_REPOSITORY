@@ -250,7 +250,52 @@ const portalAccountRoutes = async (request, env, path) => {
       const result = await gql("EditPrescriptionDetails", query);
       login.token = "";
       return respond(request, env, { success: true, prescription: result.GetPrescriptionDetails || null });
-    } catch (error) { login.token = ""; return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(error.details ? { details: error.details } : {}) }, 502); }
+    } catch (error) {
+      let details = error.details || {};
+      if (action === "save") {
+        const medications = Array.isArray(body.medications) ? body.medications : [];
+        const describeType = type => !type ? "" : type.kind === "NON_NULL" ? describeType(type.ofType) + "!" : type.kind === "LIST" ? "[" + describeType(type.ofType) + "]" : type.name || "";
+        const namedType = type => type?.ofType ? namedType(type.ofType) : type?.name || "";
+        try {
+          const introspectionQuery = "query OpenErxEditSchema { editInput: __type(name: \"PrescriptionEditInput\") { name kind inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } mutation: __type(name: \"Mutation\") { fields { name args { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } } }";
+          const schemaResponse = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName: "OpenErxEditSchema", query: introspectionQuery }), signal: AbortSignal.timeout(12000) });
+          const schemaData = await schemaResponse.json().catch(() => null);
+          const editInput = schemaData?.data?.editInput;
+          const mutationField = schemaData?.data?.mutation?.fields?.find(field => field.name === "UpdatePrescriptionMedicationsQuantities");
+          const medicationField = editInput?.inputFields?.find(field => field.name === "Medications");
+          let medicationInput = null;
+          const medicationTypeName = namedType(medicationField?.type);
+          if (medicationTypeName && !["String","Int","Float","Boolean","ID"].includes(medicationTypeName)) {
+            const medicationQuery = "query OpenErxMedicationInputSchema { target: __type(name: " + JSON.stringify(medicationTypeName) + ") { name kind inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } }";
+            const medicationResponse = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName: "OpenErxMedicationInputSchema", query: medicationQuery }), signal: AbortSignal.timeout(12000) });
+            const medicationData = await medicationResponse.json().catch(() => null);
+            medicationInput = medicationData?.data?.target ? { name: medicationData.data.target.name, kind: medicationData.data.target.kind, fields: (medicationData.data.target.inputFields || []).map(field => ({ name: field.name, type: describeType(field.type) })) } : null;
+          }
+          details.schema = {
+            available: Boolean(editInput),
+            input: editInput ? { name: editInput.name, fields: (editInput.inputFields || []).map(field => ({ name: field.name, type: describeType(field.type) })) } : null,
+            medicationInput,
+            mutation: mutationField ? { name: mutationField.name, args: (mutationField.args || []).map(arg => ({ name: arg.name, type: describeType(arg.type) })) } : null,
+            errors: Array.isArray(schemaData?.errors) ? schemaData.errors.map(item => String(item?.message || "").slice(0, 200)) : []
+          };
+        } catch (schemaError) {
+          details.schema = { available: false, error: String(schemaError?.message || "SCHEMA_INTROSPECTION_FAILED").slice(0, 200) };
+        }
+        details.payload = {
+          medicationCount: medications.length,
+          deletedCount: medications.filter(item => item?.DeleteIt === true).length,
+          addedCount: medications.filter(item => item?.AddIt === true).length,
+          medicationKeys: [...new Set(medications.flatMap(item => Object.keys(item || {})))].sort(),
+          metadataKeys: Object.keys(body).filter(key => !["medications","accountId","prescriptionId","action"].includes(key)).sort(),
+          maxAmountType: typeof body.MaxAmount,
+          coPaymentType: typeof body.CoPayment,
+          noteType: body.Note === null ? "null" : typeof body.Note,
+          diagnosisCount: Array.isArray(body.Diagnosis) ? body.Diagnosis.length : null
+        };
+      }
+      login.token = "";
+      return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(Object.keys(details).length ? { details } : {}) }, 502);
+    }
   }
   if (path === "/api/open-erx/run" && request.method === "POST") {
     const body = await readBody(request);
