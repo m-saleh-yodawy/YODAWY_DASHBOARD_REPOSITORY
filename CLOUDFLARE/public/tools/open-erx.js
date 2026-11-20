@@ -46,6 +46,16 @@
         };
     };
     const getApi = () => window.YODAWY_API_ENGINE;
+    const waitForApi = async () => {
+        const started = Date.now();
+        while (Date.now() - started < 15000) {
+            if (state.destroyed) throw new Error('Open ERX was stopped.');
+            const api = getApi();
+            if (api?.getOpenErxAccounts && api?.runOpenErx) return api;
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        throw new Error('Dashboard API is not ready. Refresh Odoo and try again.');
+    };
     const setBusy = (busy, message = '') => {
         state.busy = busy;
         const button = state.modal?.querySelector('[data-open-erx-run]');
@@ -130,8 +140,9 @@
         if (state.busy) return;
         const selected = state.modal?.querySelector('[data-open-erx-account]')?.value || '';
         if (!selected) return showFailure('Select a linked Portal account first.');
-        const api = getApi();
-        if (!api?.runOpenErx) return showFailure('The Dashboard API is not ready. Refresh Odoo and try again.');
+        let api;
+        try { api = await waitForApi(); }
+        catch (error) { return showFailure(error?.message || 'Dashboard API is not ready.'); }
         const data = state.ticket;
         if (!data?.cardNumber || !data?.formNumber) return showFailure('Card Number or Form Number is missing from the Odoo ticket.');
         const result = state.modal?.querySelector('[data-open-erx-result]');
@@ -157,8 +168,9 @@
     };
     const loadAccounts = async () => {
         const data = state.ticket;
-        const api = getApi();
-        if (!api?.getOpenErxAccounts) return showFailure('The Dashboard account service is not ready. Refresh Odoo and try again.');
+        let api;
+        try { api = await waitForApi(); }
+        catch (error) { return showFailure(error?.message || 'Dashboard account service is not ready.'); }
         const select = state.modal?.querySelector('[data-open-erx-account]');
         const button = state.modal?.querySelector('[data-open-erx-run]');
         const status = state.modal?.querySelector('[data-open-erx-status]');
