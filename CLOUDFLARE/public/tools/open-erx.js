@@ -98,7 +98,7 @@
         state.modal?.querySelector('[data-open-erx-run]')?.setAttribute('hidden','hidden');
         state.modal?.querySelector('[data-open-erx-status]')?.setAttribute('hidden','hidden');
         state.modal?.querySelector('[data-open-erx-account-wrap]')?.setAttribute('hidden','hidden');
-        target.querySelectorAll('[data-med-qty]').forEach(input=>input.addEventListener('change',()=>{const m=state.edit.medications[Number(input.dataset.medQty)];m.Quantity=Math.max(1,Number(input.value)||1;}));
+        target.querySelectorAll('[data-med-qty]').forEach(input=>input.addEventListener('change',()=>{const m=state.edit.medications[Number(input.dataset.medQty)];m.Quantity=Math.max(1,Number(input.value)||1);}));
         target.querySelectorAll('[data-med-delete]').forEach(btn=>btn.addEventListener('click',()=>{const m=state.edit.medications[Number(btn.dataset.medDelete)];m._deleted=!m._deleted;btn.textContent=m._deleted?'Undo':'Delete';btn.closest('tr').classList.toggle('yd-open-erx-deleted',m._deleted);}));
         target.querySelector('[data-edit-search-btn]').addEventListener('click',()=>searchEditDrugs());
         target.querySelector('[data-edit-search]').addEventListener('keydown',e=>{if(e.key==='Enter')searchEditDrugs();});
