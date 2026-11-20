@@ -5,3 +5,4 @@ Portals custom confirmation modal release: 20261120-portals-custom-popup-1.
 Message popup immediate close release: 20261120-message-popup-no-delay-1.
 Legacy Open ERX and Splitter cleanup: 20261120-clean-slate-1.
 Open ERX in-Odoo portal workspace release: 20261120-open-erx-portal-ui-2.
+Open ERX Chronic GraphQL diagnostics release: 20261120-open-erx-graphql-diagnostics-1.
