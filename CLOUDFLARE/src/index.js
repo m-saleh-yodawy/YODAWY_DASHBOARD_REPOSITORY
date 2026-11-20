@@ -211,8 +211,8 @@ const portalAccountRoutes = async (request, env, path) => {
     const body = await readBody(request);
     const accountId = String(body.accountId || "").trim();
     const cardNumber = String(body.cardNumber || "").trim();
-    const formNumber = String(body.formNumber || "").trim();
-    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !cardNumber || cardNumber.length > 80 || !formNumber || formNumber.length > 120) return respond(request, env, { success: false, error: "INVALID_OPEN_ERX_REQUEST" }, 400);
+    const prescriptionId = String(body.prescriptionId || "").trim();
+    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !cardNumber || cardNumber.length > 80 || !prescriptionId) return respond(request, env, { success: false, error: "INVALID_OPEN_ERX_REQUEST" }, 400);
     const account = await env.DB.prepare("SELECT account_id, account_type, label, username, odoo_key, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1 AND odoo_key IS NOT NULL AND account_type IN ('PERSONAL', 'NON-PERSONAL')").bind(accountId, actor.user_id).first();
     if (!account) return forbidden();
     let password;
@@ -274,62 +274,10 @@ const portalAccountRoutes = async (request, env, path) => {
       login.token = "";
       return respond(request, env, { success: false, error: "CARD_NUMBER_NOT_VALID", message: String(validation?.message || "Card number was not accepted.") }, 422);
     }
-    const historyQuery = "query GetPaginatedPrescriptionsHistory($filter: AgencyPrescriptionsFilterInput!) { GetPaginatedPrescriptionsHistory(filter: $filter) { total last_page current_page data { _id CreationDate ExpiryDate DoctorName MobileUserId PortalDoctorId Medications { Quantity IsDisposed DisposedQuantity __typename } PrescriptionNumber StartDate DisposingMaxValue IsStoped Note CoPayment ApprovalResponse Status { id StatusName Enum ColorCode __typename } Source PrescriptionSerial IsExpired __typename } __typename } }";
-    let historyRows = [];
-    try {
-      const first = await chronicGraphql("GetPaginatedPrescriptionsHistory", historyQuery, { filter: { AgencyId: login.insuranceAgencyId, CardNumber: cardNumber, AgentType: String(login.agentType), page: 0 } });
-      const result = first?.GetPaginatedPrescriptionsHistory;
-      if (!result || !Array.isArray(result.data)) throw new Error("PRESCRIPTION_HISTORY_UNAVAILABLE");
-      historyRows.push(...result.data);
-      const lastPage = Math.min(20, Math.max(1, Number(result.last_page) || 1));
-      for (let page = 1; page < lastPage; page++) {
-        const next = await chronicGraphql("GetPaginatedPrescriptionsHistory", historyQuery, { filter: { AgencyId: login.insuranceAgencyId, CardNumber: cardNumber, AgentType: String(login.agentType), page } });
-        const rows = next?.GetPaginatedPrescriptionsHistory?.data;
-        if (!Array.isArray(rows)) break;
-        historyRows.push(...rows);
-      }
-    } catch {
+    const matchedId = String(body.prescriptionId || "").trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(matchedId)) {
       login.token = "";
-      return respond(request, env, { success: false, error: "PRESCRIPTION_HISTORY_FAILED" }, 502);
-    }
-    if (!historyRows.length) {
-      login.token = "";
-      return respond(request, env, { success: false, error: "NO_PRESCRIPTIONS_FOUND" }, 404);
-    }
-    const formKey = normalizeOdooKey(formNumber);
-    const directMatches = historyRows.filter(row =>
-      [row.PrescriptionNumber, row.PrescriptionSerial].some(value => normalizeOdooKey(value) === formKey)
-    );
-    let matchedId = directMatches.length === 1 ? String(directMatches[0]._id || "") : "";
-    if (!matchedId) {
-      const referenceQuery = id => "query OpenErxReference { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(String(id)) + ") { FHIRReference PrescriptionNumber PrescriptionSerial } }";
-      const referenceBatchSize = 8;
-      const matches = [];
-      for (let index = 0; index < historyRows.length; index += referenceBatchSize) {
-        const batch = historyRows.slice(index, index + referenceBatchSize);
-        const checks = await Promise.all(batch.map(async row => {
-          if (!row?._id) return null;
-          try {
-            const data = await chronicGraphql("OpenErxReference", referenceQuery(row._id));
-            const detail = data?.GetPrescriptionDetails;
-            const values = [detail?.FHIRReference, detail?.PrescriptionNumber, detail?.PrescriptionSerial];
-            return values.some(value => normalizeOdooKey(value) === formKey) ? String(row._id) : null;
-          } catch {
-            return null;
-          }
-        }));
-        matches.push(...checks.filter(Boolean));
-      }
-      const uniqueMatches = [...new Set(matches)];
-      if (uniqueMatches.length === 1) matchedId = uniqueMatches[0];
-      else if (uniqueMatches.length > 1) {
-        login.token = "";
-        return respond(request, env, { success: false, error: "MULTIPLE_PRESCRIPTION_MATCHES", message: "More than one prescription matched this reference. Please verify the Form Number in Odoo." }, 409);
-      }
-    }
-    if (!matchedId) {
-      login.token = "";
-      return respond(request, env, { success: false, error: "FORM_NUMBER_NOT_FOUND", message: "No prescription matched the exact Odoo Form Number or FHIR Reference for this card." }, 404);
+      return respond(request, env, { success: false, error: "INVALID_PRESCRIPTION_ID" }, 400);
     }
     const detailsQuery = "query OpenErxPrescriptionDetails { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(matchedId) + ") { id Medications { DrugId DrugName Form SubForm { id Name } Quantity IsDisposed DisposedQuantity Price ActiveIngred DrugForm { id Key Name } SubFormQuantity QuantityType SubformSoldInPart FormSoldInPart FormQuantity MainForm Note CombinedSentence DrugTotal IsRejected DispensePrice MRFHIRReference Drug_Dosage_Form_Id } CoPayment Note ApprovalNumber IssuingDate IsChronic Tags RelativeDocumentId ApprovalResponse DisposingMaxValue DateOfBirth BranchId BranchName DoctorName Location { coordinates } Source PrescriptionSerial ClaimFormType InsuranceCardNumber PatientNameEn PatientName CreationDate ExpiryDate PrescriptionNumber StartDate MobileNumber Status { id StatusName } FHIRReference } }";
     let details;
@@ -341,7 +289,7 @@ const portalAccountRoutes = async (request, env, path) => {
       return respond(request, env, { success: false, error: "PRESCRIPTION_DETAILS_FAILED" }, 502);
     }
     login.token = "";
-    if (!details || ![details.FHIRReference, details.PrescriptionNumber, details.PrescriptionSerial].some(value => normalizeOdooKey(value) === formKey)) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
+    if (!details || String(details.id || "") !== matchedId) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
     return respond(request, env, {
       success: true,
       account: { id: account.account_id, label: account.label, username: account.username, accountType: account.account_type, odooKey: account.odoo_key },
