@@ -3,3 +3,4 @@ Cross-platform bootstrap release: 20261119-cross-platform-1.
 Tampermonkey and Chrome bookmark launchers use the same dashboard UI, tools, and live update engine.
 Portals custom confirmation modal release: 20261120-portals-custom-popup-1.
 Message popup immediate close release: 20261120-message-popup-no-delay-1.
+Legacy Open ERX and Splitter cleanup: 20261120-clean-slate-1.
