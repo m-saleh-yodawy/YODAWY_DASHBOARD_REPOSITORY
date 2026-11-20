@@ -20,3 +20,4 @@ Open ERX link replacement medications to removed originals: 20261120-open-erx-li
 Open ERX complete mutation identity and prescription context: 20261120-open-erx-mutation-context-1.
 Open ERX reload details by ePrescriptionId: 20261120-open-erx-details-reference-1.
 Open ERX require complete Portal mutation identity: 20261120-open-erx-required-context-1.
+Open ERX match successful Portal validation and mutation payload: 20261120-open-erx-portal-parity-1.
