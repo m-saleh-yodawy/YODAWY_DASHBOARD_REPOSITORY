@@ -40,6 +40,7 @@ return (async function (PAGE, STORE) {
             const error = new Error(data.error || 'REQUEST_FAILED');
             error.code = data.error || 'REQUEST_FAILED';
             error.status = response.status;
+            error.data = data;
             throw error;
         }
         return data;
