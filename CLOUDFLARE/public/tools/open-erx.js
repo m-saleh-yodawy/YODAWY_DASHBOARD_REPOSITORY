@@ -124,7 +124,7 @@
             const payload=meds.map((m,i)=>({DrugId:m.DrugId,Quantity:Number(m.Quantity),ReplacementId:'',ReplacementIndex:-1,DeleteIt:Boolean(m._deleted),AddIt:Boolean(m._added),QuantityType:m.QuantityType||'SUB',Index:m._index??i})).filter(m=>m.DeleteIt||m.AddIt||!state.edit.medications[m.Index]?true:true);
             const sr=await api.editOpenErx(account,p.id,'save',{medications:payload,MaxAmount:'0',CoPayment:String(p.coPayment??'0'),Note:p.note??null,Diagnosis:[],ApprovalNumber:String(p.approvalNumber||'')});if(sr.result?.isSuccess!==true)throw new Error(sr.result?.message||'Save failed.');
             editStatus('Saved successfully. Reloading prescription...');const dr=await api.editOpenErx(account,p.id,'details');if(!dr.prescription)throw new Error('Saved, but refreshed details unavailable.');renderResult({prescription:dr.prescription,patient:state.modal?.dataset.patient||{}});
-        }catch(e){editStatus(e.message||'Unable to save changes.');}finally{button.disabled=false;}
+        }catch(e){const d=e?.data?.details||e?.details||e?.data||null;const messages=Array.isArray(d?.errors)?d.errors.map(x=>x.message+(x.code?' ['+x.code+']':'')).join(' | '):'';editStatus(messages||e.message||'Unable to save changes.');}finally{button.disabled=false;}
     };
     const showFailure = (message, code = '') => {
         const target = state.modal?.querySelector('[data-open-erx-result]');
