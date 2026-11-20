@@ -48,11 +48,35 @@
         return { company, companyRaw, cardNumber: normalize(card?.innerText || card?.textContent || ''), formNumber: getField('prescription_number'), ticketId: getTicketId() };
     };
     const getApi = () => window.YODAWY_API_ENGINE;
+    const getOdooUserContext = async () => {
+        const direct = window.odoo?.__session_info__?.user_context;
+        if (direct && Array.isArray(direct.allowed_company_ids) && direct.allowed_company_ids.length) return { ...direct };
+        const response = await fetch('/web/session/get_session_info', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: {}, id: Date.now() }) });
+        if (!response.ok) throw new Error('Unable to retrieve the Odoo session context.');
+        const payload = await response.json();
+        if (payload?.error) throw new Error(payload.error?.data?.message || payload.error?.message || 'Unable to retrieve the Odoo session context.');
+        const info = payload?.result;
+        if (!info?.uid) throw new Error('Odoo session has expired. Reload Odoo and sign in again.');
+        const context = { ...(info.user_context || {}) };
+        let companyIds = context.allowed_company_ids;
+        if (!Array.isArray(companyIds) || !companyIds.length) {
+            const allowed = info.user_companies?.allowed_companies || [];
+            companyIds = Array.isArray(allowed) ? allowed.map(company => Number(typeof company === 'object' ? company.id : company)) : Object.keys(allowed).map(Number);
+            companyIds = companyIds.filter(id => Number.isInteger(id) && id > 0);
+            if (!companyIds.length) {
+                const current = Number(info.user_companies?.current_company?.id || 0);
+                if (current > 0) companyIds = [current];
+            }
+            if (companyIds.length) context.allowed_company_ids = companyIds;
+        }
+        if (!Array.isArray(context.allowed_company_ids) || !context.allowed_company_ids.length) throw new Error('Odoo did not return the active company access context.');
+        return context;
+    };
     const getPrescriptionId = async ticketId => {
         if (!Number.isInteger(ticketId) || ticketId <= 0) throw new Error('Odoo ticket ID is unavailable.');
-        const context = window.odoo?.__session_info__?.user_context;
-        if (!context || !Array.isArray(context.allowed_company_ids) || !context.allowed_company_ids.length) throw new Error('Odoo company access context is unavailable. Reload Odoo and try again.');
-        const response = await fetch('/web/dataset/call_button', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { args: [[ticketId]], kwargs: { context: { ...context } }, method: 'open_erx_link', model: 'helpdesk.ticket' }, id: Date.now() }) });
+        const context = await getOdooUserContext();
+        const response = await fetch('/web/dataset/call_button', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { args: [[ticketId]], kwargs: { context }, method: 'open_erx_link', model: 'helpdesk.ticket' }, id: Date.now() }) });
+        if (!response.ok) throw new Error('Odoo could not resolve the ERX link.');
         const payload = await response.json();
         if (payload?.error) throw new Error(payload.error?.data?.message || payload.error?.message || 'Odoo could not resolve the ERX link.');
         const url = payload?.result?.url;
