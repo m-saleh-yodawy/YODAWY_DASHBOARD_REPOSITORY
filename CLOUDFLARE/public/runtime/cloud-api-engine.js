@@ -138,6 +138,12 @@
     const getFile = async path => ({ content: encode(await getFileContent(path)), sha: 'cloud-managed' });
     let portalAccountsCache = null;
     let portalAccountsRequest = null;
+    const getOpenErxAccounts = async odooKey => call('/api/open-erx/accounts', 'POST', { odooKey: String(odooKey || '') });
+    const runOpenErx = async (accountId, cardNumber, formNumber) => call('/api/open-erx/run', 'POST', {
+        accountId: String(accountId || ''),
+        cardNumber: String(cardNumber || ''),
+        formNumber: String(formNumber || '')
+    });
     const getPortalAccounts = async (force = false) => {
         if (force) { portalAccountsCache = null; portalAccountsRequest = null; }
         if (portalAccountsCache) return portalAccountsCache;
@@ -180,5 +186,5 @@
     const getUserPassword = async userId => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password');
     const getRepository = async () => ({ default_branch: 'cloudflare' });
     const getConfig = () => Object.freeze({ owner: 'cloudflare', repo: 'yodawy-dashboard', branch: 'cloudflare', configured: true });
-    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, getPortalAccountsForUser, deletePortalAccountsForUser, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
+    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, getPortalAccounts, getOpenErxAccounts, runOpenErx, getPortalAccountsForUser, deletePortalAccountsForUser, savePortalAccount, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
 })(window);
