@@ -221,7 +221,7 @@ const portalAccountRoutes = async (request, env, path) => {
     } catch {
       return respond(request, env, { success: false, error: "PORTAL_CREDENTIALS_UNAVAILABLE" }, 503);
     }
-    const loginQuery = "query Index { ViewerQuery { _OpenErxLogin: CallCenterLogIn(username: " + JSON.stringify(account.username) + ", password: " + JSON.stringify(password) + ") { token id groupId isAdmin isKsysAdmin userName groupName branchId agentType insuranceAgencyId insuranceAgencyName channel newPharmacyPortal } } }";
+    const loginQuery = "query Index {ViewerQuery {...F0}} fragment F0 on Viewer {_OpenErxLogin:CallCenterLogIn(username:" + JSON.stringify(account.username) + ",password:" + JSON.stringify(password) + ") {token,id,groupId,isAdmin,isKsysAdmin,userName,groupName,branchId,insuranceAgencyId,agentType,insuranceAgencyName,channel,newPharmacyPortal}}";
     let login;
     try {
       const data = await upstreamGraphql("https://aws.yodawy.com/MobileWCF.svc/api/secure/GraphQl", loginQuery, {}, "Index");
@@ -258,7 +258,7 @@ const portalAccountRoutes = async (request, env, path) => {
       AgencyId: login.insuranceAgencyId,
       CardNumber: cardNumber,
       AgentType: String(login.agentType),
-      BranchId: login.branchId || null,
+      BranchId: String(login.branchId),
       PharmacyId: ""
     };
     let validation;
@@ -281,8 +281,8 @@ const portalAccountRoutes = async (request, env, path) => {
       const result = first?.GetPaginatedPrescriptionsHistory;
       if (!result || !Array.isArray(result.data)) throw new Error("PRESCRIPTION_HISTORY_UNAVAILABLE");
       historyRows.push(...result.data);
-      const lastPage = Math.min(19, Math.max(0, Number(result.last_page) || 0));
-      for (let page = 1; page <= lastPage; page++) {
+      const lastPage = Math.min(20, Math.max(1, Number(result.last_page) || 1));
+      for (let page = 1; page < lastPage; page++) {
         const next = await chronicGraphql("GetPaginatedPrescriptionsHistory", historyQuery, { filter: { AgencyId: login.insuranceAgencyId, CardNumber: cardNumber, AgentType: String(login.agentType), page } });
         const rows = next?.GetPaginatedPrescriptionsHistory?.data;
         if (!Array.isArray(rows)) break;
@@ -296,27 +296,41 @@ const portalAccountRoutes = async (request, env, path) => {
       login.token = "";
       return respond(request, env, { success: false, error: "NO_PRESCRIPTIONS_FOUND" }, 404);
     }
-    const referenceQuery = id => "query OpenErxReference { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(String(id)) + ") { FHIRReference } }";
-    let matchedId = "";
-    const referenceBatchSize = 4;
-    for (let index = 0; index < historyRows.length && !matchedId; index += referenceBatchSize) {
-      const batch = historyRows.slice(index, index + referenceBatchSize);
-      const checks = await Promise.all(batch.map(async row => {
-        if (!row?._id) return null;
-        try {
-          const data = await chronicGraphql("OpenErxReference", referenceQuery(row._id));
-          return data?.GetPrescriptionDetails?.FHIRReference && normalizeOdooKey(data.GetPrescriptionDetails.FHIRReference) === normalizeOdooKey(formNumber) ? String(row._id) : null;
-        } catch {
-          return null;
+    const formKey = normalizeOdooKey(formNumber);
+    const directMatches = historyRows.filter(row =>
+      [row.PrescriptionNumber, row.PrescriptionSerial].some(value => normalizeOdooKey(value) === formKey)
+    );
+    let matchedId = directMatches.length === 1 ? String(directMatches[0]._id || "") : "";
+    if (!matchedId && (directMatches.length > 1 || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(formNumber))) {
+      const referenceQuery = id => "query OpenErxReference { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(String(id)) + ") { FHIRReference PrescriptionNumber PrescriptionSerial } }";
+      const candidates = directMatches.length > 1 ? directMatches : historyRows;
+      const referenceBatchSize = 8;
+      for (let index = 0; index < candidates.length && !matchedId; index += referenceBatchSize) {
+        const batch = candidates.slice(index, index + referenceBatchSize);
+        const checks = await Promise.all(batch.map(async row => {
+          if (!row?._id) return null;
+          try {
+            const data = await chronicGraphql("OpenErxReference", referenceQuery(row._id));
+            const detail = data?.GetPrescriptionDetails;
+            const values = [detail?.FHIRReference, detail?.PrescriptionNumber, detail?.PrescriptionSerial];
+            return values.some(value => normalizeOdooKey(value) === formKey) ? String(row._id) : null;
+          } catch {
+            return null;
+          }
+        }));
+        const matches = checks.filter(Boolean);
+        if (matches.length === 1) matchedId = matches[0];
+        else if (matches.length > 1) {
+          login.token = "";
+          return respond(request, env, { success: false, error: "MULTIPLE_PRESCRIPTION_MATCHES", message: "More than one prescription matched this reference. Please verify the Form Number in Odoo." }, 409);
         }
-      }));
-      matchedId = checks.find(Boolean) || "";
+      }
     }
     if (!matchedId) {
       login.token = "";
-      return respond(request, env, { success: false, error: "FORM_NUMBER_NOT_FOUND", message: "No prescription matched the Odoo Form Number for this card." }, 404);
+      return respond(request, env, { success: false, error: "FORM_NUMBER_NOT_FOUND", message: "No prescription matched the exact Odoo Form Number or FHIR Reference for this card." }, 404);
     }
-    const detailsQuery = "query OpenErxPrescriptionDetails { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(matchedId) + ") { id Medications { DrugId DrugName Form SubForm { id Name } Quantity IsDisposed DisposedQuantity Price ActiveIngred DrugForm { id Key Name } SubFormQuantity QuantityType SubformSoldInPart FormSoldInPart FormQuantity MainForm Note CombinedSentence DrugTotal } CoPayment Note ScannedPrescriptions ApprovalNumber IssuingDate IsChronic Tags RelativeDocumentId ApprovalResponse DisposingMaxValue BranchId BranchName DoctorName Location { coordinates } Source PrescriptionSerial ClaimFormType InsuranceCardNumber PatientNameEn PatientName CreationDate ExpiryDate PrescriptionNumber StartDate Status { id StatusName } FHIRReference } }";
+    const detailsQuery = "query OpenErxPrescriptionDetails { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(matchedId) + ") { id Medications { DrugId DrugName Form SubForm { id Name } Quantity IsDisposed DisposedQuantity Price ActiveIngred DrugForm { id Key Name } SubFormQuantity QuantityType SubformSoldInPart FormSoldInPart FormQuantity MainForm Note CombinedSentence DrugTotal IsRejected DispensePrice MRFHIRReference Drug_Dosage_Form_Id } CoPayment Note ApprovalNumber IssuingDate IsChronic Tags RelativeDocumentId ApprovalResponse DisposingMaxValue DateOfBirth BranchId BranchName DoctorName Location { coordinates } Source PrescriptionSerial ClaimFormType InsuranceCardNumber PatientNameEn PatientName CreationDate ExpiryDate PrescriptionNumber StartDate MobileNumber Status { id StatusName } FHIRReference } }";
     let details;
     try {
       const result = await chronicGraphql("OpenErxPrescriptionDetails", detailsQuery);
@@ -330,7 +344,7 @@ const portalAccountRoutes = async (request, env, path) => {
     return respond(request, env, {
       success: true,
       account: { id: account.account_id, label: account.label, username: account.username, accountType: account.account_type, odooKey: account.odoo_key },
-      patient: { name: details.PatientName || details.PatientNameEn || "" },
+      patient: { name: details.PatientName || details.PatientNameEn || "", mobileNumber: details.MobileNumber || "", dateOfBirth: details.DateOfBirth || "" },
       prescription: {
         id: details.id,
         formNumber: details.FHIRReference,
@@ -343,6 +357,13 @@ const portalAccountRoutes = async (request, env, path) => {
         coPayment: details.CoPayment,
         approvalNumber: details.ApprovalNumber,
         note: details.Note,
+        mobileNumber: details.MobileNumber || "",
+        dateOfBirth: details.DateOfBirth || "",
+        insuranceCardNumber: details.InsuranceCardNumber || cardNumber,
+        branchName: details.BranchName || "",
+        source: details.Source,
+        approvalResponse: details.ApprovalResponse || "",
+        isChronic: Boolean(details.IsChronic),
         medications: Array.isArray(details.Medications) ? details.Medications : []
       }
     });
