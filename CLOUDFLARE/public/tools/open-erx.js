@@ -50,10 +50,13 @@
     const getApi = () => window.YODAWY_API_ENGINE;
     const getPrescriptionId = async ticketId => {
         if (!Number.isInteger(ticketId) || ticketId <= 0) throw new Error('Odoo ticket ID is unavailable.');
-        const response = await fetch('/web/dataset/call_button', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { args: [[ticketId]], kwargs: { context: {} }, method: 'open_erx_link', model: 'helpdesk.ticket' }, id: Date.now() }) });
+        const context = window.odoo?.__session_info__?.user_context;
+        if (!context || !Array.isArray(context.allowed_company_ids) || !context.allowed_company_ids.length) throw new Error('Odoo company access context is unavailable. Reload Odoo and try again.');
+        const response = await fetch('/web/dataset/call_button', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { args: [[ticketId]], kwargs: { context: { ...context } }, method: 'open_erx_link', model: 'helpdesk.ticket' }, id: Date.now() }) });
         const payload = await response.json();
+        if (payload?.error) throw new Error(payload.error?.data?.message || payload.error?.message || 'Odoo could not resolve the ERX link.');
         const url = payload?.result?.url;
-        if (!url) throw new Error(payload?.error?.data?.message || 'Odoo could not resolve the ERX link.');
+        if (!url) throw new Error('Odoo could not resolve the ERX link.');
         const match = url.match(/\/OdooRoute\/\.\/([0-9a-f-]{36})\/([^/?#]+)/i);
         if (!match) throw new Error('The Odoo ERX link format was not recognized.');
         return { prescriptionId: match[1], cardNumber: decodeURIComponent(match[2]) };
