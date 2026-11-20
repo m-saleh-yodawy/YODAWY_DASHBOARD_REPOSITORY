@@ -240,7 +240,7 @@ const portalAccountRoutes = async (request, env, path) => {
         return respond(request, env, { success: true, validation: result.CheckEditMatchingPrescription || null });
       }
       if (action === "save") {
-        const query = "mutation example ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
+        const query = "mutation UpdatePrescriptionMedicationsQuantities ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
         const input = { PrescriptionId: prescriptionId, Medications: Array.isArray(body.medications) ? body.medications : [], MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, Diagnosis: Array.isArray(body.Diagnosis) ? body.Diagnosis : [], ApprovalNumber: String(body.ApprovalNumber ?? "") };
         const result = await gql("UpdatePrescriptionMedicationsQuantities", query, { input });
         login.token = "";
