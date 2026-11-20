@@ -34,6 +34,11 @@
     let rootElement = null;
     let portalAccounts = null;
     let portalAccountsLoading = false;
+    let portalManagementAccounts = null;
+    let portalManagementAccountsLoading = false;
+    let portalManagementAccountsError = '';
+    let portalManagementRequestToken = 0;
+    let selectedPortalUserId = '';
     let activePage = 'tools';
     let refreshTimer = null;
     let notice = null;
@@ -209,6 +214,16 @@
     const getUsers = () => {
         try { return getRoleEngine()?.getUsers?.() || (context?.user ? [context.user] : []); }
         catch { return [context.user]; }
+    };
+
+    const getPortalManagementUsers = () => {
+        const users = [...getUsers()];
+        if (context?.user && !users.some(user => String(user.id || '').trim().toUpperCase() === String(context.user.id || '').trim().toUpperCase())) users.unshift(context.user);
+        return users.filter(user => {
+            const id = String(user?.id || '').trim().toUpperCase();
+            const status = String(user?.status || 'Active').trim().toLowerCase();
+            return /^Q-[0-9]{3,}$/.test(id) && status === 'active';
+        });
     };
 
     const getVisibilityUsers = () => getUsers().filter(user => String(user.role || 'USER').trim().toUpperCase() !== 'SUPER_ADMIN');
@@ -2949,6 +2964,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-copy i { display: inline-block; }
 #yd-dashboard-root .yd-portal-copy.is-copied { color: var(--success); }
 
+#yd-dashboard-root .yd-portal-admin-tools { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin: 0 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface, #fff); }
+#yd-dashboard-root .yd-portal-target-field { flex: 1 1 260px; max-width: 420px; margin: 0; }
+#yd-dashboard-root .yd-portal-target-field .yd-input { width: 100%; min-height: 40px; }
+#yd-dashboard-root .yd-portal-admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#yd-dashboard-root .yd-portal-admin-actions button { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; }
+#yd-dashboard-root .yd-portal-admin-actions button:disabled { opacity: .55; cursor: not-allowed; }
+#yd-dashboard-root .yd-portal-delete-all { background: #fff5f5; color: #b42318; border-color: #f2c6c3 !important; }
+#yd-dashboard-root .yd-portal-refresh { background: #fff; color: var(--brand-dark); }
+@media(max-width:700px) { #yd-dashboard-root .yd-portal-admin-tools { align-items: stretch; flex-direction: column; } #yd-dashboard-root .yd-portal-target-field { max-width: none; } #yd-dashboard-root .yd-portal-admin-actions button { flex: 1 1 auto; } }
+
 #yd-dashboard-root .yd-portal-search-wrap { position: relative; width: 100%; margin: 0 0 16px; }
 #yd-dashboard-root .yd-portal-search-wrap > i { position: absolute; top: 50%; left: 13px; color: var(--muted); font-size: 13px; transform: translateY(-50%); pointer-events: none; }
 #yd-dashboard-root .yd-portal-search-wrap .yd-search { width: 100%; max-width: 100%; min-height: 40px; padding: 8px 12px 8px 36px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--ink); font-size: 13px; }
@@ -3393,10 +3418,41 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         }
     };
 
+    const currentUserIdForPortals = () => String(context?.userId || context?.user?.id || '').trim().toUpperCase();
+
+    const loadPortalManagementAccounts = async (force = false) => {
+        const targetUserId = String(selectedPortalUserId || '').trim().toUpperCase();
+        if (!targetUserId || (portalManagementAccountsLoading && !force) || (portalManagementAccounts && !force)) return;
+        const token = ++portalManagementRequestToken;
+        portalManagementAccountsLoading = true;
+        portalManagementAccountsError = '';
+        try {
+            const api = context?.api || page.YODAWY_API_ENGINE;
+            const response = await api?.getPortalAccountsForUser?.(targetUserId);
+            if (response?.success !== true) throw new Error(response?.error || 'Portal accounts are unavailable.');
+            if (token === portalManagementRequestToken && selectedPortalUserId === targetUserId) portalManagementAccounts = Array.isArray(response.accounts) ? response.accounts : [];
+        } catch (error) {
+            if (token === portalManagementRequestToken && selectedPortalUserId === targetUserId) {
+                portalManagementAccounts = [];
+                portalManagementAccountsError = error?.message || 'Unable to load this user portal accounts.';
+            }
+        } finally {
+            if (token === portalManagementRequestToken) {
+                portalManagementAccountsLoading = false;
+                if (context && activePage === 'accounts' && isCurrentUI()) render();
+            }
+        }
+    };
+
     const renderAccounts = () => {
-        if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
-        const accounts = Array.isArray(portalAccounts) ? portalAccounts : [];
-        const canImport = context?.userRole === 'SUPER_ADMIN';
+        const canManage = context?.userRole === 'SUPER_ADMIN';
+        const currentUserId = String(context?.userId || context?.user?.id || '').trim().toUpperCase();
+        const users = canManage ? getPortalManagementUsers() : [];
+        if (canManage) {
+            if (!users.some(user => user.id === selectedPortalUserId)) selectedPortalUserId = users.some(user => user.id === currentUserId) ? currentUserId : String(users[0]?.id || '');
+            if (selectedPortalUserId && !portalManagementAccounts && !portalManagementAccountsLoading) loadPortalManagementAccounts();
+        } else if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
+        const accounts = canManage ? (Array.isArray(portalManagementAccounts) ? portalManagementAccounts : []) : (Array.isArray(portalAccounts) ? portalAccounts : []);
         const groups = [
             { title: 'Personal - Linked', icon: 'fa-user-check', type: 'PERSONAL', known: true, empty: 'No personal linked accounts.' },
             { title: 'Non-Personal - Linked', icon: 'fa-building-circle-check', type: 'NON-PERSONAL', known: true, empty: 'No non-personal linked accounts.' },
@@ -3416,7 +3472,17 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
         const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
-        return '<section class="yd-welcome"><div><h1>Portals</h1><p>View your portal usernames and passwords grouped by account type.</p></div></section>' + (portalAccountsLoading ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>' : '<div class="yd-portal-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty" hidden>No matching portal accounts found.</div>' + populatedGroups.map(renderGroup).join(''));
+        const adminTools = canManage
+            ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="fa-solid fa-trash"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
+            : '';
+        const loading = canManage ? portalManagementAccountsLoading : portalAccountsLoading;
+        const error = canManage ? portalManagementAccountsError : '';
+        const content = loading
+            ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>'
+            : error
+                ? '<div class="yd-empty">' + escapeHTML(error) + '</div>'
+                : '<div class="yd-portal-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty"' + (accounts.length ? ' hidden' : '') + '>No portal accounts found for this user.</div>' + populatedGroups.map(renderGroup).join('');
+        return '<section class="yd-welcome"><div><h1>Portals</h1><p>View portal usernames and passwords grouped by account type.</p></div></section>' + adminTools + content;
     };
 
     const renderSplitAccountSettings = settings => {
@@ -4399,6 +4465,72 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         }, 10000);
     };
 
+    let activePortalDeleteDialog = null;
+    const showPortalDeleteDialog = targetUserId => {
+        if (context?.userRole !== 'SUPER_ADMIN') return;
+        const target = getPortalManagementUsers().find(user => String(user.id || '').trim().toUpperCase() === targetUserId);
+        if (!target) {
+            showMessageDialog('User Not Found', 'Select an active user before deleting portal accounts.');
+            return;
+        }
+        if (activePortalDeleteDialog?.isConnected) activePortalDeleteDialog.remove();
+        const root = document.getElementById(CONFIG.ID);
+        const computed = root ? getComputedStyle(root) : null;
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        if (computed) [...computed].filter(name => name.startsWith('--')).forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-portal-delete-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-delete-title"><h3 id="yd-portal-delete-title">Delete All Portal Accounts</h3><p>All portal accounts assigned to <strong>' + escapeHTML(formatName(target.name)) + ' (' + escapeHTML(targetUserId) + ')</strong> will be permanently deleted.</p><form id="yd-portal-delete-form"><div class="yd-field"><label for="yd-portal-delete-password">SUPER ADMIN Password</label><input class="yd-input" id="yd-portal-delete-password" type="password" autocomplete="new-password" required></div><div class="yd-field"><label for="yd-portal-delete-password-confirm">Confirm SUPER ADMIN Password</label><input class="yd-input" id="yd-portal-delete-password-confirm" type="password" autocomplete="new-password" required></div><p id="yd-portal-delete-error" role="alert" style="min-height:18px;color:#b42318;font-size:12px;margin:8px 0 0"></p><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-delete-cancel>Cancel</button><button type="submit" class="yd-primary" style="background:#b42318;border-color:#b42318">Delete All</button></div></form></section>';
+        document.body.appendChild(overlay);
+        activePortalDeleteDialog = overlay;
+        syncInputSurfaceBackgrounds(overlay);
+        const form = overlay.querySelector('#yd-portal-delete-form');
+        const password = overlay.querySelector('#yd-portal-delete-password');
+        const confirmation = overlay.querySelector('#yd-portal-delete-password-confirm');
+        const error = overlay.querySelector('#yd-portal-delete-error');
+        const submit = form.querySelector('[type="submit"]');
+        const close = () => {
+            overlay.remove();
+            if (activePortalDeleteDialog === overlay) activePortalDeleteDialog = null;
+        };
+        overlay.querySelector('[data-portal-delete-cancel]').addEventListener('click', close);
+        overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            const first = String(password.value || '');
+            const second = String(confirmation.value || '');
+            if (!first || !second) {
+                error.textContent = 'Enter the password in both fields.';
+                return;
+            }
+            if (first !== second) {
+                error.textContent = 'The two passwords do not match.';
+                confirmation.focus();
+                return;
+            }
+            submit.disabled = true;
+            submit.setAttribute('aria-busy', 'true');
+            submit.innerHTML = '<span class="yd-control-spinner"></span><span>Deleting...</span>';
+            error.textContent = '';
+            try {
+                const api = context?.api || page.YODAWY_API_ENGINE;
+                const result = await api?.deletePortalAccountsForUser?.(targetUserId, first, second);
+                if (result?.success !== true) throw new Error(result?.error || 'Portal account deletion failed.');
+                close();
+                portalManagementAccounts = null;
+                if (targetUserId === currentUserIdForPortals()) portalAccounts = null;
+                await loadPortalManagementAccounts(true);
+                render();
+                showMessageDialog('Portal Accounts Deleted', 'User: ' + targetUserId + '\nDeleted accounts: ' + result.deleted, 'success');
+            } catch (cause) {
+                error.textContent = cause?.message || 'Unable to delete portal accounts.';
+                submit.disabled = false;
+                submit.removeAttribute('aria-busy');
+                submit.innerHTML = 'Delete All';
+            }
+        });
+        password.focus();
+    };
+
     const runAction = async (action, button) => {
         try {
             const access = getRoleAccess();
@@ -4942,6 +5074,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
 
     const bindEvents = root => {
         root.addEventListener('change', async event => {
+            if (event.target.id === 'yd-portal-target-user') {
+                selectedPortalUserId = String(event.target.value || '').trim().toUpperCase();
+                portalManagementAccounts = null;
+                portalManagementAccountsError = '';
+                portalManagementRequestToken++;
+                portalManagementAccountsLoading = false;
+                loadPortalManagementAccounts(true);
+                return;
+            }
             if (event.target.id === 'yd-portal-accounts-import-file') {
                 const file = event.target.files?.[0];
                 event.target.value = '';
@@ -4950,26 +5091,31 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     if (!/\.json$/i.test(file.name)) throw new Error('Select a valid JSON file.');
                     if (!Number.isFinite(file.size) || file.size <= 0) throw new Error('The selected file is empty or unreadable.');
                     if (file.size > 256 * 1024) throw new Error('The selected file exceeds the 256 KB limit.');
-                    const payload = JSON.parse(await file.text());
+                    const targetUserId = String(root.querySelector('#yd-portal-target-user')?.value || selectedPortalUserId || '').trim().toUpperCase();
+                    if (!/^Q-[0-9]{3,}$/.test(targetUserId)) throw new Error('Select a user before importing the JSON file.');
+                    const source = JSON.parse(await file.text());
                     const expected = ['Personal - Linked', 'Non-Personal - Linked', 'Personal - Unlinked', 'Non-Personal - Unlinked'];
-                    if (!payload || typeof payload !== 'object' || !/^Q-[0-9]{3,}$/i.test(String(payload.targetUserId || '')) || !payload.groups || expected.some(key => !Array.isArray(payload.groups[key])) || Object.keys(payload.groups).length !== 4) throw new Error('The JSON structure or group names are invalid.');
-                    const counts = expected.map(key => key + ': ' + payload.groups[key].length).join('\\n');
+                    if (!source || typeof source !== 'object' || !source.groups || typeof source.groups !== 'object' || expected.some(key => !Array.isArray(source.groups[key])) || Object.keys(source.groups).length !== 4) throw new Error('The JSON structure or group names are invalid.');
+                    const payload = { targetUserId, groups: source.groups };
+                    const counts = expected.map(key => key + ': ' + payload.groups[key].length).join('\n');
                     const total = expected.reduce((sum, key) => sum + payload.groups[key].length, 0);
                     if (!total || total > 150) throw new Error('The file must contain between 1 and 150 accounts.');
-                    if (!window.confirm('Import ' + total + ' accounts for ' + payload.targetUserId + '?\\n\\n' + counts + '\\n\\nExisting usernames will be skipped. Passwords will be encrypted before saving.')) return;
+                    if (!window.confirm('Import ' + total + ' accounts for ' + targetUserId + '?\n\n' + counts + '\n\nExisting usernames will be skipped. Passwords will be encrypted before saving.')) return;
                     const button = root.querySelector('[data-action="import-portal-accounts"]');
                     if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.innerHTML = '<span class="yd-control-spinner"></span><span>Importing...</span>'; }
                     const api = context?.api || page.YODAWY_API_ENGINE;
                     const result = await api?.importPortalAccounts?.(payload);
                     if (result?.success !== true) throw new Error(result?.error || 'The account import failed.');
-                    portalAccounts = null;
-                    await loadPortalAccounts();
-                    showMessageDialog('Accounts Imported', 'Added: ' + result.created + '\\nSkipped: ' + result.skipped + '\\nProcessed: ' + result.processed, 'success');
+                    portalManagementAccounts = null;
+                    if (targetUserId === currentUserIdForPortals()) portalAccounts = null;
+                    await loadPortalManagementAccounts(true);
+                    render();
+                    showMessageDialog('Accounts Imported', 'User: ' + targetUserId + '\nAdded: ' + result.created + '\nSkipped: ' + result.skipped + '\nProcessed: ' + result.processed, 'success');
                 } catch (error) {
                     showMessageDialog('Import Failed', error?.message || 'Unable to import the selected JSON file.');
                 } finally {
                     const button = root.querySelector('[data-action="import-portal-accounts"]');
-                    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = '<i class="fa-solid fa-file-import"></i><span>Import Accounts</span>'; }
+                    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = '<i class="fa-solid fa-file-import"></i><span>Import JSON</span>'; }
                 }
                 return;
             }
@@ -5081,6 +5227,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 }
                 return;
             }
+            if (actionButton?.dataset.action === 'delete-all-portal-accounts') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (context?.userRole !== 'SUPER_ADMIN') return;
+                const targetUserId = String(root.querySelector('#yd-portal-target-user')?.value || selectedPortalUserId || '').trim().toUpperCase();
+                showPortalDeleteDialog(targetUserId);
+                return;
+            }
             if (actionButton?.dataset.action === 'import-portal-accounts') {
                 event.preventDefault();
                 event.stopPropagation();
@@ -5091,8 +5245,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             if (actionButton?.dataset.action === 'refresh-portal-accounts') {
                 event.preventDefault();
                 event.stopPropagation();
-                portalAccounts = null;
-                loadPortalAccounts(true);
+                if (context?.userRole === 'SUPER_ADMIN') {
+                    portalManagementAccounts = null;
+                    loadPortalManagementAccounts(true);
+                } else {
+                    portalAccounts = null;
+                    loadPortalAccounts(true);
+                }
                 render();
                 return;
             }
