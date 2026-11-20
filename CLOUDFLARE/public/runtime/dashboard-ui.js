@@ -2964,6 +2964,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] button:active {
 #yd-dashboard-root .yd-portal-copy i { display: inline-block; }
 #yd-dashboard-root .yd-portal-copy.is-copied { color: var(--success); }
 
+#yd-dashboard-root .yd-dashboard-confirm-details { display: grid; gap: 7px; margin: 16px 0 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft, #f8f5f7); list-style: none; }
+#yd-dashboard-root .yd-dashboard-confirm-details li { display: flex; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 12px; }
+#yd-dashboard-root .yd-dashboard-confirm-details strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+#yd-dashboard-root .yd-dashboard-confirm-modal .yd-confirm-danger { background: #b42318; border-color: #b42318; }
 #yd-dashboard-root .yd-portal-admin-tools { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin: 0 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface, #fff); }
 #yd-dashboard-root .yd-portal-target-field { flex: 1 1 260px; max-width: 420px; margin: 0; }
 #yd-dashboard-root .yd-portal-target-field .yd-input { width: 100%; min-height: 40px; }
@@ -4465,6 +4469,39 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         }, 10000);
     };
 
+    let activeDashboardConfirmDialog = null;
+    const showDashboardConfirm = options => new Promise(resolve => {
+        if (activeDashboardConfirmDialog?.isConnected) activeDashboardConfirmDialog.remove();
+        const root = document.getElementById(CONFIG.ID);
+        const computed = root ? getComputedStyle(root) : null;
+        const overlay = document.createElement('div');
+        overlay.className = 'yd-modal-backdrop';
+        if (computed) [...computed].filter(name => name.startsWith('--')).forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
+        const details = Array.isArray(options.details) ? options.details : [];
+        const rows = details.map(item => '<li><span>' + escapeHTML(item.label) + '</span><strong>' + escapeHTML(item.value) + '</strong></li>').join('');
+        const danger = options.danger === true;
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-dashboard-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="yd-dashboard-confirm-title"><div class="yd-message-icon ' + (danger ? 'error' : 'success') + '"><i class="fa-solid ' + (danger ? 'fa-triangle-exclamation' : 'fa-circle-question') + '"></i></div><h3 id="yd-dashboard-confirm-title">' + escapeHTML(options.title || 'Confirm Action') + '</h3><p>' + escapeHTML(options.message || 'Are you sure you want to continue?') + '</p>' + (rows ? '<ul class="yd-dashboard-confirm-details">' + rows + '</ul>' : '') + '<div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>' + escapeHTML(options.cancelLabel || 'Cancel') + '</button><button type="button" class="yd-primary' + (danger ? ' yd-confirm-danger' : '') + '" data-confirm-accept>' + escapeHTML(options.confirmLabel || 'Confirm') + '</button></div></section>';
+        overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far').forEach(icon => icon.classList.add('yd-custom-icon'));
+        document.body.appendChild(overlay);
+        activeDashboardConfirmDialog = overlay;
+        const finish = value => {
+            overlay.remove();
+            document.removeEventListener('keydown', onKeydown, true);
+            if (activeDashboardConfirmDialog === overlay) activeDashboardConfirmDialog = null;
+            resolve(value);
+        };
+        const onKeydown = event => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            finish(false);
+        };
+        overlay.querySelector('[data-confirm-cancel]').addEventListener('click', () => finish(false));
+        overlay.querySelector('[data-confirm-accept]').addEventListener('click', () => finish(true));
+        overlay.addEventListener('click', event => { if (event.target === overlay) finish(false); });
+        document.addEventListener('keydown', onKeydown, true);
+        overlay.querySelector('[data-confirm-accept]').focus();
+    });
+
     let activePortalDeleteDialog = null;
     const showPortalDeleteDialog = targetUserId => {
         if (context?.userRole !== 'SUPER_ADMIN') return;
@@ -5097,10 +5134,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     const expected = ['Personal - Linked', 'Non-Personal - Linked', 'Personal - Unlinked', 'Non-Personal - Unlinked'];
                     if (!source || typeof source !== 'object' || !source.groups || typeof source.groups !== 'object' || expected.some(key => !Array.isArray(source.groups[key])) || Object.keys(source.groups).length !== 4) throw new Error('The JSON structure or group names are invalid.');
                     const payload = { targetUserId, groups: source.groups };
-                    const counts = expected.map(key => key + ': ' + payload.groups[key].length).join('\n');
-                    const total = expected.reduce((sum, key) => sum + payload.groups[key].length, 0);
+                    const groupCounts = expected.map(key => ({ label: key, value: payload.groups[key].length }));
+                    const total = groupCounts.reduce((sum, item) => sum + item.value, 0);
                     if (!total || total > 150) throw new Error('The file must contain between 1 and 150 accounts.');
-                    if (!window.confirm('Import ' + total + ' accounts for ' + targetUserId + '?\n\n' + counts + '\n\nExisting usernames will be skipped. Passwords will be encrypted before saving.')) return;
+                    const approved = await showDashboardConfirm({
+                        title: 'Import Portal Accounts',
+                        message: 'Import ' + total + ' accounts for ' + targetUserId + '? Existing usernames will be skipped. Passwords will be encrypted before saving.',
+                        details: groupCounts,
+                        confirmLabel: 'Import Accounts'
+                    });
+                    if (!approved) return;
                     const button = root.querySelector('[data-action="import-portal-accounts"]');
                     if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.innerHTML = '<span class="yd-control-spinner"></span><span>Importing...</span>'; }
                     const api = context?.api || page.YODAWY_API_ENGINE;
