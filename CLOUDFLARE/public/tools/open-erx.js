@@ -24,7 +24,8 @@
         destroyed: false,
         portalStarted: false,
         observer: null,
-        handlers: new Map()
+        handlers: new Map(),
+        dialogs: new Set()
     };
 
     const ensureActive = () => {
@@ -87,6 +88,58 @@
         return '';
     };
 
+    const showToolDialog = (title, message, actions = []) => new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:20px;background:rgba(25,18,28,.58);backdrop-filter:blur(3px);font-family:Arial,sans-serif';
+        const card = document.createElement('section');
+        card.setAttribute('role','dialog');
+        card.setAttribute('aria-modal','true');
+        card.style.cssText = 'width:min(440px,100%);max-height:80vh;overflow:auto;padding:22px;border:1px solid #e8dfe7;border-radius:13px;background:#fff;color:#302833;box-shadow:0 18px 55px rgba(0,0,0,.24)';
+        const heading = document.createElement('h3');
+        heading.textContent = title;
+        heading.style.cssText = 'margin:0 0 10px;color:#68465f;font-size:17px;font-weight:700';
+        const description = document.createElement('p');
+        description.textContent = message;
+        description.style.cssText = 'margin:0 0 18px;color:#5f5862;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere';
+        const actionsBox = document.createElement('div');
+        actionsBox.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px';
+        const choices = actions.length ? actions : [{ label:'OK', value:null }];
+        let closed = false;
+        const close = value => {
+            if (closed) return;
+            closed = true;
+            overlay.remove();
+            state.dialogs.delete(overlay);
+            document.removeEventListener('keydown', keyHandler, true);
+            resolve(value);
+        };
+        const keyHandler = event => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            close(null);
+        };
+        for (const choice of choices) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = choice.label;
+            button.style.cssText = 'min-height:36px;padding:8px 13px;border:1px solid #875a7b;border-radius:7px;background:' + (choice.primary ? '#875a7b' : '#fff') + ';color:' + (choice.primary ? '#fff' : '#68465f') + ';font-size:12px;font-weight:700;cursor:pointer';
+            button.addEventListener('click', () => close(choice.value));
+            actionsBox.append(button);
+        }
+        card.append(heading, description, actionsBox);
+        overlay.append(card);
+        overlay.addEventListener('click', event => { if (event.target === overlay) close(null); });
+        document.body.append(overlay);
+        state.dialogs.add(overlay);
+        document.addEventListener('keydown', keyHandler, true);
+        actionsBox.querySelector('button')?.focus();
+    });
+
+    const compact = value => normalize(value)
+        .normalize('NFD')
+        .replace(/[\\u0300-\\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+
     const waitForApi = async () => {
         const started = Date.now();
         while (Date.now() - started < 20000) {
@@ -103,33 +156,49 @@
         const name = normalize(company);
         const provider = name.includes('metlife')
             ? 'METLIFE'
-            : /next[\s_-]*care/.test(name)
+            : /next[\\s_-]*care/.test(name)
                 ? 'NEXTCARE'
                 : '';
-
         if (!provider) throw new Error('This insurance company is not supported by the configured Portal accounts.');
-
         const result = await api.getPortalAccounts();
-        const accounts = (result.accounts || []).filter(account =>
-            account.provider === provider &&
-            account.accountType === 'PERSONAL'
+        if (result?.success !== true || !Array.isArray(result.accounts)) throw new Error(result?.error || 'Your Portal accounts could not be loaded.');
+        const accounts = result.accounts.filter(account =>
+            account.accountType === 'PERSONAL' &&
+            account.enabled !== false
         );
-
-        if (!accounts.length) {
-            throw new Error('Your personal ' + provider + ' account is not configured.');
+        const companyKey = compact(company);
+        const candidates = accounts.map(account => {
+            const keys = [account.odooKey, account.label, account.payer].map(compact).filter(Boolean);
+            const exact = keys.some(key => key === companyKey);
+            const partial = keys.some(key => key.length >= 4 && companyKey.length >= 4 && (companyKey.includes(key) || key.includes(companyKey)));
+            const legacyProvider = String(account.provider || '').toUpperCase() === provider;
+            const score = exact ? 100 : partial ? 80 : legacyProvider ? 60 : 0;
+            return { account, score };
+        }).filter(item => item.score > 0).sort((a,b) => b.score-a.score);
+        if (!candidates.length) throw new Error('No Personal - Linked Portal account matches "' + company + '". Check the user PORTALS list and its Odoo Key.');
+        const bestScore = candidates[0].score;
+        const best = candidates.filter(item => item.score === bestScore).map(item => item.account);
+        let account = best[0];
+        if (best.length > 1) {
+            const selected = await showToolDialog(
+                'Choose Portal Account',
+                'More than one personal account matches ' + company + '. Select the login account to continue.',
+                [
+                    ...best.map(item => ({
+                        label: String(item.username || item.label || 'Portal account'),
+                        value: item.id,
+                        primary: false
+                    })),
+                    { label: 'Cancel', value: null }
+                ]
+            );
+            account = best.find(item => item.id === selected);
+            if (!account) throw new Error('Portal account selection was cancelled.');
         }
-
-        const account = accounts.find(item => /personal/i.test(item.label || '')) || accounts[0];
         const response = await api.getPortalCredentials(account.id);
-
-        if (
-            !response.success ||
-            !response.credentials?.username ||
-            !response.credentials?.password
-        ) {
-            throw new Error('Personal insurance credentials are unavailable.');
+        if (!response.success || !response.credentials?.username || !response.credentials?.password) {
+            throw new Error('The selected personal Portal credentials are unavailable.');
         }
-
         return response.credentials;
     };
 
@@ -192,7 +261,7 @@
                         !cardNumber && 'card number',
                         !formNumber && 'prescription reference'
                     ].filter(Boolean);
-                    alert('Unable to read the ' + missing.join(', ') + '.');
+                    showToolDialog('Open ERX', 'Unable to read the ' + missing.join(', ') + '.');
                     return;
                 }
 
@@ -331,7 +400,7 @@
             await continuePrescriptionSelection(cardNumber, formNumber);
         } catch (error) {
             if (!state.destroyed) {
-                alert(error.message || 'Portal automation could not complete.');
+                showToolDialog('Open ERX Failed', error.message || 'Portal automation could not complete.');
             }
         }
     };
@@ -366,6 +435,8 @@
             }
 
             state.handlers.clear();
+            state.dialogs.forEach(dialog => dialog.remove());
+            state.dialogs.clear();
             document.getElementById('yd-open-erx-reference-style')?.remove();
             if (registry[TOOL_ID] === instance) delete registry[TOOL_ID];
             return true;
