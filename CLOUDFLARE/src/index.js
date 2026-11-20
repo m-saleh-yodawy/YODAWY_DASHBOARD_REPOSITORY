@@ -289,7 +289,7 @@ const portalAccountRoutes = async (request, env, path) => {
       return respond(request, env, { success: false, error: "PRESCRIPTION_DETAILS_FAILED" }, 502);
     }
     login.token = "";
-    if (!details || String(details.id || "") !== matchedId) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
+    if (!details || ![details.id, details.FHIRReference, details.PrescriptionNumber, details.PrescriptionSerial].some(value => normalizeOdooKey(value) === normalizeOdooKey(matchedId))) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
     return respond(request, env, {
       success: true,
       account: { id: account.account_id, label: account.label, username: account.username, accountType: account.account_type, odooKey: account.odoo_key },
