@@ -249,7 +249,29 @@ const portalAccountRoutes = async (request, env, path) => {
       const query = "query EditPrescriptionDetails { GetPrescriptionDetails(ePrescriptionId:" + JSON.stringify(prescriptionId) + ") { id Medications { DrugId DrugName Form SubForm { id Name } Quantity IsDisposed DisposedQuantity Price ActiveIngred DrugForm { id Key Name } SubFormQuantity QuantityType SubformSoldInPart FormSoldInPart FormQuantity MainForm Note CombinedSentence DrugTotal IsRejected DispensePrice MRFHIRReference Drug_Dosage_Form_Id } CoPayment Note ApprovalNumber IssuingDate IsChronic Tags RelativeDocumentId ApprovalResponse DisposingMaxValue BranchId BranchName DoctorName Source PrescriptionSerial ClaimFormType InsuranceCardNumber PatientNameEn PatientName CreationDate ExpiryDate PrescriptionNumber StartDate MobileNumber Status { id StatusName } FHIRReference } }";
       const result = await gql("EditPrescriptionDetails", query);
       login.token = "";
-      return respond(request, env, { success: true, prescription: result.GetPrescriptionDetails || null });
+      const details = result.GetPrescriptionDetails;
+      return respond(request, env, { success: true, prescription: details ? {
+        id: details.id,
+        formNumber: details.FHIRReference,
+        prescriptionNumber: details.PrescriptionNumber,
+        doctorName: details.DoctorName,
+        creationDate: details.CreationDate,
+        expiryDate: details.ExpiryDate,
+        startDate: details.StartDate,
+        status: details.Status?.StatusName || "",
+        coPayment: details.CoPayment,
+        disposingMaxValue: details.DisposingMaxValue,
+        approvalNumber: details.ApprovalNumber,
+        note: details.Note,
+        mobileNumber: details.MobileNumber || "",
+        dateOfBirth: details.DateOfBirth || "",
+        insuranceCardNumber: details.InsuranceCardNumber || "",
+        branchName: details.BranchName || "",
+        source: details.Source,
+        approvalResponse: details.ApprovalResponse || "",
+        isChronic: Boolean(details.IsChronic),
+        medications: Array.isArray(details.Medications) ? details.Medications : []
+      } : null });
     } catch (error) {
       let details = error.details || {};
       if (action === "save") {
@@ -394,6 +416,7 @@ const portalAccountRoutes = async (request, env, path) => {
         startDate: details.StartDate,
         status: details.Status?.StatusName || "",
         coPayment: details.CoPayment,
+        disposingMaxValue: details.DisposingMaxValue,
         approvalNumber: details.ApprovalNumber,
         note: details.Note,
         mobileNumber: details.MobileNumber || "",
