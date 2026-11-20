@@ -59,13 +59,14 @@
         if (!info?.uid) throw new Error('Odoo session has expired. Reload Odoo and sign in again.');
         const context = { ...(info.user_context || {}) };
         let companyIds = context.allowed_company_ids;
+        const companyId = company => Number(Array.isArray(company) ? company[0] : company && typeof company === 'object' ? company.id ?? company[0] : company);
         if (!Array.isArray(companyIds) || !companyIds.length) {
             const allowed = info.user_companies?.allowed_companies || [];
-            companyIds = Array.isArray(allowed) ? allowed.map(company => Number(typeof company === 'object' ? company.id : company)) : Object.keys(allowed).map(Number);
-            companyIds = companyIds.filter(id => Number.isInteger(id) && id > 0);
+            companyIds = Array.isArray(allowed) ? allowed.map(companyId) : Object.keys(allowed).map(Number);
+            companyIds = [...new Set(companyIds.filter(id => Number.isInteger(id) && id > 0))];
             if (!companyIds.length) {
-                const current = Number(info.user_companies?.current_company?.id || 0);
-                if (current > 0) companyIds = [current];
+                const current = companyId(info.user_companies?.current_company) || Number(info.company_id || 0);
+                if (Number.isInteger(current) && current > 0) companyIds = [current];
             }
             if (companyIds.length) context.allowed_company_ids = companyIds;
         }
