@@ -226,7 +226,6 @@ const portalAccountRoutes = async (request, env, path) => {
       const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 18000);
       try { const response = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName, query, variables }), signal: controller.signal }); const raw = await response.text().catch(() => ""); let data = null; try { data = raw ? JSON.parse(raw) : null; } catch {} const errors = Array.isArray(data?.errors) ? data.errors.map(e => ({ message: String(e?.message || "GraphQL error").slice(0,300), code: e?.extensions?.code || null, path: Array.isArray(e?.path) ? e.path.join(".").slice(0,200) : null, reason: String(e?.extensions?.exception?.message || e?.extensions?.originalError?.message || "").slice(0,300) || null, exception: String(e?.extensions?.exception?.name || e?.extensions?.exception?.type || "").slice(0,120) || null, stack: Array.isArray(e?.extensions?.exception?.stacktrace) ? e.extensions.exception.stacktrace.slice(0,4).map(x => String(x).slice(0,240)) : null })) : []; if (!response.ok || !data || errors.length || !data.data) { const error = new Error("CHRONIC_GRAPHQL_FAILED"); error.details = { operation: operationName, status: response.status, statusText: String(response.statusText || "").slice(0,120), contentType: response.headers.get("content-type") || "", message: String(data?.message || data?.error || "").slice(0,300), errors, response: data ? "" : raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0,500) }; throw error; } return data.data; } finally { clearTimeout(timeout); }
     };
-    let saveContext = null;
     try {
       if (action === "search") {
         const query = "query GetUniversalDrugs($filter: SearchFilter!) { GetUniversalDrugs(filter: $filter) { id drugName drugNameandForm form subform price mainQuantity subformQuantity mainForm { name } drug_dosage_form_id subformSoldInPart drugSubForm { name } medicalFormKey medicalForm } }";
@@ -235,20 +234,27 @@ const portalAccountRoutes = async (request, env, path) => {
         return respond(request, env, { success: true, drugs: result.GetUniversalDrugs || [] });
       }
       if (action === "validate") {
-        const query = "mutation CheckEditMatchingPrescription($input: PrescriptionEditCheck!) { CheckEditMatchingPrescription(input: $input) { message isSuccess } }";
+        const query = "query CheckEditMatchingPrescription($input: PrescriptionEditCheck!) { CheckEditMatchingPrescription(input: $input) { message isSuccess } }";
         const result = await gql("CheckEditMatchingPrescription", query, { input: { PrescriptionId: prescriptionId, Medications: Array.isArray(body.medications) ? body.medications : [] } });
         login.token = "";
         return respond(request, env, { success: true, validation: result.CheckEditMatchingPrescription || null });
       }
       if (action === "save") {
-        const query = "mutation UpdatePrescriptionMedicationsQuantities ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
-        const mobileUserId = String(login.id ?? "").trim();
-        const insuranceCompanyName = String(login.insuranceAgencyName || account.label || account.odoo_key || "").trim();
-        if (!mobileUserId) throw new Error("PORTAL_MOBILE_USER_ID_MISSING");
-        if (!insuranceCompanyName) throw new Error("PORTAL_INSURANCE_COMPANY_NAME_MISSING");
-        const input = { PrescriptionId: prescriptionId, Medications: (Array.isArray(body.medications) ? body.medications : []).map(m => { const item = { ...(m && typeof m === "object" ? m : {}) }; if (!item.ReplacementId) delete item.ReplacementId; if (!Number.isInteger(item.ReplacementIndex) || item.ReplacementIndex < 0) delete item.ReplacementIndex; return item; }), MaxAmount: String(body.MaxAmount ?? "0"), CoPayment: String(body.CoPayment ?? "0"), Note: body.Note ?? null, ApprovalNumber: body.ApprovalNumber == null ? null : String(body.ApprovalNumber), ...(body.Status ? { Status: String(body.Status) } : {}), MobileUserId: mobileUserId, InsuranceCompanyName: insuranceCompanyName, ...(Array.isArray(body.Diagnosis) && body.Diagnosis.length ? { Diagnosis: body.Diagnosis } : {}) };
-        saveContext = { inputKeys: Object.keys(input).sort(), mobileUserIdPresent: Boolean(input.MobileUserId), insuranceCompanyNamePresent: Boolean(input.InsuranceCompanyName), prescriptionIdLength: prescriptionId.length, prescriptionIdIsObjectId: /^[a-f0-9]{24}$/i.test(prescriptionId), prescriptionIdIsUuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(prescriptionId), diagnosisCount: Array.isArray(input.Diagnosis) ? input.Diagnosis.length : null, medicationCount: input.Medications.length };
-        const result = await gql("UpdatePrescriptionMedicationsQuantities", query, { input });
+        const query = "mutation example ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
+        const medications = (Array.isArray(body.medications) ? body.medications : []).map((item, index) => ({
+          DrugId: String(item.DrugId || ""),
+          Quantity: Number(item.Quantity),
+          ReplacementId: "",
+          ReplacementIndex: -1,
+          DeleteIt: Boolean(item.DeleteIt),
+          AddIt: Boolean(item.AddIt),
+          QuantityType: String(item.QuantityType || "SUB"),
+          Index: Number.isInteger(Number(item.Index)) ? Number(item.Index) : index
+        }));
+        if (!medications.length || medications.some(item => !item.DrugId || !Number.isInteger(item.Quantity) || item.Quantity < 1)) throw new Error("INVALID_PRESCRIPTION_CHANGES");
+        const normalizeAmount = value => Number.isFinite(Number(value)) ? String(Number(value)) : "0";
+        const input = { PrescriptionId: prescriptionId, Medications: medications, MaxAmount: normalizeAmount(body.MaxAmount), CoPayment: normalizeAmount(body.CoPayment), Note: body.Note ?? null, Diagnosis: Array.isArray(body.Diagnosis) ? body.Diagnosis : [], ApprovalNumber: String(body.ApprovalNumber ?? "") };
+        const result = await gql(null, query, { input });
         login.token = "";
         return respond(request, env, { success: true, result: result.UpdatePrescriptionMedicationsQuantities || null });
       }
@@ -279,51 +285,8 @@ const portalAccountRoutes = async (request, env, path) => {
         medications: Array.isArray(details.Medications) ? details.Medications : []
       } : null });
     } catch (error) {
-      let details = error.details || {};
-      if (action === "save") {
-        const medications = Array.isArray(body.medications) ? body.medications : [];
-        const describeType = type => !type ? "" : type.kind === "NON_NULL" ? describeType(type.ofType) + "!" : type.kind === "LIST" ? "[" + describeType(type.ofType) + "]" : type.name || "";
-        const namedType = type => type?.ofType ? namedType(type.ofType) : type?.name || "";
-        try {
-          const introspectionQuery = "query OpenErxEditSchema { editInput: __type(name: \"PrescriptionEditInput\") { name kind inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } mutation: __type(name: \"Mutation\") { fields { name args { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } } }";
-          const schemaResponse = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName: "OpenErxEditSchema", query: introspectionQuery }), signal: AbortSignal.timeout(12000) });
-          const schemaData = await schemaResponse.json().catch(() => null);
-          const editInput = schemaData?.data?.editInput;
-          const mutationField = schemaData?.data?.mutation?.fields?.find(field => field.name === "UpdatePrescriptionMedicationsQuantities");
-          const medicationField = editInput?.inputFields?.find(field => field.name === "Medications");
-          let medicationInput = null;
-          const medicationTypeName = namedType(medicationField?.type);
-          if (medicationTypeName && !["String","Int","Float","Boolean","ID"].includes(medicationTypeName)) {
-            const medicationQuery = "query OpenErxMedicationInputSchema { target: __type(name: " + JSON.stringify(medicationTypeName) + ") { name kind inputFields { name type { kind name ofType { kind name ofType { kind name ofType { kind name } } } } } } }";
-            const medicationResponse = await fetch("https://chronicapi.yodawy.com/graphql", { method: "POST", headers: { "content-type": "application/json", "authorization": "Bearer " + login.token, "origin": "https://portal.yodawy.com", "referer": "https://portal.yodawy.com/" }, body: JSON.stringify({ operationName: "OpenErxMedicationInputSchema", query: medicationQuery }), signal: AbortSignal.timeout(12000) });
-            const medicationData = await medicationResponse.json().catch(() => null);
-            medicationInput = medicationData?.data?.target ? { name: medicationData.data.target.name, kind: medicationData.data.target.kind, fields: (medicationData.data.target.inputFields || []).map(field => ({ name: field.name, type: describeType(field.type) })) } : null;
-          }
-          details.schema = {
-            available: Boolean(editInput),
-            input: editInput ? { name: editInput.name, fields: (editInput.inputFields || []).map(field => ({ name: field.name, type: describeType(field.type) })) } : null,
-            medicationInput,
-            mutation: mutationField ? { name: mutationField.name, args: (mutationField.args || []).map(arg => ({ name: arg.name, type: describeType(arg.type) })) } : null,
-            errors: Array.isArray(schemaData?.errors) ? schemaData.errors.map(item => String(item?.message || "").slice(0, 200)) : []
-          };
-        } catch (schemaError) {
-          details.schema = { available: false, error: String(schemaError?.message || "SCHEMA_INTROSPECTION_FAILED").slice(0, 200) };
-        }
-        details.mutationContext = saveContext;
-        details.payload = {
-          medicationCount: medications.length,
-          deletedCount: medications.filter(item => item?.DeleteIt === true).length,
-          addedCount: medications.filter(item => item?.AddIt === true).length,
-          medicationKeys: [...new Set(medications.flatMap(item => Object.keys(item || {})))].sort(),
-          metadataKeys: Object.keys(body).filter(key => !["medications","accountId","prescriptionId","action"].includes(key)).sort(),
-          maxAmountType: typeof body.MaxAmount,
-          coPaymentType: typeof body.CoPayment,
-          noteType: body.Note === null ? "null" : typeof body.Note,
-          diagnosisCount: Array.isArray(body.Diagnosis) ? body.Diagnosis.length : null
-        };
-      }
       login.token = "";
-      return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(Object.keys(details).length ? { details } : {}) }, 502);
+      return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(error.details ? { details: error.details } : {}) }, 502);
     }
   }
   if (path === "/api/open-erx/run" && request.method === "POST") {
