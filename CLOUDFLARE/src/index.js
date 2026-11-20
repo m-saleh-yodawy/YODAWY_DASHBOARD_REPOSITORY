@@ -250,7 +250,7 @@ const portalAccountRoutes = async (request, env, path) => {
       const result = await gql("EditPrescriptionDetails", query);
       login.token = "";
       return respond(request, env, { success: true, prescription: result.GetPrescriptionDetails || null });
-    } catch (error) { login.token = ""; return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(action === "validate" && error.details ? { details: error.details } : {}) }, 502); }
+    } catch (error) { login.token = ""; return respond(request, env, { success: false, error: error.message || "ERX_EDIT_REQUEST_FAILED", ...(error.details ? { details: error.details } : {}) }, 502); }
   }
   if (path === "/api/open-erx/run" && request.method === "POST") {
     const body = await readBody(request);
