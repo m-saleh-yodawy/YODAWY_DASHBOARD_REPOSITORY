@@ -171,6 +171,182 @@ const portalAccountRoutes = async (request, env, path) => {
   const isSuper = actor.role === "SUPER_ADMIN";
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
+  const normalizeOdooKey = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s*\(\d+\)\s*$/, "").replace(/[^a-z0-9]/g, "");
+  const upstreamGraphql = async (url, query, variables = {}, operationName = "") => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 18000);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "origin": "https://portal.yodawy.com",
+          "referer": "https://portal.yodawy.com/"
+        },
+        body: JSON.stringify({ operationName, query, variables }),
+        signal: controller.signal
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data || data.errors?.length) throw new Error("UPSTREAM_GRAPHQL_FAILED");
+      return data.data || {};
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  if (path === "/api/open-erx/accounts" && request.method === "POST") {
+    const body = await readBody(request);
+    const requestedKey = normalizeOdooKey(body.odooKey);
+    if (!requestedKey) return respond(request, env, { success: false, error: "INVALID_ODOO_KEY" }, 400);
+    const rows = await env.DB.prepare("SELECT account_id, account_type, label, username, odoo_key FROM portal_accounts WHERE owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1 AND odoo_key IS NOT NULL AND account_type IN ('PERSONAL', 'NON-PERSONAL') ORDER BY account_type, label").bind(actor.user_id).all();
+    const accounts = (rows.results || []).filter(row => normalizeOdooKey(row.odoo_key) === requestedKey).map(row => ({
+      id: row.account_id,
+      accountType: row.account_type,
+      label: row.label,
+      username: row.username,
+      odooKey: row.odoo_key
+    }));
+    return respond(request, env, { success: true, accounts });
+  }
+  if (path === "/api/open-erx/run" && request.method === "POST") {
+    const body = await readBody(request);
+    const accountId = String(body.accountId || "").trim();
+    const cardNumber = String(body.cardNumber || "").trim();
+    const formNumber = String(body.formNumber || "").trim();
+    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !cardNumber || cardNumber.length > 80 || !formNumber || formNumber.length > 120) return respond(request, env, { success: false, error: "INVALID_OPEN_ERX_REQUEST" }, 400);
+    const account = await env.DB.prepare("SELECT account_id, account_type, label, username, odoo_key, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1 AND odoo_key IS NOT NULL AND account_type IN ('PERSONAL', 'NON-PERSONAL')").bind(accountId, actor.user_id).first();
+    if (!account) return forbidden();
+    let password;
+    try {
+      password = await decryptPortalPassword(env, account.encrypted_password, account.encryption_iv);
+    } catch {
+      return respond(request, env, { success: false, error: "PORTAL_CREDENTIALS_UNAVAILABLE" }, 503);
+    }
+    const loginQuery = "query Index { ViewerQuery { _OpenErxLogin: CallCenterLogIn(username: " + JSON.stringify(account.username) + ", password: " + JSON.stringify(password) + ") { token id groupId isAdmin isKsysAdmin userName groupName branchId agentType insuranceAgencyId insuranceAgencyName channel newPharmacyPortal } } }";
+    let login;
+    try {
+      const data = await upstreamGraphql("https://aws.yodawy.com/MobileWCF.svc/api/secure/GraphQl", loginQuery, {}, "Index");
+      login = data?.ViewerQuery?._OpenErxLogin;
+    } catch {
+      password = "";
+      return respond(request, env, { success: false, error: "PORTAL_LOGIN_REQUEST_FAILED" }, 502);
+    }
+    password = "";
+    if (!login?.token || !login?.insuranceAgencyId || !login?.agentType) return respond(request, env, { success: false, error: "PORTAL_LOGIN_FAILED" }, 401);
+    const chronicGraphql = async (operationName, query, variables = {}) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 18000);
+      try {
+        const response = await fetch("https://chronicapi.yodawy.com/graphql", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "authorization": "Bearer " + login.token,
+            "origin": "https://portal.yodawy.com",
+            "referer": "https://portal.yodawy.com/"
+          },
+          body: JSON.stringify({ operationName, query, variables }),
+          signal: controller.signal
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data || data.errors?.length) throw new Error("CHRONIC_GRAPHQL_FAILED");
+        return data.data || {};
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+    const filter = {
+      AgencyId: login.insuranceAgencyId,
+      CardNumber: cardNumber,
+      AgentType: String(login.agentType),
+      BranchId: login.branchId || null,
+      PharmacyId: ""
+    };
+    let validation;
+    try {
+      const query = "query CheckCardNumberValidation($filter: AgencyPrescriptionsFilterInput!) { CheckCardNumberValidation(filter: $filter) { isSuccess message model { PatientName DateofBirth MobileNumber __typename } __typename } }";
+      const result = await chronicGraphql("CheckCardNumberValidation", query, { filter });
+      validation = result?.CheckCardNumberValidation;
+    } catch {
+      login.token = "";
+      return respond(request, env, { success: false, error: "CARD_VALIDATION_REQUEST_FAILED" }, 502);
+    }
+    if (!validation?.isSuccess) {
+      login.token = "";
+      return respond(request, env, { success: false, error: "CARD_NUMBER_NOT_VALID", message: String(validation?.message || "Card number was not accepted.") }, 422);
+    }
+    const historyQuery = "query GetPaginatedPrescriptionsHistory($filter: AgencyPrescriptionsFilterInput!) { GetPaginatedPrescriptionsHistory(filter: $filter) { total last_page current_page data { _id CreationDate ExpiryDate DoctorName MobileUserId PortalDoctorId Medications { Quantity IsDisposed DisposedQuantity __typename } PrescriptionNumber StartDate DisposingMaxValue IsStoped Note CoPayment ApprovalResponse Status { id StatusName Enum ColorCode __typename } Source PrescriptionSerial IsExpired __typename } __typename } }";
+    let historyRows = [];
+    try {
+      const first = await chronicGraphql("GetPaginatedPrescriptionsHistory", historyQuery, { filter: { AgencyId: login.insuranceAgencyId, CardNumber: cardNumber, AgentType: String(login.agentType), page: 0 } });
+      const result = first?.GetPaginatedPrescriptionsHistory;
+      if (!result || !Array.isArray(result.data)) throw new Error("PRESCRIPTION_HISTORY_UNAVAILABLE");
+      historyRows.push(...result.data);
+      const lastPage = Math.min(19, Math.max(0, Number(result.last_page) || 0));
+      for (let page = 1; page <= lastPage; page++) {
+        const next = await chronicGraphql("GetPaginatedPrescriptionsHistory", historyQuery, { filter: { AgencyId: login.insuranceAgencyId, CardNumber: cardNumber, AgentType: String(login.agentType), page } });
+        const rows = next?.GetPaginatedPrescriptionsHistory?.data;
+        if (!Array.isArray(rows)) break;
+        historyRows.push(...rows);
+      }
+    } catch {
+      login.token = "";
+      return respond(request, env, { success: false, error: "PRESCRIPTION_HISTORY_FAILED" }, 502);
+    }
+    if (!historyRows.length) {
+      login.token = "";
+      return respond(request, env, { success: false, error: "NO_PRESCRIPTIONS_FOUND" }, 404);
+    }
+    const referenceQuery = id => "query OpenErxReference { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(String(id)) + ") { FHIRReference } }";
+    let matchedId = "";
+    const referenceBatchSize = 4;
+    for (let index = 0; index < historyRows.length && !matchedId; index += referenceBatchSize) {
+      const batch = historyRows.slice(index, index + referenceBatchSize);
+      const checks = await Promise.all(batch.map(async row => {
+        if (!row?._id) return null;
+        try {
+          const data = await chronicGraphql("OpenErxReference", referenceQuery(row._id));
+          return data?.GetPrescriptionDetails?.FHIRReference && normalizeOdooKey(data.GetPrescriptionDetails.FHIRReference) === normalizeOdooKey(formNumber) ? String(row._id) : null;
+        } catch {
+          return null;
+        }
+      }));
+      matchedId = checks.find(Boolean) || "";
+    }
+    if (!matchedId) {
+      login.token = "";
+      return respond(request, env, { success: false, error: "FORM_NUMBER_NOT_FOUND", message: "No prescription matched the Odoo Form Number for this card." }, 404);
+    }
+    const detailsQuery = "query OpenErxPrescriptionDetails { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(matchedId) + ") { id Medications { DrugId DrugName Form SubForm { id Name } Quantity IsDisposed DisposedQuantity Price ActiveIngred DrugForm { id Key Name } SubFormQuantity QuantityType SubformSoldInPart FormSoldInPart FormQuantity MainForm Note CombinedSentence DrugTotal } CoPayment Note ScannedPrescriptions ApprovalNumber IssuingDate IsChronic Tags RelativeDocumentId ApprovalResponse DisposingMaxValue BranchId BranchName DoctorName Location { coordinates } Source PrescriptionSerial ClaimFormType InsuranceCardNumber PatientNameEn PatientName CreationDate ExpiryDate PrescriptionNumber StartDate Status { id StatusName } FHIRReference } }";
+    let details;
+    try {
+      const result = await chronicGraphql("OpenErxPrescriptionDetails", detailsQuery);
+      details = result?.GetPrescriptionDetails;
+    } catch {
+      login.token = "";
+      return respond(request, env, { success: false, error: "PRESCRIPTION_DETAILS_FAILED" }, 502);
+    }
+    login.token = "";
+    if (!details || normalizeOdooKey(details.FHIRReference) !== normalizeOdooKey(formNumber)) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
+    return respond(request, env, {
+      success: true,
+      account: { id: account.account_id, label: account.label, username: account.username, accountType: account.account_type, odooKey: account.odoo_key },
+      patient: { name: details.PatientName || details.PatientNameEn || "" },
+      prescription: {
+        id: details.id,
+        formNumber: details.FHIRReference,
+        prescriptionNumber: details.PrescriptionNumber,
+        doctorName: details.DoctorName,
+        creationDate: details.CreationDate,
+        expiryDate: details.ExpiryDate,
+        startDate: details.StartDate,
+        status: details.Status?.StatusName || "",
+        coPayment: details.CoPayment,
+        approvalNumber: details.ApprovalNumber,
+        note: details.Note,
+        medications: Array.isArray(details.Medications) ? details.Medications : []
+      }
+    });
+  }
   if (path === "/api/portal-accounts" && request.method === "GET") {
     const requestedUserId = String(new URL(request.url).searchParams.get("userId") || "").trim().toUpperCase();
     const targetUserId = requestedUserId || actor.user_id;
