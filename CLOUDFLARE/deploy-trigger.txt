@@ -16,3 +16,4 @@ Open ERX save payload schema diagnostics: 20261120-open-erx-schema-diagnostics-1
 Open ERX preserve medication prices in save payload: 20261120-open-erx-medication-prices-1.
 Open ERX unify prescription metadata mapping: 20261120-open-erx-normalized-details-1.
 Open ERX omit empty replacement sentinels: 20261120-open-erx-null-replacements-1.
+Open ERX link replacement medications to removed originals: 20261120-open-erx-link-replacements-1.
