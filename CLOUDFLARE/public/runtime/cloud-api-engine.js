@@ -139,11 +139,7 @@
     let portalAccountsCache = null;
     let portalAccountsRequest = null;
     const getOpenErxAccounts = async odooKey => call('/api/open-erx/accounts', 'POST', { odooKey: String(odooKey || '') });
-    const runOpenErx = async (accountId, cardNumber, formNumber) => call('/api/open-erx/run', 'POST', {
-        accountId: String(accountId || ''),
-        cardNumber: String(cardNumber || ''),
-        formNumber: String(formNumber || '')
-    });
+    const runOpenErx = async (accountId, cardNumber, prescriptionId) => call('/api/open-erx/run', 'POST', { accountId: String(accountId || ''), cardNumber: String(cardNumber || ''), prescriptionId: String(prescriptionId || '') });
     const getPortalAccounts = async (force = false) => {
         if (force) { portalAccountsCache = null; portalAccountsRequest = null; }
         if (portalAccountsCache) return portalAccountsCache;
