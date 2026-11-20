@@ -9,3 +9,4 @@ Open ERX Chronic GraphQL diagnostics release: 20261120-open-erx-graphql-diagnost
 Open ERX bookmark error propagation release: 20261120-open-erx-bookmark-errors-1.
 Open ERX unsupported validation mutation removal release: 20261120-open-erx-direct-save-1.
 Open ERX save operation name correction: 20261120-open-erx-save-operation-name-1.
+Open ERX prescription metadata mapping fix: 20261120-open-erx-metadata-save-1.
