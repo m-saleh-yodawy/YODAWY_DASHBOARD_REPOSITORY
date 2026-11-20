@@ -301,12 +301,12 @@ const portalAccountRoutes = async (request, env, path) => {
       [row.PrescriptionNumber, row.PrescriptionSerial].some(value => normalizeOdooKey(value) === formKey)
     );
     let matchedId = directMatches.length === 1 ? String(directMatches[0]._id || "") : "";
-    if (!matchedId && (directMatches.length > 1 || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(formNumber))) {
+    if (!matchedId) {
       const referenceQuery = id => "query OpenErxReference { GetPrescriptionDetails(ePrescriptionId: " + JSON.stringify(String(id)) + ") { FHIRReference PrescriptionNumber PrescriptionSerial } }";
-      const candidates = directMatches.length > 1 ? directMatches : historyRows;
       const referenceBatchSize = 8;
-      for (let index = 0; index < candidates.length && !matchedId; index += referenceBatchSize) {
-        const batch = candidates.slice(index, index + referenceBatchSize);
+      const matches = [];
+      for (let index = 0; index < historyRows.length; index += referenceBatchSize) {
+        const batch = historyRows.slice(index, index + referenceBatchSize);
         const checks = await Promise.all(batch.map(async row => {
           if (!row?._id) return null;
           try {
@@ -318,12 +318,13 @@ const portalAccountRoutes = async (request, env, path) => {
             return null;
           }
         }));
-        const matches = checks.filter(Boolean);
-        if (matches.length === 1) matchedId = matches[0];
-        else if (matches.length > 1) {
-          login.token = "";
-          return respond(request, env, { success: false, error: "MULTIPLE_PRESCRIPTION_MATCHES", message: "More than one prescription matched this reference. Please verify the Form Number in Odoo." }, 409);
-        }
+        matches.push(...checks.filter(Boolean));
+      }
+      const uniqueMatches = [...new Set(matches)];
+      if (uniqueMatches.length === 1) matchedId = uniqueMatches[0];
+      else if (uniqueMatches.length > 1) {
+        login.token = "";
+        return respond(request, env, { success: false, error: "MULTIPLE_PRESCRIPTION_MATCHES", message: "More than one prescription matched this reference. Please verify the Form Number in Odoo." }, 409);
       }
     }
     if (!matchedId) {
@@ -340,7 +341,7 @@ const portalAccountRoutes = async (request, env, path) => {
       return respond(request, env, { success: false, error: "PRESCRIPTION_DETAILS_FAILED" }, 502);
     }
     login.token = "";
-    if (!details || normalizeOdooKey(details.FHIRReference) !== normalizeOdooKey(formNumber)) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
+    if (!details || ![details.FHIRReference, details.PrescriptionNumber, details.PrescriptionSerial].some(value => normalizeOdooKey(value) === formKey)) return respond(request, env, { success: false, error: "PRESCRIPTION_REFERENCE_MISMATCH" }, 409);
     return respond(request, env, {
       success: true,
       account: { id: account.account_id, label: account.label, username: account.username, accountType: account.account_type, odooKey: account.odoo_key },
