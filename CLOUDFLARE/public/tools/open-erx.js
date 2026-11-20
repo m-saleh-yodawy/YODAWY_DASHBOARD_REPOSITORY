@@ -34,16 +34,18 @@
         const element = document.querySelector('[name="' + name + '"]');
         return normalize(element?.innerText || element?.textContent || '');
     };
+    const getTicketId = () => {
+        const urls = [location.href, location.hash.startsWith('#') ? location.hash.slice(1) : location.hash];
+        for (const raw of urls) { try { const params = new URLSearchParams(raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : raw); const id = Number(params.get('id') || params.get('active_id') || params.get('res_id') || 0); if (id > 0) return id; } catch {} }
+        const text = normalize(document.querySelector('.o_control_panel .breadcrumb, .o_form_view .o_form_sheet, body')?.innerText || '');
+        const match = text.match(/#(\\d{4,})/);
+        return Number(match?.[1] || 0);
+    };
     const getTicketData = card => {
         const companyNode = document.querySelector('span[name="payor_id"] span') || document.querySelector('span[name="payor_id"]');
         const companyRaw = normalize(companyNode?.innerText || companyNode?.textContent || '');
         const company = keyFor(companyRaw);
-        return {
-            company,
-            companyRaw,
-            cardNumber: normalize(card?.innerText || card?.textContent || ''),
-            formNumber: getField('prescription_number'), ticketId: Number(new URL(location.href).searchParams.get('id') || 0)
-        };
+        return { company, companyRaw, cardNumber: normalize(card?.innerText || card?.textContent || ''), formNumber: getField('prescription_number'), ticketId: getTicketId() };
     };
     const getApi = () => window.YODAWY_API_ENGINE;
     const getPrescriptionId = async ticketId => {
@@ -154,9 +156,11 @@
         try { api = await waitForApi(); }
         catch (error) { return showFailure(error?.message || 'Dashboard API is not ready.'); }
         const data = state.ticket;
-        if (!data?.cardNumber || !data?.ticketId) return showFailure('Card Number or Odoo Ticket ID is missing.');
+        if (!data?.cardNumber) return showFailure('Card Number is missing from the Odoo ticket.');
+        const ticketId = Number(data.ticketId || getTicketId());
+        if (!ticketId) return showFailure('Unable to identify the Odoo ticket ID from this page.');
         let erx;
-        try { erx = await getPrescriptionId(data.ticketId); } catch (error) { return showFailure(error?.message || 'Could not resolve the Odoo ERX link.'); }
+        try { erx = await getPrescriptionId(ticketId); } catch (error) { return showFailure(error?.message || 'Could not resolve the Odoo ERX link.'); }
         const result = state.modal?.querySelector('[data-open-erx-result]');
         if (result) { result.hidden = true; result.innerHTML = ''; }
         setBusy(true, 'Resolving the Odoo prescription, signing in and validating the card...');
@@ -252,7 +256,7 @@
                 event.preventDefault();
                 event.stopPropagation();
                 const data = getTicketData(card);
-                if (!data.company || !data.cardNumber || !data.ticketId) {
+                if (!data.company || !data.cardNumber) {
                     openModal({
                         company: data.company || data.companyRaw || 'Unsupported Company',
                         cardNumber: data.cardNumber || 'Unavailable',
