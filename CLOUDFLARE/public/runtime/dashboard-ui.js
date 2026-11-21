@@ -59,6 +59,12 @@
     const pendingLocalTools = new Map();
     const trackedTransactions = new Set();
     let networkPage = 1;
+    let siteAccessSites = null;
+    let siteAccessEnabled = true;
+    let siteAccessLoading = false;
+    let siteAccessLoaded = false;
+    let siteAccessSaving = false;
+    let siteAccessError = '';
     const NETWORK_PAGE_SIZE = 10;
     let dropdownMenuClickHandler = null;
     let dropdownMenuInputHandler = null;
@@ -196,8 +202,8 @@
             canViewNetwork: false
         }),
         SUPER_ADMIN: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'accounts', 'account']),
-            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'view-user-password', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'sites', 'accounts', 'account']),
+            actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'view-user-password', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement', 'add-site', 'remove-site', 'save-site-access', 'reload-site-access']),
             canManageAnnouncements: true,
             canManageUsers: true,
             canEditUsers: true,
@@ -205,7 +211,8 @@
             canManageUserPermissions: false,
             canManageSharedTools: true,
             canManageVisibility: true,
-            canViewNetwork: true
+            canViewNetwork: true,
+            canManageSites: true
         })
     });
 
@@ -3322,6 +3329,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (access.canManageUserPermissions || access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
         if (access.canViewNetwork) items.push(['transactions', 'fa-solid fa-right-left', 'NETWORK']);
+        if (access.canManageSites) items.push(['sites', 'fa-solid fa-globe', 'Website Access']);
         items.push(['account', 'fa-solid fa-gear', 'Settings']);
         return items;
     };
@@ -3915,6 +3923,52 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         '<div class="yd-network-page"><section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Administrative activity and request status.</p></div></section>' +
         renderTransactionsTable(getTransactions()) + '</div>';
 
+
+    const renderSites = () => {
+        if (!siteAccessLoaded || siteAccessLoading) return '<section class="yd-welcome"><div><h1>Website Access</h1><p>Loading centralized website rules...</p></div></section><div class="yd-card yd-empty"><span class="yd-control-spinner" aria-hidden="true"></span> Loading site configuration</div>';
+        const rows = (siteAccessSites || []).map((site, index) => {
+            const protocols = Array.isArray(site.protocols) ? site.protocols : ['https:'];
+            const protocol = protocols.includes('https:') && protocols.includes('http:') ? 'both' : protocols.includes('http:') ? 'http:' : 'https:';
+            return '<tr class="yd-site-row" data-site-row="' + index + '">' +
+                '<td><input class="yd-input" data-site-field="host" value="' + escapeHTML(site.host || '') + '" placeholder="example.com or *.example.com" autocomplete="off"></td>' +
+                '<td><input class="yd-input" data-site-field="paths" value="' + escapeHTML((site.paths || ['/*']).join(', ')) + '" placeholder="/*, /web/*" autocomplete="off"></td>' +
+                '<td><select class="yd-input" data-site-field="protocol"><option value="https:"' + (protocol === 'https:' ? ' selected' : '') + '>HTTPS</option><option value="http:"' + (protocol === 'http:' ? ' selected' : '') + '>HTTP</option><option value="both"' + (protocol === 'both' ? ' selected' : '') + '>Both</option></select></td>' +
+                '<td><input type="checkbox" data-site-field="enabled"' + (site.enabled ? ' checked' : '') + ' aria-label="Enable site"></td>' +
+                '<td><button type="button" class="yd-icon-btn danger" data-action="remove-site" data-index="' + index + '" title="Remove website" aria-label="Remove website"><i class="fa-solid fa-trash"></i></button></td>' +
+            '</tr>';
+        }).join('');
+        return '<div class="yd-sites-page">' +
+            '<section class="yd-welcome"><div><h1>Website Access</h1><p>Control exactly which websites and URL paths can activate the universal loader.</p></div><div class="yd-portal-admin-actions"><button type="button" class="yd-secondary" data-action="reload-site-access"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button><button type="button" class="yd-primary" data-action="save-site-access"><i class="fa-solid fa-cloud-arrow-up"></i><span>Save Changes</span></button></div></section>' +
+            (siteAccessError ? '<div class="yd-alert yd-alert-error">' + escapeHTML(siteAccessError) + '</div>' : '') +
+            '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-shield-halved"></i></span><span>Global Site Gate</span></div><label class="yd-field" style="display:flex;align-items:center;gap:10px"><input id="yd-site-access-enabled" type="checkbox"' + (siteAccessEnabled ? ' checked' : '') + '>Enable the loader on the websites listed below</label><small class="yd-field-hint">When disabled, the loader will not activate on any website. Changes apply on the next page load.</small></div>' +
+            '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-globe"></i></span><span>Allowed Websites</span><span class="yd-pill">' + (siteAccessSites || []).length + ' sites</span></div>' +
+            '<div class="yd-table-wrap"><table><thead><tr><th>Hostname</th><th>Allowed Paths</th><th>Protocol</th><th>Enabled</th><th>Action</th></tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="yd-empty">No websites configured.</td></tr>') + '</tbody></table></div>' +
+            '<div class="yd-portal-admin-actions" style="margin-top:14px"><button type="button" class="yd-secondary" data-action="add-site"><i class="fa-solid fa-plus"></i><span>Add Website</span></button></div></div>' +
+            '<div class="yd-field-hint">Use an exact hostname such as <strong>example.com</strong>, or <strong>*.example.com</strong> for subdomains. Paths support * wildcards, for example /* or /web/*.</div>' +
+        '</div>';
+    };
+
+    const loadSiteAccess = async () => {
+        if (siteAccessLoading) return;
+        siteAccessLoading = true;
+        siteAccessError = '';
+        render();
+        try {
+            const result = await context.request('/api/dashboard/site-access');
+            if (result?.success !== true || !result.config || !Array.isArray(result.config.sites)) throw new Error('Invalid site access response.');
+            siteAccessEnabled = result.config.enabled === true;
+            siteAccessSites = result.config.sites;
+            siteAccessLoaded = true;
+        } catch (error) {
+            siteAccessError = error?.message || 'Unable to load website rules.';
+            siteAccessSites = [];
+            siteAccessLoaded = true;
+        } finally {
+            siteAccessLoading = false;
+            render();
+        }
+    };
+
     const renderAccount = () => {
         const user = context.user || {};
         const settings = context.settings?.getSettings?.() || { tools: {} };
@@ -3948,6 +4002,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             permissions: renderPermissions,
             visibility: renderVisibility,
             transactions: renderTransactions,
+            sites: renderSites,
             account: renderAccount
         };
         return (pages[activePage] || renderOverview)();
@@ -4588,6 +4643,60 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             if (!access.actions.includes(action)) throw new Error('This action is not available for your role.');
             if (action === 'toggle-permission' && button?.dataset.field === 'forcedState' && context.userRole !== 'SUPER_ADMIN') {
                 throw new Error('Forced State can only be managed by SUPER ADMIN.');
+            }
+            if (action === 'add-site') {
+                if (!Array.isArray(siteAccessSites)) siteAccessSites = [];
+                siteAccessSites.push({ host: '', enabled: true, protocols: ['https:'], paths: ['/*'] });
+                siteAccessError = '';
+                render();
+                return;
+            } else if (action === 'remove-site') {
+                const index = Number(button?.dataset.index);
+                if (Number.isInteger(index) && index >= 0) siteAccessSites.splice(index, 1);
+                render();
+                return;
+            } else if (action === 'reload-site-access') {
+                siteAccessLoaded = false;
+                siteAccessSites = null;
+                await loadSiteAccess();
+                return;
+            } else if (action === 'save-site-access') {
+                if (siteAccessSaving) return;
+                const root = document.getElementById(CONFIG.ID);
+                const rows = [...(root?.querySelectorAll('.yd-site-row') || [])];
+                const sites = rows.map(row => {
+                    const field = name => row.querySelector('[data-site-field="' + name + '"]');
+                    const protocol = field('protocol')?.value || 'https:';
+                    return {
+                        host: field('host')?.value || '',
+                        enabled: field('enabled')?.checked === true,
+                        protocols: protocol === 'both' ? ['https:', 'http:'] : [protocol],
+                        paths: String(field('paths')?.value || '').split(',').map(item => item.trim()).filter(Boolean)
+                    };
+                });
+                const enabled = root?.querySelector('#yd-site-access-enabled')?.checked === true;
+                siteAccessSaving = true;
+                setButtonLoading(button, 'Saving');
+                try {
+                    const result = await context.request('/api/dashboard/site-access', { method: 'PUT', body: { enabled, sites } });
+                    if (result?.success !== true || !result.config) throw new Error('Website settings were not saved.');
+                    siteAccessEnabled = result.config.enabled === true;
+                    siteAccessSites = result.config.sites || [];
+                    siteAccessLoaded = true;
+                    siteAccessError = '';
+                    showNotice('Website access rules saved successfully.');
+                    render();
+                } catch (error) {
+                    showMessageDialog('Website Settings Not Saved', error?.message || 'Unable to save website rules.');
+                    if (button?.isConnected) {
+                        button.disabled = false;
+                        button.removeAttribute('aria-busy');
+                        button.classList.remove('yd-button-loading');
+                    }
+                } finally {
+                    siteAccessSaving = false;
+                }
+                return;
             }
             if (action === 'refresh-connection') {
                 if (button?.disabled) return;
@@ -5408,6 +5517,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 profileOpen = false;
                 if (activePage !== 'visibility') { visibilityDraft = null; openVisibilityToolId = null; }
                 render();
+                if (activePage === 'sites' && !siteAccessLoaded) void loadSiteAccess();
                 return;
             }
             if (actionButton?.dataset.action === 'refresh-connection') { runAction('refresh-connection', actionButton); return; }
