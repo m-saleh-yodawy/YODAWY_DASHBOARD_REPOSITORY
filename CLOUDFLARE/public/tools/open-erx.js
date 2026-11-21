@@ -100,9 +100,8 @@
         state.busy = busy;
         const select = state.modal?.querySelector('[data-open-erx-account]');
         const status = state.modal?.querySelector('[data-open-erx-status]');
-        const close = state.modal?.querySelector('[data-open-erx-close]');
         if (select) select.disabled = busy || state.accounts.length < 2;
-        if (close) close.disabled = busy;
+        state.modal?.querySelectorAll('[data-open-erx-close]').forEach(button => button.disabled = busy);
         if (status) {
             status.hidden = !message;
             status.classList.toggle('is-loading', busy);
@@ -133,9 +132,7 @@
         const rows = state.edit.medications.map((m,i)=>'<tr data-med-row="'+i+'"><td>'+(i+1)+'</td><td><strong>'+escapeHTML(m.DrugName||'')+'</strong><small>'+escapeHTML(m.Form||'')+'</small></td><td><input type="number" min="1" step="1" value="'+escapeHTML(m.Quantity||1)+'" data-med-qty="'+i+'" class="yd-open-erx-edit-qty"></td><td><button type="button" data-med-delete="'+i+'" class="yd-open-erx-edit-delete">Delete</button></td></tr>').join('');
         target.innerHTML='<div class="yd-open-erx-portal-head"><div class="yd-open-erx-portal-brand"><span class="yd-open-erx-brand-mark">Y</span><div><strong>Yodawy Portal</strong><small>Prescription Editor</small></div></div><div class="yd-open-erx-portal-head-meta"><span>EDIT MODE</span></div></div><section class="yd-open-erx-patient-card"><div class="yd-open-erx-patient-copy"><span>PATIENT</span><strong>'+escapeHTML(patient.name||'Patient')+'</strong><small>'+escapeHTML(patient.mobileNumber||'')+'</small></div></section><section class="yd-open-erx-portal-section"><div class="yd-open-erx-portal-section-head"><h3>Medications</h3></div><div class="yd-open-erx-table-wrap"><table><thead><tr><th>#</th><th>Medication</th><th>Quantity</th><th></th></tr></thead><tbody data-edit-med-list>'+rows+'</tbody></table></div><div class="yd-open-erx-edit-search"><input type="search" data-edit-search placeholder="Search medication name"></div><div data-edit-search-results class="yd-open-erx-search-results"></div><div class="yd-open-erx-edit-actions"><button type="button" data-edit-save>Validate & Save Changes</button></div><div data-edit-save-status class="yd-open-erx-status" hidden></div></section>';
         target.hidden=false;
-        state.modal?.querySelector('[data-open-erx-run]')?.setAttribute('hidden','hidden');
         state.modal?.querySelector('[data-open-erx-status]')?.setAttribute('hidden','hidden');
-        state.modal?.querySelector('[data-open-erx-account-wrap]')?.setAttribute('hidden','hidden');
         target.querySelectorAll('[data-med-qty]').forEach(input=>input.addEventListener('change',()=>{const m=state.edit.medications[Number(input.dataset.medQty)];m.Quantity=Math.max(1,Number(input.value)||1);}));
         target.querySelectorAll('[data-med-delete]').forEach(btn=>btn.addEventListener('click',()=>{const m=state.edit.medications[Number(btn.dataset.medDelete)];m._deleted=!m._deleted;btn.textContent=m._deleted?'Undo':'Delete';btn.closest('tr').classList.toggle('yd-open-erx-deleted',m._deleted);}));
         target.querySelector('[data-edit-search]').addEventListener('input',e=>{clearTimeout(state.searchTimer);const value=normalize(e.target.value);state.searchSequence++;const box=target.querySelector('[data-edit-search-results]');box.innerHTML='';editStatus('');if(value.length<2)return;state.searchTimer=setTimeout(()=>searchEditDrugs(value,state.searchSequence),350);});
