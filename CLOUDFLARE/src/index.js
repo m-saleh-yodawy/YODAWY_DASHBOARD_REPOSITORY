@@ -764,6 +764,34 @@ const dashboardRoutes = async (request, env, path) => {
     await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, password_hash, password_ciphertext, password_encryption_iv, password_changed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(userId, name, newRole, status, repository, passwordHash, encrypted.ciphertext, encrypted.iv, passwordChangedAt, now, now).run();
     return respond(request, env, { success: true, user: { id: userId, name, role: newRole, status, repository } }, 201);
   }
+  if (path === "/api/dashboard/users/cleanup" && request.method === "POST") {
+    if (!isSuper || actor.user_id !== "Q-001") return forbidden();
+    const keeper = await env.DB.prepare("SELECT user_id, name, role, status FROM users WHERE user_id = 'Q-001'").first();
+    if (!keeper || keeper.role !== "SUPER_ADMIN" || keeper.status !== "Active" || String(keeper.name || "").trim().replace(/\s+/g, " ").toUpperCase() !== "MOHAMED SALEH") return respond(request, env, { success: false, error: "PROTECTED_ADMIN_ACCOUNT_INVALID" }, 409);
+    const requestId = "USER_CLEANUP_KEEP_Q001_20261121";
+    const previous = await env.DB.prepare("SELECT status, result_json FROM network_transactions WHERE request_id = ?").bind(requestId).first();
+    if (previous?.status === "COMPLETED") {
+      let result = {};
+      try { result = JSON.parse(previous.result_json || "{}"); } catch {}
+      return respond(request, env, { success: true, alreadyApplied: true, deletedCount: Number(result.deletedCount || 0), deletedUsers: Array.isArray(result.deletedUsers) ? result.deletedUsers : [], nextUserId: "Q-002" });
+    }
+    const targets = await env.DB.prepare("SELECT user_id, name, role FROM users WHERE user_id <> 'Q-001' ORDER BY user_id").all();
+    const deletedUsers = (targets.results || []).map(user => ({ id: user.user_id, name: user.name, role: user.role }));
+    const details = { keptUserId: "Q-001", deletedUsers, deletedCount: deletedUsers.length, nextUserId: "Q-002", preservedAnnouncementAuthorNames: true };
+    const result = { deletedUsers: deletedUsers.map(user => user.id), deletedCount: deletedUsers.length, nextUserId: "Q-002" };
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO network_transactions (request_id, request_type, status, payload_json, result_json, created_at, updated_at) VALUES (?, 'USER_CLEANUP', 'RUNNING', ?, '{}', ?, ?)").bind(requestId, JSON.stringify({ keepUserId: "Q-001" }), now, now),
+      env.DB.prepare("UPDATE announcements SET author_id = 'Q-001' WHERE author_id <> 'Q-001' AND EXISTS (SELECT 1 FROM network_transactions WHERE request_id = ? AND status = 'RUNNING')").bind(requestId),
+      env.DB.prepare("DELETE FROM users WHERE user_id <> 'Q-001' AND EXISTS (SELECT 1 FROM network_transactions WHERE request_id = ? AND status = 'RUNNING')").bind(requestId),
+      env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) SELECT ?, 'DELETE_OTHER_USERS', 'USER', 'BULK', ?, ? WHERE EXISTS (SELECT 1 FROM network_transactions WHERE request_id = ? AND status = 'RUNNING')").bind(actor.user_id, JSON.stringify(details), now, requestId),
+      env.DB.prepare("UPDATE network_transactions SET status = 'COMPLETED', result_json = ?, updated_at = ? WHERE request_id = ? AND status = 'RUNNING'").bind(JSON.stringify(result), now, requestId)
+    ]);
+    const completed = await env.DB.prepare("SELECT status, result_json FROM network_transactions WHERE request_id = ?").bind(requestId).first();
+    let finalResult = result;
+    try { if (completed?.result_json) finalResult = JSON.parse(completed.result_json); } catch {}
+    if (completed?.status !== "COMPLETED") return respond(request, env, { success: false, error: "USER_CLEANUP_NOT_COMPLETED" }, 503);
+    return respond(request, env, { success: true, alreadyApplied: false, ...finalResult });
+  }
   if (path.startsWith("/api/dashboard/users/") && path.endsWith("/password") && request.method === "GET") {
     if (!isSuper) return forbidden();
     const userId = decodeURIComponent(path.split("/").slice(-2, -1)[0]).trim().toUpperCase();
