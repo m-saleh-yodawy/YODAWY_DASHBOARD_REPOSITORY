@@ -828,6 +828,15 @@ const dashboardRoutes = async (request, env, path) => {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/site-access.json" && request.method === "GET") {
+      const asset = await env.ASSETS.fetch(new Request(new URL("/site-access.json", request.url), { method: "GET", cache: "no-store" }));
+      const headers = new Headers(asset.headers);
+      headers.set("content-type", "application/json; charset=utf-8");
+      headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
+      headers.set("access-control-allow-origin", "*");
+      headers.set("x-content-type-options", "nosniff");
+      return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
+    }
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") {
         const origin = allowedOrigin(request, env);
