@@ -4047,7 +4047,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     const reloadLatestDashboardUI = async uiState => {
         const API = context?.api || window.YODAWY_API_ENGINE || page.YODAWY_API_ENGINE;
         if (!API?.getFileContent) throw new Error('Dashboard API Engine is unavailable.');
-        const source = await API.getFileContent('UI/dashboard-ui.js', { timeout: 30000 });
+        const source = await API.getFileContent('CLOUDFLARE/public/runtime/dashboard-ui.js', { timeout: 30000 });
         if (typeof source !== 'string' || !source.includes('page.YODAWY_DASHBOARD_UI')) {
             throw new Error('The latest Dashboard UI source is invalid or unavailable.');
         }
