@@ -344,7 +344,7 @@
     };
 
     const renderPendingBadge = () => '<span class="yd-pending-badge" role="status" aria-label="Loading"><span class="yd-control-spinner" aria-hidden="true"></span></span>';
-    const renderFailedBadge = (label = 'FAILED') => '<span class="yd-pending-badge yd-pending-failed"><i class="fa-solid fa-circle-exclamation"></i><span>' + escapeHTML(label) + '</span></span>';
+    const renderFailedBadge = (label = 'FAILED') => '<span class="yd-pending-badge yd-pending-failed"><i class="yd-fa-icon fa-solid fa-circle-exclamation"></i><span>' + escapeHTML(label) + '</span></span>';
     const setButtonLoading = (button, label = 'Loading') => {
         if (!button) return;
         button.disabled = true;
@@ -386,7 +386,7 @@
         }).join('');
         return '<div class="ui-select yd-dropdown yd-select-dropdown' + extraClass + (disabled ? ' disabled' : '') + '" data-dropdown data-multiple="' + String(multiple) + '" data-open="false" data-placeholder="' + escapeHTML(placeholder) + '" data-value="' + escapeHTML(storedValue) + '"' + attrs + '>' +
             '<input type="hidden"' + nameAttr + idAttr + ' value="' + escapeHTML(multiple ? storedValue : selectedOption.value) + '">' +
-            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value"' + (selected.length ? ' data-placeholder="false"' : ' data-placeholder="true"') + '>' + escapeHTML(label) + '</span><svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value"' + (selected.length ? ' data-placeholder="false"' : ' data-placeholder="true"') + '>' + escapeHTML(label) + '</span><i class="ui-select-chevron yd-fa-icon fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu' + extraMenuClass + '" role="listbox" aria-multiselectable="' + String(multiple) + '" hidden><div class="ui-select-group">' + header + items + '</div></div></div>';
     };
 
@@ -422,6 +422,7 @@
         document.getElementById('yd-poppins-font')?.remove();
         ensureExternalStylesheet('yd-nunito-sans-font', 'https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
         ensureExternalStylesheet('yd-cairo-font', 'https://fonts.googleapis.com/css2?family=Cairo:wght@300..900&display=swap');
+        ensureExternalStylesheet('yd-fa-icons-style', 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev/runtime/fa-icons.css');
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
         style.textContent = String.raw`
@@ -454,54 +455,10 @@
     font-synthesis: none;
     text-rendering: optimizeLegibility;
 }
-#yd-dashboard-root *:not(.yd-custom-icon), #yd-dashboard-root *:not(.yd-custom-icon)::before, #yd-dashboard-root *:not(.yd-custom-icon)::after {
+#yd-dashboard-root *:not(.yd-fa-icon), #yd-dashboard-root *:not(.yd-fa-icon)::before, #yd-dashboard-root *:not(.yd-fa-icon)::after {
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
 }
-@font-face {
-    font-family: 'YD Dashboard Icons';
-    src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/webfonts/fa-solid-900.woff2') format('woff2');
-    font-style: normal;
-    font-weight: 900;
-    font-display: block;
-}
-#yd-dashboard-root .yd-custom-icon {
-    font-family: 'YD Dashboard Icons' !important;
-    font-weight: 900 !important;
-    font-style: normal !important;
-    font-variant: normal !important;
-}
-#yd-dashboard-root .yd-custom-icon.fa-spinner::before { content: '\f110'; }
-#yd-dashboard-root .yd-custom-icon.fa-circle-exclamation::before { content: '\f06a'; }
-#yd-dashboard-root .yd-custom-icon.fa-toolbox::before { content: '\f552'; }
-#yd-dashboard-root .yd-custom-icon.fa-chart-pie::before { content: '\f200'; }
-#yd-dashboard-root .yd-custom-icon.fa-bullhorn::before { content: '\f0a1'; }
-#yd-dashboard-root .yd-custom-icon.fa-users::before { content: '\f0c0'; }
-#yd-dashboard-root .yd-custom-icon.fa-sliders::before { content: '\f1de'; }
-#yd-dashboard-root .yd-custom-icon.fa-eye::before { content: '\f06e'; }
-#yd-dashboard-root .yd-custom-icon.fa-right-left::before { content: '\f362'; }
-#yd-dashboard-root .yd-custom-icon.fa-gear::before { content: '\f013'; }
-#yd-dashboard-root .yd-custom-icon.fa-user-shield::before { content: '\f505'; }
-#yd-dashboard-root .yd-custom-icon.fa-arrows-rotate::before { content: '\f021'; }
-#yd-dashboard-root .yd-custom-icon.fa-cloud-arrow-up::before { content: '\f0ee'; }
-#yd-dashboard-root .yd-custom-icon.fa-xmark::before { content: '\f00d'; }
-#yd-dashboard-root .yd-custom-icon.fa-circle-info::before { content: '\f05a'; }
-#yd-dashboard-root .yd-custom-icon.fa-check::before { content: '\f00c'; }
-#yd-dashboard-root .yd-custom-icon.fa-arrow-rotate-right::before { content: '\f01e'; }
-#yd-dashboard-root .yd-custom-icon.fa-shield-halved::before { content: '\f3ed'; }
-#yd-dashboard-root .yd-custom-icon.fa-bolt::before { content: '\f0e7'; }
-#yd-dashboard-root .yd-custom-icon.fa-cloud::before { content: '\f0c2'; }
-#yd-dashboard-root .yd-custom-icon.fa-user::before { content: '\f007'; }
-#yd-dashboard-root .yd-custom-icon.fa-plug-circle-check::before { content: '\e55c'; }
-#yd-dashboard-root .yd-custom-icon.fa-plus::before { content: '\f067'; }
-#yd-dashboard-root .yd-custom-icon.fa-square-check::before { content: '\f14a'; }
-#yd-dashboard-root .yd-custom-icon.fa-square::before { content: '\f0c8'; }
-#yd-dashboard-root .yd-custom-icon.fa-database::before { content: '\f1c0'; }
-#yd-dashboard-root .yd-custom-icon.fa-lock::before { content: '\f023'; }
-#yd-dashboard-root .yd-custom-icon.fa-key::before { content: '\f084'; }
-#yd-dashboard-root .yd-custom-icon.fa-circle-check::before { content: '\f058'; }
-#yd-dashboard-root .fa-spin { animation: yd-fa-spin 2s linear infinite; }
-@keyframes yd-fa-spin { to { transform: rotate(360deg); } }
 
 #yd-dashboard-root :lang(ar):not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
 #yd-dashboard-root [dir="rtl"]:not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
@@ -509,12 +466,6 @@
 body > .ui-select-menu.yd-select-portal-menu :lang(ar):not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab),
 body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas):not(.fa-regular):not(.far):not(.fa-brands):not(.fab) {
     font-family: 'Cairo', sans-serif !important;
-}
-#yd-dashboard-root i.fa-solid::before, #yd-dashboard-root i.fas::before,
-#yd-dashboard-root i.fa-regular::before, #yd-dashboard-root i.far::before,
-#yd-dashboard-root i.fa-brands::before, #yd-dashboard-root i.fab::before {
-    display: inline-block !important;
-    line-height: 1 !important;
 }
 #yd-dashboard-root strong, #yd-dashboard-root b { font-weight: 600 !important; }
 #yd-dashboard-root button, #yd-dashboard-root input, #yd-dashboard-root select, #yd-dashboard-root textarea { font: inherit; }
@@ -1364,9 +1315,8 @@ body > .yd-modal-backdrop .yd-user-password-value input {
     font: 400 12px/1.4 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
 }
 body > .yd-modal-backdrop .yd-user-password-copy { display: inline-flex !important; flex: 0 0 36px; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0 !important; }
-body > .yd-modal-backdrop .yd-user-password-copy svg { display: block !important; visibility: visible !important; opacity: 1 !important; width: 18px !important; height: 18px !important; min-width: 18px !important; min-height: 18px !important; overflow: visible !important; }
+body > .yd-modal-backdrop .yd-user-password-copy .yd-fa-icon { display: inline-block !important; visibility: visible !important; opacity: 1 !important; font-size: 17px !important; }
 body > .yd-modal-backdrop .yd-user-password-copy.is-copied { color: var(--success); }
-body > .yd-modal-backdrop .yd-user-password-copy i { display: none; }
 body > .yd-modal-backdrop .yd-user-password-modal input { background: #e1e1e1 !important; }
 body > .yd-modal-backdrop .yd-user-password-value input:focus {
     border-color: var(--brand);
@@ -1512,23 +1462,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     cursor: pointer;
     transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
-#yd-dashboard-root .yd-icon-btn > .yd-action-svg {
-    display: block !important;
-    width: 16px !important;
-    min-width: 16px !important;
-    height: 16px !important;
-    min-height: 16px !important;
-    overflow: visible !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-}
-#yd-dashboard-root .yd-icon-btn > .yd-action-svg path {
-    fill: none !important;
-    stroke: currentColor !important;
-    stroke-width: 2 !important;
-    stroke-linecap: round !important;
-    stroke-linejoin: round !important;
-}
+#yd-dashboard-root .yd-icon-btn > .yd-fa-icon { font-size: 15px !important; }
 #yd-dashboard-root .yd-icon-btn:hover { border-color: #d8c7d7; background: var(--brand-soft); color: var(--brand-dark); }
 #yd-dashboard-root .yd-icon-btn.danger { border-color: var(--danger-border); background: #fff; color: var(--danger); }
 #yd-dashboard-root .yd-icon-btn.danger:hover { border-color: #e7bec2; background: var(--danger-bg); color: #a83742; }
@@ -2561,7 +2495,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-secondary {
     font-size: 10px;
     white-space: nowrap;
 }
-#yd-dashboard-root .yd-announcement-date svg { width: 12px; height: 12px; flex: 0 0 12px; }
+#yd-dashboard-root .yd-announcement-date .yd-fa-icon { font-size: 12px; flex: 0 0 auto; }
 #yd-dashboard-root .yd-announcement-cycle-wrap {
     display: flex;
     align-items: center;
@@ -3347,9 +3281,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                             '<div class="yd-profile-wrap"><button id="yd-profile-trigger" class="yd-gb-btn" data-action="profile-toggle" aria-expanded="' + String(profileOpen) + '" type="button" aria-label="Account"><span class="yd-gb-avatar">' + avatar + '</span></button>' +
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
-                                    '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
-                                    '<button class="yd-dropdown-action yd-logout-action" data-action="logout" type="button"><span class="yd-action-icon"><i class="fa-solid fa-right-from-bracket"></i></span><span><b>Sign Out</b></span></button>' +
-                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
+                                    '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
+                                    '<button class="yd-dropdown-action yd-logout-action" data-action="logout" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-right-from-bracket"></i></span><span><b>Sign Out</b></span></button>' +
+                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="yd-fa-icon fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>';
     };
@@ -3405,12 +3339,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 statCard('Status', 'Connected', 'fa-solid fa-cloud', 'green') +
             '</section>' +
             '<section class="yd-info-grid">' +
-                '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-user"></i></span><span>Account</span></div>' +
+                '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-user"></i></span><span>Account</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">User ID</span><span class="yd-id-badge">' + escapeHTML(user.id || user.userId || context.userId || '—') + '</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Role</span>' + renderRolePill(context.userRole) + '</div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Account Status</span><span class="yd-pill green">' + escapeHTML(user.status || 'Active') + '</span></div>' +
                 '</div>' +
-                '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-plug-circle-check"></i></span><span>Connection</span></div>' +
+                '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-plug-circle-check"></i></span><span>Connection</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">System</span><span class="yd-pill green">Connected to system</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Personal Settings</span><span class="yd-pill ' + (context.settings?.isLoaded?.() ? 'green' : 'red') + '">' + (context.settings?.isLoaded?.() ? 'Connected' : 'Unavailable') + '</span></div>' +
                     '<div class="yd-clean-row"><span class="yd-clean-label">Tools Sync</span><span class="yd-pill ' + (context.tools?.isInitialized?.() ? 'blue' : 'yellow') + '">' + (context.tools?.isInitialized?.() ? 'Ready' : 'Pending') + '</span></div>' +
@@ -3475,7 +3409,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const groups = [
             { title: 'Personal - Linked', icon: 'fa-user-check', type: 'PERSONAL', known: true, empty: 'No personal linked accounts.' },
             { title: 'Non-Personal - Linked', icon: 'fa-building-circle-check', type: 'NON-PERSONAL', known: true, empty: 'No non-personal linked accounts.' },
-            { title: 'Personal - Unlinked', icon: 'fa-user-question', type: 'PERSONAL', known: false, empty: 'No personal unlinked accounts.' },
+            { title: 'Personal - Unlinked', icon: 'fa-circle-question', type: 'PERSONAL', known: false, empty: 'No personal unlinked accounts.' },
             { title: 'Non-Personal - Unlinked', icon: 'fa-building', type: 'NON-PERSONAL', known: false, empty: 'No non-personal unlinked accounts.' }
         ];
         const renderAccount = (account, index) => {
@@ -3485,14 +3419,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const searchText = [account.payer, account.provider, account.label, account.username, account.password, account.odooKey].filter(Boolean).join(' ').toLocaleLowerCase();
             return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '" data-portal-search="' + escapeHTML(searchText) + '">' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong></span></span></summary>' +
-                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="fa-regular fa-copy"></i></button></div></div></div></div></details>';
+                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="yd-fa-icon fa-regular fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="yd-fa-icon fa-regular fa-copy"></i></button></div></div></div></div></details>';
         };
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
         const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
         const adminTools = canManage
-            ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="fa-solid fa-trash"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
+            ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-trash"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
             : '';
         const loading = canManage ? portalManagementAccountsLoading : portalAccountsLoading;
         const error = canManage ? portalManagementAccountsError : '';
@@ -3500,7 +3434,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>'
             : error
                 ? '<div class="yd-empty">' + escapeHTML(error) + '</div>'
-                : '<div class="yd-portal-search-wrap"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty"' + (accounts.length ? ' hidden' : '') + '>No portal accounts found for this user.</div>' + populatedGroups.map(renderGroup).join('');
+                : '<div class="yd-portal-search-wrap"><i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty"' + (accounts.length ? ' hidden' : '') + '>No portal accounts found for this user.</div>' + populatedGroups.map(renderGroup).join('');
         return '<section class="yd-welcome"><div><h1>Portals</h1><p>View portal usernames and passwords grouped by account type.</p></div></section>' + adminTools + content;
     };
 
@@ -3509,7 +3443,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><span class="yd-control-spinner" aria-hidden="true"></span></span><span><strong>Split Account</strong></span></div>';
         const accounts = portalAccounts.filter(account => account.provider === 'METLIFE');
         const types = [...new Set(accounts.map(account => account.accountType).filter(type => ['PERSONAL', 'ALTERNATIVE'].includes(type)))];
-        if (!types.length) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-circle-info"></i></span><span><strong>Split Account</strong><small>No MetLife accounts are configured for this user.</small></span></div>';
+        if (!types.length) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="yd-fa-icon fa-solid fa-circle-info"></i></span><span><strong>Split Account</strong><small>No MetLife accounts are configured for this user.</small></span></div>';
         const options = [
             ...(types.includes('PERSONAL') ? [{ value: 'PERSONAL', label: 'Personal Account' }] : []),
             ...(types.includes('ALTERNATIVE') ? [{ value: 'ALTERNATIVE', label: 'B.Kamal Account' }] : [])
@@ -3537,7 +3471,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + '</small></span></span>' +
                 '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
-                '<div class="yd-tool-accordion-body">' + (id === 'TOOL-003' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + '</div></details>';
+                '<div class="yd-tool-accordion-body">' + (id === 'TOOL-003' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="yd-fa-icon fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + '</div></details>';
         }).join('');
         return '<section class="yd-welcome"><div><h1>Tools</h1><p>' + (isSuperAdmin ? 'Manage your personal tools and their availability.' : 'Expand a tool to access its personal settings and control its status.') + '</p></div></section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-tool-search" placeholder="Search tools by name or ID"><span class="yd-pill">' + getLoadedTools().length + ' loaded / ' + allTools.length + ' total</span></div>' +
@@ -3545,9 +3479,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             '<div class="yd-tool-summary"><span>' + visibleTools.length + ' Tools</span><span>' + permittedCount + ' Permitted</span><span>' + onCount + ' Enabled</span></div>';
     };
 
-    const editActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9" fill="none" stroke="currentColor"></path><path d="m16.5 3.5 4 4L8 20l-5 1 1-5Z" fill="none" stroke="currentColor"></path></svg>';
-    const deleteActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18" fill="none" stroke="currentColor"></path><path d="M8 6V4h8v2" fill="none" stroke="currentColor"></path><path d="m19 6-1 14H6L5 6" fill="none" stroke="currentColor"></path><path d="M10 11v6M14 11v6" fill="none" stroke="currentColor"></path></svg>';
-    const viewPasswordActionIcon = '<svg class="yd-action-svg" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square" aria-hidden="true"></i>';
+    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash-can" aria-hidden="true"></i>';
+    const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye" aria-hidden="true"></i>';
 
     const renderUsers = () => {
         const baseUsers = getUsers();
@@ -3588,7 +3522,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const roleMarkup = isAdmin && String(user.role || '').toUpperCase() === 'SUPER_ADMIN' ? '' : renderRolePill(user.role);
             return '<tr' + (pending ? ' class="yd-pending-row"' : '') + '><td><strong>' + escapeHTML(formatName(user.name)) + '</strong></td><td><span class="yd-id-badge">' + escapeHTML(user._pending ? 'ASSIGNING ID' : id) + '</span></td><td>' + roleMarkup + '</td><td>' + status + '</td><td><span class="yd-repository-name">' + escapeHTML(repository) + '</span></td><td><div class="yd-user-actions">' + editButton + deleteButton + viewPasswordButton + '</div></td></tr>';
         }).join('');
-        return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div>' + (getRoleAccess().canManageUsers ? '<button class="yd-primary" data-action="add-user"><i class="fa-solid fa-plus"></i><span>Add User</span></button>' : '') + '</section>' +
+        return '<section class="yd-welcome"><div><h1>Users Directory</h1><p>' + roleDescription + '</p></div>' + (getRoleAccess().canManageUsers ? '<button class="yd-primary" data-action="add-user"><i class="yd-fa-icon fa-solid fa-plus"></i><span>Add User</span></button>' : '') + '</section>' +
             '<div class="yd-toolbar"><input class="yd-search" id="yd-user-search" placeholder="Search by ID, name, role or repository"><span class="yd-pill">' + users.length + ' users</span></div>' +
             '<div class="yd-table-wrap yd-users-table"><table><thead><tr><th>User</th><th>User ID</th><th>Role</th><th>Status</th><th>Personal Repository</th><th>Actions</th></tr></thead><tbody>' +
             (rows || '<tr><td colspan="6" class="yd-empty">No users found.</td></tr>') + '</tbody></table></div>';
@@ -3685,7 +3619,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const id = String(user.id || '').trim().toUpperCase();
             const active = String(user.status || '').toLowerCase() === 'active';
             const selected = allSelected || draft.allowedUsers.has(id);
-            return '<button type="button" class="ui-select-option ui-select-item yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-selected="' + String(selected) + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="option" aria-selected="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + renderRoleLabel(user.role) + '</small></span></span></button>';
+            return '<button type="button" class="ui-select-option ui-select-item yd-allowed-users-option' + (selected ? ' selected' : '') + '" data-selected="' + String(selected) + '" data-action="toggle-allowed-user" data-tool="' + escapeHTML(toolId) + '" data-user="' + escapeHTML(id) + '" role="option" aria-selected="' + String(selected) + '"' + (!active || pending ? ' disabled' : '') + '><span><i class="yd-fa-icon fa-regular ' + (selected ? 'fa-square-check' : 'fa-square') + '"></i><span class="yd-allowed-user-copy">' + escapeHTML(formatName(user.name)) + '<small>' + escapeHTML(id) + ' · ' + renderRoleLabel(user.role) + '</small></span></span></button>';
         }).join('');
         const pendingLabel = pending?.action === 'SUBMITTING' ? 'Saving' : 'Pending';
         const footer = pending
@@ -3693,7 +3627,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             : '<div class="yd-allowed-users-footer"><button type="button" class="yd-secondary" data-action="cancel-allowed-users" data-tool="' + escapeHTML(toolId) + '">Cancel</button><button type="button" class="yd-primary" data-action="save-allowed-users" data-tool="' + escapeHTML(toolId) + '">Apply</button></div>';
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
-            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<svg class="ui-select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<i class="ui-select-chevron yd-fa-icon fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users"><div class="yd-allowed-users-list">' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div></div>' + footer + '</div></div></div>';
     };
 
@@ -3774,8 +3708,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             return '<span class="yd-visibility-bulk"><span class="yd-visibility-bulk-label">' + label + '</span><button type="button" class="yd-switch yd-visibility-switch yd-visibility-bulk-switch' + (enabled ? ' on' : '') + (loading ? ' is-loading' : '') + '" data-action="toggle-visibility-bulk" data-mode="' + mode + '" ' + targetAttribute + '="' + escapeHTML(targetId) + '" data-enabled="' + String(enabled) + '" role="switch" aria-checked="' + String(enabled) + '" aria-label="' + escapeHTML(actionLabel) + '"' + (disabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></span>';
         };
         const modeCards = '<div class="yd-visibility-modes" data-active-mode="' + visibilityMode + '" role="tablist" aria-label="Visibility layout">' +
-            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong></span></button>' +
-            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '"><span class="yd-visibility-mode-icon"><i class="fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong></span></button></div>';
+            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'USERS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="USERS" role="tab" aria-selected="' + String(visibilityMode === 'USERS') + '"><span class="yd-visibility-mode-icon"><i class="yd-fa-icon fa-solid fa-users"></i></span><span class="yd-visibility-mode-copy"><strong>USERS</strong></span></button>' +
+            '<button type="button" class="yd-visibility-mode-card' + (visibilityMode === 'TOOLS' ? ' active' : '') + '" data-action="visibility-mode" data-mode="TOOLS" role="tab" aria-selected="' + String(visibilityMode === 'TOOLS') + '"><span class="yd-visibility-mode-icon"><i class="yd-fa-icon fa-solid fa-toolbox"></i></span><span class="yd-visibility-mode-copy"><strong>TOOLS</strong></span></button></div>';
         let accordions = '';
         if (visibilityMode === 'USERS') {
             accordions = users.map(user => {
@@ -3830,7 +3764,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const actions = canManage && !busy
                 ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>'
                 : '';
-            return '<article class="yd-announcement-card' + (busy ? ' yd-announcement-pending' : state === 'FAILED' ? ' is-failed' : '') + '" ' + (busy ? 'aria-busy="true" aria-disabled="true"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
+            return '<article class="yd-announcement-card' + (busy ? ' yd-announcement-pending' : state === 'FAILED' ? ' is-failed' : '') + '" ' + (busy ? 'aria-busy="true" aria-disabled="true"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<i class="yd-fa-icon fa-regular fa-clock" aria-hidden="true"></i></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
         };
         const pendingCreates = [...pendingAnnouncements.values()].filter(item => item.action !== 'DELETE_ANNOUNCEMENT');
         const pendingDeletes = new Map([...pendingAnnouncements.values()].filter(item => item.action === 'DELETE_ANNOUNCEMENT').map(item => [String(item.id), item]));
@@ -3839,7 +3773,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             ...posts.map(post => renderCard(post, pendingDeletes.get(String(post.id)) || null))
         ].join('');
         return '<section class="yd-welcome"><div><h1>Announcements</h1><p>Operational messages and important team updates.</p></div>' +
-            (canManage ? '<button type="button" class="yd-primary" data-action="add-announcement"><i class="fa-solid fa-plus"></i><span>New Announcement</span></button>' : '') +
+            (canManage ? '<button type="button" class="yd-primary" data-action="add-announcement"><i class="yd-fa-icon fa-solid fa-plus"></i><span>New Announcement</span></button>' : '') +
             '</section><div class="yd-announcement-list" data-role="' + escapeHTML(role) + '">' + (cards || '<div class="yd-card yd-empty">No announcements have been published yet.</div>') + '</div>';
     };
 
@@ -3934,16 +3868,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 '<td><input class="yd-input" data-site-field="paths" value="' + escapeHTML((site.paths || ['/*']).join(', ')) + '" placeholder="/*, /web/*" autocomplete="off"></td>' +
                 '<td><select class="yd-input" data-site-field="protocol"><option value="https:"' + (protocol === 'https:' ? ' selected' : '') + '>HTTPS</option><option value="http:"' + (protocol === 'http:' ? ' selected' : '') + '>HTTP</option><option value="both"' + (protocol === 'both' ? ' selected' : '') + '>Both</option></select></td>' +
                 '<td><input type="checkbox" data-site-field="enabled"' + (site.enabled ? ' checked' : '') + ' aria-label="Enable site"></td>' +
-                '<td><button type="button" class="yd-icon-btn danger" data-action="remove-site" data-index="' + index + '" title="Remove website" aria-label="Remove website"><i class="fa-solid fa-trash"></i></button></td>' +
+                '<td><button type="button" class="yd-icon-btn danger" data-action="remove-site" data-index="' + index + '" title="Remove website" aria-label="Remove website"><i class="yd-fa-icon fa-solid fa-trash"></i></button></td>' +
             '</tr>';
         }).join('');
         return '<div class="yd-sites-page">' +
-            '<section class="yd-welcome"><div><h1>Website Access</h1><p>Control exactly which websites and URL paths can activate the universal loader.</p></div><div class="yd-portal-admin-actions"><button type="button" class="yd-secondary" data-action="reload-site-access"><i class="fa-solid fa-rotate"></i><span>Refresh</span></button><button type="button" class="yd-primary" data-action="save-site-access"><i class="fa-solid fa-cloud-arrow-up"></i><span>Save Changes</span></button></div></section>' +
+            '<section class="yd-welcome"><div><h1>Website Access</h1><p>Control exactly which websites and URL paths can activate the universal loader.</p></div><div class="yd-portal-admin-actions"><button type="button" class="yd-secondary" data-action="reload-site-access"><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button><button type="button" class="yd-primary" data-action="save-site-access"><i class="yd-fa-icon fa-solid fa-cloud-arrow-up"></i><span>Save Changes</span></button></div></section>' +
             (siteAccessError ? '<div class="yd-alert yd-alert-error">' + escapeHTML(siteAccessError) + '</div>' : '') +
-            '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-shield-halved"></i></span><span>Global Site Gate</span></div><label class="yd-field" style="display:flex;align-items:center;gap:10px"><input id="yd-site-access-enabled" type="checkbox"' + (siteAccessEnabled ? ' checked' : '') + '>Enable the loader on the websites listed below</label><small class="yd-field-hint">When disabled, the loader will not activate on any website. Changes apply on the next page load.</small></div>' +
-            '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-globe"></i></span><span>Allowed Websites</span><span class="yd-pill">' + (siteAccessSites || []).length + ' sites</span></div>' +
+            '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-shield-halved"></i></span><span>Global Site Gate</span></div><label class="yd-field" style="display:flex;align-items:center;gap:10px"><input id="yd-site-access-enabled" type="checkbox"' + (siteAccessEnabled ? ' checked' : '') + '>Enable the loader on the websites listed below</label><small class="yd-field-hint">When disabled, the loader will not activate on any website. Changes apply on the next page load.</small></div>' +
+            '<div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-globe"></i></span><span>Allowed Websites</span><span class="yd-pill">' + (siteAccessSites || []).length + ' sites</span></div>' +
             '<div class="yd-table-wrap"><table><thead><tr><th>Hostname</th><th>Allowed Paths</th><th>Protocol</th><th>Enabled</th><th>Action</th></tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="yd-empty">No websites configured.</td></tr>') + '</tbody></table></div>' +
-            '<div class="yd-portal-admin-actions" style="margin-top:14px"><button type="button" class="yd-secondary" data-action="add-site"><i class="fa-solid fa-plus"></i><span>Add Website</span></button></div></div>' +
+            '<div class="yd-portal-admin-actions" style="margin-top:14px"><button type="button" class="yd-secondary" data-action="add-site"><i class="yd-fa-icon fa-solid fa-plus"></i><span>Add Website</span></button></div></div>' +
             '<div class="yd-field-hint">Use an exact hostname such as <strong>example.com</strong>, or <strong>*.example.com</strong> for subdomains. Paths support * wildcards, for example /* or /web/*.</div>' +
         '</div>';
     };
@@ -3972,21 +3906,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     const renderAccount = () => {
         const user = context.user || {};
         const settings = context.settings?.getSettings?.() || { tools: {} };
-        return '<section class="yd-welcome"><div><h1>Settings</h1><p>Personal dashboard preferences and workspace details.</p></div><button class="yd-primary" data-action="save-settings"><i class="fa-solid fa-cloud-arrow-up"></i><span>Save Settings</span></button></section>' +
-            '<div class="yd-panel-grid"><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-sliders"></i></span><span>Personal Dashboard Preferences</span></div>' +
+        return '<section class="yd-welcome"><div><h1>Settings</h1><p>Personal dashboard preferences and workspace details.</p></div><button class="yd-primary" data-action="save-settings"><i class="yd-fa-icon fa-solid fa-cloud-arrow-up"></i><span>Save Settings</span></button></section>' +
+            '<div class="yd-panel-grid"><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-sliders"></i></span><span>Personal Dashboard Preferences</span></div>' +
                 '<div class="yd-field"><label for="yd-start-page">Default Start Section</label>' + renderDropdown('startPage', settings.startPage === 'overview' ? 'overview' : 'tools', [{ value: 'tools', label: 'Tools' }, { value: 'overview', label: 'Overview' }], { id: 'yd-start-page', 'data-label': 'Start Section' }) + '</div>' +
-            '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-database"></i></span><span>Repository & Account</span></div>' +
+            '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-database"></i></span><span>Repository & Account</span></div>' +
                 '<div class="yd-info-row"><span>Full Name</span><strong>' + escapeHTML(formatName(user.name || '—')) + '</strong></div>' +
                 '<div class="yd-info-row"><span>User ID</span><strong>' + escapeHTML(user.id || user.userId || context.userId || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Role</span><strong>' + renderRolePill(context.userRole) + '</strong></div>' +
                 '<div class="yd-info-row"><span>Personal Repository</span><strong>' + escapeHTML(context.personalRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Dashboard Repository</span><strong>' + escapeHTML(context.dashboardRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Branch</span><strong>' + escapeHTML(context.branch || 'main') + '</strong></div>' +
-            '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="fa-solid fa-lock"></i></span><span>Change Password</span></div>' +
+            '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-lock"></i></span><span>Change Password</span></div>' +
                 '<div class="yd-field"><label for="yd-current-password">Current Password</label><input id="yd-current-password" type="password" autocomplete="current-password" maxlength="128"></div>' +
                 '<div class="yd-field"><label for="yd-new-password">New Password</label><input id="yd-new-password" type="password" autocomplete="new-password" minlength="10" maxlength="128"></div>' +
                 '<div class="yd-field"><label for="yd-confirm-password">Confirm New Password</label><input id="yd-confirm-password" type="password" autocomplete="new-password" minlength="10" maxlength="128"></div>' +
-                '<button type="button" class="yd-primary" data-action="change-password"><i class="fa-solid fa-key"></i><span>Update Password</span></button>' +
+                '<button type="button" class="yd-primary" data-action="change-password"><i class="yd-fa-icon fa-solid fa-key"></i><span>Update Password</span></button>' +
             '</div></div>';
     };
 
@@ -4025,7 +3959,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         closeDropdowns(null);
         openVisibilityToolId = null;
         root.innerHTML = renderShell(renderPage());
-        root.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
+        root.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-fa-icon'));
         syncInputSurfaceBackgrounds(root);
         const nextMain = root.querySelector('#yd-main');
         if (nextMain) {
@@ -4371,7 +4305,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" style="display:block!important;visibility:visible!important;opacity:1!important;overflow:visible!important"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="#68465f" stroke-width="1.8"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="#68465f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><i class="yd-fa-icon fa-regular fa-copy" aria-hidden="true"></i></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
         mountModalOverlay(overlay);
         const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
         overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
@@ -4397,7 +4331,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             try {
                 await navigator.clipboard.writeText(input.value);
                 clearTimeout(button._ydCopyTimer);
-                button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="#68465f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+                button.innerHTML = '<i class="yd-fa-icon fa-solid fa-check" aria-hidden="true"></i>';
                 button.classList.add('is-copied');
                 button.setAttribute('aria-label', 'Copied');
                 button.title = 'Copied';
@@ -4515,8 +4449,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         overlay.className = 'yd-modal-backdrop';
         variables.forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
-        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
-        overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-custom-icon'));
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="yd-fa-icon fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
+        overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-fa-icon'));
         document.body.appendChild(overlay);
         activeMessageDialog = overlay;
         const closeButton = overlay.querySelector('[data-message-close]');
@@ -4549,8 +4483,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const details = Array.isArray(options.details) ? options.details : [];
         const rows = details.map(item => '<li><span>' + escapeHTML(item.label) + '</span><strong>' + escapeHTML(item.value) + '</strong></li>').join('');
         const danger = options.danger === true;
-        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-dashboard-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="yd-dashboard-confirm-title"><div class="yd-message-icon ' + (danger ? 'error' : 'success') + '"><i class="fa-solid ' + (danger ? 'fa-triangle-exclamation' : 'fa-circle-question') + '"></i></div><h3 id="yd-dashboard-confirm-title">' + escapeHTML(options.title || 'Confirm Action') + '</h3><p>' + escapeHTML(options.message || 'Are you sure you want to continue?') + '</p>' + (rows ? '<ul class="yd-dashboard-confirm-details">' + rows + '</ul>' : '') + '<div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>' + escapeHTML(options.cancelLabel || 'Cancel') + '</button><button type="button" class="yd-primary' + (danger ? ' yd-confirm-danger' : '') + '" data-confirm-accept>' + escapeHTML(options.confirmLabel || 'Confirm') + '</button></div></section>';
-        overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far').forEach(icon => icon.classList.add('yd-custom-icon'));
+        overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-dashboard-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="yd-dashboard-confirm-title"><div class="yd-message-icon ' + (danger ? 'error' : 'success') + '"><i class="yd-fa-icon fa-solid ' + (danger ? 'fa-triangle-exclamation' : 'fa-circle-question') + '"></i></div><h3 id="yd-dashboard-confirm-title">' + escapeHTML(options.title || 'Confirm Action') + '</h3><p>' + escapeHTML(options.message || 'Are you sure you want to continue?') + '</p>' + (rows ? '<ul class="yd-dashboard-confirm-details">' + rows + '</ul>' : '') + '<div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>' + escapeHTML(options.cancelLabel || 'Cancel') + '</button><button type="button" class="yd-primary' + (danger ? ' yd-confirm-danger' : '') + '" data-confirm-accept>' + escapeHTML(options.confirmLabel || 'Confirm') + '</button></div></section>';
+        overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far').forEach(icon => icon.classList.add('yd-fa-icon'));
         document.body.appendChild(overlay);
         activeDashboardConfirmDialog = overlay;
         const finish = value => {
@@ -4726,7 +4660,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 button.classList.remove('yd-button-loading');
                         const icon = button.querySelector('.yd-action-icon');
                         const label = button.querySelector('b');
-                        if (icon) icon.innerHTML = '<i class="fa-solid fa-arrow-rotate-right"></i>';
+                        if (icon) icon.innerHTML = '<i class="yd-fa-icon fa-solid fa-arrow-rotate-right"></i>';
                         if (label) label.textContent = 'Refresh';
                     }
                 }), { label: 'Refreshing Dashboard', location: 'Dashboard', stage: 'Refreshing files, data and tools' });
@@ -5291,7 +5225,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     showMessageDialog('Import Failed', error?.message || 'Unable to import the selected JSON file.');
                 } finally {
                     const button = root.querySelector('[data-action="import-portal-accounts"]');
-                    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = '<i class="fa-solid fa-file-import"></i><span>Import JSON</span>'; }
+                    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); button.innerHTML = '<i class="yd-fa-icon fa-solid fa-file-import"></i><span>Import JSON</span>'; }
                 }
                 return;
             }
