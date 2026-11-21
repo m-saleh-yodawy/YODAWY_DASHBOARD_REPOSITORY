@@ -209,5 +209,6 @@ return (async function (PAGE, STORE) {
         PAGE.dispatchEvent(new PAGE.CustomEvent('yodawy-cloud-ready', { detail: { user, data } }));
     } catch (error) {
         showError(error);
+        throw error;
     }
 })(PAGE, STORE);
