@@ -108,7 +108,7 @@
             status.textContent = message;
             if (busy) {
                 const icon = document.createElement('i');
-                icon.className = 'yd-fa-icon fa-spinner fa-spin';
+                icon.className = 'yd-fa-icon fa-solid fa-spinner fa-spin';
                 icon.setAttribute('aria-hidden', 'true');
                 status.prepend(icon);
             }
@@ -159,7 +159,7 @@
                     '<div class="yd-open-erx-add-config">' +
                     '<label><span>FORM</span><select data-add-form="' + index + '"><option value="SUB">SUB · ' + escapeHTML(subForm) + (subQuantity ? ' (' + escapeHTML(subQuantity) + ')' : '') + '</option><option value="MAIN">MAIN · ' + escapeHTML(mainForm) + (mainQuantity ? ' (' + escapeHTML(mainQuantity) + ')' : '') + '</option></select></label>' +
                     '<label><span>QUANTITY</span><input type="number" min="1" step="1" value="1" data-add-qty="' + index + '"></label>' +
-                    '<button type="button" class="yd-open-erx-add-button" data-add-drug="' + index + '"><i class="yd-fa-icon fa-plus" aria-hidden="true"></i><span>ADD</span></button>' +
+                    '<button type="button" class="yd-open-erx-add-button" data-add-drug="' + index + '"><i class="yd-fa-icon fa-solid fa-plus" aria-hidden="true"></i><span>ADD</span></button>' +
                     '</div><div class="yd-open-erx-add-error" data-add-error="' + index + '" hidden></div></article>';
             }).join('') || '<div class="yd-open-erx-empty">No matching medications found.</div>';
             box.querySelectorAll('[data-add-drug]').forEach(button => button.addEventListener('click', () => {
@@ -194,7 +194,7 @@
                 });
                 renderEditRows();
                 button.disabled = true;
-                button.innerHTML = '<i class="yd-fa-icon fa-check" aria-hidden="true"></i><span>ADDED</span>';
+                button.innerHTML = '<i class="yd-fa-icon fa-solid fa-check" aria-hidden="true"></i><span>ADDED</span>';
                 if (error) error.hidden = true;
             }));
         } catch (error) {
@@ -248,7 +248,7 @@
             UNAUTHORIZED: 'Your Dashboard session has expired. Refresh Odoo and try again.'
         };
         const text = descriptions[code] || message || 'Open ERX could not complete the request.';
-        target.innerHTML = '<div class="yd-open-erx-error"><i class="yd-fa-icon fa-circle-exclamation" aria-hidden="true"></i><strong>Unable to Open ERX</strong><p>' + escapeHTML(text) + '</p>' +
+        target.innerHTML = '<div class="yd-open-erx-error"><i class="yd-fa-icon fa-solid fa-circle-exclamation" aria-hidden="true"></i><strong>Unable to Open ERX</strong><p>' + escapeHTML(text) + '</p>' +
             (retry ? '<button type="button" data-open-erx-retry class="yd-open-erx-retry">RETRY</button>' : '') + '</div>';
         target.hidden = false;
         target.querySelector('[data-open-erx-retry]')?.addEventListener('click', loadPrescription);
@@ -333,10 +333,10 @@
         const overlay = document.createElement('div');
         overlay.className = 'yd-open-erx-backdrop';
         overlay.innerHTML = '<section class="yd-open-erx-modal" role="dialog" aria-modal="true" aria-labelledby="yd-open-erx-title">' +
-            '<header class="yd-open-erx-header"><div class="yd-open-erx-brand"><span class="yd-open-erx-brand-mark">Y</span><div><span class="yd-open-erx-kicker">YODAWY WORKSPACE</span><h2 id="yd-open-erx-title">Open ERX</h2><p>Open the linked Portal prescription directly from this ticket.</p></div></div><button type="button" data-open-erx-close aria-label="Close"><i class="yd-fa-icon fa-xmark" aria-hidden="true"></i></button></header>' +
+            '<header class="yd-open-erx-header"><div class="yd-open-erx-brand"><span class="yd-open-erx-brand-mark">Y</span><div><span class="yd-open-erx-kicker">YODAWY WORKSPACE</span><h2 id="yd-open-erx-title">Open ERX</h2><p>Open the linked Portal prescription directly from this ticket.</p></div></div><button type="button" data-open-erx-close aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button></header>' +
             '<div class="yd-open-erx-content"><section class="yd-open-erx-ticket"><div><span>INSURANCE COMPANY</span><strong>' + escapeHTML(data.company) + '</strong></div><div><span>CARD NUMBER</span><strong>' + escapeHTML(data.cardNumber) + '</strong></div><div><span>REFERENCE</span><strong>' + escapeHTML(data.formNumber) + '</strong></div></section>' +
             '<section class="yd-open-erx-account-card"><div class="yd-open-erx-section-head"><div><span class="yd-open-erx-section-kicker">PORTAL CONNECTION</span><h3>Portal Account</h3></div><span class="yd-open-erx-status-pill">READY TO LOAD</span></div><label for="yd-open-erx-account">Select account</label><select id="yd-open-erx-account" data-open-erx-account disabled><option>Loading accounts...</option></select></section>' +
-            '<div class="yd-open-erx-status" data-open-erx-status><i class="yd-fa-icon fa-spinner fa-spin" aria-hidden="true"></i> Loading matching Portal accounts...</div><div class="yd-open-erx-result" data-open-erx-result hidden></div></div>' +
+            '<div class="yd-open-erx-status" data-open-erx-status><i class="yd-fa-icon fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Loading matching Portal accounts...</div><div class="yd-open-erx-result" data-open-erx-result hidden></div></div>' +
             '<footer class="yd-open-erx-footer"><span>YODAWY PORTAL · PRESCRIPTION WORKSPACE</span><button type="button" class="yd-open-erx-secondary" data-open-erx-close>Close</button></footer></section>';
         document.body.append(overlay);
         state.modal = overlay;
@@ -358,7 +358,7 @@
             const style = document.createElement('style');
             style.id = 'yd-open-erx-style';
             style.textContent = String.raw`
-@font-face{font-family:"YD Font Awesome 6";src:url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2") format("woff2"),url("https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/webfonts/fa-solid-900.woff2") format("woff2");font-style:normal;font-weight:900;font-display:block}
+
 .yd-open-erx-backdrop,.yd-open-erx-backdrop *{box-sizing:border-box;font-family:"Nunito Sans","Cairo",system-ui,-apple-system,sans-serif}
 .yd-open-erx-backdrop{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:rgba(24,18,28,.58);backdrop-filter:blur(5px);font-size:12px;color:#18181b}
 .yd-open-erx-modal{display:flex;flex-direction:column;width:min(1040px,100%);max-height:calc(100vh - 40px);overflow:hidden;border:1px solid #e7dce7;border-radius:16px;background:#f7f6f8;box-shadow:0 24px 80px rgba(24,18,28,.3)}
@@ -443,12 +443,7 @@
 .yd-open-erx-modal .yd-open-erx-secondary{min-height:34px;padding:0 14px;border:1px solid #ded3de;border-radius:7px;background:#fff;color:#68465f;font-size:10px;font-weight:800;cursor:pointer}
 .yd-open-erx-modal .yd-open-erx-secondary:hover{border-color:#cbb8ca;background:#f7f2f7}
 .yd-open-erx-modal button:disabled{opacity:.5;cursor:not-allowed}
-.yd-open-erx-backdrop .yd-fa-icon{display:inline-block;flex:0 0 auto;font-family:"YD Font Awesome 6"!important;font-style:normal;font-weight:900;font-variant:normal;line-height:1;text-rendering:auto;-webkit-font-smoothing:antialiased}
-.yd-open-erx-backdrop .yd-fa-icon.fa-circle-exclamation:before{content:"\f06a"}
-.yd-open-erx-backdrop .yd-fa-icon.fa-xmark:before{content:"\f00d"}
-.yd-open-erx-backdrop .yd-fa-icon.fa-spinner:before{content:"\f110"}
-.yd-open-erx-backdrop .yd-fa-icon.fa-plus:before{content:"\f067"}
-.yd-open-erx-backdrop .yd-fa-icon.fa-check:before{content:"\f00c"}
+.yd-open-erx-backdrop .yd-fa-icon{display:inline-block;flex:0 0 auto;font-style:normal;font-weight:900;font-variant:normal;line-height:1;text-rendering:auto;-webkit-font-smoothing:antialiased}
 .yd-open-erx-backdrop .fa-spin{animation:yd-open-erx-spin .9s linear infinite}
 @keyframes yd-open-erx-spin{to{transform:rotate(360deg)}}
 @media(max-width:700px){.yd-open-erx-backdrop{padding:8px}.yd-open-erx-modal{max-height:calc(100vh - 16px);border-radius:11px}.yd-open-erx-header{padding:13px}.yd-open-erx-content{padding:12px}.yd-open-erx-ticket{grid-template-columns:1fr}.yd-open-erx-add-config{grid-template-columns:minmax(0,1fr) 92px}.yd-open-erx-add-button{grid-column:1/-1}.yd-open-erx-footer{padding:10px 12px}.yd-open-erx-footer>span{display:none}}
