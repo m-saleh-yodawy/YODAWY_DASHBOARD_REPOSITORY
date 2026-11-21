@@ -4,8 +4,7 @@
 // @version      1
 // @description  Authenticated Yodawy Cloudflare Dashboard Loader
 // @author       Mohamed Saleh
-// @match        https://odoo.yodawy.com/*
-// @match        https://portal.yodawy.com/*
+// @match        *://*/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -13,47 +12,61 @@
 // @grant        unsafeWindow
 // @connect      yodawy-dashboard.m-saleh-yodawy.workers.dev
 // @run-at       document-end
+// @noframes
 // ==/UserScript==
 
 (async () => {
     'use strict';
 
     const PAGE = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+    const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     if (window.__YD_CLOUD_LOADER__ || PAGE.__YD_CLOUD_LOADER__) return;
+
+    const release = () => {
+        delete window.__YD_CLOUD_LOADER__;
+        delete PAGE.__YD_CLOUD_LOADER__;
+    };
+    const get = url => new Promise((resolve, reject) => GM_xmlhttpRequest({
+        method: 'GET',
+        url,
+        nocache: true,
+        timeout: 8000,
+        onload: response => response.status === 200 && typeof response.responseText === 'string' && response.responseText.trim() ? resolve(response.responseText) : reject(new Error('REMOTE_CONFIG_UNAVAILABLE')),
+        onerror: reject,
+        ontimeout: reject,
+        onabort: reject
+    }));
+    const matches = (pattern, value) => {
+        const source = String(pattern).split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+        return new RegExp('^' + source + '$').test(value);
+    };
+
     window.__YD_CLOUD_LOADER__ = true;
     PAGE.__YD_CLOUD_LOADER__ = true;
 
-    const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
-    const fail = () => {
-        if (document.getElementById('yd-cloud-unavailable')) return;
-        const node = document.createElement('div');
-        node.id = 'yd-cloud-unavailable';
-        node.textContent = 'CANNOT REACH SYSTEM';
-        node.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#17131a;color:#fff;font:700 16px Arial,sans-serif;letter-spacing:1px';
-        document.documentElement.append(node);
-    };
-
     try {
-        const source = await new Promise((resolve, reject) => GM_xmlhttpRequest({
-            method: 'GET',
-            url: API + '/cloud-bootstrap.js',
-            headers: { 'Cache-Control': 'no-cache' },
-            onload: response => response.status === 200 ? resolve(response.responseText) : reject(new Error('UNAVAILABLE')),
-            onerror: () => reject(new Error('UNAVAILABLE')),
-            ontimeout: () => reject(new Error('UNAVAILABLE')),
-            timeout: 12000
-        }));
+        const config = JSON.parse(await get(API + '/site-access.json?v=' + Date.now()));
+        const hostname = String(PAGE.location.hostname || '').toLowerCase();
+        const protocol = PAGE.location.protocol;
+        const pathname = PAGE.location.pathname || '/';
+        const enabled = config?.enabled === true && Array.isArray(config.sites) && config.sites.some(site => {
+            const host = String(site?.host || '').toLowerCase();
+            const protocols = Array.isArray(site?.protocols) ? site.protocols : ['https:'];
+            return site?.enabled === true &&
+                (host === hostname || (host.startsWith('*.') && hostname.endsWith(host.slice(1)))) &&
+                protocols.includes(protocol) &&
+                Array.isArray(site.paths) &&
+                site.paths.some(path => matches(path, pathname));
+        });
+        if (!enabled) return release();
 
-        if (typeof source !== 'string' || !source.trim()) throw new Error('BOOTSTRAP_UNAVAILABLE');
-
+        const source = await get(API + '/cloud-bootstrap.js?v=' + Date.now());
         await new Function('PAGE', 'STORE', source)(PAGE, {
             get: key => GM_getValue(key, ''),
             set: (key, value) => GM_setValue(key, value),
             remove: key => GM_deleteValue(key)
         });
     } catch {
-        delete window.__YD_CLOUD_LOADER__;
-        delete PAGE.__YD_CLOUD_LOADER__;
-        fail();
+        release();
     }
 })();
