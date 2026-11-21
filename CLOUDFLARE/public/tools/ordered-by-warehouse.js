@@ -1288,12 +1288,7 @@
                     </div>
                 </div>
 
-                <button
-                    id="ordered-close"
-                    type="button"
-                >
-                    ×
-                </button>
+                <button id="ordered-close" type="button" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
 
             <div id="ordered-body">
@@ -1437,7 +1432,7 @@
                         class="ordered-btn"
                         type="button"
                     >
-                        ▶ START ORDERED
+                        <i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i> START ORDERED
                     </button>
 
                     <button
@@ -1446,7 +1441,7 @@
                         type="button"
                         disabled
                     >
-                        Ⅱ PAUSE
+                        <i class="yd-fa-icon fa-solid fa-pause" aria-hidden="true"></i> PAUSE
                     </button>
 
                     <button
@@ -1455,7 +1450,7 @@
                         type="button"
                         disabled
                     >
-                        ▶ RESUME
+                        <i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i> RESUME
                     </button>
                 </div>
             </div>
@@ -1607,7 +1602,7 @@
                     aria-label="Ordered By WH"
                 >
                     <i
-                        class="yd-custom-icon fa fa-shopping-cart"
+                        class="yd-fa-icon fa-solid fa-cart-shopping"
                         role="img"
                         aria-label="Ordered By WH"
                     ></i>
