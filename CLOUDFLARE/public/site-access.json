@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "enabled": true,
+  "sites": [
+    {
+      "host": "odoo.yodawy.com",
+      "enabled": true,
+      "protocols": [
+        "https:"
+      ],
+      "paths": [
+        "/*"
+      ]
+    },
+    {
+      "host": "portal.yodawy.com",
+      "enabled": true,
+      "protocols": [
+        "https:"
+      ],
+      "paths": [
+        "/*"
+      ]
+    }
+  ]
+}
