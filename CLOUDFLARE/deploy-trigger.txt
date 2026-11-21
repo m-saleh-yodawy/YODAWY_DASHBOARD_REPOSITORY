@@ -35,3 +35,4 @@ Open ERX Dashboard-style portal editor and lazy reference loading release: 20261
 Global Font Awesome 6 icon runtime, yd-fa-icon class, and Odoo-safe icon isolation release: 20261121-fontawesome-1.
 Font Awesome custom icon font isolation and tool icon consistency fixes: 20261121-fontawesome-2.
 One-time D1 cleanup: keep Q-001 MOHAMED SALEH, remove every other user and preserve announcement attribution: 20261121-user-cleanup-1.
+Portal Tool Old release: 20261121-portal-tool-old-1.
