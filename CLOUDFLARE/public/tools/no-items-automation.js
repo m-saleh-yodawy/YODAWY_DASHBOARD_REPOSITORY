@@ -556,7 +556,7 @@ panel.innerHTML=`
 <span>No Items Screenshot</span>
 </div>
 </div>
-<button id="noitems-close" type="button">×</button>
+<button id="noitems-close" type="button" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
 </div>
 <div id="noitems-body">
 <div id="noitems-info">
@@ -610,9 +610,9 @@ panel.innerHTML=`
 <div id="noitems-status-text">IDLE</div>
 </div>
 <div id="noitems-controls">
-<button id="noitems-start" class="noitems-btn" type="button">▶ START NO ITEMS</button>
-<button id="noitems-pause" class="noitems-btn" type="button">Ⅱ PAUSE</button>
-<button id="noitems-resume" class="noitems-btn" type="button">▶ RESUME</button>
+<button id="noitems-start" class="noitems-btn" type="button"><i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i> START NO ITEMS</button>
+<button id="noitems-pause" class="noitems-btn" type="button"><i class="yd-fa-icon fa-solid fa-pause" aria-hidden="true"></i> PAUSE</button>
+<button id="noitems-resume" class="noitems-btn" type="button"><i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i> RESUME</button>
 </div>
 </div>
 <div id="noitems-footer">YODAWY • NO ITEMS</div>
@@ -772,7 +772,7 @@ systray.setAttribute('role','menuitem');
 
 systray.innerHTML=`
 <button id="noitems-systray-button" type="button" title="No Items Automation" aria-label="No Items Automation">
-<i class="yd-custom-icon fa fa-camera"></i>
+<i class="yd-fa-icon fa-solid fa-camera"></i>
 <span id="noitems-counter">0</span>
 </button>
 `;
