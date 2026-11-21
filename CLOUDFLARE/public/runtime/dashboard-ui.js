@@ -5567,6 +5567,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             throw new Error('Authenticated dashboard context is required.');
         }
         context = options;
+        if (context.userId === 'Q-001' && context.userRole === 'SUPER_ADMIN' && typeof context.api?.cleanupUsers === 'function') {
+            const cleanup = await context.api.cleanupUsers();
+            if (cleanup?.success !== true) throw new Error(cleanup?.error || 'USER_CLEANUP_FAILED');
+            if (!cleanup.alreadyApplied && Number(cleanup.deletedCount || 0) > 0) {
+                page.setTimeout(() => page.location.reload(), 250);
+                return true;
+            }
+        }
         loadPortalAccounts();
         const uiState = options.uiState && typeof options.uiState === 'object' ? options.uiState : {};
         const defaultPage = context.settings?.getSettings?.()?.startPage;
