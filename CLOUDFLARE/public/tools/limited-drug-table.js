@@ -129,7 +129,10 @@ function success(message) {
 
     const popup = document.createElement('div');
     popup.className = 'yodawy-copy-success';
-    popup.innerHTML = '<i class="yd-fa-icon fa-solid fa-check" aria-hidden="true"></i> ' + escapeHTML(message);
+    const icon = document.createElement('i');
+    icon.className = 'yd-fa-icon fa-solid fa-check';
+    icon.setAttribute('aria-hidden', 'true');
+    popup.append(icon, document.createTextNode(' ' + String(message || '')));
     document.body.appendChild(popup);
 
     schedule(() => {
