@@ -67,6 +67,21 @@ const respond = (request, env, data, status = 200) => {
   return new Response(JSON.stringify(data), { status, headers });
 };
 const readBody = async request => { try { const value = await request.json(); return value && typeof value === "object" ? value : {}; } catch { return {}; } };
+const readSiteAccessConfig = async (request, env) => {
+  let stored = null;
+  try { stored = await env.DB.prepare("SELECT payload_json FROM network_transactions WHERE request_id = ? AND request_type = ?").bind("SITE_ACCESS_CONFIG_V1", "SITE_ACCESS_CONFIG").first(); } catch {}
+  if (stored?.payload_json) {
+    try {
+      const value = JSON.parse(stored.payload_json);
+      if (typeof value.enabled === "boolean" && Array.isArray(value.sites)) return { version: 1, enabled: value.enabled, sites: value.sites };
+    } catch {}
+  }
+  try {
+    const asset = await env.ASSETS.fetch(new Request(new URL("/site-access.json", request.url), { method: "GET", cache: "no-store" }));
+    const value = await asset.json();
+    return { version: 1, enabled: value?.enabled === true, sites: Array.isArray(value?.sites) ? value.sites : [] };
+  } catch { return { version: 1, enabled: false, sites: [] }; }
+};
 const issueSession = async (env, user, request) => {
   const now = Math.floor(Date.now() / 1000);
   const refresh = randomToken();
@@ -171,6 +186,34 @@ const portalAccountRoutes = async (request, env, path) => {
   const isSuper = actor.role === "SUPER_ADMIN";
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
+  if (path === "/api/dashboard/site-access" && request.method === "GET") {
+    if (!isSuper) return forbidden();
+    return respond(request, env, { success: true, config: await readSiteAccessConfig(request, env) });
+  }
+  if (path === "/api/dashboard/site-access" && request.method === "PUT") {
+    if (!isSuper) return forbidden();
+    const enabled = body.enabled;
+    const input = body.sites;
+    if (typeof enabled !== "boolean" || !Array.isArray(input) || input.length > 100) return respond(request, env, { success: false, error: "INVALID_SITE_ACCESS_CONFIG" }, 400);
+    const seen = new Set();
+    const sites = [];
+    for (const item of input) {
+      const host = String(item?.host || "").trim().toLowerCase();
+      const hostname = host.startsWith("*.") ? host.slice(2) : host;
+      const labels = hostname.split(".");
+      const validHost = host === "localhost" || (labels.length >= 2 && labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)));
+      const protocols = Array.isArray(item?.protocols) ? [...new Set(item.protocols)] : [];
+      const paths = Array.isArray(item?.paths) ? [...new Set(item.paths.map(value => String(value).trim()))] : [];
+      if (!validHost || host.length > 253 || seen.has(host) || typeof item?.enabled !== "boolean" || !protocols.length || protocols.some(value => !["https:", "http:"].includes(value)) || !paths.length || paths.length > 20 || paths.some(value => !value.startsWith("/") || value.length > 200 || value.includes("?") || value.includes("#") || value.includes("\\"))) return respond(request, env, { success: false, error: "INVALID_SITE_ACCESS_ENTRY", host }, 400);
+      seen.add(host);
+      sites.push({ host, enabled: item.enabled, protocols, paths });
+    }
+    const config = { version: 1, enabled, sites };
+    const now = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO network_transactions (request_id, request_type, status, payload_json, result_json, created_at, updated_at) VALUES (?, 'SITE_ACCESS_CONFIG', 'COMPLETED', ?, '{}', ?, ?) ON CONFLICT(request_id) DO UPDATE SET request_type = excluded.request_type, status = excluded.status, payload_json = excluded.payload_json, updated_at = excluded.updated_at").bind("SITE_ACCESS_CONFIG_V1", JSON.stringify(config), now, now).run();
+    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'UPDATE_SITE_ACCESS', 'DASHBOARD', 'SITE_ACCESS', ?, ?)").bind(actor.user_id, JSON.stringify({ enabled, siteCount: sites.length }), now).run();
+    return respond(request, env, { success: true, config });
+  }
   const normalizeOdooKey = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s*\(\d+\)\s*$/, "").replace(/[^a-z0-9]/g, "");
   const upstreamGraphql = async (url, query, variables = {}, operationName = "") => {
     const controller = new AbortController();
@@ -610,7 +653,7 @@ const dashboardRoutes = async (request, env, path) => {
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
       isSuper ? env.DB.prepare("SELECT user_id, settings_json FROM user_settings").all() : Promise.resolve({ results: [] }),
       env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
-      isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] }),
+      isSuper ? env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions WHERE request_type <> 'SITE_ACCESS_CONFIG' ORDER BY created_at DESC LIMIT 500").all() : Promise.resolve({ results: [] }),
       isAdmin ? env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id ORDER BY a.id DESC LIMIT 500").all() : env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id WHERE a.actor_id = ? ORDER BY a.id DESC LIMIT 200").bind(actor.user_id).all()
     ]);
     const permissionMap = {};
@@ -828,14 +871,10 @@ const dashboardRoutes = async (request, env, path) => {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === "/site-access.json" && request.method === "GET") {
-      const asset = await env.ASSETS.fetch(new Request(new URL("/site-access.json", request.url), { method: "GET", cache: "no-store" }));
-      const headers = new Headers(asset.headers);
-      headers.set("content-type", "application/json; charset=utf-8");
-      headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
-      headers.set("access-control-allow-origin", "*");
-      headers.set("x-content-type-options", "nosniff");
-      return new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers });
+    if (url.pathname === "/site-access.json") {
+      if (request.method !== "GET") return new Response(null, { status: 405 });
+      const config = await readSiteAccessConfig(request, env);
+      return new Response(JSON.stringify(config), { headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store, no-cache, must-revalidate, max-age=0", "access-control-allow-origin": "*", "x-content-type-options": "nosniff" } });
     }
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") {
