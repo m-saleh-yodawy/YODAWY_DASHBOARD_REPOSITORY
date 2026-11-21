@@ -4,7 +4,7 @@
     PAGE.__YD_CLOUD_LOADER__ = true;
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261119-cross-platform-1';
+    const ASSET_VERSION = '20261121-fontawesome-1';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -47,6 +47,18 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         }
         return data;
     };
+    const loadStyle = path => new Promise(resolve => {
+        const id = 'yd-fa-icons-style';
+        const existing = PAGE.document.getElementById(id);
+        if (existing?.sheet) return resolve(true);
+        const link = existing || PAGE.document.createElement('link');
+        link.id = id;
+        link.rel = 'stylesheet';
+        link.href = runtime + path + '?v=' + ASSET_VERSION;
+        link.onload = () => resolve(true);
+        link.onerror = () => resolve(false);
+        if (!existing) (PAGE.document.head || PAGE.document.documentElement).append(link);
+    });
     const loadScript = path => new Promise((resolve, reject) => {
         const script = PAGE.document.createElement('script');
         script.src = runtime + path + '?v=' + ASSET_VERSION;
@@ -154,6 +166,7 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
             }
         });
         Object.defineProperty(PAGE, 'YODAWY_CLOUD_CONTEXT', { value: context, configurable: true });
+        await loadStyle('fa-icons.css');
         const assets = [
             'cloud-api-engine.js',
             'core-auth-engine.js',
