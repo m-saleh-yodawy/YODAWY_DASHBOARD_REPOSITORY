@@ -629,7 +629,7 @@ function build(body){
     const copyAll=document.createElement('button');
     copyAll.className='yodawy-copy-all-button';
     copyAll.type='button';
-    copyAll.innerHTML='<i class="yd-fa-icon fa-regular fa-copy" aria-hidden="true"></i>';
+    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
 
     copyAll.onclick=async e=>{
         e.preventDefault();
@@ -672,7 +672,7 @@ function build(body){
         const copyOne=document.createElement('button');
         copyOne.className='yodawy-copy-one';
         copyOne.type='button';
-        copyOne.innerHTML='<i class="yd-fa-icon fa-regular fa-copy" aria-hidden="true"></i>';
+        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
 
         copyOne.onclick=async e=>{
             e.preventDefault();
