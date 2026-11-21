@@ -32,3 +32,4 @@ Website Access dashboard reload source and runtime cache release: 20261121-site-
 Stock Checker dashboard visual redesign release: 20261121-stock-panel-design-1.
 Stock Checker non-blocking overlay and dashboard click-through fix: 20261121-stock-clickthrough-1.
 Open ERX Dashboard-style portal editor and lazy reference loading release: 20261121-open-erx-dashboard-editor-1.
+Global Font Awesome 6 icon runtime, yd-fa-icon class, and Odoo-safe icon isolation release: 20261121-fontawesome-1.
