@@ -186,34 +186,6 @@ const portalAccountRoutes = async (request, env, path) => {
   const isSuper = actor.role === "SUPER_ADMIN";
   const now = new Date().toISOString();
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
-  if (path === "/api/dashboard/site-access" && request.method === "GET") {
-    if (!isSuper) return forbidden();
-    return respond(request, env, { success: true, config: await readSiteAccessConfig(request, env) });
-  }
-  if (path === "/api/dashboard/site-access" && request.method === "PUT") {
-    if (!isSuper) return forbidden();
-    const enabled = body.enabled;
-    const input = body.sites;
-    if (typeof enabled !== "boolean" || !Array.isArray(input) || input.length > 100) return respond(request, env, { success: false, error: "INVALID_SITE_ACCESS_CONFIG" }, 400);
-    const seen = new Set();
-    const sites = [];
-    for (const item of input) {
-      const host = String(item?.host || "").trim().toLowerCase();
-      const hostname = host.startsWith("*.") ? host.slice(2) : host;
-      const labels = hostname.split(".");
-      const validHost = host === "localhost" || (labels.length >= 2 && labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)));
-      const protocols = Array.isArray(item?.protocols) ? [...new Set(item.protocols)] : [];
-      const paths = Array.isArray(item?.paths) ? [...new Set(item.paths.map(value => String(value).trim()))] : [];
-      if (!validHost || host.length > 253 || seen.has(host) || typeof item?.enabled !== "boolean" || !protocols.length || protocols.some(value => !["https:", "http:"].includes(value)) || !paths.length || paths.length > 20 || paths.some(value => !value.startsWith("/") || value.length > 200 || value.includes("?") || value.includes("#") || value.includes("\\"))) return respond(request, env, { success: false, error: "INVALID_SITE_ACCESS_ENTRY", host }, 400);
-      seen.add(host);
-      sites.push({ host, enabled: item.enabled, protocols, paths });
-    }
-    const config = { version: 1, enabled, sites };
-    const now = new Date().toISOString();
-    await env.DB.prepare("INSERT INTO network_transactions (request_id, request_type, status, payload_json, result_json, created_at, updated_at) VALUES (?, 'SITE_ACCESS_CONFIG', 'COMPLETED', ?, '{}', ?, ?) ON CONFLICT(request_id) DO UPDATE SET request_type = excluded.request_type, status = excluded.status, payload_json = excluded.payload_json, updated_at = excluded.updated_at").bind("SITE_ACCESS_CONFIG_V1", JSON.stringify(config), now, now).run();
-    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'UPDATE_SITE_ACCESS', 'DASHBOARD', 'SITE_ACCESS', ?, ?)").bind(actor.user_id, JSON.stringify({ enabled, siteCount: sites.length }), now).run();
-    return respond(request, env, { success: true, config });
-  }
   const normalizeOdooKey = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s*\(\d+\)\s*$/, "").replace(/[^a-z0-9]/g, "");
   const upstreamGraphql = async (url, query, variables = {}, operationName = "") => {
     const controller = new AbortController();
@@ -617,6 +589,34 @@ const dashboardRoutes = async (request, env, path) => {
   const now = new Date().toISOString();
   const body = request.method === "GET" ? {} : await readBody(request);
   const forbidden = () => respond(request, env, { success: false, error: "FORBIDDEN" }, 403);
+  if (path === "/api/dashboard/site-access" && request.method === "GET") {
+    if (!isSuper) return forbidden();
+    return respond(request, env, { success: true, config: await readSiteAccessConfig(request, env) });
+  }
+  if (path === "/api/dashboard/site-access" && request.method === "PUT") {
+    if (!isSuper) return forbidden();
+    const enabled = body.enabled;
+    const input = body.sites;
+    if (typeof enabled !== "boolean" || !Array.isArray(input) || input.length > 100) return respond(request, env, { success: false, error: "INVALID_SITE_ACCESS_CONFIG" }, 400);
+    const seen = new Set();
+    const sites = [];
+    for (const item of input) {
+      const host = String(item?.host || "").trim().toLowerCase();
+      const hostname = host.startsWith("*.") ? host.slice(2) : host;
+      const labels = hostname.split(".");
+      const validHost = host === "localhost" || (labels.length >= 2 && labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)));
+      const protocols = Array.isArray(item?.protocols) ? [...new Set(item.protocols)] : [];
+      const paths = Array.isArray(item?.paths) ? [...new Set(item.paths.map(value => String(value).trim()))] : [];
+      if (!validHost || host.length > 253 || seen.has(host) || typeof item?.enabled !== "boolean" || !protocols.length || protocols.some(value => !["https:", "http:"].includes(value)) || !paths.length || paths.length > 20 || paths.some(value => !value.startsWith("/") || value.length > 200 || value.includes("?") || value.includes("#") || value.includes("\\"))) return respond(request, env, { success: false, error: "INVALID_SITE_ACCESS_ENTRY", host }, 400);
+      seen.add(host);
+      sites.push({ host, enabled: item.enabled, protocols, paths });
+    }
+    const config = { version: 1, enabled, sites };
+    const now = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO network_transactions (request_id, request_type, status, payload_json, result_json, created_at, updated_at) VALUES (?, 'SITE_ACCESS_CONFIG', 'COMPLETED', ?, '{}', ?, ?) ON CONFLICT(request_id) DO UPDATE SET request_type = excluded.request_type, status = excluded.status, payload_json = excluded.payload_json, updated_at = excluded.updated_at").bind("SITE_ACCESS_CONFIG_V1", JSON.stringify(config), now, now).run();
+    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'UPDATE_SITE_ACCESS', 'DASHBOARD', 'SITE_ACCESS', ?, ?)").bind(actor.user_id, JSON.stringify({ enabled, siteCount: sites.length }), now).run();
+    return respond(request, env, { success: true, config });
+  }
   if (path === "/api/dashboard/tools/manifest" && request.method === "GET") {
     if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
     try {
@@ -857,7 +857,7 @@ const dashboardRoutes = async (request, env, path) => {
   }
   if (path === "/api/dashboard/transactions" && request.method === "GET") {
     if (!isSuper) return forbidden();
-    const result = await env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions ORDER BY created_at DESC LIMIT 500").all();
+    const result = await env.DB.prepare("SELECT request_id, request_type, status, payload_json, result_json, created_at, updated_at FROM network_transactions WHERE request_type <> 'SITE_ACCESS_CONFIG' ORDER BY created_at DESC LIMIT 500").all();
     return respond(request, env, { success: true, transactions: (result.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })) });
   }
   if (path === "/api/dashboard/transactions" && request.method === "POST") {
