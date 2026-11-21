@@ -249,7 +249,7 @@ function createUI(){
 #ms-stock-header{display:flex!important;flex:0 0 60px!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;padding:0 20px!important;border-bottom:1px solid #d9d2df!important;background:#fff!important}
 #ms-stock-title{display:flex!important;align-items:center!important;gap:11px!important;min-width:0!important}
 #ms-stock-logo{display:grid!important;place-items:center!important;width:34px!important;height:34px!important;flex:0 0 34px!important;border-radius:9px!important;background:#875a7b!important;color:#fff!important;font-size:15px!important}
-#ms-stock-logo i{font-family:FontAwesome!important}
+#ms-stock-logo .yd-fa-icon{font-size:16px!important}
 #ms-stock-name{display:flex!important;flex-direction:column!important;gap:2px!important;min-width:0!important;line-height:1.2!important}
 #ms-stock-name strong{color:#18181b!important;font-size:13px!important;font-weight:700!important;letter-spacing:.035em!important}
 #ms-stock-name span{overflow:hidden!important;color:#71717a!important;font-size:10.5px!important;text-overflow:ellipsis!important;white-space:nowrap!important}
@@ -304,7 +304,7 @@ function createUI(){
 #ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;flex:0 0 42px!important}
 #ms-stock-hzb-systray-button{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.8)!important;cursor:pointer!important;outline:0!important}
 #ms-stock-hzb-systray-button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
-#ms-stock-hzb-systray-button i{font-family:FontAwesome!important;font-size:18px!important;color:inherit!important}
+#ms-stock-hzb-systray-button .yd-fa-icon{font-size:18px!important;color:inherit!important}
 @media(max-width:640px){
     #ms-stock-panel{width:calc(100vw - 20px)!important;height:calc(100vh - 20px)!important;max-height:calc(100vh - 20px)!important;border-radius:12px!important}
     #ms-stock-header{flex-basis:56px!important;padding:0 13px!important}
@@ -321,30 +321,30 @@ function createUI(){
 <div id="ms-stock-panel" role="dialog" aria-modal="true" aria-labelledby="ms-stock-heading">
     <header id="ms-stock-header">
         <div id="ms-stock-title">
-            <div id="ms-stock-logo"><i class="fa fa-cubes" aria-hidden="true"></i></div>
+            <div id="ms-stock-logo"><i class="yd-fa-icon fa-solid fa-cubes" aria-hidden="true"></i></div>
             <div id="ms-stock-name">
                 <strong id="ms-stock-heading">STOCK CHECKER</strong>
                 <span>Search product availability by name or HZB</span>
             </div>
         </div>
         <div id="ms-stock-header-actions">
-            <span class="ms-stock-live"><i class="fa fa-circle" aria-hidden="true"></i> LIVE STOCK</span>
-            <button id="ms-stock-close" type="button" title="Close" aria-label="Close"><i class="fa fa-times" aria-hidden="true"></i></button>
+            <span class="ms-stock-live"><i class="yd-fa-icon fa-solid fa-circle" aria-hidden="true"></i> LIVE STOCK</span>
+            <button id="ms-stock-close" type="button" title="Close" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
     </header>
     <main id="ms-stock-body">
         <section class="ms-stock-welcome">
             <div><h1>Stock Overview</h1><p>Check available quantities across Platinum, Gold and Silver warehouses.</p></div>
-            <span class="ms-stock-warehouse-count"><i class="fa fa-cubes" aria-hidden="true"></i> 3 WAREHOUSES</span>
+            <span class="ms-stock-warehouse-count"><i class="yd-fa-icon fa-solid fa-cubes" aria-hidden="true"></i> 3 WAREHOUSES</span>
         </section>
         <form id="ms-stock-form" autocomplete="off" novalidate>
             <div id="ms-stock-search-box">
                 <div id="ms-stock-input-wrap">
-                    <i class="fa fa-search" aria-hidden="true"></i>
+                    <i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                     <input id="ms-stock-input" type="search" name="ms_stock_search_x7k9" placeholder="Search product name or HZB..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="combobox" aria-autocomplete="list" aria-expanded="false">
                     <div id="ms-stock-dropdown"></div>
                 </div>
-                <button id="ms-stock-search" type="submit"><i class="fa fa-search" aria-hidden="true"></i><span>SEARCH</span></button>
+                <button id="ms-stock-search" type="submit"><i class="yd-fa-icon fa-solid fa-search" aria-hidden="true"></i><span>SEARCH</span></button>
             </div>
         </form>
         <div id="ms-stock-result" aria-live="polite">
@@ -439,7 +439,7 @@ function createUI(){
 
         searching=true;
         button.disabled=true;
-        button.innerHTML='<i class="fa fa-spinner fa-spin" aria-hidden="true"></i><span>SEARCHING</span>';
+        button.innerHTML='<i class="yd-fa-icon fa-solid fa-spinner fa-spin" aria-hidden="true"></i><span>SEARCHING</span>';
         closeDropdown();
         showStatus('Checking Platinum + Gold + Silver...');
 
@@ -470,7 +470,7 @@ function createUI(){
         }finally{
             searching=false;
             button.disabled=false;
-            button.innerHTML='<i class="fa fa-search" aria-hidden="true"></i><span>SEARCH</span>';
+            button.innerHTML='<i class="yd-fa-icon fa-solid fa-search" aria-hidden="true"></i><span>SEARCH</span>';
         }
     };
 
@@ -594,7 +594,7 @@ function createUI(){
     systrayItem.setAttribute('role','menuitem');
     systrayItem.innerHTML=`
         <button id="ms-stock-hzb-systray-button" type="button" title="Stock HZB" aria-label="Stock HZB">
-            <i class="yd-custom-icon fa fa-cubes" role="img" aria-label="Stock HZB"></i>
+            <i class="yd-fa-icon fa-solid fa-cubes" role="img" aria-label="Stock HZB"></i>
         </button>`;
 
     const systrayButton=systrayItem.firstElementChild;
