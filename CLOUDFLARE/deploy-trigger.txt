@@ -34,3 +34,4 @@ Stock Checker non-blocking overlay and dashboard click-through fix: 20261121-sto
 Open ERX Dashboard-style portal editor and lazy reference loading release: 20261121-open-erx-dashboard-editor-1.
 Global Font Awesome 6 icon runtime, yd-fa-icon class, and Odoo-safe icon isolation release: 20261121-fontawesome-1.
 Font Awesome custom icon font isolation and tool icon consistency fixes: 20261121-fontawesome-2.
+One-time D1 cleanup: keep Q-001 MOHAMED SALEH, remove every other user and preserve announcement attribution: 20261121-user-cleanup-1.
