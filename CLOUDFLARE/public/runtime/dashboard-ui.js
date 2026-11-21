@@ -1464,6 +1464,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 #yd-dashboard-root .yd-icon-btn > .yd-fa-icon { font-size: 15px !important; }
+#yd-dashboard-root .yd-icon-btn > .yd-user-action-icon { display: block !important; visibility: visible !important; opacity: 1 !important; width: 15px !important; min-width: 15px !important; height: 15px !important; max-height: 15px !important; flex: 0 0 15px !important; color: currentColor !important; stroke: currentColor !important; fill: none !important; pointer-events: none !important; }
 #yd-dashboard-root .yd-icon-btn:hover { border-color: #d8c7d7; background: var(--brand-soft); color: var(--brand-dark); }
 #yd-dashboard-root .yd-icon-btn.danger { border-color: var(--danger-border); background: #fff; color: var(--danger); }
 #yd-dashboard-root .yd-icon-btn.danger:hover { border-color: #e7bec2; background: var(--danger-bg); color: #a83742; }
@@ -3480,9 +3481,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             '<div class="yd-tool-summary"><span>' + visibleTools.length + ' Tools</span><span>' + permittedCount + ' Permitted</span><span>' + onCount + ' Enabled</span></div>';
     };
 
-    const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square" aria-hidden="true"></i>';
-    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash-can" aria-hidden="true"></i>';
-    const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye" aria-hidden="true"></i>';
+    const editActionIcon = '<svg class="yd-user-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>';
+    const deleteActionIcon = '<svg class="yd-user-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    const viewPasswordActionIcon = '<svg class="yd-user-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 
     const renderUsers = () => {
         const baseUsers = getUsers();
