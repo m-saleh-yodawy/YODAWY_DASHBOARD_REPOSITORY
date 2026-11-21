@@ -4637,6 +4637,24 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         password.focus();
     };
 
+    const collectSiteAccessForm = () => {
+        const root = document.getElementById(CONFIG.ID);
+        const rows = [...(root?.querySelectorAll('.yd-site-row') || [])];
+        return {
+            enabled: root?.querySelector('#yd-site-access-enabled')?.checked === true,
+            sites: rows.map(row => {
+                const field = name => row.querySelector('[data-site-field="' + name + '"]');
+                const protocol = field('protocol')?.value || 'https:';
+                return {
+                    host: field('host')?.value || '',
+                    enabled: field('enabled')?.checked === true,
+                    protocols: protocol === 'both' ? ['https:', 'http:'] : [protocol],
+                    paths: String(field('paths')?.value || '').split(',').map(item => item.trim()).filter(Boolean)
+                };
+            })
+        };
+    };
+
     const runAction = async (action, button) => {
         try {
             const access = getRoleAccess();
@@ -4646,11 +4664,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             }
             if (action === 'add-site') {
                 if (!Array.isArray(siteAccessSites)) siteAccessSites = [];
+                if (siteAccessLoaded) siteAccessSites = collectSiteAccessForm().sites;
                 siteAccessSites.push({ host: '', enabled: true, protocols: ['https:'], paths: ['/*'] });
                 siteAccessError = '';
                 render();
                 return;
             } else if (action === 'remove-site') {
+                siteAccessSites = collectSiteAccessForm().sites;
                 const index = Number(button?.dataset.index);
                 if (Number.isInteger(index) && index >= 0) siteAccessSites.splice(index, 1);
                 render();
@@ -4662,19 +4682,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 return;
             } else if (action === 'save-site-access') {
                 if (siteAccessSaving) return;
-                const root = document.getElementById(CONFIG.ID);
-                const rows = [...(root?.querySelectorAll('.yd-site-row') || [])];
-                const sites = rows.map(row => {
-                    const field = name => row.querySelector('[data-site-field="' + name + '"]');
-                    const protocol = field('protocol')?.value || 'https:';
-                    return {
-                        host: field('host')?.value || '',
-                        enabled: field('enabled')?.checked === true,
-                        protocols: protocol === 'both' ? ['https:', 'http:'] : [protocol],
-                        paths: String(field('paths')?.value || '').split(',').map(item => item.trim()).filter(Boolean)
-                    };
-                });
-                const enabled = root?.querySelector('#yd-site-access-enabled')?.checked === true;
+                const form = collectSiteAccessForm();
+                const sites = form.sites;
+                const enabled = form.enabled;
                 siteAccessSaving = true;
                 setButtonLoading(button, 'Saving');
                 try {
