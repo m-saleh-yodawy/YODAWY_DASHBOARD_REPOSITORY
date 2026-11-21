@@ -30,3 +30,4 @@ Central website allowlist and universal loader release: 20261121-site-gate-1.
 Super Admin website access manager and runtime cache release: 20261121-site-manager-1.
 Website Access dashboard reload source and runtime cache release: 20261121-site-manager-2.
 Stock Checker dashboard visual redesign release: 20261121-stock-panel-design-1.
+Stock Checker non-blocking overlay and dashboard click-through fix: 20261121-stock-clickthrough-1.
