@@ -26,3 +26,4 @@ Open ERX retrieve Odoo context from authenticated session endpoint: 20261120-ope
 Open ERX parse Odoo 14 company tuple context: 20261120-open-erx-company-tuple-context-1.
 Dashboard profile menu sign out release: 20261121-dashboard-logout-1.
 Cloud bootstrap initialization failure propagation: 20261121-bootstrap-error-propagation-1.
+Central website allowlist and universal loader release: 20261121-site-gate-1.
