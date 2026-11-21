@@ -727,6 +727,12 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root .yd-profile-menu .yd-refresh-action:focus-visible {
     background: #E1E1E1 !important;
 }
+#yd-dashboard-root .yd-profile-menu .yd-logout-action { margin-top: 6px; background: #fff1f1 !important; color: #b42318 !important; }
+#yd-dashboard-root .yd-profile-menu .yd-logout-action:hover,
+#yd-dashboard-root .yd-profile-menu .yd-logout-action:focus-visible { background: #fee2e2 !important; color: #b42318 !important; }
+#yd-dashboard-root .yd-profile-menu .yd-logout-action .yd-action-icon,
+#yd-dashboard-root .yd-profile-menu .yd-logout-action:hover .yd-action-icon,
+#yd-dashboard-root .yd-profile-menu .yd-logout-action:focus-visible .yd-action-icon { border-color: #fecaca; background: #fff; color: #b42318; }
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:hover .yd-action-icon,
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible .yd-action-icon {
     border-color: #875a7b;
@@ -3334,6 +3340,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                                 '<div id="yd-profile-menu" class="yd-profile-menu"' + (profileOpen ? '' : ' hidden') + '>' +
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
                                     '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
+                                    '<button class="yd-dropdown-action yd-logout-action" data-action="logout" type="button"><span class="yd-action-icon"><i class="fa-solid fa-right-from-bracket"></i></span><span><b>Sign Out</b></span></button>' +
                                 '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="fa-solid fa-xmark"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>';
@@ -5356,6 +5363,28 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             if (actionButton?.dataset.action === 'toggle-dashboard') { isOpen = !isOpen; render(); return; }
             if (actionButton?.dataset.action === 'close-dashboard') { isOpen = false; profileOpen = false; render(); return; }
             if (actionButton?.dataset.action === 'profile-toggle') { profileOpen = !profileOpen; render(); return; }
+            if (actionButton?.dataset.action === 'logout') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (actionButton.disabled || typeof context.cloudAuth?.logout !== 'function') return;
+                if (!await showDashboardConfirm({ title: 'Sign Out', message: 'Are you sure you want to sign out?', confirmLabel: 'Sign Out', cancelLabel: 'Cancel', danger: true })) return;
+                const original = actionButton.innerHTML;
+                actionButton.disabled = true;
+                actionButton.setAttribute('aria-busy', 'true');
+                actionButton.querySelector('.yd-action-icon').innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
+                actionButton.querySelector('b').textContent = 'Signing Out';
+                try {
+                    await context.cloudAuth.logout();
+                } catch (error) {
+                    if (actionButton.isConnected) {
+                        actionButton.disabled = false;
+                        actionButton.removeAttribute('aria-busy');
+                        actionButton.innerHTML = original;
+                    }
+                    showMessageDialog('Sign Out Failed', error?.message || 'Unable to sign out. Please try again.');
+                }
+                return;
+            }
             if (actionButton?.dataset.action === 'network-page') {
                 event.preventDefault();
                 networkPage = Math.max(1, Number(actionButton.dataset.page) || 1);
