@@ -344,7 +344,7 @@ function createUI(){
                     <input id="ms-stock-input" type="search" name="ms_stock_search_x7k9" placeholder="Search product name or HZB..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="combobox" aria-autocomplete="list" aria-expanded="false">
                     <div id="ms-stock-dropdown"></div>
                 </div>
-                <button id="ms-stock-search" type="submit"><i class="yd-fa-icon fa-solid fa-search" aria-hidden="true"></i><span>SEARCH</span></button>
+                <button id="ms-stock-search" type="submit"><i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>SEARCH</span></button>
             </div>
         </form>
         <div id="ms-stock-result" aria-live="polite">
@@ -470,7 +470,7 @@ function createUI(){
         }finally{
             searching=false;
             button.disabled=false;
-            button.innerHTML='<i class="yd-fa-icon fa-solid fa-search" aria-hidden="true"></i><span>SEARCH</span>';
+            button.innerHTML='<i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>SEARCH</span>';
         }
     };
 
