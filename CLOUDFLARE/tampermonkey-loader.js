@@ -29,6 +29,7 @@
     const get = url => new Promise((resolve, reject) => GM_xmlhttpRequest({
         method: 'GET',
         url,
+        anonymous: true,
         nocache: true,
         timeout: 8000,
         onload: response => response.status === 200 && typeof response.responseText === 'string' && response.responseText.trim() ? resolve(response.responseText) : reject(new Error('REMOTE_CONFIG_UNAVAILABLE')),
@@ -37,8 +38,18 @@
         onabort: reject
     }));
     const matches = (pattern, value) => {
-        const source = String(pattern).split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
-        return new RegExp('^' + source + '$').test(value);
+        const parts = String(pattern).split('*');
+        if (parts.length === 1) return value === pattern;
+        let position = 0;
+        for (let index = 0; index < parts.length; index++) {
+            const part = parts[index];
+            if (!part) continue;
+            const found = value.indexOf(part, position);
+            if (found < 0 || (index === 0 && found !== 0)) return false;
+            if (index === parts.length - 1 && found + part.length !== value.length) return false;
+            position = found + part.length;
+        }
+        return true;
     };
 
     window.__YD_CLOUD_LOADER__ = true;
