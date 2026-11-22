@@ -559,7 +559,7 @@ const portalAccountRoutes = async (request, env, path) => {
     await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'PORTAL_ACCOUNT_IMPORT', 'PORTAL_ACCOUNT', ?, ?, ?)").bind(actor.user_id, targetUserId, JSON.stringify({ created: prepared.length, skipped, total: records.length }), now).run();
     return respond(request, env, { success: true, targetUserId, created: prepared.length, skipped, processed: records.length });
   }
-  if (path === "/api/portal-accounts/bulk-missing" && request.method === "POST") {
+  if (path === "/api/portal-accounts/bulk-missing/personal-first" && request.method === "POST") {
     if (!isSuper) return forbidden();
     const body = await readBody(request);
     const provider = String(body.provider || "PORTAL").trim().toUpperCase();
