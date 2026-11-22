@@ -556,7 +556,7 @@ panel.innerHTML=`
 <span>No Items Screenshot</span>
 </div>
 </div>
-<button id="noitems-close" type="button" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
+<button id="noitems-close" type="button" aria-label="Close"><svg class="noitems-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
 </div>
 <div id="noitems-body">
 <div id="noitems-info">
@@ -724,6 +724,7 @@ style.textContent=`
 #noitems-name strong{font-size:13px}
 #noitems-name span{margin-top:2px;font-size:10px;color:rgba(255,255,255,.75)}
 #noitems-close{width:28px;height:28px;border:1px solid rgba(255,255,255,.35);border-radius:4px;background:transparent;color:#fff;cursor:pointer;font-size:17px}
+#noitems-close .noitems-close-icon{display:block;width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #noitems-body{padding:12px}
 #noitems-info,#noitems-confirm{display:flex;align-items:center;justify-content:space-between;min-height:42px;padding:7px 9px;margin-bottom:10px;border:1px solid #d9d9d9;border-radius:4px}
 #noitems-info-label{font-size:11px;font-weight:600}
