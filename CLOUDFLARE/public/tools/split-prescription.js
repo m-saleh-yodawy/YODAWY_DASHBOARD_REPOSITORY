@@ -668,11 +668,10 @@
         try {
             note = await waitForRemovedLimitedDrugsNote(ticketId, baselineId, targets);
         } catch (error) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
             throw new Error(actionError
                 ? 'Odoo action response was uncertain: ' + (actionError.message || 'Unknown error') + '. ' + error.message
                 : error.message);
-        } finally {
-            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
         }
 
         return {
@@ -683,12 +682,12 @@
         };
     }
 
-    async function createLogNote(prepared, cleanup) {
-        const rows = prepared.selectedDrugs.map(drug => '<li>' + escapeHTML(drug.name) + ' · HZB ' + escapeHTML(drug.hzb) + '</li>').join('');
-        const cleanupText = cleanup?.success
-            ? '<p><strong>Odoo cleanup:</strong> Deleted ' + Number(cleanup.count || 0) + ' matching Sale Order item line(s).</p>'
-            : '<p><strong>Odoo cleanup not completed:</strong> ' + escapeHTML(cleanup?.error || 'Unknown deletion error') + '</p>';
-        const body = '<p><strong>Prescription Split Completed — ORIGINAL</strong></p><ul>' + rows + '</ul><p>Serial: ' + escapeHTML(prepared.input.serial) + '</p><p>Payer: ' + escapeHTML(prepared.payer.name) + ' · Corporate: ' + escapeHTML(prepared.corporate.name) + ' · Cycle: ' + escapeHTML(prepared.cycle.label) + '</p>' + cleanupText;
+    async function createLogNote(prepared) {
+        const rows = prepared.selectedDrugs.map(drug => {
+            const limited = cleanDrugName(drug.limited) || [drug.name, drug.hzb].join(', ');
+            return '<p>Limited Drug: ' + escapeHTML(limited) + '<br>SPLIT</p>';
+        });
+        const body = rows.join('<p><br></p>');
         await rpc('helpdesk.ticket', 'message_post', [[state.ticketId]], {
             body,
             message_type: 'comment',
@@ -825,10 +824,14 @@
                     cleanup.error = error?.message || 'Odoo item deletion failed.';
                 }
                 let noteError = '';
-                try {
-                    await createLogNote(prepared, cleanup);
-                } catch (error) {
-                    noteError = error?.message || 'Odoo Log Note could not be added.';
+                if (cleanup.success) {
+                    try {
+                        await createLogNote(prepared);
+                    } catch (error) {
+                        noteError = error?.message || 'Odoo Log Note could not be added.';
+                    }
+                } else {
+                    noteError = 'SPLIT Log Note was not written because Odoo removal was not verified.';
                 }
                 state.busy = false;
                 const cleanupMessage = cleanup.success
