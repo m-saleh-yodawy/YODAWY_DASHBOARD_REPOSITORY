@@ -474,7 +474,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
     const targets = isSuper && Array.isArray(body.targetUserIds) ? [...new Set(body.targetUserIds.map(value => String(value).trim().toUpperCase()))] : [actor.user_id];
-    if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256 || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || !targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
     if (!isSuper && body.targetUserIds !== undefined) return forbidden();
     for (const userId of targets) {
       if (!/^Q-[0-9]{3,}$/.test(userId) || !await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(userId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
@@ -534,7 +534,7 @@ const portalAccountRoutes = async (request, env, path) => {
         const username = String(item?.username || "").trim();
         const password = String(item?.password || "");
         const odooKey = String(item?.odooKey || "").trim();
-        if (!label || label.length > 160 || !username || username.length > 160 || !password || password.length > 256 || odooKey.length > 160 || (requiresKey && !odooKey) || (!requiresKey && odooKey)) return respond(request, env, { success: false, error: "INVALID_IMPORT_RECORD", group }, 400);
+        if (!label || label.length > 160 || !username || username.length > 160 || !password || odooKey.length > 160 || (requiresKey && !odooKey) || (!requiresKey && odooKey)) return respond(request, env, { success: false, error: "INVALID_IMPORT_RECORD", group }, 400);
         records.push({ label, username, password, odooKey, accountType });
       }
     }
@@ -568,7 +568,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const odooKey = String(body.odooKey || "").trim();
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
-    if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password || password.length > 256) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
+    if (provider !== "PORTAL" || !["PERSONAL", "NON-PERSONAL"].includes(accountType) || !label || label.length > 160 || odooKey.length > 160 || !username || username.length > 160 || !password) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
     const users = await env.DB.prepare("SELECT user_id FROM users WHERE status = 'Active' AND role IN ('USER', 'ADMIN')").all();
     const targets = (users.results || []).map(user => user.user_id);
     if (!targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGETS" }, 400);
