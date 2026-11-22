@@ -2,16 +2,11 @@
     'use strict';
     if (global.YODAWY_LIVE_UPDATE_ENGINE?.version >= 4) return;
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
-        let timer = null;
-    let running = false;
+        let running = false;
     let stopped = true;
     let version = '';
-    let pendingToolsVersion = '';
-    let pendingUIVersion = '';
     let failures = 0;
     let lastCheck = 0;
-    let lastToolUpdate = 0;
-    let lastUIUpdate = 0;
     let lastError = '';
     const emit = (name, detail = {}) => global.dispatchEvent(new CustomEvent(name, { detail }));
     const request = async path => {
@@ -125,32 +120,23 @@
         try {
             const current = await request('/api/version');
             const currentVersion = String(current.version || '');
-            if (current.success && currentVersion && currentVersion !== 'unversioned') {
-                if (!version) version = currentVersion;
-                else if (version !== currentVersion) {
-                    version = currentVersion;
-                    pendingToolsVersion = currentVersion;
-                    pendingUIVersion = currentVersion;
-                }
-                if (!pendingToolsVersion && Date.now() - lastManifestCheck >= MANIFEST_INTERVAL) pendingToolsVersion = currentVersion;
-            } else if (Date.now() - lastManifestCheck >= MANIFEST_INTERVAL) {
-                pendingToolsVersion = currentVersion || 'unversioned';
+            if (!current.success || !currentVersion || currentVersion === 'unversioned') throw new Error('LIVE_UPDATE_VERSION_UNAVAILABLE');
+            const changed = Boolean(version && version !== currentVersion);
+            version = currentVersion;
+            if (changed || !lastCheck) {
+                await syncTools(currentVersion);
+                await hotSwapUI(currentVersion);
+                await refreshData();
             }
-            if (pendingToolsVersion) {
-                if (await syncTools(pendingToolsVersion)) pendingToolsVersion = '';
-            }
-            if (pendingUIVersion && await hotSwapUI(pendingUIVersion)) pendingUIVersion = '';
-            await refreshData();
             lastCheck = Date.now();
             failures = 0;
-            if (!lastError || !pendingToolsVersion) lastError = '';
+            lastError = '';
             emit('yodawy-live-update-status', getStatus());
             return true;
         } catch (error) {
             failures = Math.min(failures + 1, 8);
             lastError = error?.message || 'LIVE_UPDATE_FAILED';
             emit('yodawy-live-update-error', { message: lastError, failures });
-            if (!version) lastManifestCheck = 0;
             return false;
         } finally {
             running = false;
@@ -169,14 +155,12 @@
             running: !stopped,
             checking: running,
             version,
-            pendingToolsVersion,
-            pendingUIVersion,
+            pendingToolsVersion: '',
+            pendingUIVersion: '',
             failures,
             lastCheck,
-            lastToolUpdate,
-            lastUIUpdate,
             lastError
         };
     }
-    global.YODAWY_LIVE_UPDATE_ENGINE = Object.freeze({ version: 4, start, stop, check, getStatus });
+    global.YODAWY_LIVE_UPDATE_ENGINE = Object.freeze({ version: 5, start, stop, check, getStatus });
 })(window);
