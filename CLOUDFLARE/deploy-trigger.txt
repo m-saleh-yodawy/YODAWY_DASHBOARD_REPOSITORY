@@ -54,3 +54,4 @@ Serve explicit Dashboard UI refresh from cached Static Assets without Worker API
 Apply request reduction consistently to both Cloud Bootstrap and Bookmark Bootstrap entry points: 20261122-worker-request-optimization-3.
 
 Fix CORS headers for system messages asset: 20261122-system-messages-cors-1.
+Fix Odoo Homepage navbar launcher mutation loop and refresh both bootstrap runtime asset versions: 20261122-home-navbar-loop-fix-1.
