@@ -185,7 +185,11 @@
     };
     const savePortalAccount = async account => call('/api/portal-accounts', 'POST', account);
     const deletePortalAccount = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'DELETE');
-    const savePortalAccountsForAll = async account => call('/api/portal-accounts/bulk', 'POST', account);
+    const savePortalAccountsForAll = async account => {
+        const result = await call('/api/portal-accounts/bulk', 'POST', account);
+        if (result?.success) { portalAccountsCache = null; portalAccountsRequest = null; }
+        return result;
+    };
     const importPortalAccounts = async payload => { const result = await call('/api/portal-accounts/import', 'POST', payload); if (result?.success) { portalAccountsCache = null; portalAccountsRequest = null; } return result; };
     const cleanupUsers = async () => call('/api/dashboard/users/cleanup', 'POST', {});
     const recordActivity = async activity => call('/api/dashboard/activity', 'POST', activity);
