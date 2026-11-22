@@ -4086,6 +4086,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         let loadedTools = [];
         try { previousManifest = toolsManager?.getManifest?.() || []; } catch {}
         try { loadedTools = toolsManager?.getLoadedTools?.() || []; } catch {}
+        await runtimeContext.api.refresh();
         await Promise.all([
             runtimeContext.permissions?.load?.(),
             runtimeContext.visibility?.load?.(),
