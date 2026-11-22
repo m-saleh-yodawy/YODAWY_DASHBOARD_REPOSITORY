@@ -190,10 +190,13 @@
         if (!launcherItem) {
             const item = document.createElement('li');
             item.id = 'yd-dashboard-menu-item';
+            item.className = 'nav-item';
+            item.style.marginInline = '20px';
             const link = document.createElement('a');
             link.id = 'yd-launcher';
             link.href = '#';
-            link.className = 'o_menu_entry_lvl_1';
+            link.className = 'o_menu_entry_lvl_1 nav-link';
+            link.style.cssText = 'height:46px;padding:0 10px;color:white;line-height:46px';
             link.setAttribute('role', 'menuitem');
             link.setAttribute('aria-label', 'YODAWY Dashboard');
             link.title = 'YODAWY Dashboard';
@@ -211,12 +214,11 @@
             item.append(link);
             launcherItem = item;
         }
-        if (launcherItem.parentElement === menu) return true;
-        const tickets = [...menu.children].find(item =>
-            item.querySelector('a.o_menu_header_lvl_1')?.textContent.trim().toLowerCase() === 'tickets'
-        );
-        if (tickets) menu.insertBefore(launcherItem, tickets.nextSibling);
-        else menu.append(launcherItem);
+        const items = [...menu.children].filter(item => item !== launcherItem);
+        const thirdItem = items[2] || null;
+        if (launcherItem.parentElement !== menu || menu.children[2] !== launcherItem) {
+            menu.insertBefore(launcherItem, thirdItem);
+        }
         return true;
     };
 
@@ -230,7 +232,10 @@
         }
         if (!launcherObserver && document.body) {
             launcherObserver = new MutationObserver(() => {
-                if (!launcherItem?.isConnected) mountLauncher();
+                const menu = document.querySelector('.o_main_navbar ul.o_menu_sections[role="menu"]');
+                if (!launcherItem?.isConnected || launcherItem.parentElement !== menu || menu?.children[2] !== launcherItem) {
+                    mountLauncher();
+                }
             });
             launcherObserver.observe(document.body, { childList: true, subtree: true });
         }
