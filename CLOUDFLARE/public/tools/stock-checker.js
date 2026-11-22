@@ -233,6 +233,13 @@ function priceHTML(product){
 function createUI(){
     if(document.getElementById(ID))return;
 
+    const icons={
+        cubes:'<svg class="ms-stock-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 2 8 4.5-8 4.5-8-4.5L12 2Z"/><path d="M4 6.5v9L12 20l8-4.5v-9M12 11v9M8 4.25l8 4.5"/></svg>',
+        close:'<svg class="ms-stock-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+        search:'<svg class="ms-stock-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>',
+        spinner:'<svg class="ms-stock-icon ms-stock-spinner" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" opacity=".25"/><path d="M21 12a9 9 0 0 0-9-9"/></svg>'
+    };
+
     const host=document.createElement('div');
     host.id=ID;
     host.style.cssText='all:initial!important;position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:2147482000!important;pointer-events:none!important;display:block!important;font-family:"Nunito Sans",Arial,sans-serif!important';
@@ -250,15 +257,19 @@ function createUI(){
 #ms-stock-header{display:flex!important;flex:0 0 60px!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;padding:0 20px!important;border-bottom:1px solid #d9d2df!important;background:#fff!important}
 #ms-stock-title{display:flex!important;align-items:center!important;gap:11px!important;min-width:0!important}
 #ms-stock-logo{display:grid!important;place-items:center!important;width:34px!important;height:34px!important;flex:0 0 34px!important;border-radius:9px!important;background:#875a7b!important;color:#fff!important;font-size:15px!important}
-#ms-stock-logo .yd-fa-icon{font-size:16px!important}
+#ms-stock-logo .ms-stock-icon{width:18px!important;height:18px!important}
 #ms-stock-name{display:flex!important;flex-direction:column!important;gap:2px!important;min-width:0!important;line-height:1.2!important}
 #ms-stock-name strong{color:#18181b!important;font-size:13px!important;font-weight:700!important;letter-spacing:.035em!important}
 #ms-stock-name span{overflow:hidden!important;color:#71717a!important;font-size:10.5px!important;text-overflow:ellipsis!important;white-space:nowrap!important}
 #ms-stock-header-actions{display:flex!important;align-items:center!important;gap:10px!important}
 .ms-stock-live{display:inline-flex!important;align-items:center!important;gap:6px!important;padding:5px 9px!important;border:1px solid #d7eadf!important;border-radius:999px!important;background:#eef8f2!important;color:#247a53!important;font-size:10px!important;font-weight:700!important;white-space:nowrap!important}
-.ms-stock-live i{font-size:9px!important}
+.ms-stock-live-dot{width:7px!important;height:7px!important;flex:0 0 7px!important;border-radius:50%!important;background:#2d9668!important}
 #ms-stock-close{display:grid!important;place-items:center!important;width:34px!important;height:34px!important;padding:0!important;margin:0!important;border:1px solid #d9d9de!important;border-radius:8px!important;background:#fff!important;color:#68465f!important;cursor:pointer!important;font-size:16px!important;outline:0!important;transition:all .15s!important}
 #ms-stock-close:hover{border-color:#d8c7d7!important;background:#f4eff2!important;color:#875a7b!important}
+#ms-stock-close .ms-stock-icon{width:16px!important;height:16px!important}
+.ms-stock-icon{display:block!important;flex:0 0 auto!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+.ms-stock-spinner{animation:ms-stock-spin .8s linear infinite!important}
+@keyframes ms-stock-spin{to{transform:rotate(360deg)}}
 #ms-stock-body{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;gap:13px!important;min-height:0!important;padding:20px 22px!important;overflow:hidden!important;background:#e1e1e1!important}
 .ms-stock-welcome{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;flex-wrap:wrap!important;flex:0 0 auto!important}
 .ms-stock-welcome h1{margin:0!important;color:#18181b!important;font-size:19px!important;font-weight:700!important;letter-spacing:-.02em!important;line-height:1.25!important}
@@ -267,12 +278,13 @@ function createUI(){
 #ms-stock-form{flex:0 0 auto!important;margin:0!important;padding:0!important}
 #ms-stock-search-box{position:relative!important;display:flex!important;align-items:center!important;gap:9px!important;min-height:64px!important;padding:12px!important;margin:0!important;border:1px solid #d9d9de!important;border-radius:11px!important;background:#fff!important;box-shadow:0 2px 5px #29242e08!important}
 #ms-stock-input-wrap{position:relative!important;flex:1 1 auto!important;min-width:0!important}
-#ms-stock-input-wrap>i{position:absolute!important;top:50%!important;left:13px!important;z-index:1!important;transform:translateY(-50%)!important;color:#9b949f!important;font-size:13px!important;pointer-events:none!important}
+#ms-stock-input-wrap>.ms-stock-icon{position:absolute!important;top:50%!important;left:13px!important;z-index:1!important;width:14px!important;height:14px!important;transform:translateY(-50%)!important;color:#9b949f!important;pointer-events:none!important}
 #ms-stock-input{display:block!important;width:100%!important;height:38px!important;min-height:38px!important;padding:0 12px 0 36px!important;margin:0!important;border:1px solid #d9d9de!important;border-radius:8px!important;outline:0!important;background:#fff!important;color:#18181b!important;font-size:12px!important;font-weight:600!important;line-height:38px!important;box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important;transition:border-color .15s,box-shadow .15s!important}
 #ms-stock-input:focus{border-color:#875a7b!important;box-shadow:0 0 0 3px rgba(135,90,123,.12)!important}
 #ms-stock-input::placeholder{color:#aaa3ad!important;opacity:1!important;font-weight:400!important}
 #ms-stock-search{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;flex:0 0 auto!important;height:38px!important;min-height:38px!important;padding:0 17px!important;margin:0!important;border:1px solid #875a7b!important;border-radius:8px!important;background:#875a7b!important;color:#fff!important;font-size:11.5px!important;font-weight:700!important;cursor:pointer!important;outline:0!important;box-shadow:0 2px 5px #875a7b1a!important;transition:all .15s!important}
 #ms-stock-search:hover{border-color:#68465f!important;background:#68465f!important;box-shadow:0 3px 8px #68465f24!important}
+#ms-stock-search .ms-stock-icon{width:14px!important;height:14px!important}
 #ms-stock-search:disabled{border-color:#aaa!important;background:#aaa!important;cursor:not-allowed!important;box-shadow:none!important}
 #ms-stock-dropdown{display:none!important;position:absolute!important;top:44px!important;left:0!important;right:0!important;max-height:300px!important;overflow-y:auto!important;overflow-x:hidden!important;z-index:2147483647!important;border:1px solid #d9d9de!important;border-radius:9px!important;background:#fff!important;box-shadow:0 12px 28px #17131c24!important}
 #ms-stock-dropdown.open{display:block!important}
@@ -305,7 +317,8 @@ function createUI(){
 #ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;flex:0 0 42px!important}
 #ms-stock-hzb-systray-button{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.8)!important;cursor:pointer!important;outline:0!important}
 #ms-stock-hzb-systray-button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
-#ms-stock-hzb-systray-button .yd-fa-icon{font-size:18px!important;color:inherit!important}
+#ms-stock-hzb-systray-button .ms-stock-icon{width:18px!important;height:18px!important;color:inherit!important}
+.ms-stock-warehouse-count .ms-stock-icon{width:12px!important;height:12px!important}
 @media(max-width:640px){
     #ms-stock-panel{width:calc(100vw - 20px)!important;height:calc(100vh - 20px)!important;max-height:calc(100vh - 20px)!important;border-radius:12px!important}
     #ms-stock-header{flex-basis:56px!important;padding:0 13px!important}
@@ -322,30 +335,30 @@ function createUI(){
 <div id="ms-stock-panel" role="dialog" aria-modal="true" aria-labelledby="ms-stock-heading">
     <header id="ms-stock-header">
         <div id="ms-stock-title">
-            <div id="ms-stock-logo"><i class="yd-fa-icon fa-solid fa-cubes" aria-hidden="true"></i></div>
+            <div id="ms-stock-logo">${icons.cubes}</div>
             <div id="ms-stock-name">
                 <strong id="ms-stock-heading">STOCK CHECKER</strong>
                 <span>Search product availability by name or HZB</span>
             </div>
         </div>
         <div id="ms-stock-header-actions">
-            <span class="ms-stock-live"><i class="yd-fa-icon fa-solid fa-circle" aria-hidden="true"></i> LIVE STOCK</span>
-            <button id="ms-stock-close" type="button" title="Close" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
+            <span class="ms-stock-live"><span class="ms-stock-live-dot"></span> LIVE STOCK</span>
+            <button id="ms-stock-close" type="button" title="Close" aria-label="Close">${icons.close}</button>
         </div>
     </header>
     <main id="ms-stock-body">
         <section class="ms-stock-welcome">
             <div><h1>Stock Overview</h1><p>Check available quantities across Platinum, Gold and Silver warehouses.</p></div>
-            <span class="ms-stock-warehouse-count"><i class="yd-fa-icon fa-solid fa-cubes" aria-hidden="true"></i> 3 WAREHOUSES</span>
+            <span class="ms-stock-warehouse-count">${icons.cubes} 3 WAREHOUSES</span>
         </section>
         <form id="ms-stock-form" autocomplete="off" novalidate>
             <div id="ms-stock-search-box">
                 <div id="ms-stock-input-wrap">
-                    <i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    ${icons.search}
                     <input id="ms-stock-input" type="search" name="ms_stock_search_x7k9" placeholder="Search product name or HZB..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="combobox" aria-autocomplete="list" aria-expanded="false">
                     <div id="ms-stock-dropdown"></div>
                 </div>
-                <button id="ms-stock-search" type="submit"><i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>SEARCH</span></button>
+                <button id="ms-stock-search" type="submit">${icons.search}<span>SEARCH</span></button>
             </div>
         </form>
         <div id="ms-stock-result" aria-live="polite">
@@ -440,7 +453,7 @@ function createUI(){
 
         searching=true;
         button.disabled=true;
-        button.innerHTML='<i class="yd-fa-icon fa-solid fa-spinner fa-spin" aria-hidden="true"></i><span>SEARCHING</span>';
+        button.innerHTML=icons.spinner+'<span>SEARCHING</span>';
         closeDropdown();
         showStatus('Checking Platinum + Gold + Silver...');
 
@@ -471,7 +484,7 @@ function createUI(){
         }finally{
             searching=false;
             button.disabled=false;
-            button.innerHTML='<i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i><span>SEARCH</span>';
+            button.innerHTML=icons.search+'<span>SEARCH</span>';
         }
     };
 
@@ -595,7 +608,7 @@ function createUI(){
     systrayItem.setAttribute('role','menuitem');
     systrayItem.innerHTML=`
         <button id="ms-stock-hzb-systray-button" type="button" title="Stock HZB" aria-label="Stock HZB">
-            <i class="yd-fa-icon fa-solid fa-cubes" role="img" aria-label="Stock HZB"></i>
+            ${icons.cubes}
         </button>`;
 
     const systrayButton=systrayItem.firstElementChild;
