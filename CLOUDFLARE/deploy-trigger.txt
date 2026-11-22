@@ -77,3 +77,4 @@ Split Prescription Open ERX-style modal surfaces and controls: 20261122-split-op
 Split Prescription Yodawy logo, lighter typography and E1E1E1 canvas: 20261122-split-brand-contrast-2.
 Split Prescription uniform card borders and S logo: 20261122-split-uniform-border-s-logo-1.
 Split Prescription remove browser confirmation after SPLIT click: 20261122-split-no-browser-confirm-1.
+Move Communication horizontal overflow for long Arabic text: 20261122-move-communication-horizontal-scroll-1.
