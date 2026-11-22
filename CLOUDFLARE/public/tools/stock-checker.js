@@ -15,8 +15,8 @@
         {group:'ABU RAWASH',name:'GOLD',key:'abuGold',path:'GW/Stock',locationId:617},
         {group:'ABU RAWASH',name:'SILVER',key:'abuSilver',path:'SIW/Stock',locationId:631},
         {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum',path:'AR-PP/Stock',locationId:127},
-        {group:'ENGY',name:'GOLD',key:'engyGold',path:'POST-Engy Gold',locationId:673},
-        {group:'ENGY',name:'SILVER',key:'engySilver',path:'PRE-Engy Silver',locationId:659},
+        {group:'ENGY',name:'GOLD',key:'engyGold',path:'POST-Engy Gold/Stock',match:'POST-Engy Gold',locationId:673},
+        {group:'ENGY',name:'SILVER',key:'engySilver',path:'PRE-Engy Silver/Stock',match:'PRE-Engy Silver',locationId:659},
         {group:'ENGY',name:'PLATINUM',key:'engyPlatinum',path:'ep/Stock',locationId:645}
     ];
 
@@ -43,41 +43,58 @@
         return data.result;
     }
 
+    async function findWarehouseLocation(warehouse){
+        const rows=await rpc('stock.location','search_read',{
+            domain:['|',['complete_name','=',warehouse.path],['name','=',warehouse.path]],
+            fields:['id','name','complete_name'],
+            limit:20
+        });
+
+        const location=rows.find(row=>row.complete_name===warehouse.path)
+            ||rows.find(row=>row.name===warehouse.path);
+
+        if(location)return{...warehouse,id:location.id,actualName:location.complete_name||location.name,found:true};
+
+        if(warehouse.locationId&&warehouse.match){
+            const idRows=await rpc('stock.location','search_read',{
+                domain:[['id','=',warehouse.locationId]],
+                fields:['id','name','complete_name'],
+                limit:1
+            });
+
+            const idLocation=idRows[0];
+            const actualName=String(idLocation?.complete_name||idLocation?.name||'').toLowerCase();
+
+            if(idLocation&&actualName.includes(warehouse.match.toLowerCase())){
+                return{...warehouse,id:idLocation.id,actualName:idLocation.complete_name||idLocation.name,found:true};
+            }
+        }
+
+        return{...warehouse,found:false};
+    }
+
     async function getWarehouseLocations(){
         if(!warehouseLocationsPromise){
             warehouseLocationsPromise=Promise.all(WAREHOUSES.map(async warehouse=>{
-                const rows=await rpc('stock.location','search_read',{
-                    domain:[
-                        '|',
-                        ['complete_name','=',warehouse.path],
-                        ['name','=',warehouse.path]
-                    ],
-                    fields:['id','name','complete_name'],
-                    limit:20
-                });
-
-                const location=rows.find(row=>row.complete_name===warehouse.path)
-                    ||rows.find(row=>row.name===warehouse.path);
-
-                if(!location)throw Error(`Stock location not found: ${warehouse.path}`);
-
-                return{...warehouse,id:location.id};
-            })).catch(error=>{
-                warehouseLocationsPromise=null;
-                throw error;
-            });
+                try{
+                    return await findWarehouseLocation(warehouse);
+                }catch(error){
+                    return{...warehouse,found:false,error:error.message||'Location lookup failed'};
+                }
+            }));
         }
 
         return warehouseLocationsPromise;
     }
 
     async function readProductQuants(productIds,locations){
-        if(!productIds.length)return[];
+        const validLocations=locations.filter(location=>location.found&&location.id);
+        if(!productIds.length||!validLocations.length)return[];
 
         return rpc('stock.quant','search_read',{
             domain:[
                 ['product_id','in',productIds],
-                ['location_id','in',locations.map(location=>location.id)]
+                ['location_id','in',validLocations.map(location=>location.id)]
             ],
             fields:['product_id','location_id','product_uom_id','quantity','reserved_quantity'],
             limit:50000,
@@ -89,41 +106,22 @@
         const text=value.trim();
         if(!text)return[];
 
-        const [locations,productRows]=await Promise.all([
-            getWarehouseLocations(),
-            rpc('product.product','search_read',{
-                domain:[
-                    '|','|','|',
-                    ['default_code','ilike',text],
-                    ['barcode','ilike',text],
-                    ['name','ilike',text],
-                    ['hb_id','ilike',text]
-                ],
-                fields:['id','name','display_name','default_code','barcode','hb_id','lst_price'],
-                limit:1000,
-                order:'name asc'
-            })
-        ]);
+        const productRows=await rpc('product.product','search_read',{
+            domain:[
+                '|','|','|',
+                ['default_code','ilike',text],
+                ['barcode','ilike',text],
+                ['name','ilike',text],
+                ['hb_id','ilike',text]
+            ],
+            fields:['id','name','display_name','default_code','barcode','hb_id','lst_price'],
+            limit:1000,
+            order:'name asc'
+        });
 
         if(!productRows?.length)return[];
 
-        const productIds=productRows.map(product=>product.id).filter(Boolean);
-        if(!productIds.length)return[];
-
-        const quants=await readProductQuants(productIds,locations);
-        const stockedProductIds=new Set();
-
-        quants.forEach(row=>{
-            const productId=Array.isArray(row.product_id)?row.product_id[0]:row.product_id;
-            const locationId=Array.isArray(row.location_id)?row.location_id[0]:row.location_id;
-            const location=locations.find(item=>item.id===locationId);
-            const available=Number(row.quantity||0)-Number(row.reserved_quantity||0);
-
-            if(productId&&location&&available>0)stockedProductIds.add(productId);
-        });
-
         return productRows
-            .filter(product=>stockedProductIds.has(product.id))
             .sort((a,b)=>String(a.display_name||a.name||'').localeCompare(
                 String(b.display_name||b.name||''),undefined,{numeric:true,sensitivity:'base'}
             ))
@@ -140,11 +138,16 @@
     async function stocksForProduct(productId){
         const locations=await getWarehouseLocations();
         const rows=await readProductQuants([productId],locations);
-        const result=Object.fromEntries(locations.map(location=>[
-            location.key,
-            {quantity:0,unit:'',location:location.path}
-        ]));
-        const locationById=new Map(locations.map(location=>[location.id,location]));
+        const result=Object.fromEntries(WAREHOUSES.map(warehouse=>{
+            const location=locations.find(item=>item.key===warehouse.key);
+            return[warehouse.key,{
+                quantity:0,
+                unit:'',
+                location:location?.actualName||warehouse.path,
+                found:Boolean(location?.found)
+            }];
+        }));
+        const locationById=new Map(locations.filter(location=>location.found).map(location=>[location.id,location]));
 
         rows.forEach(row=>{
             const locationId=Array.isArray(row.location_id)?row.location_id[0]:row.location_id;
@@ -459,8 +462,8 @@ const search=async()=>{
                                         </span>
                                     </div>
                                     <span class="ms-stock-row-qty-wrap">
-                                        <span class="ms-stock-row-available">AVAILABLE</span>
-                                        <span class="ms-stock-row-qty">${Number(stock.quantity||0).toLocaleString()} ${escapeHTML(stock.unit)}</span>
+                                        <span class="ms-stock-row-available">${stock.found?'AVAILABLE':'LOCATION NOT FOUND'}</span>
+                                        <span class="ms-stock-row-qty">${stock.found?Number(stock.quantity||0).toLocaleString()+' '+escapeHTML(stock.unit):'N/A'}</span>
                                     </span>
                                 </div>
                             `;
