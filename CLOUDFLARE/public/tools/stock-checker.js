@@ -427,7 +427,7 @@ const search=async()=>{
 
     closeDropdown();
 
-    showStatus('Checking all 6 warehouses...');
+    showStatus('Checking available warehouse stock...');
 
     try{
         const data=await stocksForProduct(
@@ -498,7 +498,7 @@ const renderProducts=list=>{
 
     if(!products.length){
         dropdown.innerHTML=
-            '<div class="ms-stock-dropdown-status">No product found in the 6 warehouses</div>';
+            '<div class="ms-stock-dropdown-status">No matching product found</div>';
 
         dropdown.classList.add('open');
         input.setAttribute('aria-expanded','true');
