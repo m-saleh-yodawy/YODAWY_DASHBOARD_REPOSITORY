@@ -998,3 +998,129 @@ input.addEventListener('keydown',e=>{
                 block:'nearest'
             });
         }
+
+        return;
+    }
+
+    if(e.key==='Enter'&&activeIndex>=0&&products[activeIndex]){
+        e.preventDefault();
+
+        selectProduct(products[activeIndex]);
+
+        return;
+    }
+
+    if(e.key==='Escape'){
+        e.preventDefault();
+
+        closeDropdown();
+    }
+});
+
+input.addEventListener('blur',()=>{
+    setTimeout(()=>{
+        closeDropdown();
+    },250);
+});
+
+form.addEventListener('submit',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    search();
+});
+
+button.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    search();
+});
+
+close.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+
+    panel.classList.remove('open');
+
+    closeDropdown();
+});
+
+const systrayItem=document.createElement('li');
+
+systrayItem.id='ms-stock-hzb-systray-item';
+systrayItem.setAttribute('role','menuitem');
+
+systrayItem.innerHTML=`
+        <button
+            id="ms-stock-hzb-systray-button"
+            type="button"
+            title="Stock HZB"
+            aria-label="Stock HZB"
+        >
+            <i class="fa fa-cubes" role="img" aria-label="Stock HZB"></i>
+        </button>
+    `;
+
+const systrayButton=
+      systrayItem.querySelector(
+          '#ms-stock-hzb-systray-button'
+      );
+
+systrayButton.addEventListener('mousedown',e=>{
+    e.stopPropagation();
+});
+
+systrayButton.addEventListener('mouseup',e=>{
+    e.stopPropagation();
+});
+
+systrayButton.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+
+    panel.classList.toggle('open');
+
+    if(panel.classList.contains('open')){
+        setTimeout(()=>{
+            input.focus();
+        },50);
+    }
+});
+
+const insertSystray=()=>{
+    const nav=document.querySelector(
+        '.o_main_navbar .o_menu_systray'
+    );
+
+    if(!nav)return false;
+
+    const existing=document.getElementById(
+        'ms-stock-hzb-systray-item'
+    );
+
+    if(existing&&existing.parentElement===nav){
+        nav.prepend(existing);
+        return true;
+    }
+
+    nav.prepend(systrayItem);
+
+    return true;
+};
+
+if(!insertSystray()){
+    const observer=new MutationObserver(()=>{
+        if(insertSystray()){
+            observer.disconnect();
+        }
+    });
+
+    observer.observe(document.body,{
+        childList:true,
+        subtree:true
+    });
+}
+}
+
+createUI();
+
+})();
