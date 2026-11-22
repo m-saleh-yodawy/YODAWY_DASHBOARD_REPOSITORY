@@ -3,102 +3,81 @@
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh
-// @description  Search product stock across Abu Rawash and Engy warehouses.
 // @match        https://odoo.yodawy.com/web*
 // @grant        none
 // ==/UserScript==
 
-(function(){
-    'use strict';
+(async function(){
+'use strict';
 
-    const WAREHOUSES=[
-        {group:'ABU RAWASH',name:'GOLD',key:'abuGold',path:'GW/Stock',locationId:617},
-        {group:'ABU RAWASH',name:'SILVER',key:'abuSilver',path:'SIW/Stock',locationId:631},
-        {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum',path:'AR-PP/Stock',locationId:127},
-        {group:'ENGY',name:'GOLD',key:'engyGold',path:'egw/Stock',locationId:673},
-        {group:'ENGY',name:'SILVER',key:'engySilver',path:'esiw/Stock',locationId:659},
-        {group:'ENGY',name:'PLATINUM',key:'engyPlatinum',path:'ep/Stock',locationId:645}
-    ];
+const LOCATIONS={Gold:'GW/Stock',Silver:'SIW/Stock',Platinum:'AR-PP/Stock'};
+const ID='ms-stock-hzb-checker';
+let locationsCache=null;
 
-    const DISPLAY_WAREHOUSES=[
-        {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum'},
-        {group:'ABU RAWASH',name:'GOLD',key:'abuGold'},
-        {group:'ABU RAWASH',name:'SILVER',key:'abuSilver'},
-        {group:'ENGY',name:'PLATINUM',key:'engyPlatinum'},
-        {group:'ENGY',name:'GOLD',key:'engyGold'},
-        {group:'ENGY',name:'SILVER',key:'engySilver'}
-    ];
+async function rpc(model,method,kwargs){
+    const r=await fetch(`/web/dataset/call_kw/${model}/${method}`,{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+            jsonrpc:'2.0',
+            method:'call',
+            params:{model,method,args:[],kwargs},
+            id:Date.now()+Math.random()
+        })
+    });
+    const d=await r.json();
+    if(d.error)throw Error(d.error.data?.message||d.error.message||'RPC Error');
+    return d.result;
+}
 
-    const ID='ms-stock-hzb-checker';
-    let warehouseLocationsPromise=null;
+async function getLocations(){
+    if(locationsCache)return locationsCache;
 
-    async function rpc(model,method,kwargs){
-        const response=await fetch(`/web/dataset/call_kw/${model}/${method}`,{
-            method:'POST',
-            credentials:'same-origin',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-                jsonrpc:'2.0',
-                method:'call',
-                params:{model,method,args:[],kwargs},
-                id:Date.now()+Math.random()
-            })
+    const entries=await Promise.all(Object.entries(LOCATIONS).map(async([type,name])=>{
+        const rows=await rpc('stock.location','search_read',{
+            domain:['|',['complete_name','=',name],['name','=',name]],
+            fields:['id','name','complete_name'],
+            limit:20
         });
+        const location=rows?.find(x=>x.complete_name===name)||rows?.[0];
+        return {type,name,id:location?.id||null};
+    }));
 
-        if(!response.ok)throw Error(`HTTP ${response.status}`);
+    if(entries.some(x=>!x.id))throw Error('Stock locations not found');
 
-        const data=await response.json();
-        if(data.error)throw Error(data.error.data?.message||data.error.message||'RPC Error');
-        return data.result;
-    }
+    locationsCache=entries;
+    return entries;
+}
 
-    async function getWarehouseLocations(){
-        if(!warehouseLocationsPromise){
-            warehouseLocationsPromise=(async()=>{
-                const rows=await rpc('stock.location','search_read',{
-                    domain:[['id','in',WAREHOUSES.map(warehouse=>warehouse.locationId)]],
-                    fields:['id','name','complete_name'],
-                    limit:20
-                });
+function productData(p){
+    return {
+        id:p.id,
+        display_name:p.display_name||p.name||'',
+        default_code:p.default_code||'',
+        barcode:p.barcode||'',
+        hb_id:p.hb_id||'',
+        lst_price:Number(p.lst_price||0)
+    };
+}
 
-                return WAREHOUSES.map(warehouse=>{
-                    const location=rows.find(row=>
-                        row.id===warehouse.locationId&&row.complete_name===warehouse.path
-                    );
+async function searchStockProducts(value){
+    const text=value.trim();
+    if(!text)return[];
 
-                    return location
-                        ?{...warehouse,id:location.id,actualName:location.complete_name,found:true}
-                        :{...warehouse,found:false};
-                });
-            })().catch(error=>{
-                warehouseLocationsPromise=null;
-                throw error;
-            });
-        }
+    const locations=await getLocations();
+    const locationIds=locations.map(x=>x.id);
 
-        return warehouseLocationsPromise;
-    }
+    const quantRows=await rpc('stock.quant','search_read',{
+        domain:['&',['location_id','in',locationIds],['product_id','ilike',text]],
+        fields:['product_id','location_id'],
+        limit:1000
+    });
 
-    async function readProductQuants(productIds,locations){
-        const validLocations=locations.filter(location=>location.found&&location.id);
-        if(!productIds.length||!validLocations.length)return[];
+    const productIds=[...new Set(quantRows.map(x=>x.product_id?.[0]).filter(Boolean))];
 
-        return rpc('stock.quant','search_read',{
-            domain:[
-                ['product_id','in',productIds],
-                ['location_id','in',validLocations.map(location=>location.id)]
-            ],
-            fields:['product_id','location_id','product_uom_id','quantity','reserved_quantity'],
-            limit:50000,
-            order:'product_id asc'
-        });
-    }
-
-    async function searchStockProducts(value){
-        const text=value.trim();
-        if(!text)return[];
-
-        const productRows=await rpc('product.product','search_read',{
+    if(!productIds.length){
+        const rows=await rpc('product.product','search_read',{
             domain:[
                 '|','|','|',
                 ['default_code','ilike',text],
@@ -107,366 +86,359 @@
                 ['hb_id','ilike',text]
             ],
             fields:['id','name','display_name','default_code','barcode','hb_id','lst_price'],
-            limit:1000,
-            order:'name asc'
+            limit:100
         });
-
-        if(!productRows?.length)return[];
-
-        return productRows
-            .sort((a,b)=>String(a.display_name||a.name||'').localeCompare(
-                String(b.display_name||b.name||''),undefined,{numeric:true,sensitivity:'base'}
-            ))
-            .map(product=>({
-                id:product.id,
-                display_name:product.display_name||product.name||'',
-                default_code:product.default_code||'',
-                barcode:product.barcode||'',
-                hb_id:product.hb_id||product.default_code||'',
-                lst_price:Number(product.lst_price||0)
-            }));
+        return rows.map(productData);
     }
 
-    async function stocksForProduct(productId){
-        const locations=await getWarehouseLocations();
-        const rows=await readProductQuants([productId],locations);
-        const result=Object.fromEntries(WAREHOUSES.map(warehouse=>{
-            const location=locations.find(item=>item.key===warehouse.key);
-            return[warehouse.key,{
-                quantity:0,
-                unit:'',
-                location:location?.actualName||warehouse.path,
-                found:Boolean(location?.found)
-            }];
-        }));
-        const locationById=new Map(locations.filter(location=>location.found).map(location=>[location.id,location]));
+    const rows=await rpc('product.product','search_read',{
+        domain:[['id','in',productIds]],
+        fields:['id','name','display_name','default_code','barcode','hb_id','lst_price'],
+        limit:1000,
+        order:'name asc'
+    });
 
-        rows.forEach(row=>{
-            const locationId=Array.isArray(row.location_id)?row.location_id[0]:row.location_id;
-            const location=locationById.get(locationId);
-            if(!location)return;
+    return rows.map(productData).sort((a,b)=>a.display_name.localeCompare(b.display_name,undefined,{numeric:true,sensitivity:'base'}));
+}
 
-            const quantity=Number(row.quantity||0);
-            const reserved=Number(row.reserved_quantity||0);
-            const stock=result[location.key];
-            stock.quantity+=location.key==='abuSilver'?quantity:quantity-reserved;
+async function stocksForProduct(productId){
+    const locations=await getLocations();
 
-            if(!stock.unit&&row.product_uom_id?.[1])stock.unit=row.product_uom_id[1];
-        });
+    const rows=await rpc('stock.quant','search_read',{
+        domain:[
+            ['location_id','in',locations.map(x=>x.id)],
+            ['product_id','=',productId]
+        ],
+        fields:['product_id','quantity','reserved_quantity','location_id'],
+        limit:5000
+    });
 
-        return result;
-    }
+    const result={};
+    locations.forEach(x=>{
+        result[x.type]={quantity:0,location:x.name};
+    });
 
-    function escapeHTML(value){
-        return String(value??'')
-            .replace(/&/g,'&amp;')
-            .replace(/</g,'&lt;')
-            .replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;')
-            .replace(/'/g,'&#039;');
-    }
+    const map=new Map(locations.map(x=>[x.id,x.type]));
 
-    function getPriceInfo(product){
-        const text=String(product.display_name||product.name||'')
-            .toLowerCase()
-            .replace(/[(),]/g,' ')
-            .replace(/\s+/g,' ')
-            .trim();
+    rows.forEach(row=>{
+        const type=map.get(row.location_id?.[0]);
+        if(!type)return;
+        result[type].quantity+=Number(row.quantity||0)-Number(row.reserved_quantity||0);
+    });
 
-        const price=Number(product.lst_price||0);
-        const units={flexpen:'FLEXPEN',syringe:'SYRINGE',amp:'AMP',penfil:'PENFIL',vial:'VIAL',sachet:'SACHET',strip:'STRIP'};
-        const patterns=[
-            ['flexpen',/(\d+(?:\.\d+)?)\s*(?:flexpen|flexpens|flexben|flexbens)\b/i],
-            ['syringe',/(\d+(?:\.\d+)?)\s*(?:syringe|syringes|سرنجة|سرنجات)\b/i],
-            ['amp',/(\d+(?:\.\d+)?)\s*(?:amp|amps|ampoule|ampoules|ampule|ampules|امبول|امبولات|أمبول|أمبولات)\b/i],
-            ['penfil',/(\d+(?:\.\d+)?)\s*(?:penfil|penfils|penfill|penfills)\b/i],
-            ['vial',/(\d+(?:\.\d+)?)\s*(?:vial|vials|فيال|فيالات|قارورة|قوارير)\b/i],
-            ['sachet',/(\d+(?:\.\d+)?)\s*(?:sachet|sachets|ساشيه|ساشيهات)\b/i],
-            ['strip',/(\d+(?:\.\d+)?)\s*(?:strip|strips|شريط|شرائط)\b/i]
-        ];
+    return result;
+}
 
-        for(const [type,regex] of patterns){
-            const match=text.match(regex);
-            if(match){
-                const count=Number(match[1]);
-                if(count>0)return{unitPrice:price,unit:units[type],boxPrice:price*count,box:'BOX'};
+function escapeHTML(value){
+    return String(value??'')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+}
+
+function getPriceInfo(product){
+    const text=String(product.display_name||product.name||'')
+        .toLowerCase()
+        .replace(/[(),]/g,' ')
+        .replace(/\s+/g,' ')
+        .trim();
+
+    const price=Number(product.lst_price||0);
+    const units={
+        flexpen:'FLEXPEN',
+        syringe:'SYRINGE',
+        amp:'AMP',
+        penfil:'PENFIL',
+        vial:'VIAL',
+        sachet:'SACHET',
+        strip:'STRIP'
+    };
+
+    const patterns=[
+        ['flexpen',/(\d+(?:\.\d+)?)\s*(?:flexpen|flexpens|flexben|flexbens)\b/i],
+        ['syringe',/(\d+(?:\.\d+)?)\s*(?:syringe|syringes|سرنجة|سرنجات)\b/i],
+        ['amp',/(\d+(?:\.\d+)?)\s*(?:amp|amps|ampoule|ampoules|ampule|ampules|امبول|امبولات|أمبول|أمبولات)\b/i],
+        ['penfil',/(\d+(?:\.\d+)?)\s*(?:penfil|penfils|penfill|penfills)\b/i],
+        ['vial',/(\d+(?:\.\d+)?)\s*(?:vial|vials|فيال|فيالات|قارورة|قوارير)\b/i],
+        ['sachet',/(\d+(?:\.\d+)?)\s*(?:sachet|sachets|ساشيه|ساشيهات)\b/i],
+        ['strip',/(\d+(?:\.\d+)?)\s*(?:strip|strips|شريط|شرائط)\b/i]
+    ];
+
+    for(const [type,regex] of patterns){
+        const match=text.match(regex);
+        if(match){
+            const count=Number(match[1]);
+            if(count>0){
+                return {
+                    unitPrice:price,
+                    unit:units[type],
+                    boxPrice:price*count,
+                    box:'BOX'
+                };
             }
         }
-
-        if(/\b(?:oral\s+drops?|drops?|solution|syrup|cream|ointment|gel|lotion|spray|powder|suspension|emulsion|soap|shampoo|mouthwash)\b|(?:نقط|قطرة|شراب|كريم|مرهم|جل|لوشن|بخاخ|بودرة|معلق|مستحلب)/i.test(text))return{unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
-        if(/\bbox(?:es)?\b|علبة|علب/i.test(text))return{unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
-        if(/\b(?:penfil|penfils|penfill|penfills|cartridge|cartridges|carroule|carroules)\b|خرطوشة|خراطيش/i.test(text))return{unitPrice:price,unit:'PENFIL',boxPrice:null,box:'BOX'};
-        if(/\bsachet(?:s)?\b|ساشيه|ساشيهات/i.test(text))return{unitPrice:price,unit:'SACHET',boxPrice:null,box:'BOX'};
-        if(/\bvial(?:s)?\b|فيال|فيالات|قارورة|قوارير/i.test(text))return{unitPrice:price,unit:'VIAL',boxPrice:null,box:'BOX'};
-        if(/\bflexpen(?:s)?\b|\bflexben(?:s)?\b/i.test(text))return{unitPrice:price,unit:'FLEXPEN',boxPrice:null,box:'BOX'};
-        if(/\bsyringe(?:s)?\b|سرنجة|سرنجات/i.test(text))return{unitPrice:price,unit:'SYRINGE',boxPrice:null,box:'BOX'};
-        if(/\b(?:amp|amps|ampoule|ampoules|ampule|ampules)\b|امبول|امبولات|أمبول|أمبولات/i.test(text))return{unitPrice:price,unit:'AMP',boxPrice:null,box:'BOX'};
-        if(/\b(?:strip|strips)\b|شريط|شرائط/i.test(text))return{unitPrice:price,unit:'STRIP',boxPrice:null,box:'BOX'};
-        return{unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
     }
 
-    function priceHTML(product){
-        const info=getPriceInfo(product);
-        let html=`${info.unitPrice.toFixed(2)} L.E / ${escapeHTML(info.unit)}`;
-        if(info.boxPrice!==null&&Number.isFinite(info.boxPrice)&&info.unit!=='BOX'){
-            html+=`<span style="margin-left:10px;color:#999!important">•</span><span style="margin-left:10px">${info.boxPrice.toFixed(2)} L.E / ${escapeHTML(info.box)}</span>`;
-        }
-        return html;
+    if(/\b(?:oral\s+drops?|drops?|solution|syrup|cream|ointment|gel|lotion|spray|powder|suspension|emulsion|soap|shampoo|mouthwash)\b|(?:نقط|قطرة|شراب|كريم|مرهم|جل|لوشن|بخاخ|بودرة|معلق|مستحلب)/i.test(text)){
+        return {unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
     }
 
-    function createUI(){
-        if(document.getElementById(ID))return;
+    if(/\bbox(?:es)?\b|علبة|علب/i.test(text)){
+        return {unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
+    }
 
-        const host=document.createElement('div');
+    if(/\b(?:penfil|penfils|penfill|penfills|cartridge|cartridges|carroule|carroules)\b|خرطوشة|خراطيش/i.test(text)){
+        return {unitPrice:price,unit:'PENFIL',boxPrice:null,box:'BOX'};
+    }
 
-        host.id=ID;
+    if(/\bsachet(?:s)?\b|ساشيه|ساشيهات/i.test(text)){
+        return {unitPrice:price,unit:'SACHET',boxPrice:null,box:'BOX'};
+    }
 
-        host.style.cssText=`
-        all:initial!important;
-        position:fixed!important;
-        top:58px!important;
-        right:16px!important;
-        width:min(620px,calc(100vw - 32px))!important;
-        z-index:2147482000!important;
-        pointer-events:none!important;
-        display:block!important;
-        font-family:'Nunito Sans','Cairo',system-ui,-apple-system,sans-serif!important;
-    `;
+    if(/\bvial(?:s)?\b|فيال|فيالات|قارورة|قوارير/i.test(text)){
+        return {unitPrice:price,unit:'VIAL',boxPrice:null,box:'BOX'};
+    }
 
+    if(/\bflexpen(?:s)?\b|\bflexben(?:s)?\b/i.test(text)){
+        return {unitPrice:price,unit:'FLEXPEN',boxPrice:null,box:'BOX'};
+    }
+
+    if(/\bsyringe(?:s)?\b|سرنجة|سرنجات/i.test(text)){
+        return {unitPrice:price,unit:'SYRINGE',boxPrice:null,box:'BOX'};
+    }
+
+    if(/\b(?:amp|amps|ampoule|ampoules|ampule|ampules)\b|امبول|امبولات|أمبول|أمبولات/i.test(text)){
+        return {unitPrice:price,unit:'AMP',boxPrice:null,box:'BOX'};
+    }
+
+    if(/\b(?:strip|strips)\b|شريط|شرائط/i.test(text)){
+        return {unitPrice:price,unit:'STRIP',boxPrice:null,box:'BOX'};
+    }
+
+    return {unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
+}
+
+function priceHTML(product){
+    const info=getPriceInfo(product);
+    let html=`${info.unitPrice.toFixed(2)} L.E / ${escapeHTML(info.unit)}`;
+
+    if(info.boxPrice!==null&&Number.isFinite(info.boxPrice)&&info.unit!=='BOX'){
+        html+=`<span style="margin-left:10px;color:#999!important">•</span><span style="margin-left:10px">${info.boxPrice.toFixed(2)} L.E / ${escapeHTML(info.box)}</span>`;
+    }
+
+    return html;
+}
+
+function createUI(){
+    if(document.getElementById(ID))return;
+
+    const host=document.createElement('div');
+    host.id=ID;
+    host.style.cssText='all:initial!important;position:fixed!important;right:20px!important;bottom:20px!important;width:860px!important;z-index:2147483647!important;pointer-events:auto!important;display:block!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important';
     document.body.appendChild(host);
 
     host.innerHTML=`
-        <style>
-#ms-stock-panel,#ms-stock-panel *{box-sizing:border-box!important;font-family:'Nunito Sans','Cairo',system-ui,-apple-system,sans-serif!important}
-#ms-stock-panel{display:none!important;flex-direction:column!important;width:100%!important;max-height:calc(100vh - 76px)!important;overflow:hidden!important;border:1px solid #d9d9de!important;border-radius:12px!important;background:#f7f6f8!important;color:#18181b!important;box-shadow:0 16px 42px rgba(23,19,28,.18)!important;pointer-events:auto!important;transform-origin:top right!important}
-#ms-stock-panel.open{display:flex!important;animation:ms-stock-enter .16s ease-out both!important}
-@keyframes ms-stock-enter{from{opacity:0;transform:translateY(-6px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
-#ms-stock-header{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:68px!important;padding:12px 15px!important;border-bottom:1px solid #e6e2e8!important;background:#fff!important}
-#ms-stock-title{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important}
-#ms-stock-logo{display:grid!important;place-items:center!important;width:38px!important;height:38px!important;flex:0 0 38px!important;border:1px solid #875a7b!important;border-radius:10px!important;background:#875a7b!important;color:#fff!important;font-size:16px!important;box-shadow:0 2px 6px rgba(135,90,123,.18)!important}
-#ms-stock-name{display:flex!important;flex-direction:column!important;gap:2px!important;min-width:0!important}
-#ms-stock-name strong{color:#18181b!important;font-size:14px!important;font-weight:700!important;letter-spacing:-.01em!important;line-height:1.25!important}
-#ms-stock-name span{color:#71717a!important;font-size:10.5px!important;line-height:1.4!important}
-#ms-stock-header-meta{display:flex!important;align-items:center!important;gap:8px!important;margin-left:auto!important}
-#ms-stock-warehouse-count{display:inline-flex!important;align-items:center!important;gap:5px!important;height:25px!important;padding:0 9px!important;border:1px solid #e5d9e3!important;border-radius:7px!important;background:#f4eff2!important;color:#68465f!important;font-size:9px!important;font-weight:700!important;letter-spacing:.04em!important;white-space:nowrap!important}
-#ms-stock-close{display:grid!important;place-items:center!important;width:30px!important;height:30px!important;flex:0 0 30px!important;padding:0!important;border:1px solid #d9d9de!important;border-radius:8px!important;background:#fff!important;color:#71717a!important;cursor:pointer!important;font-size:15px!important;line-height:1!important;transition:all .15s ease!important}
-#ms-stock-close:hover{border-color:#d8c7d7!important;background:#f4eff2!important;color:#68465f!important}
-#ms-stock-body{display:flex!important;flex-direction:column!important;gap:11px!important;min-height:0!important;max-height:calc(100vh - 144px)!important;padding:13px!important;overflow:hidden!important;background:#f7f6f8!important}
+<style>
+#ms-stock-panel,#ms-stock-panel *{box-sizing:border-box!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important}
+#ms-stock-panel{display:none!important;width:860px!important;height:500px!important;background:#fff!important;color:#666!important;border:1px solid #68465f!important;border-radius:6px!important;box-shadow:0 4px 16px rgba(0,0,0,.25)!important;overflow:hidden!important;pointer-events:auto!important}
+#ms-stock-panel.open{display:block!important}
+#ms-stock-header{height:48px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;padding:0 12px!important;background:#875A7B!important;color:#fff!important;border-radius:5px 5px 0 0!important}
+#ms-stock-title{display:flex!important;align-items:center!important;gap:9px!important}
+#ms-stock-logo{width:28px!important;height:28px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:4px!important;background:#68465f!important;color:#fff!important;font-size:13px!important;font-weight:700!important}
+#ms-stock-name{display:flex!important;flex-direction:column!important;line-height:1.2!important}
+#ms-stock-name strong{font-size:13px!important;color:#fff!important}
+#ms-stock-name span{margin-top:2px!important;font-size:10px!important;color:rgba(255,255,255,.75)!important}
+#ms-stock-close{width:28px!important;height:28px!important;border:1px solid rgba(255,255,255,.35)!important;border-radius:4px!important;background:transparent!important;color:#fff!important;cursor:pointer!important;font-size:17px!important;padding:0!important;margin:0!important;outline:0!important}
+#ms-stock-body{height:426px!important;padding:10px!important;background:#fff!important}
 #ms-stock-form{margin:0!important;padding:0!important}
-#ms-stock-search-box{position:relative!important;display:flex!important;align-items:center!important;gap:8px!important;min-height:50px!important;padding:7px!important;border:1px solid #d9d9de!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 5px rgba(41,36,46,.035)!important}
-#ms-stock-input-wrap{position:relative!important;display:flex!important;align-items:center!important;flex:1 1 auto!important;min-width:0!important;height:36px!important}
-#ms-stock-search-icon{display:grid!important;place-items:center!important;width:34px!important;flex:0 0 34px!important;color:#9b949f!important;font-size:12px!important;pointer-events:none!important}
-#ms-stock-input{display:block!important;width:100%!important;min-width:0!important;height:36px!important;min-height:36px!important;padding:0 9px 0 0!important;margin:0!important;border:0!important;border-radius:7px!important;outline:0!important;background:transparent!important;background-image:none!important;color:#18181b!important;font-size:12px!important;font-weight:600!important;line-height:36px!important;box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important;pointer-events:auto!important;user-select:text!important;-webkit-user-select:text!important}
-#ms-stock-input::placeholder{color:#9b949f!important;font-weight:400!important;opacity:1!important}
-#ms-stock-input:focus{outline:0!important;box-shadow:none!important}
-#ms-stock-search{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;height:36px!important;min-height:36px!important;padding:0 14px!important;margin:0!important;border:1px solid #875a7b!important;border-radius:8px!important;background:#875a7b!important;color:#fff!important;font-size:11px!important;font-weight:700!important;letter-spacing:.01em!important;cursor:pointer!important;white-space:nowrap!important;pointer-events:auto!important;transition:all .15s ease!important}
-#ms-stock-search:hover{border-color:#68465f!important;background:#68465f!important;box-shadow:0 3px 8px rgba(104,70,95,.14)!important}
-#ms-stock-search:disabled{border-color:#d9d9de!important;background:#e1e1e1!important;color:#9b949f!important;cursor:wait!important;box-shadow:none!important}
-#ms-stock-dropdown{display:none!important;position:absolute!important;top:calc(100% + 7px)!important;left:0!important;right:0!important;z-index:2147482001!important;max-height:290px!important;overflow-y:auto!important;overflow-x:hidden!important;border:1px solid #d9d9de!important;border-radius:10px!important;background:#fff!important;box-shadow:0 12px 28px rgba(23,19,28,.13)!important;pointer-events:auto!important}
+#ms-stock-search-box{position:relative!important;display:flex!important;align-items:center!important;gap:7px!important;height:48px!important;padding:7px 9px!important;margin:0 0 8px!important;border:1px solid #d9d9d9!important;border-radius:4px!important;background:#fff!important}
+#ms-stock-input-wrap{position:relative!important;flex:1 1 auto!important;min-width:0!important}
+#ms-stock-input{display:block!important;width:100%!important;height:30px!important;padding:0 9px!important;margin:0!important;border:1px solid #ccc!important;border-radius:4px!important;outline:0!important;background:#fff!important;color:#111!important;font-size:14px!important;font-weight:700!important;line-height:30px!important;box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important}
+#ms-stock-input:focus{box-shadow:0 0 0 1px #875A7B!important}
+#ms-stock-input::placeholder{color:#999!important;opacity:1!important}
+#ms-stock-search{height:30px!important;padding:0 14px!important;margin:0!important;border:1px solid #68465f!important;border-radius:4px!important;background:#875A7B!important;color:#fff!important;font-size:10px!important;font-weight:700!important;cursor:pointer!important;outline:0!important}
+#ms-stock-search:hover{background:#68465f!important}
+#ms-stock-search:disabled{background:#aaa!important;border-color:#aaa!important;cursor:not-allowed!important}
+#ms-stock-dropdown{display:none!important;position:absolute!important;top:33px!important;left:0!important;right:0!important;max-height:300px!important;overflow-y:auto!important;overflow-x:hidden!important;z-index:2147483647!important;background:#fff!important;border:1px solid #ccc!important;border-radius:4px!important;box-shadow:0 5px 14px rgba(0,0,0,.2)!important}
 #ms-stock-dropdown.open{display:block!important}
-.ms-stock-product{display:flex!important;flex-direction:column!important;gap:3px!important;width:100%!important;padding:10px 12px!important;margin:0!important;border:0!important;border-bottom:1px solid #f0edf1!important;background:#fff!important;color:#18181b!important;cursor:pointer!important;text-align:left!important;transition:background .12s ease!important;pointer-events:auto!important}
+.ms-stock-product{display:block!important;width:100%!important;padding:9px 10px!important;margin:0!important;border:0!important;border-bottom:1px solid #eee!important;background:#fff!important;color:#444!important;cursor:pointer!important;font-size:10px!important;line-height:1.4!important;text-align:left!important}
 .ms-stock-product:last-child{border-bottom:0!important}
-.ms-stock-product:hover,.ms-stock-product.active{background:#f8f5f8!important}
-.ms-stock-product-name{display:block!important;color:#18181b!important;font-size:12px!important;font-weight:700!important;line-height:1.35!important}
-.ms-stock-product-hzb{display:block!important;color:#71717a!important;font-size:10px!important;font-weight:600!important;line-height:1.3!important}
-.ms-stock-product-price{display:block!important;margin-top:2px!important;color:#875a7b!important;font-size:10.5px!important;font-weight:700!important;line-height:1.35!important}
-.ms-stock-dropdown-status{display:block!important;padding:14px!important;color:#71717a!important;font-size:11px!important;text-align:center!important}
-#ms-stock-result{display:flex!important;flex-direction:column!important;gap:10px!important;min-height:190px!important;max-height:calc(100vh - 220px)!important;padding:0!important;overflow-y:auto!important;overflow-x:hidden!important;border:0!important;border-radius:0!important;background:transparent!important}
-.ms-stock-status{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px!important;min-height:170px!important;padding:24px!important;border:1px dashed #d9d9de!important;border-radius:10px!important;background:#fff!important;color:#71717a!important;font-size:11px!important;font-weight:600!important;text-align:center!important}
-.ms-stock-status-icon{display:grid!important;place-items:center!important;width:40px!important;height:40px!important;border:1px solid #e5d9e3!important;border-radius:11px!important;background:#f4eff2!important;color:#875a7b!important;font-size:16px!important}
-.ms-stock-status-title{color:#18181b!important;font-size:12px!important;font-weight:700!important}
-.ms-stock-status-hint{color:#9b949f!important;font-size:10px!important;font-weight:400!important}
-.ms-stock-result-title{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-width:0!important;padding:12px 13px!important;border:1px solid #d9d9de!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 5px rgba(41,36,46,.035)!important}
-.ms-stock-result-ident{display:flex!important;flex-direction:column!important;gap:4px!important;min-width:0!important}
-.ms-stock-result-eyebrow{color:#9b949f!important;font-size:8.5px!important;font-weight:800!important;letter-spacing:.09em!important}
-.ms-stock-result-name{overflow:hidden!important;color:#18181b!important;font-size:12px!important;font-weight:700!important;line-height:1.35!important;text-overflow:ellipsis!important}
-.ms-stock-result-hzb{margin-left:0!important;color:#875a7b!important;font-size:10px!important;font-weight:700!important}
-.ms-stock-result-price{display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:3px!important;flex:0 0 auto!important;padding-left:8px!important;color:#875a7b!important;font-size:11px!important;font-weight:700!important;text-align:right!important;white-space:nowrap!important}
-.ms-stock-result-price::before{content:"PRICE";color:#9b949f!important;font-size:8px!important;font-weight:800!important;letter-spacing:.08em!important}
-.ms-stock-group{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:0!important;padding:11px!important;border:1px solid #d9d9de!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 5px rgba(41,36,46,.035)!important}
-.ms-stock-group-title{display:flex!important;align-items:center!important;justify-content:space-between!important;grid-column:1/-1!important;min-height:26px!important;padding:0 1px 8px!important;margin:0 0 1px!important;border:0!important;border-bottom:1px solid #eee9ef!important;border-radius:0!important;background:transparent!important;color:#18181b!important;font-size:10.5px!important;font-weight:800!important;letter-spacing:.045em!important}
-.ms-stock-group-count{display:inline-flex!important;align-items:center!important;height:21px!important;padding:0 7px!important;border:1px solid #e5d9e3!important;border-radius:6px!important;background:#f4eff2!important;color:#68465f!important;font-size:8px!important;font-weight:700!important;letter-spacing:.03em!important}
-.ms-stock-group-title i{margin-right:6px!important;color:#875a7b!important;font-size:10px!important}
-.ms-stock-row{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:space-between!important;gap:12px!important;min-width:0!important;min-height:94px!important;padding:10px!important;margin:0!important;border:1px solid #e8e4e9!important;border-radius:9px!important;background:#fff!important;transition:border-color .15s ease,box-shadow .15s ease!important}
-.ms-stock-row:hover{border-color:#d8c7d7!important;box-shadow:0 3px 9px rgba(104,70,95,.07)!important}
-.ms-stock-row-left{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;min-width:0!important}
-.ms-stock-row-badge{display:inline-flex!important;align-items:center!important;justify-content:center!important;max-width:100%!important;width:auto!important;min-height:21px!important;padding:0 7px!important;border:1px solid transparent!important;border-radius:6px!important;color:#fff!important;font-size:8.5px!important;font-weight:800!important;letter-spacing:.05em!important}
-.ms-stock-row-badge.gold{border-color:#ead9a8!important;background:#fbf6e9!important;color:#926b22!important}
-.ms-stock-row-badge.silver{border-color:#d9dfe4!important;background:#f2f4f6!important;color:#64717c!important}
-.ms-stock-row-badge.platinum{border-color:#d9d9de!important;background:#f2f2f4!important;color:#514a56!important}
-.ms-stock-row-location{overflow:hidden!important;max-width:100%!important;color:#9b949f!important;font-size:9px!important;line-height:1.25!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-.ms-stock-row-qty-wrap{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:8px!important;margin-top:auto!important;padding-top:7px!important;border-top:1px solid #f1edf2!important}
-.ms-stock-row-available{color:#9b949f!important;font-size:7.5px!important;font-weight:800!important;letter-spacing:.07em!important}
-.ms-stock-row-qty{color:#68465f!important;font-size:17px!important;font-weight:800!important;letter-spacing:-.03em!important;line-height:1.1!important;white-space:nowrap!important}
-#ms-stock-footer{display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:29px!important;padding:0 15px!important;border-top:1px solid #e6e2e8!important;background:#fff!important;color:#9b949f!important;font-size:8px!important;font-weight:700!important;letter-spacing:.07em!important}
-#ms-stock-footer span:last-child{color:#875a7b!important}
-#ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;flex:0 0 42px!important;padding:0!important;margin:0!important;pointer-events:auto!important}
-#ms-stock-hzb-systray-button{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:rgba(255,255,255,.8)!important;cursor:pointer!important;outline:0!important;pointer-events:auto!important;transition:background .15s ease,color .15s ease!important}
+.ms-stock-product:hover,.ms-stock-product.active{background:#f3edf2!important}
+.ms-stock-product-name{display:block!important;color:#111!important;font-size:14px!important;font-weight:700!important}
+.ms-stock-product-hzb{display:block!important;margin-top:2px!important;color:#111!important;font-size:10px!important;font-weight:600!important}
+.ms-stock-product-price{display:block!important;margin-top:3px!important;color:#875A7B!important;font-size:11px!important;font-weight:700!important}
+.ms-stock-dropdown-status{display:block!important;padding:10px!important;color:#999!important;font-size:10px!important;text-align:center!important}
+#ms-stock-result{height:352px!important;max-height:352px!important;overflow:hidden!important;padding:8px!important;border:1px solid #d9d9d9!important;border-radius:4px!important;background:#fff!important}
+.ms-stock-status{display:flex!important;align-items:center!important;gap:7px!important;min-height:44px!important;color:#666!important;font-size:10px!important;font-weight:600!important}
+.ms-stock-dot{width:7px!important;height:7px!important;flex:0 0 7px!important;border-radius:50%!important;background:#875A7B!important}
+.ms-stock-result-title{min-height:34px!important;display:flex!important;align-items:center!important;padding:0 8px!important;margin-bottom:8px!important;color:#444!important;font-size:12px!important;font-weight:700!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;border-bottom:1px solid #eee!important}
+.ms-stock-result-hzb{margin-left:8px!important;color:#875A7B!important;font-size:11px!important;font-weight:700!important;white-space:nowrap!important}
+.ms-stock-result-price{margin-left:auto!important;padding-left:15px!important;color:#875A7B!important;font-size:13px!important;font-weight:700!important;white-space:nowrap!important}
+.ms-stock-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:15px!important;height:72px!important;padding:10px 14px!important;margin-bottom:8px!important;border:1px solid #e2e2e2!important;border-radius:4px!important;background:#fff!important}
+.ms-stock-row:last-child{margin-bottom:0!important}
+.ms-stock-row-left{display:flex!important;align-items:center!important;gap:14px!important;min-width:0!important}
+.ms-stock-row-badge{width:90px!important;flex:0 0 90px!important;text-align:center!important;padding:7px 4px!important;border-radius:4px!important;color:#fff!important;font-size:10px!important;font-weight:700!important}
+.ms-stock-row-badge.platinum{background:#1c1c1c!important}
+.ms-stock-row-badge.gold{background:#d4a72c!important}
+.ms-stock-row-badge.silver{background:#8c969f!important}
+.ms-stock-row-location{color:#999!important;font-size:10px!important;white-space:nowrap!important}
+.ms-stock-row-qty{color:#875A7B!important;font-size:16px!important;font-weight:700!important;white-space:nowrap!important}
+#ms-stock-footer{height:26px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-top:1px solid #e6e6e6!important;background:#fafafa!important;color:#999!important;font-size:9px!important;border-radius:0 0 5px 5px!important}
+#ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;flex:0 0 42px!important}
+#ms-stock-hzb-systray-button{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.8)!important;cursor:pointer!important;outline:0!important}
 #ms-stock-hzb-systray-button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
-#ms-stock-hzb-systray-button i{font-family:FontAwesome!important;font-size:17px!important;color:inherit!important}
-@media(max-width:680px){#ms-stock-panel{max-height:calc(100vh - 66px)!important}#ms-stock-body{max-height:calc(100vh - 130px)!important;padding:10px!important}.ms-stock-group{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ms-stock-row{min-height:88px!important}}
-@media(max-width:430px){#ms-stock-header{padding:10px 11px!important}#ms-stock-warehouse-count{display:none!important}#ms-stock-body{gap:8px!important;padding:8px!important}#ms-stock-search-box{gap:4px!important;padding:5px!important}#ms-stock-search{padding:0 9px!important}.ms-stock-group{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;padding:8px!important}.ms-stock-row{min-height:84px!important;padding:8px!important}.ms-stock-result-title{align-items:flex-start!important}}
+#ms-stock-hzb-systray-button i{font-family:FontAwesome!important;font-size:18px!important;color:inherit!important}
 </style>
 
-        <div id="ms-stock-panel">
-            <div id="ms-stock-header">
-                <div id="ms-stock-title">
-                    <div id="ms-stock-logo"><i class="fa fa-cubes" aria-hidden="true"></i></div>
-                    <div id="ms-stock-name">
-                        <strong>Stock Checker</strong>
-                        <span>Product availability across all warehouses</span>
-                    </div>
-                </div>
-                <div id="ms-stock-header-meta">
-                    <span id="ms-stock-warehouse-count"><i class="fa fa-warehouse" aria-hidden="true"></i> 6 WAREHOUSES</span>
-                    <button id="ms-stock-close" type="button" aria-label="Close Stock Checker"><i class="fa fa-times" aria-hidden="true"></i></button>
-                </div>
+<div id="ms-stock-panel">
+    <div id="ms-stock-header">
+        <div id="ms-stock-title">
+            <div id="ms-stock-logo">S</div>
+            <div id="ms-stock-name">
+                <strong>STOCK</strong>
+                <span>Search by product name or HZB</span>
             </div>
-            <div id="ms-stock-body">
-                <form id="ms-stock-form" autocomplete="off">
-                    <div id="ms-stock-search-box">
-                        <div id="ms-stock-input-wrap">
-                            <span id="ms-stock-search-icon"><i class="fa fa-search" aria-hidden="true"></i></span>
-                            <input id="ms-stock-input" type="text" name="ms_stock_product" placeholder="Search product name, HZB or barcode..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false">
-                            <div id="ms-stock-dropdown"></div>
-                        </div>
-                        <button id="ms-stock-search" type="submit"><i class="fa fa-search" aria-hidden="true"></i> Search</button>
-                    </div>
-                </form>
-                <div id="ms-stock-result">
-                    <div class="ms-stock-status">
-                        <span class="ms-stock-status-icon"><i class="fa fa-box-open" aria-hidden="true"></i></span>
-                        <span class="ms-stock-status-title">Search for a product</span>
-                        <span class="ms-stock-status-hint">Enter a product name, HZB or barcode to check availability.</span>
-                    </div>
+        </div>
+        <button id="ms-stock-close" type="button">×</button>
+    </div>
+
+    <div id="ms-stock-body">
+        <form id="ms-stock-form" autocomplete="off" novalidate>
+            <div id="ms-stock-search-box">
+                <div id="ms-stock-input-wrap">
+                    <input id="ms-stock-input" type="search" name="ms_stock_search_x7k9" placeholder="Search product or HZB..." autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other" role="combobox" aria-autocomplete="list" aria-expanded="false">
+                    <div id="ms-stock-dropdown"></div>
                 </div>
+                <button id="ms-stock-search" type="submit">SEARCH</button>
             </div>
-            <div id="ms-stock-footer"><span>YODAWY WORKSPACE</span><span>STOCK CHECKER</span></div>
+        </form>
+
+        <div id="ms-stock-result">
+            <div class="ms-stock-status">
+                <span class="ms-stock-dot"></span>
+                <span>Search for a product or HZB</span>
+            </div>
         </div>
-    `;
+    </div>
 
-const panel=document.getElementById('ms-stock-panel');
-const input=document.getElementById('ms-stock-input');
-const form=document.getElementById('ms-stock-form');
-const button=document.getElementById('ms-stock-search');
-const result=document.getElementById('ms-stock-result');
-const close=document.getElementById('ms-stock-close');
-const dropdown=document.getElementById('ms-stock-dropdown');
+    <div id="ms-stock-footer">YODAWY • STOCK</div>
+</div>`;
 
-let searching=false;
-let lookupTimer=null;
-let lookupId=0;
-let products=[];
-let selectedProduct=null;
-let activeIndex=-1;
+    const panel=host.querySelector('#ms-stock-panel');
+    const input=host.querySelector('#ms-stock-input');
+    const form=host.querySelector('#ms-stock-form');
+    const button=host.querySelector('#ms-stock-search');
+    const result=host.querySelector('#ms-stock-result');
+    const close=host.querySelector('#ms-stock-close');
+    const dropdown=host.querySelector('#ms-stock-dropdown');
 
-const stop=e=>{
-    e.stopPropagation();
-};
+    let searching=false;
+    let lookupTimer=null;
+    let lookupId=0;
+    let products=[];
+    let selectedProduct=null;
+    let activeIndex=-1;
 
-[
-    'mousedown',
-    'mouseup',
-    'click',
-    'dblclick',
-    'pointerdown',
-    'pointerup',
-    'touchstart'
-].forEach(event=>{
-    input.addEventListener(event,stop);
-    button.addEventListener(event,stop);
-    close.addEventListener(event,stop);
-});
+    const showStatus=text=>{
+        result.innerHTML=`<div class="ms-stock-status"><span class="ms-stock-dot"></span><span>${escapeHTML(text)}</span></div>`;
+    };
 
-const showStatus=text=>{
-    result.innerHTML=`
-        <div class="ms-stock-status">
-            <span class="ms-stock-status-icon"><i class="fa fa-circle-info" aria-hidden="true"></i></span>
-            <span class="ms-stock-status-title">${escapeHTML(text)}</span>
-            <span class="ms-stock-status-hint">Search across Abu Rawash and Engy warehouses.</span>
-        </div>
-    `;
-};
+    const closeDropdown=()=>{
+        dropdown.classList.remove('open');
+        dropdown.innerHTML='';
+        input.setAttribute('aria-expanded','false');
+        activeIndex=-1;
+    };
 
-const closeDropdown=()=>{
-    dropdown.classList.remove('open');
-    dropdown.innerHTML='';
-    input.setAttribute('aria-expanded','false');
-    activeIndex=-1;
-};
+    const resetSearch=()=>{
+        clearTimeout(lookupTimer);
+        lookupId++;
+        input.value='';
+        selectedProduct=null;
+        products=[];
+        closeDropdown();
+        showStatus('Search for a product or HZB');
+    };
 
-const search=async()=>{
-    if(searching)return;
+    const renderProducts=list=>{
+        products=list||[];
+        activeIndex=-1;
 
-    const value=input.value.trim();
+        if(!products.length){
+            dropdown.innerHTML='<div class="ms-stock-dropdown-status">No product found in the 3 warehouses</div>';
+            dropdown.classList.add('open');
+            input.setAttribute('aria-expanded','true');
+            return;
+        }
 
-    if(!value){
-        showStatus('Enter product or HZB');
-        input.focus();
-        return;
-    }
+        dropdown.innerHTML=products.map((p,i)=>`
+            <div class="ms-stock-product" data-index="${i}" role="option">
+                <span class="ms-stock-product-name">${escapeHTML(p.display_name)}</span>
+                ${p.hb_id?`<span class="ms-stock-product-hzb">HZB: ${escapeHTML(p.hb_id)}</span>`:''}
+                <span class="ms-stock-product-price">${priceHTML(p)}</span>
+            </div>
+        `).join('');
 
-    if(!selectedProduct){
-        showStatus('Select a product from the list');
-        input.focus();
-        return;
-    }
+        dropdown.classList.add('open');
+        input.setAttribute('aria-expanded','true');
+    };
 
-    searching=true;
+    const search=async()=>{
+        if(searching)return;
 
-    button.disabled=true;
-    button.textContent='...';
+        const value=input.value.trim();
 
-    closeDropdown();
+        if(!value){
+            showStatus('Enter product or HZB');
+            input.focus();
+            return;
+        }
 
-    showStatus('Checking available warehouse stock...');
+        if(!selectedProduct){
+            const list=await searchStockProducts(value);
 
-    try{
-        const data=await stocksForProduct(
-            selectedProduct.id
-        );
+            if(list.length===1)selectedProduct=list[0];
+            else if(list.length>1){
+                renderProducts(list);
+                return;
+            }else{
+                showStatus('No product found in the 3 warehouses');
+                return;
+            }
+        }
 
-        const groups=['ABU RAWASH','ENGY'];
+        searching=true;
+        button.disabled=true;
+        button.textContent='...';
+        closeDropdown();
+        showStatus('Checking Platinum + Gold + Silver...');
 
-        result.innerHTML=`
+        try{
+            const data=await stocksForProduct(selectedProduct.id);
+            const rows=[['Platinum',data.Platinum],['Gold',data.Gold],['Silver',data.Silver]];
+
+            result.innerHTML=`
                 <div class="ms-stock-result-title">
-                    <div class="ms-stock-result-ident">
-                        <span class="ms-stock-result-eyebrow">MATCHED PRODUCT</span>
-                        <span class="ms-stock-result-name">${escapeHTML(selectedProduct.display_name)}</span>
-                        ${selectedProduct.hb_id? `<span class="ms-stock-result-hzb">HZB: ${escapeHTML(selectedProduct.hb_id)}</span>` : ''}
-                    </div>
+                    <span>
+                        ${escapeHTML(selectedProduct.display_name)}
+                        ${selectedProduct.hb_id?`<span class="ms-stock-result-hzb">HZB: ${escapeHTML(selectedProduct.hb_id)}</span>`:''}
+                    </span>
                     <span class="ms-stock-result-price">${priceHTML(selectedProduct)}</span>
                 </div>
-
-                ${groups.map(group=>{
-                    const items=DISPLAY_WAREHOUSES.filter(warehouse=>warehouse.group===group);
-                    return `
-                        <div class="ms-stock-group">
-                            <div class="ms-stock-group-title">
-                                <span><i class="fa fa-warehouse" aria-hidden="true"></i> ${group}</span>
-                                <span class="ms-stock-group-count">${items.length} ${items.length===1?'LOCATION':'LOCATIONS'}</span>
-                            </div>
-                            ${items.map(warehouse=>{
-                                const stock=data[warehouse.key];
-                                return `
-                                    <div class="ms-stock-row">
-                                        <div class="ms-stock-row-left">
-                                            <span class="ms-stock-row-badge ${warehouse.name.toLowerCase()}">${warehouse.name}</span>
-                                            <span class="ms-stock-row-location">${escapeHTML(stock.location)}</span>
-                                        </div>
-                                        <div class="ms-stock-row-qty-wrap">
-                                            <span class="ms-stock-row-available">STOCK</span>
-                                            <span class="ms-stock-row-qty">${stock.found?Number(stock.quantity||0).toLocaleString()+' '+escapeHTML(stock.unit):'N/A'}</span>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
+                ${rows.map(([type,stock])=>`
+                    <div class="ms-stock-row">
+                        <div class="ms-stock-row-left">
+                            <span class="ms-stock-row-badge ${type.toLowerCase()}">${type.toUpperCase()}</span>
+                            <span class="ms-stock-row-location">${escapeHTML(stock.location)}</span>
                         </div>
-                    `;
-                }).join('')}
+                        <span class="ms-stock-row-qty">${Number(stock.quantity||0).toLocaleString()}</span>
+                    </div>
+                `).join('')}
             `;
-        }catch(error){
-            showStatus(error.message||'Search error');
+        }catch{
+            showStatus('Search error');
         }finally{
             searching=false;
             button.disabled=false;
@@ -474,288 +446,151 @@ const search=async()=>{
         }
     };
 
-const selectProduct=product=>{
-    if(!product)return;
-
-    selectedProduct=product;
-
-    input.value=product.display_name||'';
-
-    closeDropdown();
-
-    search();
-};
-
-const renderProducts=list=>{
-    products=list||[];
-    activeIndex=-1;
-
-    if(!products.length){
-        dropdown.innerHTML=
-            '<div class="ms-stock-dropdown-status">No matching product found</div>';
-
-        dropdown.classList.add('open');
-        input.setAttribute('aria-expanded','true');
-
-        return;
-    }
-
-    dropdown.innerHTML=products.map((p,i)=>`
-            <div
-                class="ms-stock-product"
-                data-index="${i}"
-                role="option"
-            >
-                <span class="ms-stock-product-name">
-                    ${escapeHTML(p.display_name)}
-                </span>
-
-                ${p.hb_id? `<span class="ms-stock-product-hzb">HZB: ${escapeHTML(p.hb_id)}</span>` : ''}
-                <span class="ms-stock-product-price">${priceHTML(p)}</span>
-            </div>
-        `).join('');
-
-        dropdown.classList.add('open');
-        input.setAttribute('aria-expanded','true');
-
-        dropdown.querySelectorAll('.ms-stock-product').forEach(item=>{
-            item.addEventListener('mousedown',e=>{
-                e.preventDefault();
-                e.stopPropagation();
-
-                selectProduct(
-                    products[Number(item.dataset.index)]
-                );
-            });
-        });
+    const selectProduct=product=>{
+        if(!product)return;
+        selectedProduct=product;
+        input.value=product.display_name||'';
+        closeDropdown();
+        search();
     };
 
-const lookup=async value=>{
-    const id=++lookupId;
+    const lookup=async value=>{
+        const id=++lookupId;
 
-    if(!value){
-        closeDropdown();
-        return;
-    }
+        if(!value){
+            closeDropdown();
+            return;
+        }
 
-    dropdown.innerHTML=
-        '<div class="ms-stock-dropdown-status">Searching all 6 warehouses...</div>';
-
-    dropdown.classList.add('open');
-    input.setAttribute('aria-expanded','true');
-
-    try{
-        const list=await searchStockProducts(value);
-
-        if(id!==lookupId)return;
-
-        renderProducts(list);
-    }catch{
-        if(id!==lookupId)return;
-
-        dropdown.innerHTML=
-            '<div class="ms-stock-dropdown-status">Search error</div>';
-
+        dropdown.innerHTML='<div class="ms-stock-dropdown-status">Searching products...</div>';
         dropdown.classList.add('open');
         input.setAttribute('aria-expanded','true');
-    }
-};
 
-input.addEventListener('input',e=>{
-    e.stopPropagation();
+        try{
+            const list=await searchStockProducts(value);
+            if(id!==lookupId)return;
+            renderProducts(list);
+        }catch{
+            if(id!==lookupId)return;
+            dropdown.innerHTML='<div class="ms-stock-dropdown-status">Search error</div>';
+            dropdown.classList.add('open');
+            input.setAttribute('aria-expanded','true');
+        }
+    };
 
-    selectedProduct=null;
+    input.addEventListener('input',e=>{
+        e.stopPropagation();
+        selectedProduct=null;
+        clearTimeout(lookupTimer);
 
-    clearTimeout(lookupTimer);
+        const value=input.value.trim();
 
-    const value=input.value.trim();
-
-    if(!value){
-        closeDropdown();
-        return;
-    }
-
-    lookupTimer=setTimeout(()=>{
-        lookup(value);
-    },250);
-});
-
-input.addEventListener('keydown',e=>{
-    e.stopPropagation();
-
-    if(e.key==='ArrowDown'&&products.length){
-        e.preventDefault();
-
-        activeIndex=Math.min(
-            activeIndex+1,
-            products.length-1
-        );
-
-        dropdown.querySelectorAll('.ms-stock-product').forEach((x,i)=>{
-            x.classList.toggle(
-                'active',
-                i===activeIndex
-            );
-        });
-
-        const active=
-              dropdown.querySelector('.ms-stock-product.active');
-
-        if(active){
-            active.scrollIntoView({
-                block:'nearest'
-            });
+        if(!value){
+            closeDropdown();
+            return;
         }
 
-        return;
-    }
+        lookupTimer=setTimeout(()=>lookup(value),250);
+    });
 
-    if(e.key==='ArrowUp'&&products.length){
-        e.preventDefault();
+    input.addEventListener('keydown',e=>{
+        e.stopPropagation();
 
-        activeIndex=Math.max(
-            activeIndex-1,
-            0
-        );
+        if((e.key==='ArrowDown'||e.key==='ArrowUp')&&products.length){
+            e.preventDefault();
 
-        dropdown.querySelectorAll('.ms-stock-product').forEach((x,i)=>{
-            x.classList.toggle(
-                'active',
-                i===activeIndex
-            );
-        });
+            activeIndex=e.key==='ArrowDown'
+                ?Math.min(activeIndex+1,products.length-1)
+                :Math.max(activeIndex-1,0);
 
-        const active=
-              dropdown.querySelector('.ms-stock-product.active');
+            dropdown.querySelector('.ms-stock-product.active')?.classList.remove('active');
 
-        if(active){
-            active.scrollIntoView({
-                block:'nearest'
-            });
+            const item=dropdown.querySelector(`[data-index="${activeIndex}"]`);
+            item?.classList.add('active');
+            item?.scrollIntoView({block:'nearest'});
+            return;
         }
 
-        return;
-    }
+        if(e.key==='Enter'&&activeIndex>=0&&products[activeIndex]){
+            e.preventDefault();
+            selectProduct(products[activeIndex]);
+            return;
+        }
 
-    if(e.key==='Enter'&&activeIndex>=0&&products[activeIndex]){
+        if(e.key==='Escape'){
+            e.preventDefault();
+            closeDropdown();
+        }
+    });
+
+    input.addEventListener('blur',()=>setTimeout(closeDropdown,250));
+
+    dropdown.addEventListener('mousedown',e=>{
+        const item=e.target.closest('.ms-stock-product');
+        if(!item)return;
         e.preventDefault();
+        e.stopPropagation();
+        selectProduct(products[Number(item.dataset.index)]);
+    });
 
-        selectProduct(products[activeIndex]);
-
-        return;
-    }
-
-    if(e.key==='Escape'){
+    form.addEventListener('submit',e=>{
         e.preventDefault();
+        e.stopPropagation();
+        search();
+    });
 
-        closeDropdown();
-    }
-});
+    button.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        search();
+    });
 
-input.addEventListener('blur',()=>{
-    setTimeout(()=>{
-        closeDropdown();
-    },250);
-});
+    close.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        resetSearch();
+        panel.classList.remove('open');
+        input.blur();
+    });
 
-form.addEventListener('submit',e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    search();
-});
+    const systrayItem=document.createElement('li');
+    systrayItem.id='ms-stock-hzb-systray-item';
+    systrayItem.setAttribute('role','menuitem');
+    systrayItem.innerHTML=`
+        <button id="ms-stock-hzb-systray-button" type="button" title="Stock HZB" aria-label="Stock HZB">
+            <i class="yd-custom-icon fa fa-cubes" role="img" aria-label="Stock HZB"></i>
+        </button>`;
 
-button.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    search();
-});
+    const systrayButton=systrayItem.firstElementChild;
 
-close.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopPropagation();
+    systrayButton.addEventListener('mousedown',e=>e.stopPropagation());
+    systrayButton.addEventListener('mouseup',e=>e.stopPropagation());
+    systrayButton.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        panel.classList.toggle('open');
+        if(panel.classList.contains('open'))input.focus();
+    });
 
-    panel.classList.remove('open');
-
-    closeDropdown();
-});
-
-const systrayItem=document.createElement('li');
-
-systrayItem.id='ms-stock-hzb-systray-item';
-systrayItem.setAttribute('role','menuitem');
-
-systrayItem.innerHTML=`
-        <button
-            id="ms-stock-hzb-systray-button"
-            type="button"
-            title="Stock HZB"
-            aria-label="Stock HZB"
-        >
-            <i class="fa fa-cubes" role="img" aria-label="Stock HZB"></i>
-        </button>
-    `;
-
-const systrayButton=
-      systrayItem.querySelector(
-          '#ms-stock-hzb-systray-button'
-      );
-
-systrayButton.addEventListener('mousedown',e=>{
-    e.stopPropagation();
-});
-
-systrayButton.addEventListener('mouseup',e=>{
-    e.stopPropagation();
-});
-
-systrayButton.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopPropagation();
-
-    panel.classList.toggle('open');
-
-    if(panel.classList.contains('open')){
-        setTimeout(()=>{
-            input.focus();
-        },50);
-    }
-});
-
-const insertSystray=()=>{
-    const nav=document.querySelector(
-        '.o_main_navbar .o_menu_systray'
-    );
-
-    if(!nav)return false;
-
-    const existing=document.getElementById(
-        'ms-stock-hzb-systray-item'
-    );
-
-    if(existing&&existing.parentElement===nav){
-        nav.prepend(existing);
+    const insertSystray=()=>{
+        const nav=document.querySelector('.o_main_navbar .o_menu_systray');
+        if(!nav)return false;
+        if(systrayItem.parentElement!==nav)nav.prepend(systrayItem);
         return true;
+    };
+
+    if(!insertSystray()){
+        const observer=new MutationObserver(()=>{
+            if(insertSystray())observer.disconnect();
+        });
+        observer.observe(document.body,{childList:true,subtree:true});
     }
-
-    nav.prepend(systrayItem);
-
-    return true;
-};
-
-if(!insertSystray()){
-    const observer=new MutationObserver(()=>{
-        if(insertSystray()){
-            observer.disconnect();
-        }
-    });
-
-    observer.observe(document.body,{
-        childList:true,
-        subtree:true
-    });
-}
+    const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+    registry['STOCK-HZB-CHECKER']={
+        suspend(){clearTimeout(lookupTimer);lookupId++;panel.remove();systrayItem.remove();return true;},
+        resume(){if(!document.getElementById(ID))createUI();return true;}
+    };
 }
 
 createUI();
-
 })();
