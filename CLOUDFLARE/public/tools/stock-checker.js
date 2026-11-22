@@ -21,11 +21,12 @@
     ];
 
     const DISPLAY_WAREHOUSES=[
-        {group:'ABU RAWASH',name:'GOLD',key:'abuGold'},
         {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum'},
-        {group:'SILVER',name:'SILVER',key:'silverCombined'},
+        {group:'ABU RAWASH',name:'GOLD',key:'abuGold'},
+        {group:'ABU RAWASH',name:'SILVER',key:'abuSilver'},
+        {group:'ENGY',name:'PLATINUM',key:'engyPlatinum'},
         {group:'ENGY',name:'GOLD',key:'engyGold'},
-        {group:'ENGY',name:'PLATINUM',key:'engyPlatinum'}
+        {group:'ENGY',name:'SILVER',key:'engySilver'}
     ];
 
     const ID='ms-stock-hzb-checker';
@@ -152,15 +153,6 @@
 
             if(!stock.unit&&row.product_uom_id?.[1])stock.unit=row.product_uom_id[1];
         });
-
-        const abuSilver=result.abuSilver;
-        const engySilver=result.engySilver;
-        result.silverCombined={
-            quantity:abuSilver.quantity+engySilver.quantity,
-            unit:abuSilver.unit||engySilver.unit,
-            location:'SIW/Stock + ESIW/Stock',
-            found:abuSilver.found&&engySilver.found
-        };
 
         return result;
     }
@@ -434,7 +426,7 @@ const search=async()=>{
             selectedProduct.id
         );
 
-        const groups=['ABU RAWASH','SILVER','ENGY'];
+        const groups=['ABU RAWASH','ENGY'];
 
         result.innerHTML=`
                 <div class="ms-stock-result-title">
@@ -463,7 +455,7 @@ const search=async()=>{
                                             <span class="ms-stock-row-location">${escapeHTML(stock.location)}</span>
                                         </div>
                                         <div class="ms-stock-row-qty-wrap">
-                                            <span class="ms-stock-row-available">STOCK AVAILABLE</span>
+                                            <span class="ms-stock-row-available">STOCK</span>
                                             <span class="ms-stock-row-qty">${stock.found?Number(stock.quantity||0).toLocaleString()+' '+escapeHTML(stock.unit):'N/A'}</span>
                                         </div>
                                     </div>
