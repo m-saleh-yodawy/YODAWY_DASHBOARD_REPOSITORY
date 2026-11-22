@@ -577,10 +577,10 @@ const portalAccountRoutes = async (request, env, path) => {
     const requestedKey = normalizeOdooKey(odooKey);
     if (!requestedKey) return respond(request, env, { success: false, error: "INVALID_ODOO_KEY" }, 400);
     const placeholders = targetIds.map(() => "?").join(",");
-    const existingRows = await env.DB.prepare("SELECT owner_user_id, account_type, odoo_key FROM portal_accounts WHERE owner_user_id IN (" + placeholders + ") AND provider = 'PORTAL' AND enabled = 1").bind(...targetIds).all();
+    const existingRows = await env.DB.prepare("SELECT owner_user_id, account_type, odoo_key, label FROM portal_accounts WHERE owner_user_id IN (" + placeholders + ") AND provider = 'PORTAL' AND enabled = 1").bind(...targetIds).all();
     const accountStates = new Map(targetIds.map(userId => [userId, { personal: false, general: false }]));
     for (const row of existingRows.results || []) {
-      if (normalizeOdooKey(row.odoo_key) !== requestedKey) continue;
+      if (normalizeOdooKey(row.odoo_key) !== requestedKey && normalizeOdooKey(row.label) !== requestedKey) continue;
       const state = accountStates.get(row.owner_user_id);
       if (!state) continue;
       if (row.account_type === "PERSONAL") state.personal = true;
