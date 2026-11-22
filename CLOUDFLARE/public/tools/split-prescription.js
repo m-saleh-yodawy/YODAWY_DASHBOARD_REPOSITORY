@@ -826,7 +826,7 @@
             if (!selected) return;
             badge.dataset.kind = kind;
             badge.innerHTML = kind === 'success'
-                ? '<span class="yds-row-state-icon">✓</span><span>SPLITTED &amp; DELETED</span>'
+                ? '<span class="yds-row-state-icon">✓</span><span>SPLIT &amp; DELETED</span>'
                 : '<span class="yds-row-state-icon">×</span><span>FAILED</span>';
         });
     }
@@ -881,7 +881,7 @@
             submit.innerHTML = '<span class="yds-spin"></span>PREPARING';
             try {
                 const prepared = await prepareSplit(selected);
-                const summary = `${prepared.selectedDrugs.length} medication(s)\nPayer: ${prepared.payer.name}\nCorporate: ${prepared.corporate.name}\nCycle: ${prepared.cycle.label}\nExpiry Date: ${prepared.input.expiryDate}\nSerial: ${prepared.input.serial}\nMax Amount: 00\nTag: SPLIT\n\nCreate the new prescription now?`;
+                const summary = `${prepared.selectedDrugs.length} medication(s)\nPayer: ${prepared.payer.name}\nCorporate: ${prepared.corporate.name}\nCycle: ${prepared.cycle.label}\nExpiry Date: ${prepared.expiryDate}\nSerial: ${prepared.input.serial}\nMax Amount: 00\nTag: SPLIT\n\nCreate the new prescription now?`;
                 if (!window.confirm(summary)) {
                     state.busy = false;
                     submit.disabled = false;
@@ -922,7 +922,7 @@
                 state.busy = false;
                 if (cleanup.success) {
                     markSelectedDrugs(selected, 'success');
-                    setStatus('SPLITTED & DELETED', 'success');
+                    setStatus('SUCCEEDED', 'success');
                 } else {
                     markSelectedDrugs(selected, 'error');
                     setStatus('FAILED', 'error', cleanup.error || noteError || 'Odoo item deletion was not verified.');
