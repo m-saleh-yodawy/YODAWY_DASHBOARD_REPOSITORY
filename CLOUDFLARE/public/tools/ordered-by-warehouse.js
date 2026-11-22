@@ -1038,16 +1038,6 @@
                 cursor:pointer;
                 font-size:17px
             }
-            #ordered-close .ordered-close-icon{
-                display:block;
-                width:15px;
-                height:15px;
-                fill:none;
-                stroke:currentColor;
-                stroke-width:2;
-                stroke-linecap:round;
-                stroke-linejoin:round
-            }
 
             #ordered-body{
                 padding:12px
@@ -1298,7 +1288,12 @@
                     </div>
                 </div>
 
-                <button id="ordered-close" type="button" aria-label="Close"><svg class="ordered-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+                <button
+                    id="ordered-close"
+                    type="button"
+                >
+                    ×
+                </button>
             </div>
 
             <div id="ordered-body">
@@ -1442,7 +1437,7 @@
                         class="ordered-btn"
                         type="button"
                     >
-                        <i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i> START ORDERED
+                        ▶ START ORDERED
                     </button>
 
                     <button
@@ -1451,7 +1446,7 @@
                         type="button"
                         disabled
                     >
-                        <i class="yd-fa-icon fa-solid fa-pause" aria-hidden="true"></i> PAUSE
+                        Ⅱ PAUSE
                     </button>
 
                     <button
@@ -1460,7 +1455,7 @@
                         type="button"
                         disabled
                     >
-                        <i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i> RESUME
+                        ▶ RESUME
                     </button>
                 </div>
             </div>
@@ -1612,7 +1607,7 @@
                     aria-label="Ordered By WH"
                 >
                     <i
-                        class="yd-fa-icon fa-solid fa-cart-shopping"
+                        class="yd-custom-icon fa fa-shopping-cart"
                         role="img"
                         aria-label="Ordered By WH"
                     ></i>

@@ -129,10 +129,7 @@ function success(message) {
 
     const popup = document.createElement('div');
     popup.className = 'yodawy-copy-success';
-    const icon = document.createElement('i');
-    icon.className = 'yd-fa-icon fa-solid fa-check';
-    icon.setAttribute('aria-hidden', 'true');
-    popup.append(icon, document.createTextNode(' ' + String(message || '')));
+    popup.textContent = `✓ ${message}`;
     document.body.appendChild(popup);
 
     schedule(() => {
@@ -627,12 +624,12 @@ function build(body){
 
     const title=document.createElement('div');
     title.className='yodawy-copy-all-title';
-    title.innerHTML=`<i class="yd-fa-icon fa-solid fa-pills" aria-hidden="true"></i><span>Limited Drugs</span><span style="opacity:.75">(${drugs.length})</span>`;
+    title.innerHTML=`<span>💊</span><span>Limited Drugs</span><span style="opacity:.75">(${drugs.length})</span>`;
 
     const copyAll=document.createElement('button');
     copyAll.className='yodawy-copy-all-button';
     copyAll.type='button';
-    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
+    copyAll.textContent='📋';
 
     copyAll.onclick=async e=>{
         e.preventDefault();
@@ -652,7 +649,7 @@ function build(body){
 
         const arrow=document.createElement('span');
         arrow.className='yodawy-arrow';
-        arrow.innerHTML='<i class="yd-fa-icon fa-solid fa-chevron-right" aria-hidden="true"></i>';
+        arrow.textContent='▶';
 
         const drugTitle=document.createElement('span');
         drugTitle.className='yodawy-drug-title';
@@ -675,7 +672,7 @@ function build(body){
         const copyOne=document.createElement('button');
         copyOne.className='yodawy-copy-one';
         copyOne.type='button';
-        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
+        copyOne.textContent='📋';
 
         copyOne.onclick=async e=>{
             e.preventDefault();
