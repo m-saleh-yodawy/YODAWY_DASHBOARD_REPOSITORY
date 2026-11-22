@@ -905,16 +905,6 @@
             submit.innerHTML = '<span class="yds-spin"></span>PREPARING';
             try {
                 const prepared = await prepareSplit(selected);
-                const summary = `${prepared.selectedDrugs.length} medication(s)\nPayer: ${prepared.payer.name}\nCorporate: ${prepared.corporate.name}\nCycle: ${prepared.cycle.label}\nExpiry Date: ${prepared.expiryDate}\nSerial: ${prepared.input.serial}\nMax Amount: 00\nTag: SPLIT\n\nCreate the new prescription now?`;
-                if (!window.confirm(summary)) {
-                    state.busy = false;
-                    submit.disabled = false;
-                    overlay.querySelector('[data-cancel]').disabled = false;
-                    submit.textContent = 'SPLIT';
-                    update();
-                    setStatus('Ready. No prescription was created.', 'info');
-                    return;
-                }
                 submit.innerHTML = '<span class="yds-spin"></span>CREATING';
                 setStatus('Sending the creation request directly to the Portal API...', 'info');
                 state.mutationAttempted = true;
