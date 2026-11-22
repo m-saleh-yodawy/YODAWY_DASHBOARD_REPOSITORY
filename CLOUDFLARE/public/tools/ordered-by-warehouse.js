@@ -1038,6 +1038,16 @@
                 cursor:pointer;
                 font-size:17px
             }
+            #ordered-close .ordered-close-icon{
+                display:block;
+                width:15px;
+                height:15px;
+                fill:none;
+                stroke:currentColor;
+                stroke-width:2;
+                stroke-linecap:round;
+                stroke-linejoin:round
+            }
 
             #ordered-body{
                 padding:12px
@@ -1288,7 +1298,7 @@
                     </div>
                 </div>
 
-                <button id="ordered-close" type="button" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
+                <button id="ordered-close" type="button" aria-label="Close"><svg class="ordered-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </div>
 
             <div id="ordered-body">
