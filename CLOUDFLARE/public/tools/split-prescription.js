@@ -503,65 +503,8 @@
         return { input, payer, corporate, cycle, prescription, details, selectedDrugs };
     }
 
-    async function deleteSplitItemsFromOdoo(prepared) {
-        const ticketId = Number(state.ticketId || getTicketId());
-        if (!ticketId) throw new Error('Current Odoo ticket ID is unavailable.');
-        const context = getSessionContext();
-        const ticket = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['sale_order_id', 'ticket_order_ids']], { context }))?.[0];
-        if (!ticket) throw new Error('Could not read the current Odoo ticket before deleting split items.');
-
-        const saleOrderIds = new Set();
-        const saleOrderId = Array.isArray(ticket.sale_order_id) ? Number(ticket.sale_order_id[0]) : Number(ticket.sale_order_id || 0);
-        if (saleOrderId > 0) saleOrderIds.add(saleOrderId);
-        for (const value of Array.isArray(ticket.ticket_order_ids) ? ticket.ticket_order_ids : []) {
-            const id = Number(Array.isArray(value) ? value[0] : value);
-            if (id > 0) saleOrderIds.add(id);
-        }
-        if (!saleOrderIds.size) throw new Error('This Odoo ticket has no linked Sale Order. No Odoo items were deleted.');
-
-        const orderFields = await rpc('sale.order', 'fields_get', [['order_line']], { attributes: ['type', 'relation'], context });
-        const lineModel = orderFields?.order_line?.relation;
-        if (!lineModel) throw new Error('Could not identify the Sale Order line model.');
-
-        const orders = await rpc('sale.order', 'read', [[...saleOrderIds], ['order_line']], { context });
-        const lineIds = [...new Set((orders || []).flatMap(order => Array.isArray(order.order_line) ? order.order_line.map(Number) : []).filter(id => id > 0))];
-        if (!lineIds.length) throw new Error('The Sale Orders linked to this ticket contain no item lines.');
-
-        const lineMetadata = await rpc(lineModel, 'fields_get', [[]], { attributes: ['type', 'relation'], context });
-        const productField = Object.entries(lineMetadata || {}).find(([name, field]) => name === 'product_id' && field?.type === 'many2one');
-        if (!productField?.[1]?.relation) throw new Error('Sale Order lines do not expose a readable product relation.');
-        const productModel = productField[1].relation;
-        const lineFields = ['product_id'];
-        if (lineMetadata.display_type) lineFields.push('display_type');
-        const lines = await rpc(lineModel, 'read', [lineIds, lineFields], { context });
-        const productIds = [...new Set((lines || []).map(line => Array.isArray(line.product_id) ? Number(line.product_id[0]) : 0).filter(id => id > 0))];
-        if (!productIds.length) throw new Error('No products were found on the Sale Order lines linked to this ticket.');
-
-        const productMetadata = await rpc(productModel, 'fields_get', [['default_code']], { attributes: ['type', 'string'], context });
-        if (!productMetadata?.default_code) throw new Error('The Odoo product model does not expose the HZB/default code field.');
-        const products = await rpc(productModel, 'read', [productIds, ['default_code']], { context });
-        const productCodes = new Map((products || []).map(product => [Number(product.id), normalize(product.default_code)]));
-        const targets = prepared.selectedDrugs.map(drug => ({ name: normalize(drug.name), hzb: normalize(drug.hzb) }));
-        if (!targets.length || targets.some(item => !/^\d+$/.test(item.hzb))) throw new Error('The selected medications do not contain valid HZB values.');
-
-        const targetCodes = new Set(targets.map(item => item.hzb));
-        const matchedLines = (lines || []).filter(line => {
-            if (line.display_type) return false;
-            const productId = Array.isArray(line.product_id) ? Number(line.product_id[0]) : 0;
-            return targetCodes.has(productCodes.get(productId) || '');
-        });
-        const foundCodes = new Set(matchedLines.map(line => {
-            const productId = Array.isArray(line.product_id) ? Number(line.product_id[0]) : 0;
-            return productCodes.get(productId) || '';
-        }));
-        const missing = targets.filter(item => !foundCodes.has(item.hzb));
-        if (missing.length) throw new Error('No exact Odoo Sale Order item match was found for: ' + missing.map(item => item.name + ' (HZB ' + item.hzb + ')').join(', ') + '. No items were deleted.');
-
-        const lineIdsToDelete = [...new Set(matchedLines.map(line => Number(line.id)).filter(id => id > 0))];
-        if (!lineIdsToDelete.length) throw new Error('No exact Sale Order lines matched the selected HZB values. No items were deleted.');
-        const deleted = await rpc(lineModel, 'unlink', [lineIdsToDelete], { context });
-        if (deleted !== true) throw new Error('Odoo did not confirm deletion of the matched Sale Order lines.');
-        return { success: true, count: lineIdsToDelete.length, names: targets.map(item => item.name) };
+    async function deleteSplitItemsFromOdoo() {
+        throw new Error('The original Odoo removal action has not been verified. No Odoo items were deleted.');
     }
 
     async function createLogNote(prepared, cleanup) {
