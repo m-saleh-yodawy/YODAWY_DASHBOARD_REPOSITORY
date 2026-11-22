@@ -70,3 +70,4 @@ Match Odoo form-view Fetch context and verify native removal note even when acti
 Keep native Fetch JSON/table chatter only after Split, and write one exact Limited Drug/SPLIT Log Note per selected item: 20261122-split-native-chatter-and-note-format-1.
 Write the SPLIT Log Note only after verified native Odoo removal: 20261122-split-note-only-on-removal-success-1.
 Refresh Split UI with expiry/cycle summary, Dashboard-style success/failure status and per-drug completion badges: 20261122-split-ui-result-state-1.
+Hide the result indicator until a Split attempt begins and lock selected items after completion: 20261122-split-ui-final-1.
