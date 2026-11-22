@@ -224,6 +224,77 @@ const portalAccountRoutes = async (request, env, path) => {
     }));
     return respond(request, env, { success: true, accounts });
   }
+  if (path === "/api/open-erx/split/graphql" && request.method === "POST") {
+    const body = await readBody(request);
+    const accountId = String(body.accountId || "").trim();
+    const operationName = String(body.operationName || "").trim();
+    const query = String(body.query || "");
+    const variables = body.variables && typeof body.variables === "object" && !Array.isArray(body.variables) ? body.variables : {};
+    const allowedOperations = new Set(["GetOdooPayerCorporate", "InsuranceAgencyPrescription", "GetPrescriptionDetails", "addNewChronicPrescription"]);
+    const declaredOperation = query.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] || "";
+    if (!/^PA-[A-Z0-9]{8,32}$/.test(accountId) || !allowedOperations.has(operationName) || declaredOperation !== operationName || query.length > 30000) return respond(request, env, { success: false, status: 400, error: "INVALID_SPLIT_GRAPHQL_REQUEST" });
+    if (operationName === "addNewChronicPrescription" && (!variables.input || typeof variables.input !== "object" || !Array.isArray(variables.input.medications) || variables.input.isChronic !== true || !Array.isArray(variables.input.tags) || !variables.input.tags.includes("SPLIT"))) return respond(request, env, { success: false, status: 400, error: "INVALID_SPLIT_INPUT" });
+    const account = await env.DB.prepare("SELECT account_id, username, encrypted_password, encryption_iv FROM portal_accounts WHERE account_id = ? AND owner_user_id = ? AND provider = 'PORTAL' AND enabled = 1").bind(accountId, actor.user_id).first();
+    if (!account) return respond(request, env, { success: false, status: 403, error: "FORBIDDEN" });
+    let password;
+    try { password = await decryptPortalPassword(env, account.encrypted_password, account.encryption_iv); } catch { return respond(request, env, { success: false, status: 503, error: "PORTAL_CREDENTIALS_UNAVAILABLE" }); }
+    const loginQuery = "query Index {ViewerQuery {...F0}} fragment F0 on Viewer {_SplitLogin:CallCenterLogIn(username:" + JSON.stringify(account.username) + ",password:" + JSON.stringify(password) + ") {token,id,groupId,isAdmin,isKsysAdmin,userName,groupName,branchId,insuranceAgencyId,agentType,insuranceAgencyName,channel,newPharmacyPortal}}";
+    let loginData;
+    try {
+      loginData = await upstreamGraphql("https://aws.yodawy.com/MobileWCF.svc/api/secure/GraphQl", loginQuery, {}, "Index");
+    } catch {
+      password = "";
+      return respond(request, env, { success: false, status: 502, error: "PORTAL_LOGIN_REQUEST_FAILED" });
+    }
+    password = "";
+    const login = loginData?.ViewerQuery?._SplitLogin;
+    if (!login?.token || !login?.insuranceAgencyId || !login?.agentType) return respond(request, env, { success: false, status: 401, error: "PORTAL_LOGIN_FAILED" });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    try {
+      const response = await fetch("https://chronicapi.yodawy.com/graphql", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "authorization": "Bearer " + login.token,
+          "origin": "https://portal.yodawy.com",
+          "referer": "https://portal.yodawy.com/"
+        },
+        body: JSON.stringify({ operationName, query, variables }),
+        signal: controller.signal
+      });
+      const raw = await response.text().catch(() => "");
+      let data = null;
+      try { data = raw ? JSON.parse(raw) : null; } catch {}
+      const errors = Array.isArray(data?.errors) ? data.errors.map(error => ({
+        message: String(error?.message || "GraphQL error").slice(0, 300),
+        code: error?.extensions?.code || null,
+        path: Array.isArray(error?.path) ? error.path.join(".").slice(0, 200) : null
+      })) : [];
+      if (!response.ok || !data || errors.length || !data.data) {
+        const status = response.status || (errors.length ? 422 : 502);
+        return respond(request, env, {
+          success: false,
+          status,
+          error: status === 401 ? "PORTAL_API_UNAUTHORIZED" : "PORTAL_GRAPHQL_FAILED",
+          details: {
+            operation: operationName,
+            status: response.status,
+            statusText: String(response.statusText || "").slice(0, 120),
+            contentType: response.headers.get("content-type") || "",
+            errors,
+            response: data ? "" : raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)
+          }
+        });
+      }
+      return respond(request, env, { success: true, data: data.data });
+    } catch (error) {
+      return respond(request, env, { success: false, status: 502, error: error?.name === "AbortError" ? "PORTAL_GRAPHQL_TIMEOUT" : "PORTAL_GRAPHQL_REQUEST_FAILED" });
+    } finally {
+      clearTimeout(timeout);
+      login.token = "";
+    }
+  }
   if (path === "/api/open-erx/edit" && request.method === "POST") {
     const body = await readBody(request);
     const accountId = String(body.accountId || "").trim();
