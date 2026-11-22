@@ -2,6 +2,7 @@
     'use strict';
     if (global.YODAWY_API_ENGINE) return;
     const context = () => global.YODAWY_CLOUD_CONTEXT;
+    const RUNTIME_ASSETS = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev/runtime/';
     const transactions = new Map();
     const fail = (message, status = 0, data = null) => {
         const error = new Error(message);
@@ -117,6 +118,14 @@
             const version = /^[a-f0-9]{64}$/.test(hash) ? '?v=' + hash : '';
             const response = await fetch('https://yodawy-dashboard.m-saleh-yodawy.workers.dev/tools/' + encodeURIComponent(name) + version, { cache: 'no-store', credentials: 'omit' });
             if (!response.ok) throw fail('Tool asset unavailable: ' + name, response.status);
+            return response.text();
+        }
+        if (clean.startsWith('CLOUDFLARE/public/runtime/')) {
+            const name = clean.split('/').pop();
+            if (!/^[a-z0-9-]+\.js$/i.test(name)) throw fail('Invalid runtime asset path', 400);
+            const version = encodeURIComponent(String(context()?.assetVersion || 'latest'));
+            const response = await fetch(RUNTIME_ASSETS + encodeURIComponent(name) + '?v=' + version, { cache: 'no-store', credentials: 'omit' });
+            if (!response.ok) throw fail('Runtime asset unavailable: ' + name, response.status);
             return response.text();
         }
         if (clean === 'CONFIG/users.json') return JSON.stringify({ users: data.users || [] });
