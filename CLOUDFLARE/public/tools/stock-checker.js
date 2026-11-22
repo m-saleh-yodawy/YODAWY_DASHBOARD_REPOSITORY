@@ -150,12 +150,13 @@
             getStockLocationTree(),
             rpc('product.product','search_read',{
                 domain:[
-                    '|','|',
+                    '|','|','|',
                     ['default_code','ilike',text],
                     ['barcode','ilike',text],
-                    ['name','ilike',text]
+                    ['name','ilike',text],
+                    ['hb_id','ilike',text]
                 ],
-                fields:['id','name','display_name','default_code','barcode'],
+                fields:['id','name','display_name','default_code','barcode','hb_id','lst_price'],
                 limit:1000,
                 order:'name asc'
             })
@@ -183,7 +184,9 @@
                 id:product.id,
                 display_name:product.display_name||product.name||'',
                 default_code:product.default_code||'',
-                barcode:product.barcode||''
+                barcode:product.barcode||'',
+                hb_id:product.hb_id||product.default_code||'',
+                lst_price:Number(product.lst_price||0)
             }));
     }
 
@@ -217,6 +220,54 @@
             .replace(/>/g,'&gt;')
             .replace(/"/g,'&quot;')
             .replace(/'/g,'&#039;');
+    }
+
+    function getPriceInfo(product){
+        const text=String(product.display_name||product.name||'')
+            .toLowerCase()
+            .replace(/[(),]/g,' ')
+            .replace(/\s+/g,' ')
+            .trim();
+
+        const price=Number(product.lst_price||0);
+        const units={flexpen:'FLEXPEN',syringe:'SYRINGE',amp:'AMP',penfil:'PENFIL',vial:'VIAL',sachet:'SACHET',strip:'STRIP'};
+        const patterns=[
+            ['flexpen',/(\d+(?:\.\d+)?)\s*(?:flexpen|flexpens|flexben|flexbens)\b/i],
+            ['syringe',/(\d+(?:\.\d+)?)\s*(?:syringe|syringes|سرنجة|سرنجات)\b/i],
+            ['amp',/(\d+(?:\.\d+)?)\s*(?:amp|amps|ampoule|ampoules|ampule|ampules|امبول|امبولات|أمبول|أمبولات)\b/i],
+            ['penfil',/(\d+(?:\.\d+)?)\s*(?:penfil|penfils|penfill|penfills)\b/i],
+            ['vial',/(\d+(?:\.\d+)?)\s*(?:vial|vials|فيال|فيالات|قارورة|قوارير)\b/i],
+            ['sachet',/(\d+(?:\.\d+)?)\s*(?:sachet|sachets|ساشيه|ساشيهات)\b/i],
+            ['strip',/(\d+(?:\.\d+)?)\s*(?:strip|strips|شريط|شرائط)\b/i]
+        ];
+
+        for(const [type,regex] of patterns){
+            const match=text.match(regex);
+            if(match){
+                const count=Number(match[1]);
+                if(count>0)return{unitPrice:price,unit:units[type],boxPrice:price*count,box:'BOX'};
+            }
+        }
+
+        if(/\b(?:oral\s+drops?|drops?|solution|syrup|cream|ointment|gel|lotion|spray|powder|suspension|emulsion|soap|shampoo|mouthwash)\b|(?:نقط|قطرة|شراب|كريم|مرهم|جل|لوشن|بخاخ|بودرة|معلق|مستحلب)/i.test(text))return{unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
+        if(/\bbox(?:es)?\b|علبة|علب/i.test(text))return{unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
+        if(/\b(?:penfil|penfils|penfill|penfills|cartridge|cartridges|carroule|carroules)\b|خرطوشة|خراطيش/i.test(text))return{unitPrice:price,unit:'PENFIL',boxPrice:null,box:'BOX'};
+        if(/\bsachet(?:s)?\b|ساشيه|ساشيهات/i.test(text))return{unitPrice:price,unit:'SACHET',boxPrice:null,box:'BOX'};
+        if(/\bvial(?:s)?\b|فيال|فيالات|قارورة|قوارير/i.test(text))return{unitPrice:price,unit:'VIAL',boxPrice:null,box:'BOX'};
+        if(/\bflexpen(?:s)?\b|\bflexben(?:s)?\b/i.test(text))return{unitPrice:price,unit:'FLEXPEN',boxPrice:null,box:'BOX'};
+        if(/\bsyringe(?:s)?\b|سرنجة|سرنجات/i.test(text))return{unitPrice:price,unit:'SYRINGE',boxPrice:null,box:'BOX'};
+        if(/\b(?:amp|amps|ampoule|ampoules|ampule|ampules)\b|امبول|امبولات|أمبول|أمبولات/i.test(text))return{unitPrice:price,unit:'AMP',boxPrice:null,box:'BOX'};
+        if(/\b(?:strip|strips)\b|شريط|شرائط/i.test(text))return{unitPrice:price,unit:'STRIP',boxPrice:null,box:'BOX'};
+        return{unitPrice:price,unit:'BOX',boxPrice:price,box:'BOX'};
+    }
+
+    function priceHTML(product){
+        const info=getPriceInfo(product);
+        let html=`${info.unitPrice.toFixed(2)} L.E / ${escapeHTML(info.unit)}`;
+        if(info.boxPrice!==null&&Number.isFinite(info.boxPrice)&&info.unit!=='BOX'){
+            html+=`<span style="margin-left:10px;color:#999!important">•</span><span style="margin-left:10px">${info.boxPrice.toFixed(2)} L.E / ${escapeHTML(info.box)}</span>`;
+        }
+        return html;
     }
 
     function createUI(){
@@ -474,9 +525,17 @@
             .ms-stock-product-hzb{
                 display:block!important;
                 margin-top:2px!important;
-                color:#999!important;
+                color:#111!important;
                 font-size:10px!important;
                 font-weight:600!important;
+            }
+
+            .ms-stock-product-price{
+                display:block!important;
+                margin-top:3px!important;
+                color:#875A7B!important;
+                font-size:11px!important;
+                font-weight:700!important;
             }
 
             .ms-stock-dropdown-status{
@@ -520,6 +579,8 @@
                 height:34px!important;
                 display:flex!important;
                 align-items:center!important;
+                justify-content:space-between!important;
+                gap:10px!important;
                 padding:0 8px!important;
                 margin-bottom:8px!important;
                 color:#444!important;
@@ -527,8 +588,28 @@
                 font-weight:700!important;
                 white-space:nowrap!important;
                 overflow:hidden!important;
-                text-overflow:ellipsis!important;
                 border-bottom:1px solid #eee!important;
+            }
+
+            .ms-stock-result-name{
+                min-width:0!important;
+                overflow:hidden!important;
+                text-overflow:ellipsis!important;
+            }
+
+            .ms-stock-result-hzb{
+                margin-left:8px!important;
+                color:#875A7B!important;
+                font-size:11px!important;
+                font-weight:700!important;
+            }
+
+            .ms-stock-result-price{
+                flex:0 0 auto!important;
+                padding-left:10px!important;
+                color:#875A7B!important;
+                font-size:12px!important;
+                font-weight:700!important;
             }
 
             .ms-stock-group{
@@ -798,10 +879,11 @@ const search=async()=>{
 
         result.innerHTML=`
                 <div class="ms-stock-result-title">
-                    ${escapeHTML(selectedProduct.display_name)}
-                    ${selectedProduct.default_code
-                ? ` — HZB: ${escapeHTML(selectedProduct.default_code)}`
-                        : ''}
+                    <span class="ms-stock-result-name">
+                        ${escapeHTML(selectedProduct.display_name)}
+                        ${selectedProduct.hb_id? `<span class="ms-stock-result-hzb">HZB: ${escapeHTML(selectedProduct.hb_id)}</span>` : ''}
+                    </span>
+                    <span class="ms-stock-result-price">${priceHTML(selectedProduct)}</span>
                 </div>
 
                 ${groups.map(group=>`
@@ -874,9 +956,8 @@ const renderProducts=list=>{
                     ${escapeHTML(p.display_name)}
                 </span>
 
-                ${p.default_code
-                                        ? `<span class="ms-stock-product-hzb">HZB: ${escapeHTML(p.default_code)}</span>`
-                    : ''}
+                ${p.hb_id? `<span class="ms-stock-product-hzb">HZB: ${escapeHTML(p.hb_id)}</span>` : ''}
+                <span class="ms-stock-product-price">${priceHTML(p)}</span>
             </div>
         `).join('');
 
