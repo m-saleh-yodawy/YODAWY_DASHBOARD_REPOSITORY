@@ -289,20 +289,39 @@
         throw new Error(`Unsupported Odoo Payer: ${payer || 'not found'}.`);
     }
 
-    function getCycleInfo() {
+    async function getCycleInfo() {
         const element = document.querySelector('span[name="cycle_id"]') || document.querySelector('[name="cycle_id"]');
-        const label = getText(element) || getField('cycle_id');
+        let label = getText(element) || getField('cycle_id');
+        let numeric = '';
+        const ticketId = state.ticketId || getTicketId();
+        if (ticketId) {
+            try {
+                const records = await rpc('helpdesk.ticket', 'read', [[ticketId]], {
+                    fields: ['cycle_id'],
+                    context: getSessionContext()
+                });
+                const cycleField = records?.[0]?.cycle_id;
+                if (Array.isArray(cycleField)) {
+                    numeric = String(cycleField[0] || '').match(/^\d+$/)?.[0] || '';
+                    if (!label && cycleField[1]) label = normalize(cycleField[1]);
+                } else {
+                    numeric = String(cycleField || '').match(/^\d+$/)?.[0] || '';
+                }
+            } catch {}
+        }
+        if (!numeric) {
+            const raw = normalize(element?.getAttribute('raw-value') || element?.getAttribute('data-id') || element?.getAttribute('data-value') || element?.getAttribute('data-oe-id') || '');
+            numeric = raw.match(/^\d+$/)?.[0] || '';
+            if (!numeric && /^\[/.test(raw)) {
+                try { numeric = String(JSON.parse(raw)[0] || '').match(/^\d+$/)?.[0] || ''; } catch {}
+            }
+        }
         const match = label.match(/^([A-Za-z]+)\s+(\d{4})$/);
         if (!match) throw new Error(`Invalid Cycle value: ${label || 'not found'}.`);
         const monthMap = { january: 0, february: 1, march: 2, april: 3, may: 4, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11 };
         const month = monthMap[match[1].toLowerCase()];
         if (month === undefined) throw new Error(`Unsupported Cycle month: ${match[1]}.`);
-        const raw = normalize(element?.getAttribute('raw-value') || element?.getAttribute('data-id') || element?.getAttribute('data-value') || element?.getAttribute('data-oe-id') || '');
-        let numeric = raw.match(/^\d+$/)?.[0];
-        if (!numeric && /^\[/.test(raw)) {
-            try { numeric = String(JSON.parse(raw)[0] || '').match(/^\d+$/)?.[0] || ''; } catch {}
-        }
-        if (!numeric) throw new Error('The Cycle number was not available in the Odoo field data. The split was stopped to avoid sending an incorrect cycle.');
+        if (!numeric) throw new Error('The Cycle ID was not returned by Odoo. The split was stopped to avoid sending an incorrect cycle.');
         return { label, month, year: Number(match[2]), cycleNumber: numeric };
     }
 
@@ -380,7 +399,7 @@
         const cardNumber = getField('user_ref');
         const formNumber = getField('prescription_number');
         const employer = getField('insurance_agency');
-        const cycle = getCycleInfo();
+        const cycle = await getCycleInfo();
         if (!cardNumber) throw new Error('Odoo Card Number is missing.');
         if (!formNumber) throw new Error('Odoo Prescription Number is missing.');
         if (!employer) throw new Error('Odoo Corporate is missing.');
