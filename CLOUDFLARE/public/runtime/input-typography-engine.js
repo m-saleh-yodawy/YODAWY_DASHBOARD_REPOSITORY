@@ -2,7 +2,7 @@
 'use strict';
 if(page.YODAWY_INPUT_TYPOGRAPHY)return;
 const doc=page.document;
-const selector='input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]),textarea,select,[contenteditable="true"]';
+const selector='input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]),textarea,select,[contenteditable]:not([contenteditable="false"])';
 const arabic=/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const latin=/[A-Za-z]/;
 const originals=new WeakMap();
