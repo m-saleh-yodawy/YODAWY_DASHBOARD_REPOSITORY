@@ -13,12 +13,17 @@
     'use strict';
 
     const TOOL_ID = 'TOOL-018';
+    const ODOO_ORIGIN = 'https://odoo.yodawy.com';
+    const PORTAL_ORIGIN = 'https://portal.yodawy.com';
+    const host = location.hostname.toLowerCase();
     const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-    if (registry[TOOL_ID] || location.hostname !== 'odoo.yodawy.com') return;
+    if (registry[TOOL_ID] || !['odoo.yodawy.com', 'portal.yodawy.com'].includes(host)) return;
     registry[TOOL_ID] = true;
 
     const CONFIG = {
         API_URL: 'https://chronicapi.yodawy.com/graphql',
+        PORTAL_URL: PORTAL_ORIGIN + '/',
+        RELAY_QUERY: 'yd_split_relay',
         BUTTON_ID: 'ydDirectSplitButton',
         DIALOG_ID: 'ydDirectSplitDialog',
         NEXTCARE: {
@@ -41,7 +46,14 @@
         mutationAttempted: false,
         completed: false,
         ticketId: 0,
-        corporate: null
+        corporate: null,
+        relayWindow: null,
+        relayNonce: '',
+        relayReadyPromise: null,
+        relayReadyResolve: null,
+        relayReadyReject: null,
+        relayReadyTimer: null,
+        relayPending: new Map()
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -54,6 +66,168 @@
         const rect = element.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0 && element.offsetParent !== null;
     };
+
+    function startPortalRelay() {
+        const nonce = new URLSearchParams(location.search).get(CONFIG.RELAY_QUERY) || '';
+        if (!nonce || !window.opener || !/^[a-f0-9-]{24,}$/i.test(nonce)) return;
+        const allowed = new Set(['GetOdooPayerCorporate', 'InsuranceAgencyPrescription', 'GetPrescriptionDetails', 'addNewChronicPrescription']);
+        window.addEventListener('message', async event => {
+            if (event.origin !== ODOO_ORIGIN || event.source !== window.opener) return;
+            const request = event.data || {};
+            if (request.type !== 'YDS_SPLIT_RELAY_REQUEST' || request.nonce !== nonce || !request.requestId) return;
+            const operationName = String(request.operationName || '');
+            const send = payload => {
+                try {
+                    event.source.postMessage({ type: 'YDS_SPLIT_RELAY_RESULT', nonce, requestId: request.requestId, ...payload }, ODOO_ORIGIN);
+                } catch {}
+            };
+            if (!allowed.has(operationName) || typeof request.query !== 'string' || request.query.length > 30000) {
+                send({ ok: false, error: 'The Portal relay rejected an unsupported GraphQL operation.' });
+                return;
+            }
+            try {
+                const response = await fetch(CONFIG.API_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ operationName, query: request.query, variables: request.variables || {} })
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    const error = payload?.error || payload?.message || 'Portal API request failed.';
+                    send({ ok: false, status: response.status, error: 'Portal API request failed (' + response.status + '): ' + error });
+                    return;
+                }
+                if (Array.isArray(payload.errors) && payload.errors.length) {
+                    send({ ok: false, error: payload.errors.map(item => item.message).filter(Boolean).join('\n') || 'Portal API rejected the request.' });
+                    return;
+                }
+                if (!payload.data) {
+                    send({ ok: false, error: 'Portal API returned an invalid GraphQL response.' });
+                    return;
+                }
+                send({ ok: true, data: payload.data });
+            } catch (error) {
+                send({ ok: false, error: error?.message || 'Portal API request failed inside the Portal session.' });
+            }
+        });
+        try {
+            window.opener.postMessage({ type: 'YDS_SPLIT_RELAY_READY', nonce }, ODOO_ORIGIN);
+        } catch {}
+    }
+
+    if (host === 'portal.yodawy.com') {
+        startPortalRelay();
+        return;
+    }
+
+    function setupRelayListener() {
+        window.addEventListener('message', event => {
+            if (event.origin !== PORTAL_ORIGIN || event.source !== state.relayWindow) return;
+            const message = event.data || {};
+            if (message.nonce !== state.relayNonce) return;
+            if (message.type === 'YDS_SPLIT_RELAY_READY') {
+                clearTimeout(state.relayReadyTimer);
+                state.relayReadyResolve?.(true);
+                state.relayReadyResolve = null;
+                state.relayReadyReject = null;
+                return;
+            }
+            if (message.type !== 'YDS_SPLIT_RELAY_RESULT') return;
+            const pending = state.relayPending.get(message.requestId);
+            if (!pending) return;
+            clearTimeout(pending.timer);
+            state.relayPending.delete(message.requestId);
+            if (message.ok) {
+                pending.resolve(message.data);
+            } else {
+                const error = new Error(message.error || 'Portal relay request failed.');
+                error.status = Number(message.status || 0);
+                pending.reject(error);
+            }
+        });
+    }
+
+    function createRelayNonce() {
+        const values = new Uint32Array(4);
+        crypto.getRandomValues(values);
+        return Array.from(values, value => value.toString(16).padStart(8, '0')).join('-');
+    }
+
+    function openPortalRelay() {
+        if (state.relayWindow && !state.relayWindow.closed && state.relayReadyPromise) return state.relayReadyPromise;
+        state.relayNonce = createRelayNonce();
+        const url = new URL(CONFIG.PORTAL_URL);
+        url.searchParams.set(CONFIG.RELAY_QUERY, state.relayNonce);
+        state.relayReadyPromise = new Promise((resolve, reject) => {
+            state.relayReadyResolve = resolve;
+            state.relayReadyReject = reject;
+            state.relayReadyTimer = setTimeout(() => {
+                state.relayReadyResolve = null;
+                state.relayReadyReject = null;
+                reject(new Error('Portal relay did not start. Make sure Yodawy Dashboard tools are enabled on Portal and allow the popup from Odoo.'));
+            }, 45000);
+        });
+        state.relayWindow = window.open(url.href, 'yd_split_relay_' + state.relayNonce, 'popup=yes,width=520,height=340');
+        if (!state.relayWindow) {
+            clearTimeout(state.relayReadyTimer);
+            state.relayReadyPromise = null;
+            throw new Error('The Portal relay popup was blocked. Allow popups for Odoo and try again.');
+        }
+        return state.relayReadyPromise;
+    }
+
+    function closePortalRelay() {
+        clearTimeout(state.relayReadyTimer);
+        for (const pending of state.relayPending.values()) {
+            clearTimeout(pending.timer);
+            pending.reject(new Error('Portal relay was closed.'));
+        }
+        state.relayPending.clear();
+        try {
+            if (state.relayWindow && !state.relayWindow.closed) state.relayWindow.close();
+        } catch {}
+        state.relayWindow = null;
+        state.relayNonce = '';
+        state.relayReadyPromise = null;
+        state.relayReadyResolve = null;
+        state.relayReadyReject = null;
+        state.relayReadyTimer = null;
+    }
+
+    function portalRelayGraphQL(query, variables = {}) {
+        if (!state.relayWindow || state.relayWindow.closed || !state.relayNonce) {
+            return Promise.reject(new Error('Portal relay window is unavailable. Cancel the Split and start again.'));
+        }
+        const operationName = query.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] || '';
+        if (!operationName) return Promise.reject(new Error('GraphQL operation name could not be determined.'));
+        const requestId = createRelayNonce();
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                state.relayPending.delete(requestId);
+                reject(new Error('Portal relay timed out without a response.'));
+            }, 45000);
+            state.relayPending.set(requestId, { resolve, reject, timer });
+            try {
+                state.relayWindow.postMessage({
+                    type: 'YDS_SPLIT_RELAY_REQUEST',
+                    nonce: state.relayNonce,
+                    requestId,
+                    operationName,
+                    query,
+                    variables
+                }, PORTAL_ORIGIN);
+            } catch (error) {
+                clearTimeout(timer);
+                state.relayPending.delete(requestId);
+                reject(new Error(error?.message || 'Could not send the request to the Portal relay.'));
+            }
+        });
+    }
+
+    setupRelayListener();
 
     function getField(name) {
         const element = document.querySelector(`[name="${name}"]`);
@@ -191,31 +365,9 @@
     }
 
     async function graphQL(query, variables = {}) {
-        let response;
-        try {
-            response = await fetch(CONFIG.API_URL, {
-                method: 'POST',
-                mode: 'cors',
-                credentials: 'omit',
-                cache: 'no-store',
-                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query, variables })
-            });
-        } catch {
-            throw new Error('The Portal API could not be reached from Odoo. Check the connection or API CORS access.');
-        }
-        if (!response.ok) throw new Error(`Portal API request failed (${response.status}).`);
-        let payload;
-        try {
-            payload = await response.json();
-        } catch {
-            throw new Error('The Portal API returned an invalid response.');
-        }
-        if (Array.isArray(payload.errors) && payload.errors.length) {
-            throw new Error(payload.errors.map(item => item.message).filter(Boolean).join('\n') || 'Portal API rejected the request.');
-        }
-        if (!payload.data) throw new Error('The Portal API response did not contain data.');
-        return payload.data;
+        if (!state.relayWindow || state.relayWindow.closed) throw new Error('Portal relay is not open. Cancel the Split and start again.');
+        if (state.relayReadyPromise) await state.relayReadyPromise;
+        return portalRelayGraphQL(query, variables);
     }
 
     function cleanDrugName(value) {
@@ -558,6 +710,7 @@
         state.dialog?.remove();
         state.dialog = null;
         document.removeEventListener('keydown', state.keydown, true);
+        closePortalRelay();
     }
 
     function showDrugDialog(drugs) {
@@ -622,12 +775,15 @@
                 } catch {
                     setStatus(`${created.message || 'Prescription saved successfully.'}\nThe prescription was created, but the Odoo Log Note could not be added.\nSerial: ${prepared.input.serial}`, 'success');
                 }
+                closePortalRelay();
                 submit.textContent = 'COMPLETED';
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
                 overlay.querySelector('[data-cancel]').disabled = false;
                 submit.disabled = true;
             } catch (error) {
-                const uncertain = state.mutationAttempted && !state.completed;
+                const status = Number(error?.status || 0);
+                const rejectedBeforeCreate = status >= 400 && status < 500;
+                const uncertain = state.mutationAttempted && !state.completed && !rejectedBeforeCreate;
                 setStatus(`${error?.message || 'Split failed.'}${uncertain ? '\n\nThe request may have reached Portal. Check the prescription history before attempting another split.' : ''}`, 'error');
                 submit.textContent = uncertain ? 'CHECK PORTAL' : 'SPLIT';
                 submit.disabled = uncertain;
@@ -659,10 +815,12 @@
         const button = document.getElementById(CONFIG.BUTTON_ID);
         if (button) { button.disabled = true; button.dataset.loading = '1'; }
         try {
+            await openPortalRelay();
             const drugs = await fetchSplitDrugs();
             state.corporate = await getCorporateInfo();
             showDrugDialog(drugs);
         } catch (error) {
+            closePortalRelay();
             window.alert(`Could not prepare Split.\n\n${error?.message || 'Unknown error'}`);
         } finally {
             state.fetchRunning = false;
