@@ -32,6 +32,8 @@
 
     let context = null;
     let rootElement = null;
+    let launcherItem = null;
+    let launcherObserver = null;
     let portalAccounts = null;
     let portalAccountsLoading = false;
     let portalManagementAccounts = null;
@@ -176,6 +178,52 @@
     };
 
     const isCurrentUI = () => Boolean(context && rootElement?.isConnected && document.getElementById(CONFIG.ID) === rootElement);
+
+    const mountLauncher = () => {
+        const menu = document.querySelector('.o_main_navbar ul.o_menu_sections[role="menu"]');
+        if (!menu) return false;
+        if (!launcherItem) {
+            const item = document.createElement('li');
+            item.id = 'yd-dashboard-menu-item';
+            const link = document.createElement('a');
+            link.id = 'yd-launcher';
+            link.href = '#';
+            link.className = 'o_menu_entry_lvl_1';
+            link.setAttribute('role', 'menuitem');
+            link.setAttribute('aria-label', 'YODAWY Dashboard');
+            link.title = 'YODAWY Dashboard';
+            const label = document.createElement('span');
+            label.textContent = 'YODAWY';
+            link.append(label);
+            link.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (!context) return;
+                isOpen = !isOpen;
+                profileOpen = false;
+                render();
+            }, true);
+            item.append(link);
+            launcherItem = item;
+        }
+        if (launcherItem.parentElement === menu) return true;
+        const tickets = [...menu.children].find(item =>
+            item.querySelector('a.o_menu_header_lvl_1')?.textContent.trim().toLowerCase() === 'tickets'
+        );
+        if (tickets) menu.insertBefore(launcherItem, tickets.nextSibling);
+        else menu.append(launcherItem);
+        return true;
+    };
+
+    const watchLauncher = () => {
+        if (!launcherObserver && document.body) {
+            launcherObserver = new MutationObserver(() => {
+                if (!launcherItem?.isConnected) mountLauncher();
+            });
+            launcherObserver.observe(document.body, { childList: true, subtree: true });
+        }
+        mountLauncher();
+    };
 
     const ROLE_ACCESS = Object.freeze({
         USER: Object.freeze({
@@ -471,34 +519,6 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 #yd-dashboard-root strong, #yd-dashboard-root b { font-weight: 600 !important; }
 #yd-dashboard-root button, #yd-dashboard-root input, #yd-dashboard-root select, #yd-dashboard-root textarea { font: inherit; }
 #yd-dashboard-root button:disabled { opacity: .48; cursor: not-allowed; box-shadow: none; }
-
-#yd-dashboard-root #yd-launcher {
-    position: fixed;
-    right: 22px;
-    bottom: 22px;
-    z-index: 2147483000;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 46px;
-    padding: 0 18px;
-    border: 1px solid var(--brand);
-    border-radius: 999px;
-    background: var(--brand);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700 !important;
-    letter-spacing: .02em;
-    cursor: pointer;
-    box-shadow: 0 8px 24px #39223924;
-    transition: all .16s;
-}
-#yd-dashboard-root #yd-launcher:hover {
-    background: var(--brand-dark);
-    border-color: var(--brand-dark);
-    box-shadow: 0 10px 26px #39223930;
-    transform: translateY(-1px);
-}
 
 #yd-dashboard-root #yd-overlay {
     position: fixed;
@@ -3275,8 +3295,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
         const avatar = escapeHTML(initials(user.name || user.id));
         const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="' + icon + '"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
-        return '<button id="yd-launcher" type="button" data-action="toggle-dashboard"><span class="yd-brand-logo">Y</span><span>YODAWY DASHBOARD</span></button>' +
-            '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
+        return '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
                         '<div class="yd-header-actions">' +
@@ -5598,6 +5617,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         document.body.appendChild(root);
         render();
         bindEvents(root);
+        watchLauncher();
         const main = root.querySelector('#yd-main');
         if (main) { main.scrollTop = Number(uiState.scrollTop) || 0; main.scrollLeft = Number(uiState.scrollLeft) || 0; }
         resumePendingTransactions();
@@ -5616,6 +5636,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (dropdownScrollHandler) document.removeEventListener('scroll', dropdownScrollHandler, true);
         if (dropdownResizeHandler) removeWindowEventListener('resize', dropdownResizeHandler);
         dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
+        launcherObserver?.disconnect();
+        launcherObserver = null;
+        launcherItem?.remove();
+        launcherItem = null;
         rootElement?.remove();
         if (document.getElementById(CONFIG.STYLE_ID)) document.getElementById(CONFIG.STYLE_ID).remove();
         rootElement = null;
