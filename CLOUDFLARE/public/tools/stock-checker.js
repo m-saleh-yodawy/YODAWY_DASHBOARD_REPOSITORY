@@ -233,7 +233,7 @@
         bottom:20px!important;
         width:860px!important;
         z-index:2147483647!important;
-        pointer-events:auto!important;
+        pointer-events:none!important;
         display:block!important;
         font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important;
     `;
