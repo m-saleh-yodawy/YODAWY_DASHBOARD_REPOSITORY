@@ -709,7 +709,14 @@
         }
 
         if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer. The Split was completed, but no note was posted or replaced.');
-        const existingText = String(composer.value || originalText);
+        const currentText = String(composer.value || '');
+        let existingText = currentText || originalText;
+        if (originalText && currentText && originalText !== currentText && !originalText.startsWith(currentText) && !currentText.startsWith(originalText)) {
+            const previousSeparator = originalText.endsWith('\n\n') ? '' : originalText.endsWith('\n') ? '\n' : '\n\n';
+            existingText = originalText + previousSeparator + currentText;
+        } else if (originalText.length > currentText.length && originalText.startsWith(currentText)) {
+            existingText = originalText;
+        }
         const separator = !existingText ? '' : existingText.endsWith('\n\n') ? '' : existingText.endsWith('\n') ? '\n' : '\n\n';
         const combined = existingText + separator + note;
         const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
@@ -865,7 +872,10 @@
                 const cleanupMessage = cleanup.success
                     ? 'Odoo cleanup completed: ' + cleanup.count + ' item line(s) deleted.'
                     : 'Split created successfully, but Odoo item deletion failed: ' + cleanup.error;
-                setStatus((created.message || 'Prescription saved successfully.') + '\n' + cleanupMessage + '\nSerial: ' + prepared.input.serial + (noteError ? '\nLog Note: ' + noteError : ''), cleanup.success ? 'success' : 'error');
+                const noteMessage = cleanup.success && !noteError
+                    ? 'SPLIT Log Note is ready in Chatter. Close this window, review it, then click Log manually.'
+                    : '';
+                setStatus((created.message || 'Prescription saved successfully.') + '\n' + cleanupMessage + '\nSerial: ' + prepared.input.serial + (noteMessage ? '\n' + noteMessage : '') + (noteError ? '\nLog Note: ' + noteError : ''), cleanup.success ? 'success' : 'error');
 
                 submit.textContent = 'COMPLETED';
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
