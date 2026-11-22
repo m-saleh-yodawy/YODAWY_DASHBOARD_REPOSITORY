@@ -63,3 +63,4 @@ Use personal company portal account when present; otherwise add shared general a
 Apply the personal-first shared account rule to every active user, including active administrators: 20261122-personal-first-all-active-6.
 Authenticated Portal GraphQL split using saved PORTALS accounts and Open ERX login-token flow: 20261122-split-open-erx-auth-1.
 Fix chronic split validation using ClaimFormType with IsChronic fallback: 20261122-split-claim-form-type-1.
+After confirmed Portal Split, delete the exact selected HZB Sale Order lines from the same Odoo ticket: 20261122-split-odoo-item-cleanup-1.
