@@ -755,40 +755,40 @@
         const style = document.createElement('style');
         style.id = 'ydDirectSplitStyles';
         style.textContent = `
-#${CONFIG.DIALOG_ID}{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:22px;background:radial-gradient(ellipse at 12% 12%,rgba(135,90,123,.24),transparent 46%),radial-gradient(ellipse at 88% 88%,rgba(53,103,143,.18),transparent 42%),rgba(23,19,28,.68);backdrop-filter:blur(4px);font-family:'Nunito Sans','Cairo',system-ui,-apple-system,sans-serif}
+#${CONFIG.DIALOG_ID}{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:22px;background:rgba(225,225,225,.88);backdrop-filter:blur(4px);font-family:'Nunito Sans','Cairo',system-ui,-apple-system,sans-serif}
 #${CONFIG.DIALOG_ID} *{box-sizing:border-box;font-family:'Nunito Sans','Cairo',system-ui,-apple-system,sans-serif}
-#${CONFIG.DIALOG_ID} .yds-panel{width:min(600px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));display:flex;flex-direction:column;gap:0;overflow:hidden;padding:0;border:1px solid #d9d9de;border-radius:12px;background:#fff;box-shadow:0 24px 70px #17131c38;color:#18181b;animation:yds-modal-enter .18s cubic-bezier(.2,.8,.2,1) both}
-#${CONFIG.DIALOG_ID} .yds-head{position:relative;display:flex;align-items:center;gap:11px;min-width:0;padding:17px 20px;border-bottom:1px solid #e5dce7;background:linear-gradient(115deg,#f4eff2 0%,#f8f6f9 58%,#edf4fa 100%);color:#18181b}
-#${CONFIG.DIALOG_ID} .yds-head-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid #e6dce5;border-radius:8px;background:#f4eff2;color:#875a7b;font-size:13px;font-weight:800;letter-spacing:-.04em}
+#${CONFIG.DIALOG_ID} .yds-panel{width:min(600px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));display:flex;flex-direction:column;gap:0;overflow:hidden;padding:0;border:1px solid #d9d9de;border-radius:9px;background:#fff;box-shadow:0 12px 32px #0002;color:#18181b;animation:yds-modal-enter .18s cubic-bezier(.2,.8,.2,1) both}
+#${CONFIG.DIALOG_ID} .yds-head{display:flex;align-items:center;gap:11px;min-width:0;padding:15px 18px;border-bottom:1px solid #d9d9de;background:#fff;color:#18181b}
+#${CONFIG.DIALOG_ID} .yds-head-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid #875a7b;border-radius:8px;background:#875a7b;color:#fff;font-size:13px;font-weight:800;letter-spacing:-.04em}
 #${CONFIG.DIALOG_ID} .yds-head-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
 #${CONFIG.DIALOG_ID} .yds-title{margin:0;color:#18181b;font-size:16px;font-weight:700;letter-spacing:-.02em;line-height:1.3}
 #${CONFIG.DIALOG_ID} .yds-subtitle{margin:0;color:#71717a;font-size:11.5px;font-weight:400;line-height:1.45}
-#${CONFIG.DIALOG_ID} .yds-account{display:flex;flex-direction:column;gap:6px;padding:0}
-#${CONFIG.DIALOG_ID} .yds-account label{display:block;margin:0;color:#514a56;font-size:11px;font-weight:600}
-#${CONFIG.DIALOG_ID} .yds-account select{width:100%;height:34px;min-height:34px;padding:0 10px;border:1px solid #d9d9de;border-radius:8px;outline:0;background:#fff;color:#18181b;font-size:12px}
+#${CONFIG.DIALOG_ID} .yds-account{display:flex;flex-direction:column;gap:6px;padding:12px 18px;background:#E1E1E1}
+#${CONFIG.DIALOG_ID} .yds-account label{display:block;margin:0;color:#514a56;font-size:11px;font-weight:700}
+#${CONFIG.DIALOG_ID} .yds-account select{width:100%;height:34px;min-height:34px;padding:0 10px;border:1px solid #d9d9de;border-radius:6px;outline:0;background:#fff;color:#18181b;font-size:12px}
 #${CONFIG.DIALOG_ID} .yds-account select:focus{border-color:#875a7b;box-shadow:0 0 0 2px #875a7b20}
-#${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:13px 20px;border-bottom:1px solid #e7e3ea;background:#faf8fb}
-#${CONFIG.DIALOG_ID} .yds-summary-card{display:flex;flex-direction:column;gap:4px;min-width:0;padding:11px 12px;border:1px solid #e6dce8;border-radius:8px;background:linear-gradient(135deg,#f4eff6,#fbf9fc)}
-#${CONFIG.DIALOG_ID} .yds-summary-card:nth-child(2){border-color:#d9e7f2;background:linear-gradient(135deg,#edf4fa,#f8fbfd)}
+#${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:12px 18px;border-bottom:1px solid #d9d9de;background:#E1E1E1}
+#${CONFIG.DIALOG_ID} .yds-summary-card{display:flex;flex-direction:column;gap:4px;min-width:0;padding:10px 12px;border:1px solid #d9d9de;border-left:3px solid #875a7b;border-radius:7px;background:#fff}
+#${CONFIG.DIALOG_ID} .yds-summary-card:nth-child(2){border-left-color:#35678f}
 #${CONFIG.DIALOG_ID} .yds-summary-label{display:block;color:#71717a;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
 #${CONFIG.DIALOG_ID} .yds-summary-value{display:block;margin:0;color:#18181b;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-#${CONFIG.DIALOG_ID} .yds-body{display:flex;flex:1;flex-direction:column;gap:8px;min-height:0;padding:15px 20px 17px;overflow:auto;background:#fff}
-#${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;min-height:36px;padding:7px 10px;margin:0;border:1px solid #e6dce8;border-radius:8px;background:#f7f2f7;color:#514a56;font-size:11.5px;font-weight:700;cursor:pointer}
+#${CONFIG.DIALOG_ID} .yds-body{display:flex;flex:1;flex-direction:column;gap:8px;min-height:0;padding:14px 18px 16px;overflow:auto;background:#E1E1E1}
+#${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;min-height:36px;padding:7px 10px;margin:0;border:1px solid #d9d9de;border-radius:7px;background:#fff;color:#514a56;font-size:11.5px;font-weight:700;cursor:pointer}
 #${CONFIG.DIALOG_ID} .yds-list{display:flex;flex-direction:column;gap:7px}
-#${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:9px 10px;border:1px solid #d9d9de;border-radius:8px;background:#fff;cursor:pointer;transition:border-color .15s,background-color .15s}
-#${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:#cbb8ce;background:#faf7fb}
-#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:#cbb8ce;background:linear-gradient(100deg,#faf5fa,#fff)}
+#${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:9px 10px;border:1px solid #d9d9de;border-radius:7px;background:#fff;cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}
+#${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:#b89caf;background:#fff;box-shadow:0 2px 7px #68465f12}
+#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:#875a7b;background:#fff;box-shadow:inset 3px 0 #875a7b}
 #${CONFIG.DIALOG_ID} .yds-drug input,#${CONFIG.DIALOG_ID} .yds-select-all input{width:15px;height:15px;margin:0;accent-color:#875a7b;flex:0 0 auto}
 #${CONFIG.DIALOG_ID} .yds-drug-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
 #${CONFIG.DIALOG_ID} .yds-drug-name{color:#18181b;font-size:12px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
 #${CONFIG.DIALOG_ID} .yds-drug-hzb{margin:0;color:#71717a;font-size:10.5px;font-weight:400}
-#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:4px 7px;border:1px solid #d7eadf;border-radius:999px;background:#eef8f2;color:#247a53;font-size:9px;font-weight:700;white-space:nowrap}
+#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:4px 7px;border:1px solid #d7eadf;border-radius:5px;background:#eef8f2;color:#247a53;font-size:9px;font-weight:700;white-space:nowrap}
 #${CONFIG.DIALOG_ID} .yds-drug-state[hidden]{display:none}
 #${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"]{border-color:#f0d7d9;background:#fee2e2;color:#dc2626}
 #${CONFIG.DIALOG_ID} .yds-row-state-icon{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#247a53;color:#fff;font-size:10px;font-weight:900}
 #${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"] .yds-row-state-icon{background:#dc2626}
-#${CONFIG.DIALOG_ID} .yds-footer{display:flex;flex-direction:column;gap:12px;padding:13px 20px 17px;border-top:1px solid #e7e3ea;background:#faf9fb}
-#${CONFIG.DIALOG_ID} .yds-status{display:none;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:8px 12px;margin:0;border:1px solid #d9d9de;border-radius:8px;background:#f7f6f8;color:#514a56;font-size:12px;font-weight:700;letter-spacing:0}
+#${CONFIG.DIALOG_ID} .yds-footer{display:flex;flex-direction:column;gap:11px;padding:12px 18px 15px;border-top:1px solid #d9d9de;background:#fff}
+#${CONFIG.DIALOG_ID} .yds-status{display:none;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:8px 12px;margin:0;border:1px solid #d9d9de;border-radius:7px;background:#f7f6f8;color:#514a56;font-size:12px;font-weight:800;letter-spacing:.02em}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="error"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"]{display:flex}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{border-color:#f0d7d9;background:#fee2e2;color:#dc2626}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{border-color:#d7eadf;background:#eef8f2;color:#247a53}
@@ -799,8 +799,8 @@
 #${CONFIG.DIALOG_ID} .yds-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #${CONFIG.DIALOG_ID} .yds-count{color:#71717a;font-size:11.5px;font-weight:500}
 #${CONFIG.DIALOG_ID} .yds-buttons{display:flex;justify-content:flex-end;gap:8px}
-#${CONFIG.DIALOG_ID} .yds-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:92px;min-height:32px;padding:0 12px;border:1px solid #d9d9de;border-radius:8px;background:#fff;color:#68465f;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s}
-#${CONFIG.DIALOG_ID} .yds-button:hover:not(:disabled){border-color:#d8c7d7;background:#f4eff2}
+#${CONFIG.DIALOG_ID} .yds-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:92px;min-height:32px;padding:0 12px;border:1px solid #d9d9de;border-radius:6px;background:#fff;color:#68465f;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s}
+#${CONFIG.DIALOG_ID} .yds-button:hover:not(:disabled){border-color:#875a7b;background:#f4eff2}
 #${CONFIG.DIALOG_ID} .yds-button-primary{border-color:#875a7b;background:#875a7b;color:#fff;box-shadow:0 2px 5px #875a7b1a}
 #${CONFIG.DIALOG_ID} .yds-button-primary:hover:not(:disabled){border-color:#68465f;background:#68465f;box-shadow:0 3px 8px #68465f24}
 #${CONFIG.DIALOG_ID} .yds-button:disabled{opacity:.5;cursor:not-allowed}
@@ -810,12 +810,12 @@
 #${CONFIG.BUTTON_ID}{cursor:pointer}
 @media(max-width:520px){
 #${CONFIG.DIALOG_ID}{padding:12px}
-#${CONFIG.DIALOG_ID} .yds-panel{width:100%;max-height:calc(100vh - 24px);border-radius:10px}
-#${CONFIG.DIALOG_ID} .yds-head{padding:15px 16px}
-#${CONFIG.DIALOG_ID} .yds-summary{gap:7px;padding:11px 16px}
-#${CONFIG.DIALOG_ID} .yds-body{padding:13px 16px}
-#${CONFIG.DIALOG_ID} .yds-footer{padding:12px 16px 15px}
+#${CONFIG.DIALOG_ID} .yds-panel{width:100%;max-height:calc(100vh - 24px);border-radius:8px}
+#${CONFIG.DIALOG_ID} .yds-head{padding:13px 14px}
+#${CONFIG.DIALOG_ID} .yds-summary{gap:7px;padding:10px 12px}
 #${CONFIG.DIALOG_ID} .yds-summary-card{padding:9px}
+#${CONFIG.DIALOG_ID} .yds-body{padding:11px 12px}
+#${CONFIG.DIALOG_ID} .yds-footer{padding:11px 12px 13px}
 #${CONFIG.DIALOG_ID} .yds-drug{align-items:flex-start;flex-wrap:wrap}
 #${CONFIG.DIALOG_ID} .yds-drug-state{margin-left:25px}
 #${CONFIG.DIALOG_ID} .yds-buttons{gap:6px}
@@ -943,7 +943,7 @@
                 state.busy = false;
                 if (cleanup.success) {
                     markSelectedDrugs(selected, 'success');
-                    setStatus('SUCCEEDED', 'success');
+                    setStatus('SUCCESS', 'success');
                 } else {
                     markSelectedDrugs(selected, 'error');
                     setStatus('FAILED', 'error', cleanup.error || noteError || 'Odoo item deletion was not verified.');
