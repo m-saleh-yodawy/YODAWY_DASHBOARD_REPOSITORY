@@ -187,6 +187,27 @@
         };
     }
 
+    async function rpcButton(model, method, args = [], context = {}) {
+        const response = await fetch('/web/dataset/call_button', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                method: 'call',
+                params: { args, kwargs: { context }, method, model },
+                id: Date.now()
+            })
+        });
+        if (!response.ok) throw new Error('Odoo button request failed (' + response.status + ').');
+        const data = await response.json();
+        if (data.error) {
+            const error = data.error;
+            throw new Error(error?.data?.message || error?.data?.arguments?.[0] || error?.data?.name || error?.message || 'Odoo button request failed.');
+        }
+        return data.result;
+    }
+
     async function rpc(model, method, args = [], kwargs = {}) {
         const response = await fetch(`/web/dataset/call_kw/${model}/${method}`, {
             method: 'POST',
@@ -503,8 +524,152 @@
         return { input, payer, corporate, cycle, prescription, details, selectedDrugs };
     }
 
-    async function deleteSplitItemsFromOdoo() {
-        throw new Error('The original Odoo removal action has not been verified. No Odoo items were deleted.');
+    function getTicketFormContext(ticketId) {
+        const context = getSessionContext();
+        const action = getActionContext();
+        return {
+            ...context,
+            params: {
+                ...(action.params || {}),
+                model: 'helpdesk.ticket',
+                view_type: 'form'
+            },
+            active_model: 'helpdesk.ticket',
+            active_id: Number(ticketId),
+            active_ids: [Number(ticketId)]
+        };
+    }
+
+    function getHbzFromWizardLine(line) {
+        const drug = extractDrug(line?.limited_drug);
+        return drug?.hzb || '';
+    }
+
+    function getPlainMessage(body) {
+        const template = document.createElement('template');
+        template.innerHTML = String(body || '');
+        return normalize(template.content.textContent || '');
+    }
+
+    async function waitForRemovedLimitedDrugsNote(ticketId, baselineId, targets, timeout = 12000) {
+        const end = Date.now() + timeout;
+        while (Date.now() < end) {
+            const messages = await rpc('mail.message', 'search_read', [[
+                ['model', '=', 'helpdesk.ticket'],
+                ['res_id', '=', ticketId],
+                ...(baselineId ? [['id', '>', baselineId]] : [])
+            ]], {
+                fields: ['id', 'body'],
+                order: 'id desc',
+                limit: 40,
+                context: getSessionContext()
+            });
+            const note = (messages || []).find(message => {
+                const text = getPlainMessage(message.body);
+                if (!/Removed Limited Drugs/i.test(text)) return false;
+                const noteHzbs = [...text.matchAll(/HZB ID\s*:\s*(\d+)/gi)].map(match => match[1]);
+                return targets.every(target => noteHzbs.includes(target.hzb));
+            });
+            if (note) return note;
+            await sleep(180);
+        }
+        throw new Error('Odoo did not publish the Removed Limited Drugs Chatter note for every selected HZB. Verify the ticket before retrying.');
+    }
+
+    async function deleteSplitItemsFromOdoo(prepared) {
+        const ticketId = Number(state.ticketId || getTicketId());
+        if (!ticketId) throw new Error('Current Odoo ticket ID is unavailable.');
+
+        const targets = [...new Map(prepared.selectedDrugs.map(drug => [normalize(drug.hzb), {
+            name: normalize(drug.name),
+            hzb: normalize(drug.hzb)
+        }])).values()];
+        if (!targets.length || targets.some(target => !/^\d+$/.test(target.hzb))) throw new Error('Selected medications do not contain valid HZB values.');
+
+        const baselineId = await getLatestMessageId(ticketId);
+        const context = getTicketFormContext(ticketId);
+        const action = await rpcButton('helpdesk.ticket', 'action_fetch_suitable_alternatives', [[ticketId]], getActionContext());
+        const wizardId = Number(action?.res_id || 0);
+        if (!wizardId) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Odoo Fetch did not return an alternatives wizard after the Portal split.');
+        }
+
+        const wizard = (await rpc('alternative.wizard', 'read', [[wizardId], ['alternative_lines_ids']], { context }))?.[0];
+        const lineIds = Array.isArray(wizard?.alternative_lines_ids) ? wizard.alternative_lines_ids.map(Number).filter(id => id > 0) : [];
+        if (!lineIds.length) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Odoo Fetch returned no alternative wizard lines. No Limited Drugs were removed.');
+        }
+
+        const relation = await rpc('alternative.wizard', 'fields_get', [['alternative_lines_ids']], {
+            attributes: ['relation'],
+            context
+        });
+        const lineModel = relation?.alternative_lines_ids?.relation;
+        if (!lineModel) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Could not identify Odoo alternative wizard line model.');
+        }
+
+        const fields = ['is_header', 'limited_drug', 'replace_or_delete_line'];
+        const lines = await rpc(lineModel, 'read', [lineIds, fields], { context });
+        if (!Array.isArray(lines) || !lines.length) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Odoo returned no readable alternative wizard lines.');
+        }
+
+        const selectedHeaders = new Map();
+        for (const target of targets) {
+            const matches = lines.filter(line => line?.is_header === true && getHbzFromWizardLine(line) === target.hzb);
+            if (matches.length !== 1) {
+                await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+                throw new Error('Odoo could not uniquely match ' + target.name + ' (HZB ' + target.hzb + ') in the fresh Fetch. Matches: ' + matches.length + '. No deletion was submitted.');
+            }
+            selectedHeaders.set(target.hzb, Number(matches[0].id));
+        }
+
+        const selectedLineIds = new Set(selectedHeaders.values());
+        const commands = lines.map(line => {
+            const id = Number(line.id);
+            return selectedLineIds.has(id)
+                ? [1, id, { replace_or_delete_line: 'del' }]
+                : [4, id, false];
+        });
+        if (commands.length !== lineIds.length || commands.some(command => !command[1])) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('The Odoo wizard line update could not be prepared safely.');
+        }
+
+        const written = await rpc('alternative.wizard', 'write', [[wizardId], {
+            alternative_lines_ids: commands
+        }], { context });
+        if (written !== true) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Odoo did not confirm the selected Limited Drug deletion flags.');
+        }
+
+        const verifiedLines = await rpc(lineModel, 'read', [[...selectedLineIds], ['replace_or_delete_line']], { context });
+        const verifiedIds = new Set((verifiedLines || []).filter(line => line.replace_or_delete_line === 'del').map(line => Number(line.id)));
+        if (verifiedIds.size !== selectedLineIds.size) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Odoo did not preserve every selected deletion flag. The delete action was not submitted.');
+        }
+
+        await rpcButton('alternative.wizard', 'action_add_alternatives', [[wizardId]], context);
+        let note;
+        try {
+            note = await waitForRemovedLimitedDrugsNote(ticketId, baselineId, targets);
+        } finally {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+        }
+
+        return {
+            success: true,
+            count: targets.length,
+            names: targets.map(target => target.name),
+            noteId: Number(note.id)
+        };
     }
 
     async function createLogNote(prepared, cleanup) {
