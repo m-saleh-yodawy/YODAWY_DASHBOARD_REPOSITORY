@@ -113,7 +113,7 @@
             }
         };
         element.style.setProperty('color','#212529','important');
-        element.style.setProperty('font-weight','400','important');
+        element.style.setProperty('font-weight','700','important');
         element.style.setProperty('cursor','pointer','important');
         element.style.setProperty('user-select','text','important');
         element.addEventListener('click',handler);
