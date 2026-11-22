@@ -30,7 +30,7 @@ const isArabic=element=>{
  const lang=String(element.closest('[lang]')?.getAttribute('lang')||doc.documentElement.lang||'').toLowerCase();
  if(lang==='ar'||lang.startsWith('ar-'))return true;
  if(element.closest('[dir="rtl"]')||element.getAttribute('dir')==='rtl')return true;
- const value=String('value'in element?element.value:element.textContent||'').trim();
+ const value=String(element instanceof page.HTMLSelectElement?[...element.selectedOptions].map(option=>option.textContent).join(' '):'value'in element?element.value:element.textContent||'').trim();
  if(arabic.test(value))return true;
  if(latin.test(value))return false;
  const hint=String(element.getAttribute('placeholder')||element.getAttribute('aria-label')||element.getAttribute('title')||'');
@@ -40,10 +40,8 @@ const isArabic=element=>{
 };
 const apply=element=>{
  if(!(element instanceof page.HTMLElement)||!element.matches(selector))return;
- if(!originals.has(element)){
-  originals.set(element,['font-family','font-size','line-height'].map(name=>[name,element.style.getPropertyValue(name),element.style.getPropertyPriority(name)]));
-  tracked.add(element);
- }
+ if(!originals.has(element))originals.set(element,['font-family','font-size','line-height'].map(name=>[name,element.style.getPropertyValue(name),element.style.getPropertyPriority(name)]));
+ tracked.add(element);
  element.style.setProperty('font-family',isArabic(element)?"'Cairo',sans-serif":"'Nunito Sans',Arial,sans-serif",'important');
  element.style.setProperty('font-size','16px','important');
  element.style.setProperty('line-height','20px','important');
@@ -71,8 +69,16 @@ const start=()=>{
  doc.addEventListener('input',onInput,true);
  doc.addEventListener('change',onInput,true);
  doc.addEventListener('focusin',onInput,true);
+ const forget=node=>{
+  if(node.nodeType!==1)return;
+  if(node.matches?.(selector))tracked.delete(node);
+  node.querySelectorAll?.(selector).forEach(element=>tracked.delete(element));
+ };
  observer=new MutationObserver(records=>{
-  for(const record of records)for(const node of record.addedNodes)schedule(node);
+  for(const record of records){
+   for(const node of record.removedNodes)forget(node);
+   for(const node of record.addedNodes)schedule(node);
+  }
  });
  observer.observe(doc.body,{childList:true,subtree:true});
 };
