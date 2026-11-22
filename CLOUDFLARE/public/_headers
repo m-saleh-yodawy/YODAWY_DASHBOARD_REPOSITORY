@@ -15,6 +15,11 @@
   Timing-Allow-Origin: *
 
 /system-messages.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
+  Cache-Control: no-cache
+  Timing-Allow-Origin: *
+
 /cloud-bootstrap.js
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, HEAD, OPTIONS
