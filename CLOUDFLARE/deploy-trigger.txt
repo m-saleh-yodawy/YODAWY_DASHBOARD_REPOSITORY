@@ -68,3 +68,4 @@ Pause direct Sale Order line deletion until the original Odoo Limited Drug remov
 Use Odoo's native alternative.wizard action_add_alternatives for post-split Limited Drug removal and native Chatter note: 20261122-split-native-limited-drug-removal-1.
 Match Odoo form-view Fetch context and verify native removal note even when action response is uncertain: 20261122-split-native-removal-verification-2.
 Keep native Fetch JSON/table chatter only after Split, and write one exact Limited Drug/SPLIT Log Note per selected item: 20261122-split-native-chatter-and-note-format-1.
+Write the SPLIT Log Note only after verified native Odoo removal: 20261122-split-note-only-on-removal-success-1.
