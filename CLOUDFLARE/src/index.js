@@ -107,7 +107,7 @@ const authRoutes = async (request, env, path) => {
     const userId = String(body.username || "").trim().toUpperCase();
     const password = String(body.password || "");
     if (!env.SETUP_SECRET || setupSecret !== env.SETUP_SECRET) return respond(request, env, { success: false, error: "SETUP_FORBIDDEN" }, 403);
-    if (!/^Q-[0-9]{3,}$/.test(userId) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_SETUP_DATA" }, 400);
+    if (!/^Q-[0-9]{3,}$/.test(userId) || !password) return respond(request, env, { success: false, error: "INVALID_SETUP_DATA" }, 400);
     const hash = await createPasswordHash(password);
     const encrypted = await encryptUserPassword(env, password);
     const result = await env.DB.prepare("UPDATE users SET password_hash = ?, password_ciphertext = ?, password_encryption_iv = ?, password_changed_at = ? WHERE user_id = ? AND status = 'Active' AND password_hash IS NULL").bind(hash, encrypted.ciphertext, encrypted.iv, Math.floor(Date.now() / 1000), userId).run();
@@ -145,7 +145,7 @@ const authRoutes = async (request, env, path) => {
     if (!user) return respond(request, env, { success: false, error: "UNAUTHORIZED" }, 401);
     const body = await readBody(request);
     const next = String(body.newPassword || "");
-    if (next.length < 10 || next.length > 128) return respond(request, env, { success: false, error: "PASSWORD_REQUIREMENTS" }, 400);
+    if (!next) return respond(request, env, { success: false, error: "PASSWORD_REQUIRED" }, 400);
     const record = await env.DB.prepare("SELECT password_hash FROM users WHERE user_id = ?").bind(user.user_id).first();
     if (!await verifyPassword(String(body.currentPassword || ""), record?.password_hash)) return respond(request, env, { success: false, error: "CURRENT_PASSWORD_INVALID" }, 401);
     const hash = await createPasswordHash(next);
@@ -447,7 +447,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const targetUserId = String(body.targetUserId || "").trim().toUpperCase();
     const password = String(body.password || "");
     const passwordConfirm = String(body.passwordConfirm || "");
-    if (!/^Q-[0-9]{3,}$/.test(targetUserId) || password.length < 1 || password.length > 128 || password !== passwordConfirm) return respond(request, env, { success: false, error: password !== passwordConfirm ? "PASSWORDS_DO_NOT_MATCH" : "INVALID_DELETE_REQUEST" }, 400);
+    if (!/^Q-[0-9]{3,}$/.test(targetUserId) || !password || password !== passwordConfirm) return respond(request, env, { success: false, error: password !== passwordConfirm ? "PASSWORDS_DO_NOT_MATCH" : "INVALID_DELETE_REQUEST" }, 400);
     if (!await env.DB.prepare("SELECT 1 FROM users WHERE user_id = ? AND status = 'Active'").bind(targetUserId).first()) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGET" }, 400);
     const admin = await env.DB.prepare("SELECT password_hash, failed_login_count, locked_until FROM users WHERE user_id = ? AND status = 'Active'").bind(actor.user_id).first();
     const timestamp = Math.floor(Date.now() / 1000);
@@ -754,7 +754,7 @@ const dashboardRoutes = async (request, env, path) => {
     const newRole = String(body.role || "USER").trim().toUpperCase();
     const status = String(body.status || "Active").trim();
     const password = String(body.password || "");
-    if (!name || name.length > 100 || (role === "ADMIN" ? !["USER", "ADMIN"].includes(newRole) : !["USER", "ADMIN", "SUPER_ADMIN"].includes(newRole)) || !["Active", "Inactive"].includes(status) || password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
+    if (!name || name.length > 100 || (role === "ADMIN" ? !["USER", "ADMIN"].includes(newRole) : !["USER", "ADMIN", "SUPER_ADMIN"].includes(newRole)) || !["Active", "Inactive"].includes(status) || !password) return respond(request, env, { success: false, error: "INVALID_USER" }, 400);
     const duplicate = await env.DB.prepare("SELECT user_id FROM users WHERE LOWER(name) = LOWER(?) LIMIT 1").bind(name).first();
     if (duplicate) return respond(request, env, { success: false, error: "USER_NAME_EXISTS" }, 409);
     const sequence = await env.DB.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(user_id, 3) AS INTEGER)), 0) + 1 AS next_id FROM users WHERE user_id GLOB 'Q-[0-9]*'").first();
@@ -814,7 +814,7 @@ const dashboardRoutes = async (request, env, path) => {
     const target = await env.DB.prepare("SELECT role, status FROM users WHERE user_id = ?").bind(userId).first();
     const password = String(body.password || "");
     if (!target || target.status !== "Active" || (role === "ADMIN" && target.role !== "USER")) return forbidden();
-    if (password.length < 10 || password.length > 128) return respond(request, env, { success: false, error: "PASSWORD_REQUIREMENTS" }, 400);
+    if (!password) return respond(request, env, { success: false, error: "PASSWORD_REQUIRED" }, 400);
     const hash = await createPasswordHash(password);
     const encrypted = await encryptUserPassword(env, password);
     const timestamp = Math.floor(Date.now() / 1000);
