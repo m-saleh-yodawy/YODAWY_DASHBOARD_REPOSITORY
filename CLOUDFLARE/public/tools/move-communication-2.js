@@ -75,26 +75,18 @@
         if(state.style?.isConnected)return;
         state.style=document.createElement('style');
         state.style.id='yd-move-communication-2-style';
-        state.style.textContent=".yd-mc2-layer{position:absolute!important;display:block!important;z-index:3!important;box-sizing:border-box!important;overflow:visible!important;pointer-events:auto!important;margin:0!important;padding:0!important;background:transparent!important}.yd-mc2-layer>table{display:table!important;width:100%!important;max-width:100%!important;height:auto!important;margin:0!important;padding:0!important;border-collapse:collapse!important;table-layout:fixed!important}.yd-mc2-layer>table>tbody>tr{height:auto!important;max-height:none!important}.yd-mc2-layer>table>tbody>tr>td{height:auto!important;max-height:none!important;padding:2px 5px!important;vertical-align:middle!important;line-height:1.5!important;overflow:visible!important}.yd-mc2-layer>table>tbody>tr:first-child>td{width:100%!important;padding:0 5px 3px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td.o_td_label{width:35%!important;min-width:75px!important;padding-right:6px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td:not(.o_td_label){width:65%!important}.yd-mc2-layer .oe_title{margin:0!important;padding:0!important;line-height:1.5!important}.yd-mc2-layer .oe_title strong{font-size:1.08333333rem!important;font-weight:bold!important;line-height:1.5!important}.yd-mc2-layer .o_horizontal_separator{height:1px!important;min-height:1px!important;margin:2px 0 0!important;padding:0!important}.yd-mc2-layer .o_form_label{margin:0 5px 0 0!important;font-size:1.08333333rem!important;line-height:1.5!important;font-weight:bold!important;white-space:nowrap!important}.yd-mc2-layer .o_field_widget{display:inline-block!important;max-width:calc(100% - 30px)!important;margin:0!important;padding:0!important;line-height:1.5!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;vertical-align:middle!important}.yd-mc2-layer span[name=\"mobile\"],.yd-mc2-layer span[name=\"ticket_mobile2\"]{color:#d60000!important;font-weight:700!important;cursor:pointer!important;user-select:text!important}.yd-mc2-copy{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:23px!important;height:22px!important;margin:0 0 0 6px!important;padding:0!important;border:1px solid #d9cbd6!important;border-radius:4px!important;background:#f8f5f7!important;color:#68465f!important;font-size:12px!important;line-height:1!important;vertical-align:middle!important;cursor:pointer!important}.yd-mc2-copy:hover{background:#eee7ed!important;color:#4f3448!important}.yd-mc2-copy.yd-copied{border-color:#86c89b!important;background:#eef9f0!important;color:#16803c!important}";
+        state.style.textContent=".yd-mc2-layer{position:absolute!important;display:block!important;z-index:3!important;box-sizing:border-box!important;overflow:visible!important;pointer-events:auto!important;margin:0!important;padding:0!important;background:transparent!important}.yd-mc2-layer>table{display:table!important;width:100%!important;max-width:100%!important;height:auto!important;margin:0!important;padding:0!important;border-collapse:collapse!important;table-layout:fixed!important}.yd-mc2-layer>table>tbody>tr{height:auto!important;max-height:none!important}.yd-mc2-layer>table>tbody>tr>td{height:auto!important;max-height:none!important;padding:2px 5px!important;vertical-align:middle!important;line-height:1.5!important;overflow:visible!important}.yd-mc2-layer>table>tbody>tr:first-child>td{width:100%!important;padding:0 5px 3px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td.o_td_label{width:0%!important;min-width:150px!important;padding:0 15px 0 0!important}.yd-mc2-layer .oe_title{margin:0!important;padding:0!important;line-height:1.5!important}.yd-mc2-layer .oe_title strong{font-size:1.08333333rem!important;font-weight:bold!important;line-height:1.5!important}.yd-mc2-layer .o_horizontal_separator{height:1px!important;min-height:1px!important;margin:2px 0 0!important;padding:0!important}.yd-mc2-layer .o_form_label{margin:0 5px 0 0!important;font-size:1.08333333rem!important;line-height:1.5!important;font-weight:bold!important;white-space:nowrap!important}.yd-mc2-layer .o_field_widget{display:inline-block!important;max-width:calc(100% - 30px)!important;margin:0!important;padding:0!important;line-height:1.5!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;vertical-align:middle!important}.yd-mc2-layer span[name=\"mobile\"],.yd-mc2-layer span[name=\"ticket_mobile2\"]{color:#212529!important;font-weight:400!important;cursor:pointer!important;user-select:text!important}";
         (document.head||document.documentElement).appendChild(state.style);
     };
 
     const setupCopy=element=>{
         if(!element||state.copyHandlers.has(element))return;
         if(!(element.textContent||'').trim())return;
-        const parent=element.parentElement;
-        if(!parent)return;
         const original={
             style:element.getAttribute('style'),
             title:element.getAttribute('title'),
             onclick:element.onclick
         };
-        const button=document.createElement('button');
-        button.type='button';
-        button.className='yd-mc2-copy';
-        button.title='Copy phone number';
-        button.setAttribute('aria-label','Copy phone number');
-        button.innerHTML='<i class="fa fa-copy" aria-hidden="true"></i>';
         const handler=async event=>{
             event.preventDefault();
             event.stopPropagation();
@@ -113,26 +105,19 @@
                     if(!document.execCommand('copy'))throw new Error('Copy failed');
                     input.remove();
                 }
-                button.classList.add('yd-copied');
-                button.innerHTML='<i class="fa fa-check" aria-hidden="true"></i>';
-                button.title='Copied';
-                await new Promise(resolve=>setTimeout(resolve,650));
-                if(button.isConnected){
-                    button.classList.remove('yd-copied');
-                    button.innerHTML='<i class="fa fa-copy" aria-hidden="true"></i>';
-                    button.title='Copy phone number';
-                }
+                element.style.setProperty('color','#16a34a','important');
+                await new Promise(resolve=>setTimeout(resolve,450));
+                if(element.isConnected)element.style.setProperty('color','#212529','important');
             }catch{
-                button.title='Unable to copy';
+                element.style.setProperty('color','#212529','important');
             }
         };
-        button.addEventListener('click',handler);
-        element.style.setProperty('color','#d60000','important');
-        element.style.setProperty('font-weight','700','important');
-        element.style.setProperty('cursor','text','important');
+        element.style.setProperty('color','#212529','important');
+        element.style.setProperty('font-weight','400','important');
+        element.style.setProperty('cursor','pointer','important');
         element.style.setProperty('user-select','text','important');
-        parent.insertBefore(button,element.nextSibling);
-        state.copyHandlers.set(element,{button,handler,original});
+        element.addEventListener('click',handler);
+        state.copyHandlers.set(element,{handler,original});
     };
 
     const setupCopyFields=elements=>{
@@ -143,8 +128,7 @@
 
     const restoreCopyFields=()=>{
         for(const [element,item] of state.copyHandlers){
-            item.button.removeEventListener('click',item.handler);
-            item.button.remove();
+            element.removeEventListener('click',item.handler);
             if(item.original.style===null)element.removeAttribute('style');
             else element.setAttribute('style',item.original.style);
             if(item.original.title===null)element.removeAttribute('title');
