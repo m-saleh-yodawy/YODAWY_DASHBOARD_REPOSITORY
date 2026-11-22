@@ -40,3 +40,4 @@ Users Directory icon visibility fix: 20261121-user-actions-svg-1.
 User name normalization and personal repository repair: 20261122-user-repository-name-fix-1.
 Remove dashboard and portal password length restrictions: 20261122-password-length-unrestricted-1.
 Move YODAWY Dashboard launcher into Odoo main navigation: 20261122-dashboard-navbar-launcher-1.
+Restrict YODAWY Dashboard launcher to Odoo only while preserving cross-site tools: 20261122-odoo-only-dashboard-launcher-1.
