@@ -75,42 +75,64 @@
         if(state.style?.isConnected)return;
         state.style=document.createElement('style');
         state.style.id='yd-move-communication-2-style';
-        state.style.textContent='.yd-mc2-layer{position:absolute!important;display:block!important;z-index:3!important;box-sizing:border-box!important;overflow:hidden!important;pointer-events:auto!important;margin:0!important;padding:0!important;background:transparent!important}.yd-mc2-layer>table{display:table!important;width:100%!important;max-width:100%!important;height:100%!important;margin:0!important;padding:0!important;border-collapse:collapse!important;table-layout:fixed!important}.yd-mc2-layer>table>tbody>tr{height:16px!important;max-height:16px!important}.yd-mc2-layer>table>tbody>tr:first-child{height:18px!important;max-height:18px!important}.yd-mc2-layer>table>tbody>tr>td{height:16px!important;padding:0 3px!important;vertical-align:middle!important;line-height:12px!important;overflow:hidden!important}.yd-mc2-layer>table>tbody>tr:first-child>td{width:100%!important;height:18px!important;padding:0 3px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td.o_td_label{width:28%!important;min-width:56px!important;padding-right:4px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td:not(.o_td_label){width:72%!important}.yd-mc2-layer .oe_title{margin:0!important;padding:0!important;line-height:13px!important}.yd-mc2-layer .oe_title strong{font-size:10px!important;font-weight:800!important;line-height:13px!important}.yd-mc2-layer .o_horizontal_separator{height:1px!important;min-height:1px!important;margin:1px 0 0!important;padding:0!important}.yd-mc2-layer label{display:block!important;margin:0!important;padding:0!important;font-size:8px!important;line-height:11px!important;white-space:nowrap!important}.yd-mc2-layer .o_field_widget{display:block!important;max-width:100%!important;margin:0!important;padding:0!important;font-size:9px!important;line-height:12px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}.yd-mc2-layer span[name="mobile"],.yd-mc2-layer span[name="ticket_mobile2"],.yd-mc2-layer span[name="ticket_phone"]{color:#d60000!important;font-size:10px!important;font-weight:800!important;line-height:13px!important;cursor:pointer!important;user-select:text!important}';
+        state.style.textContent=".yd-mc2-layer{position:absolute!important;display:block!important;z-index:3!important;box-sizing:border-box!important;overflow:visible!important;pointer-events:auto!important;margin:0!important;padding:0!important;background:transparent!important}.yd-mc2-layer>table{display:table!important;width:100%!important;max-width:100%!important;height:auto!important;margin:0!important;padding:0!important;border-collapse:collapse!important;table-layout:fixed!important}.yd-mc2-layer>table>tbody>tr{height:auto!important;max-height:none!important}.yd-mc2-layer>table>tbody>tr>td{height:auto!important;max-height:none!important;padding:2px 5px!important;vertical-align:middle!important;line-height:1.5!important;overflow:visible!important}.yd-mc2-layer>table>tbody>tr:first-child>td{width:100%!important;padding:0 5px 3px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td.o_td_label{width:35%!important;min-width:75px!important;padding-right:6px!important}.yd-mc2-layer>table>tbody>tr:not(:first-child)>td:not(.o_td_label){width:65%!important}.yd-mc2-layer .oe_title{margin:0!important;padding:0!important;line-height:1.5!important}.yd-mc2-layer .oe_title strong{font-size:1.08333333rem!important;font-weight:bold!important;line-height:1.5!important}.yd-mc2-layer .o_horizontal_separator{height:1px!important;min-height:1px!important;margin:2px 0 0!important;padding:0!important}.yd-mc2-layer .o_form_label{margin:0 5px 0 0!important;font-size:1.08333333rem!important;line-height:1.5!important;font-weight:bold!important;white-space:nowrap!important}.yd-mc2-layer .o_field_widget{display:inline-block!important;max-width:calc(100% - 30px)!important;margin:0!important;padding:0!important;line-height:1.5!important;overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important;vertical-align:middle!important}.yd-mc2-layer span[name=\"mobile\"],.yd-mc2-layer span[name=\"ticket_mobile2\"]{color:#d60000!important;font-weight:700!important;cursor:pointer!important;user-select:text!important}.yd-mc2-copy{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:23px!important;height:22px!important;margin:0 0 0 6px!important;padding:0!important;border:1px solid #d9cbd6!important;border-radius:4px!important;background:#f8f5f7!important;color:#68465f!important;font-size:12px!important;line-height:1!important;vertical-align:middle!important;cursor:pointer!important}.yd-mc2-copy:hover{background:#eee7ed!important;color:#4f3448!important}.yd-mc2-copy.yd-copied{border-color:#86c89b!important;background:#eef9f0!important;color:#16803c!important}";
         (document.head||document.documentElement).appendChild(state.style);
     };
 
     const setupCopy=element=>{
         if(!element||state.copyHandlers.has(element))return;
+        if(!(element.textContent||'').trim())return;
+        const parent=element.parentElement;
+        if(!parent)return;
         const original={
             style:element.getAttribute('style'),
             title:element.getAttribute('title'),
             onclick:element.onclick
         };
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='yd-mc2-copy';
+        button.title='Copy phone number';
+        button.setAttribute('aria-label','Copy phone number');
+        button.innerHTML='<i class="fa fa-copy" aria-hidden="true"></i>';
         const handler=async event=>{
             event.preventDefault();
             event.stopPropagation();
-            let value=(element.textContent||'').trim().replace(/[^\d+]/g,'');
-            if(value.startsWith('+20'))value='0'+value.slice(3);
-            else if(value.startsWith('20')&&value.length===12)value='0'+value.slice(2);
-            if(!value)return;
+            let number=(element.textContent||'').trim().replace(/[^\d+]/g,'');
+            if(number.startsWith('+20'))number='0'+number.slice(3);
+            else if(number.startsWith('20')&&number.length===12)number='0'+number.slice(2);
+            if(!number)return;
             try{
-                await navigator.clipboard.writeText(value);
-                const color=element.style.color;
-                element.style.color='#16a34a';
-                await new Promise(resolve=>setTimeout(resolve,600));
-                element.style.color=color;
-            }catch{}
+                if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(number);
+                else{
+                    const input=document.createElement('textarea');
+                    input.value=number;
+                    input.style.cssText='position:fixed;left:-9999px;top:0;opacity:0';
+                    document.body.appendChild(input);
+                    input.select();
+                    if(!document.execCommand('copy'))throw new Error('Copy failed');
+                    input.remove();
+                }
+                button.classList.add('yd-copied');
+                button.innerHTML='<i class="fa fa-check" aria-hidden="true"></i>';
+                button.title='Copied';
+                await new Promise(resolve=>setTimeout(resolve,650));
+                if(button.isConnected){
+                    button.classList.remove('yd-copied');
+                    button.innerHTML='<i class="fa fa-copy" aria-hidden="true"></i>';
+                    button.title='Copy phone number';
+                }
+            }catch{
+                button.title='Unable to copy';
+            }
         };
-        Object.assign(element.style,{
-            color:'#d60000',
-            fontWeight:'bold',
-            fontSize:'10px',
-            cursor:'pointer',
-            userSelect:'text'
-        });
-        element.title='Click to copy';
-        element.addEventListener('click',handler);
-        state.copyHandlers.set(element,{handler,original});
+        button.addEventListener('click',handler);
+        element.style.setProperty('color','#d60000','important');
+        element.style.setProperty('font-weight','700','important');
+        element.style.setProperty('cursor','text','important');
+        element.style.setProperty('user-select','text','important');
+        parent.insertBefore(button,element.nextSibling);
+        state.copyHandlers.set(element,{button,handler,original});
     };
 
     const setupCopyFields=elements=>{
@@ -121,7 +143,8 @@
 
     const restoreCopyFields=()=>{
         for(const [element,item] of state.copyHandlers){
-            element.removeEventListener('click',item.handler);
+            item.button.removeEventListener('click',item.handler);
+            item.button.remove();
             if(item.original.style===null)element.removeAttribute('style');
             else element.setAttribute('style',item.original.style);
             if(item.original.title===null)element.removeAttribute('title');
@@ -188,8 +211,8 @@
         const quotationRect=elements.quotation.getBoundingClientRect();
         const referenceRect=elements.reference.getBoundingClientRect();
         const gap=referenceRect.top-quotationRect.bottom;
-        const height=Math.min(82,gap-20);
-        if(height<54){
+        const height=Math.min(108,gap-16);
+        if(height<70){
             state.layer.style.display='none';
             return;
         }
