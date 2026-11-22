@@ -2,7 +2,7 @@ return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261122-worker-request-optimization-1';
+    const ASSET_VERSION = '20261122-worker-request-optimization-2';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -147,6 +147,7 @@ return (async function (PAGE, STORE) {
         context = Object.freeze({
             user,
             data,
+            assetVersion: ASSET_VERSION,
             request: authorizedRequest,
             logout: async () => {
                 try { await request('/api/auth/logout', { method: 'POST', token: accessToken }); }
