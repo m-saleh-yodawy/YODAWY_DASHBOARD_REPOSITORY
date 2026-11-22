@@ -37,3 +37,4 @@ Font Awesome custom icon font isolation and tool icon consistency fixes: 2026112
 One-time D1 cleanup: keep Q-001 MOHAMED SALEH, remove every other user and preserve announcement attribution: 20261121-user-cleanup-1.
 Portal Tool Old release: 20261121-portal-tool-old-1.
 Users Directory icon visibility fix: 20261121-user-actions-svg-1.
+User name normalization and personal repository repair: 20261122-user-repository-name-fix-1.
