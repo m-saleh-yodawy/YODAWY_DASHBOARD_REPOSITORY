@@ -61,3 +61,4 @@ Expose idempotent Super Admin bulk portal assignment for missing Odoo keys: 2026
 Bulk portal account assignment skips existing Odoo keys and audits missing-only additions: 20261122-portal-key-backfill-1.
 Use personal company portal account when present; otherwise add shared general account, with dry-run preview and duplicate protection: 20261122-personal-first-general-portal-5.
 Apply the personal-first shared account rule to every active user, including active administrators: 20261122-personal-first-all-active-6.
+Authenticated Portal GraphQL split using saved PORTALS accounts and Open ERX login-token flow: 20261122-split-open-erx-auth-1.
