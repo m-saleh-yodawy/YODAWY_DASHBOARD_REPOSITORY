@@ -40,7 +40,8 @@
         fetchRunning: false,
         mutationAttempted: false,
         completed: false,
-        ticketId: 0
+        ticketId: 0,
+        corporate: null
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -80,6 +81,47 @@
             }
         }
         return 0;
+    }
+
+    async function getCorporateInfo() {
+        const ticketId = state.ticketId || getTicketId();
+        if (!ticketId) throw new Error('Ticket ID was not found while reading Corporate data.');
+        const metadata = await rpc('helpdesk.ticket', 'fields_get', [[]], {
+            attributes: ['string', 'type', 'relation'],
+            context: getSessionContext()
+        });
+        const candidates = Object.entries(metadata || {}).map(([name, field]) => {
+            const label = normalize(field?.string || name);
+            const key = normalizeKey(name);
+            const labelKey = normalizeKey(label);
+            let score = 0;
+            if (key === 'insuranceagency') score = 120;
+            if (labelKey === 'corporate' || key === 'corporate' || key.endsWith('corporateid')) score = Math.max(score, 130);
+            if (labelKey.includes('corporate') || key.includes('corporate')) score = Math.max(score, 125);
+            if (labelKey.includes('employer') || key.includes('employer')) score = Math.max(score, 110);
+            if (labelKey.includes('insuranceagency') || key.includes('insuranceagency')) score = Math.max(score, 100);
+            if (labelKey.includes('agency') || key.includes('agency')) score = Math.max(score, 75);
+            if (!score || ['payorid', 'payerid', 'companyid', 'insurancecompanyid'].includes(key)) return null;
+            if (!['many2one', 'char', 'selection'].includes(field?.type)) return null;
+            return { name, label, type: field.type, score };
+        }).filter(Boolean).sort((a, b) => b.score - a.score);
+        if (!candidates.length) throw new Error('Odoo did not expose a Corporate/Employer field on the Helpdesk ticket.');
+        const record = (await rpc('helpdesk.ticket', 'read', [[ticketId], candidates.map(item => item.name)], {
+            context: getSessionContext()
+        }))?.[0];
+        if (!record) throw new Error('Odoo could not read the current Helpdesk ticket Corporate data.');
+        for (const candidate of candidates) {
+            const value = record[candidate.name];
+            if (Array.isArray(value) && value.length > 1 && value[0] && normalize(value[1])) {
+                return { id: String(value[0]), name: normalize(value[1]), field: candidate.name, label: candidate.label };
+            }
+            if (typeof value === 'string' && normalize(value)) {
+                return { id: '', name: normalize(value), field: candidate.name, label: candidate.label };
+            }
+        }
+        const visible = getField('insurance_agency');
+        if (visible) return { id: '', name: visible, field: 'insurance_agency', label: 'Insurance Agency' };
+        throw new Error('Corporate field was found in Odoo metadata, but its value was empty. Checked: ' + candidates.map(item => item.label + ' (' + item.name + ')').join(', '));
     }
 
     function getSessionContext() {
@@ -398,7 +440,8 @@
         if (!payer.insuranceCompanyId) throw new Error(`${payer.name} has no verified Agency ID in the supplied HAR. Use a backup engine for this payer until its mapping is captured.`);
         const cardNumber = getField('user_ref');
         const formNumber = getField('prescription_number');
-        const employer = getField('insurance_agency');
+        const corporateInfo = state.corporate || await getCorporateInfo();
+        const employer = corporateInfo.name;
         const cycle = await getCycleInfo();
         if (!cardNumber) throw new Error('Odoo Card Number is missing.');
         if (!formNumber) throw new Error('Odoo Prescription Number is missing.');
@@ -523,7 +566,7 @@
         const overlay = document.createElement('div');
         overlay.id = CONFIG.DIALOG_ID;
         const payer = getField('payor_id') || 'Unknown';
-        const employer = getField('insurance_agency') || 'Unknown';
+        const employer = state.corporate?.name || 'Not Found';
         const cycleLabel = getText(document.querySelector('span[name="cycle_id"]')) || getField('cycle_id') || 'Unknown';
         overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title"><header class="yds-head"><div class="yds-title" id="yds-title">Direct Prescription Split</div><div class="yds-subtitle">Select the medications to include in the new prescription.</div></header><div class="yds-meta"><span class="yds-pill">Payer: ${escapeHTML(payer)}</span><span class="yds-pill">Corporate: ${escapeHTML(employer)}</span><span class="yds-pill">Cycle: ${escapeHTML(cycleLabel)}</span><span class="yds-pill">Max Amount: 00</span><span class="yds-pill">Tag: SPLIT</span></div><div class="yds-body"><label class="yds-select-all"><input type="checkbox" data-select-all><span>Select All</span></label><div class="yds-list">${drugs.map((drug,index) => `<label class="yds-drug"><input type="checkbox" data-drug-index="${index}"><span class="yds-drug-copy"><span class="yds-drug-name">${escapeHTML(drug.name)}</span><span class="yds-drug-hzb">HZB: ${escapeHTML(drug.hzb)}</span></span></label>`).join('')}</div></div><footer class="yds-footer"><div class="yds-status" aria-live="polite"></div><div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CANCEL</button><button type="button" class="yds-button yds-button-primary" data-submit disabled> SPLIT </button></div></div></footer></section>`;
         document.body.appendChild(overlay);
@@ -616,6 +659,7 @@
         if (button) { button.disabled = true; button.dataset.loading = '1'; }
         try {
             const drugs = await fetchSplitDrugs();
+            state.corporate = await getCorporateInfo();
             showDrugDialog(drugs);
         } catch (error) {
             window.alert(`Could not prepare Split.\n\n${error?.message || 'Unknown error'}`);
