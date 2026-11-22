@@ -216,9 +216,9 @@
             launcherItem = item;
         }
         const items = [...menu.children].filter(item => item !== launcherItem);
-        const thirdItem = items[2] || null;
-        if (launcherItem.parentElement !== menu || menu.children[2] !== launcherItem) {
-            menu.insertBefore(launcherItem, thirdItem);
+        const target = items[Math.min(2, items.length)] || null;
+        if (launcherItem.parentElement !== menu || launcherItem.nextElementSibling !== target) {
+            menu.insertBefore(launcherItem, target);
         }
         return true;
     };
@@ -237,8 +237,7 @@
         if (launcherObserverTarget !== navbar) {
             launcherObserver?.disconnect();
             launcherObserver = new MutationObserver(() => {
-                const menu = document.querySelector('.o_main_navbar ul.o_menu_sections[role="menu"]');
-                if (!launcherItem?.isConnected || launcherItem.parentElement !== menu || menu?.children[2] !== launcherItem) mountLauncher();
+                mountLauncher();
             });
             launcherObserver.observe(navbar, { childList: true, subtree: true });
             launcherObserverTarget = navbar;
