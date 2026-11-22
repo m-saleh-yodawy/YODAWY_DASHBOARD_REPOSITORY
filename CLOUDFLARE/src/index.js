@@ -34,6 +34,8 @@ const decryptUserPassword = async (env, ciphertext, iv) => {
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: Uint8Array.from(atob(iv), char => char.charCodeAt(0)) }, key, Uint8Array.from(atob(ciphertext), char => char.charCodeAt(0)));
   return new TextDecoder().decode(plain);
 };
+const normalizePersonName = value => String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US").replace(/(^|[\s'’-])\p{L}/gu, char => char.toLocaleUpperCase("en-US"));
+const buildPersonalRepository = (userId, name) => userId + "_" + name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 const sign = async (payload, secret) => {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const body = btoa(String.fromCharCode(...encoder.encode(JSON.stringify(payload)))).replace(/=/g, "").replaceAll("+", "-").replaceAll("/", "_");
@@ -748,7 +750,7 @@ const dashboardRoutes = async (request, env, path) => {
   }
   if (path === "/api/dashboard/users" && request.method === "POST") {
     if (!isAdmin) return forbidden();
-    const name = String(body.name || "").trim().replace(/\s+/g, " ");
+    const name = normalizePersonName(body.name);
     const newRole = String(body.role || "USER").trim().toUpperCase();
     const status = String(body.status || "Active").trim();
     const password = String(body.password || "");
@@ -757,7 +759,7 @@ const dashboardRoutes = async (request, env, path) => {
     if (duplicate) return respond(request, env, { success: false, error: "USER_NAME_EXISTS" }, 409);
     const sequence = await env.DB.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(user_id, 3) AS INTEGER)), 0) + 1 AS next_id FROM users WHERE user_id GLOB 'Q-[0-9]*'").first();
     const userId = "Q-" + String(sequence?.next_id || 1).padStart(3, "0");
-    const repository = userId + "_" + name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "");
+    const repository = buildPersonalRepository(userId, name);
     const passwordHash = await createPasswordHash(password);
     const encrypted = await encryptUserPassword(env, password);
     const passwordChangedAt = Math.floor(Date.now() / 1000);
@@ -830,16 +832,21 @@ const dashboardRoutes = async (request, env, path) => {
     if (Object.prototype.hasOwnProperty.call(body, "id") || Object.prototype.hasOwnProperty.call(body, "userId") || Object.prototype.hasOwnProperty.call(body, "username")) return respond(request, env, { success: false, error: "USER_ID_IMMUTABLE" }, 400);
     const nextRole = body.role === undefined ? target.role : String(body.role).toUpperCase();
     const nextStatus = body.status === undefined ? target.status : String(body.status);
-    const nextName = body.name === undefined ? null : String(body.name).trim().replace(/\s+/g, " ");
+    const nextName = body.name === undefined ? null : normalizePersonName(body.name);
     if (nextName !== null && (!nextName || nextName.length > 100)) return respond(request, env, { success: false, error: "INVALID_NAME" }, 400);
+    if (nextName !== null) {
+      const duplicate = await env.DB.prepare("SELECT user_id FROM users WHERE LOWER(name) = LOWER(?) AND user_id <> ? LIMIT 1").bind(nextName, userId).first();
+      if (duplicate) return respond(request, env, { success: false, error: "USER_NAME_EXISTS" }, 409);
+    }
+    const nextRepository = nextName === null ? null : buildPersonalRepository(userId, nextName);
     if (![ "USER", "ADMIN", "SUPER_ADMIN" ].includes(nextRole) || ![ "Active", "Inactive" ].includes(nextStatus) || (role === "ADMIN" && nextRole !== "USER")) return respond(request, env, { success: false, error: "INVALID_USER_UPDATE" }, 400);
     if (target.role === "SUPER_ADMIN" && (nextRole !== "SUPER_ADMIN" || nextStatus !== "Active")) {
       const count = await env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE role = 'SUPER_ADMIN' AND status = 'Active'").first();
       if (Number(count?.total || 0) <= 1) return respond(request, env, { success: false, error: "LAST_SUPER_ADMIN" }, 400);
     }
-    await env.DB.prepare("UPDATE users SET name = COALESCE(?, name), role = ?, status = ?, updated_at = ? WHERE user_id = ?").bind(nextName, nextRole, nextStatus, now, userId).run();
+    await env.DB.prepare("UPDATE users SET name = COALESCE(?, name), personal_repository = COALESCE(?, personal_repository), role = ?, status = ?, updated_at = ? WHERE user_id = ?").bind(nextName, nextRepository, nextRole, nextStatus, now, userId).run();
     if (nextStatus !== "Active") await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL").bind(Math.floor(Date.now() / 1000), userId).run();
-    return respond(request, env, { success: true, user: { id: userId, role: nextRole, status: nextStatus } });
+    return respond(request, env, { success: true, user: { id: userId, name: nextName, role: nextRole, status: nextStatus, repository: nextRepository } });
   }
   if (path.startsWith("/api/dashboard/users/") && request.method === "DELETE") {
     if (!isAdmin) return forbidden();
