@@ -19,7 +19,6 @@
         I: 'tm-confirmation-buttons',
         STYLE: 'tm-confirm-style',
         COLOR: '#875A7B',
-        INTERVAL: 300
     };
 
     const TYPES = [
@@ -39,9 +38,7 @@
         destroyed: false,
         loading: false,
         observer: null,
-        interval: null,
         request: null,
-        renderQueued: false,
         toastTimers: new Set(),
         controller: new AbortController()
     };
@@ -379,20 +376,21 @@
                 signal: state.controller.signal
             });
 
-            state.interval = setInterval(() => {
-                if (state.destroyed) return;
-                ui.render();
-            }, C.INTERVAL);
+            const routeChange = () => {
+                if (!state.destroyed) ui.render();
+            };
 
-            state.observer = new MutationObserver(() => {
-                if (state.destroyed || state.renderQueued) return;
+            window.addEventListener('hashchange', routeChange, {
+                signal: state.controller.signal
+            });
 
-                state.renderQueued = true;
-
-                queueMicrotask(() => {
-                    state.renderQueued = false;
-                    if (!state.destroyed) ui.render();
-                });
+            state.observer = new MutationObserver(records => {
+                if (state.destroyed || !utils.isTicket() || document.getElementById(C.I)) return;
+                const boxAdded = records.some(record => [...record.addedNodes].some(node =>
+                    node.nodeType === Node.ELEMENT_NODE &&
+                    (node.matches('.oe_button_box') || node.querySelector('.oe_button_box'))
+                ));
+                if (boxAdded) ui.render();
             });
 
             state.observer.observe(document.body, {
@@ -413,8 +411,6 @@
             state.request = null;
             state.observer?.disconnect();
             state.observer = null;
-            clearInterval(state.interval);
-            state.interval = null;
             state.initialized = false;
             ui.destroy();
             return true;
@@ -438,8 +434,6 @@
             state.observer?.disconnect();
             state.observer = null;
 
-            clearInterval(state.interval);
-            state.interval = null;
 
             ui.destroy();
 
