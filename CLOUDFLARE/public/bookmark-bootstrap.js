@@ -144,10 +144,6 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         };
     });
     try {
-        const health = await request('/api/health');
-        if (health.status !== 'online') throw new Error('SYSTEM_UNAVAILABLE');
-        const readiness = await request('/api/ready');
-        if (readiness.success !== true || readiness.database !== 'connected') throw new Error('DATABASE_UNAVAILABLE');
         if (!await refresh()) await mountLogin();
         const data = await request('/api/dashboard/bootstrap', { token: accessToken });
         context = Object.freeze({
