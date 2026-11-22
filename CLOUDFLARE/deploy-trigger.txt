@@ -50,3 +50,4 @@ Apply 16px Nunito Sans for English and Cairo for Arabic across all inputs and ed
 Initialize global input typography before authentication on all supported bootstrap entry points: 20261122-global-input-typography-2.
 Finalize global input typography: 16px / 20px, Nunito Sans for English, Cairo for Arabic, dynamic fields included: 20261122-global-input-typography-3.
 Disable recurring live-update polling, remove redundant startup health/readiness/settings requests, refresh only on user action, and optimize USER bootstrap reads: 20261122-worker-request-optimization-1.
+Serve explicit Dashboard UI refresh from cached Static Assets without Worker API invocation: 20261122-worker-request-optimization-2.
