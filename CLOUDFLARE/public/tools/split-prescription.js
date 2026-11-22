@@ -588,7 +588,9 @@
 
         const baselineId = await getLatestMessageId(ticketId);
         const context = getTicketFormContext(ticketId);
-        const action = await rpcButton('helpdesk.ticket', 'action_fetch_suitable_alternatives', [[ticketId]], getActionContext());
+        const fetchContext = getActionContext();
+        fetchContext.params = { ...(fetchContext.params || {}), view_type: 'form' };
+        const action = await rpcButton('helpdesk.ticket', 'action_fetch_suitable_alternatives', [[ticketId]], fetchContext);
         const wizardId = Number(action?.res_id || 0);
         if (!wizardId) {
             await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
@@ -656,10 +658,19 @@
             throw new Error('Odoo did not preserve every selected deletion flag. The delete action was not submitted.');
         }
 
-        await rpcButton('alternative.wizard', 'action_add_alternatives', [[wizardId]], context);
+        let actionError = null;
+        try {
+            await rpcButton('alternative.wizard', 'action_add_alternatives', [[wizardId]], context);
+        } catch (error) {
+            actionError = error;
+        }
         let note;
         try {
             note = await waitForRemovedLimitedDrugsNote(ticketId, baselineId, targets);
+        } catch (error) {
+            throw new Error(actionError
+                ? 'Odoo action response was uncertain: ' + (actionError.message || 'Unknown error') + '. ' + error.message
+                : error.message);
         } finally {
             await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
         }
