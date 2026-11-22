@@ -755,69 +755,70 @@
         const style = document.createElement('style');
         style.id = 'ydDirectSplitStyles';
         style.textContent = `
-#${CONFIG.DIALOG_ID}{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:22px;background:rgba(22,17,25,.58);backdrop-filter:blur(3px);font-family:Nunito,Arial,sans-serif}
+#${CONFIG.DIALOG_ID}{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:22px;background:rgba(22,17,25,.62);backdrop-filter:blur(3px);font-family:Nunito,Arial,sans-serif}
 #${CONFIG.DIALOG_ID} *{box-sizing:border-box;font-family:Nunito,Arial,sans-serif}
-#${CONFIG.DIALOG_ID} .yds-panel{width:min(600px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));display:flex;flex-direction:column;gap:0;overflow:hidden;padding:0;border:1px solid #eadfe8;border-radius:14px;background:#fff;box-shadow:0 22px 70px rgba(25,15,25,.28);color:#302833;animation:yds-modal-enter .18s cubic-bezier(.2,.8,.2,1) both}
-#${CONFIG.DIALOG_ID} .yds-head{display:flex;align-items:center;gap:11px;min-width:0;padding:22px 24px;border-bottom:1px solid #eee7ed;background:#fff;color:#302833}
-#${CONFIG.DIALOG_ID} .yds-head-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid #875a7b;border-radius:9px;background:#875a7b;color:#fff;font-size:13px;font-weight:800;letter-spacing:-.04em}
-#${CONFIG.DIALOG_ID} .yds-head-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
-#${CONFIG.DIALOG_ID} .yds-title{margin:0;color:#68465f;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.3}
-#${CONFIG.DIALOG_ID} .yds-subtitle{margin:0;color:#77717a;font-size:12px;font-weight:400;line-height:1.45}
-#${CONFIG.DIALOG_ID} .yds-account{display:flex;flex-direction:column;gap:7px;padding:18px 24px 0;background:#fff}
-#${CONFIG.DIALOG_ID} .yds-account label{display:block;margin:0;color:#655b66;font-size:12px;font-weight:700}
-#${CONFIG.DIALOG_ID} .yds-account select{width:100%;height:40px;min-height:40px;padding:0 12px;border:1px solid #d8cbd6;border-radius:7px;outline:0;background:#fff;color:#453b46;font-size:12px}
-#${CONFIG.DIALOG_ID} .yds-account select:focus{border-color:#875a7b;box-shadow:0 0 0 2px #875a7b20}
-#${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:18px 24px;border-bottom:1px solid #eee7ed;background:#faf8fa}
-#${CONFIG.DIALOG_ID} .yds-summary-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:12px;border:1px solid #eee7ed;border-left:3px solid #875a7b;border-radius:9px;background:#fff}
+#${CONFIG.DIALOG_ID} .yds-panel{width:min(600px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));display:flex;flex-direction:column;gap:0;overflow:hidden;padding:0;border:1px solid #bfaebe;border-radius:14px;background:#fff;box-shadow:0 22px 70px rgba(25,15,25,.32);color:#332b36;animation:yds-modal-enter .18s cubic-bezier(.2,.8,.2,1) both}
+#${CONFIG.DIALOG_ID} .yds-head{display:flex;align-items:center;gap:12px;min-width:0;padding:17px 22px;border-bottom:1px solid #d9cbd7;background:#fff;color:#332b36}
+#${CONFIG.DIALOG_ID} .yds-brand-mark{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid #68465f;border-radius:9px;background:#875a7b;color:#fff;font-size:19px;font-weight:700;line-height:1;box-shadow:0 2px 5px rgba(104,70,95,.18)}
+#${CONFIG.DIALOG_ID} .yds-head-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
+#${CONFIG.DIALOG_ID} .yds-kicker{display:block;color:#875a7b;font-size:9px;font-weight:700;letter-spacing:1.1px;line-height:1.3}
+#${CONFIG.DIALOG_ID} .yds-title{margin:0;color:#3d3040;font-size:18px;font-weight:600;letter-spacing:-.015em;line-height:1.3}
+#${CONFIG.DIALOG_ID} .yds-subtitle{margin:1px 0 0;color:#706775;font-size:11px;font-weight:400;line-height:1.45}
+#${CONFIG.DIALOG_ID} .yds-account{display:flex;flex-direction:column;gap:7px;padding:14px 20px;background:#E1E1E1}
+#${CONFIG.DIALOG_ID} .yds-account label{display:block;margin:0;color:#514653;font-size:11px;font-weight:600}
+#${CONFIG.DIALOG_ID} .yds-account select{width:100%;height:38px;min-height:38px;padding:0 12px;border:1px solid #b9a9b8;border-radius:6px;outline:0;background:#fff;color:#332b36;font-size:12px;font-weight:400}
+#${CONFIG.DIALOG_ID} .yds-account select:focus{border-color:#875a7b;box-shadow:0 0 0 2px rgba(135,90,123,.18)}
+#${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px 20px;border-bottom:1px solid #c9bbc8;background:#E1E1E1}
+#${CONFIG.DIALOG_ID} .yds-summary-card{display:flex;flex-direction:column;gap:5px;min-width:0;padding:11px 12px;border:1px solid #c7b9c6;border-left:4px solid #875a7b;border-radius:7px;background:#fff}
 #${CONFIG.DIALOG_ID} .yds-summary-card:nth-child(2){border-left-color:#35678f}
-#${CONFIG.DIALOG_ID} .yds-summary-label{display:block;color:#8b808b;font-size:10px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
-#${CONFIG.DIALOG_ID} .yds-summary-value{display:block;margin:0;color:#403744;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-#${CONFIG.DIALOG_ID} .yds-body{display:flex;flex:1;flex-direction:column;gap:10px;min-height:0;padding:16px 24px 20px;overflow:auto;background:#faf8fa}
-#${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;min-height:38px;padding:8px 11px;margin:0;border:1px solid #eee7ed;border-radius:8px;background:#fff;color:#65596a;font-size:12px;font-weight:700;cursor:pointer}
+#${CONFIG.DIALOG_ID} .yds-summary-label{display:block;color:#68465f;font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+#${CONFIG.DIALOG_ID} .yds-summary-value{display:block;margin:0;color:#302833;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#${CONFIG.DIALOG_ID} .yds-body{display:flex;flex:1;flex-direction:column;gap:9px;min-height:0;padding:14px 20px 17px;overflow:auto;background:#E1E1E1}
+#${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;min-height:38px;padding:8px 10px;margin:0;border:1px solid #c7b9c6;border-left:3px solid #875a7b;border-radius:7px;background:#fff;color:#443a48;font-size:11px;font-weight:500;cursor:pointer}
 #${CONFIG.DIALOG_ID} .yds-list{display:flex;flex-direction:column;gap:8px}
-#${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:10px;min-width:0;min-height:50px;padding:10px 12px;border:1px solid #eee7ed;border-radius:9px;background:#fff;cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}
-#${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:#d8cbd6;background:#fff;box-shadow:0 2px 7px rgba(25,15,25,.06)}
-#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:#875a7b;background:#fff;box-shadow:inset 3px 0 #875a7b}
+#${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:10px;min-width:0;min-height:52px;padding:10px 11px;border:1px solid #c7b9c6;border-left:3px solid #875a7b;border-radius:7px;background:#fff;cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}
+#${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:#a88da4;background:#fff;box-shadow:0 2px 7px rgba(25,15,25,.08)}
+#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:#875a7b;background:#f8f3f7;box-shadow:inset 3px 0 #875a7b}
 #${CONFIG.DIALOG_ID} .yds-drug input,#${CONFIG.DIALOG_ID} .yds-select-all input{width:15px;height:15px;margin:0;accent-color:#875a7b;flex:0 0 auto}
 #${CONFIG.DIALOG_ID} .yds-drug-copy{display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
-#${CONFIG.DIALOG_ID} .yds-drug-name{color:#403744;font-size:12px;font-weight:800;line-height:1.4;overflow-wrap:anywhere}
-#${CONFIG.DIALOG_ID} .yds-drug-hzb{margin:0;color:#918692;font-size:10px;font-weight:400}
-#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:5px 8px;border:1px solid #d7eadf;border-radius:6px;background:#e8f5ed;color:#257346;font-size:10px;font-weight:800;white-space:nowrap}
+#${CONFIG.DIALOG_ID} .yds-drug-name{color:#302833;font-size:11.5px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+#${CONFIG.DIALOG_ID} .yds-drug-hzb{margin:0;color:#665c69;font-size:10px;font-weight:400}
+#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:5px 8px;border:1px solid #b9dac7;border-radius:5px;background:#e8f5ed;color:#257346;font-size:9px;font-weight:600;white-space:nowrap}
 #${CONFIG.DIALOG_ID} .yds-drug-state[hidden]{display:none}
-#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"]{border-color:#f0d7d9;background:#fff0f0;color:#b42318}
-#${CONFIG.DIALOG_ID} .yds-row-state-icon{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#257346;color:#fff;font-size:10px;font-weight:900}
-#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"] .yds-row-state-icon{background:#b42318}
-#${CONFIG.DIALOG_ID} .yds-footer{display:flex;flex-direction:column;gap:11px;padding:15px 24px;border-top:1px solid #eee7ed;background:#fff}
-#${CONFIG.DIALOG_ID} .yds-status{display:none;align-items:center;justify-content:center;gap:9px;min-height:42px;padding:8px 12px;margin:0;border:1px solid #eee7ed;border-radius:7px;background:#f8f5f7;color:#68465f;font-size:12px;font-weight:800;letter-spacing:.02em}
+#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"]{border-color:#e3b8bc;background:#fff0f0;color:#a92b35}
+#${CONFIG.DIALOG_ID} .yds-row-state-icon{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#257346;color:#fff;font-size:10px;font-weight:700}
+#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"] .yds-row-state-icon{background:#a92b35}
+#${CONFIG.DIALOG_ID} .yds-footer{display:flex;flex-direction:column;gap:10px;padding:13px 20px 15px;border-top:1px solid #c9bbc8;background:#fff}
+#${CONFIG.DIALOG_ID} .yds-status{display:none;align-items:center;justify-content:center;gap:9px;min-height:40px;padding:8px 12px;margin:0;border:1px solid #c7b9c6;border-radius:6px;background:#f8f5f7;color:#68465f;font-size:11px;font-weight:600;letter-spacing:.01em}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="error"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"]{display:flex}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{border-color:#f0d7d9;background:#fff0f0;color:#b42318}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{border-color:#d7eadf;background:#e8f5ed;color:#257346}
-#${CONFIG.DIALOG_ID} .yds-status-icon{display:inline-grid;place-items:center;flex:0 0 23px;width:23px;height:23px;border-radius:50%;background:#35678f;color:#fff;font-size:15px;font-weight:900;line-height:1}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{border-color:#e3b8bc;background:#fff0f0;color:#a92b35}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{border-color:#b9dac7;background:#e8f5ed;color:#257346}
+#${CONFIG.DIALOG_ID} .yds-status-icon{display:inline-grid;place-items:center;flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:#35678f;color:#fff;font-size:14px;font-weight:700;line-height:1}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="success"] .yds-status-icon{background:#257346}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"] .yds-status-icon{background:#b42318}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"] .yds-status-icon{width:17px;height:17px;flex-basis:17px;border:2px solid currentColor;border-right-color:transparent;background:transparent;animation:yds-rotate .7s linear infinite}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"] .yds-status-icon{background:#a92b35}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"] .yds-status-icon{width:16px;height:16px;flex-basis:16px;border:2px solid currentColor;border-right-color:transparent;background:transparent;animation:yds-rotate .7s linear infinite}
 #${CONFIG.DIALOG_ID} .yds-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
-#${CONFIG.DIALOG_ID} .yds-count{color:#918692;font-size:12px;font-weight:500}
+#${CONFIG.DIALOG_ID} .yds-count{color:#665c69;font-size:11px;font-weight:400}
 #${CONFIG.DIALOG_ID} .yds-buttons{display:flex;justify-content:flex-end;gap:9px}
-#${CONFIG.DIALOG_ID} .yds-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:92px;min-height:38px;padding:8px 15px;border:1px solid #ddd2dc;border-radius:7px;background:#fff;color:#68465f;font-size:12px;font-weight:800;cursor:pointer;transition:all .15s}
-#${CONFIG.DIALOG_ID} .yds-button:hover:not(:disabled){border-color:#875a7b;background:#f8f5f7}
-#${CONFIG.DIALOG_ID} .yds-button-primary{border-color:#875a7b;background:#875a7b;color:#fff;box-shadow:0 2px 5px rgba(135,90,123,.12)}
-#${CONFIG.DIALOG_ID} .yds-button-primary:hover:not(:disabled){border-color:#68465f;background:#68465f;box-shadow:0 3px 8px rgba(104,70,95,.14)}
-#${CONFIG.DIALOG_ID} .yds-button:disabled{opacity:.5;cursor:not-allowed}
+#${CONFIG.DIALOG_ID} .yds-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:92px;min-height:38px;padding:8px 15px;border:1px solid #bfaebe;border-radius:7px;background:#fff;color:#68465f;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+#${CONFIG.DIALOG_ID} .yds-button:hover:not(:disabled){border-color:#875a7b;background:#f8f3f7}
+#${CONFIG.DIALOG_ID} .yds-button-primary{border-color:#875a7b;background:#875a7b;color:#fff;box-shadow:0 2px 5px rgba(135,90,123,.16)}
+#${CONFIG.DIALOG_ID} .yds-button-primary:hover:not(:disabled){border-color:#68465f;background:#68465f;box-shadow:0 3px 8px rgba(104,70,95,.2)}
+#${CONFIG.DIALOG_ID} .yds-button:disabled{border-color:#bcaabb;background:#bcaabb;color:#fff;opacity:1;cursor:not-allowed}
 #${CONFIG.DIALOG_ID} .yds-spin{display:inline-block;width:13px;height:13px;margin-right:7px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:yds-rotate .7s linear infinite}
 @keyframes yds-rotate{to{transform:rotate(360deg)}}
 @keyframes yds-modal-enter{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
 #${CONFIG.BUTTON_ID}{cursor:pointer}
 @media(max-width:520px){
 #${CONFIG.DIALOG_ID}{padding:12px}
-#${CONFIG.DIALOG_ID} .yds-panel{width:100%;max-height:calc(100vh - 24px);border-radius:14px}
-#${CONFIG.DIALOG_ID} .yds-head{padding:16px}
-#${CONFIG.DIALOG_ID} .yds-title{font-size:20px}
-#${CONFIG.DIALOG_ID} .yds-account{padding:14px 16px 0}
-#${CONFIG.DIALOG_ID} .yds-summary{gap:8px;padding:14px 16px}
-#${CONFIG.DIALOG_ID} .yds-summary-card{padding:10px}
-#${CONFIG.DIALOG_ID} .yds-body{padding:12px 16px 16px}
-#${CONFIG.DIALOG_ID} .yds-footer{padding:13px 16px}
+#${CONFIG.DIALOG_ID} .yds-panel{width:100%;max-height:calc(100vh - 24px);border-radius:12px}
+#${CONFIG.DIALOG_ID} .yds-head{padding:14px 15px}
+#${CONFIG.DIALOG_ID} .yds-title{font-size:16px}
+#${CONFIG.DIALOG_ID} .yds-account{padding:12px 14px}
+#${CONFIG.DIALOG_ID} .yds-summary{gap:8px;padding:12px 14px}
+#${CONFIG.DIALOG_ID} .yds-summary-card{padding:9px}
+#${CONFIG.DIALOG_ID} .yds-body{padding:12px 14px}
+#${CONFIG.DIALOG_ID} .yds-footer{padding:11px 14px 13px}
 #${CONFIG.DIALOG_ID} .yds-drug{align-items:flex-start;flex-wrap:wrap}
 #${CONFIG.DIALOG_ID} .yds-drug-state{margin-left:25px}
 #${CONFIG.DIALOG_ID} .yds-buttons{gap:6px}
@@ -871,7 +872,7 @@
         const expiryLabel = state.expiryInfo?.displayDate || 'Unknown';
         const accountOptions = state.portalAccounts.map(account => `<option value="${escapeHTML(account.id)}">${escapeHTML((account.accountType === 'PERSONAL' ? 'Personal' : 'Non-Personal') + ' · ' + (account.username || account.label || account.id))}</option>`).join('');
         const accountControl = state.portalAccounts.length > 1 ? `<div class="yds-account"><label for="yds-portal-account">PORTAL ACCOUNT</label><select id="yds-portal-account" data-portal-account><option value="">Select Portal account...</option>${accountOptions}</select></div>` : '';
-        overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title"><header class="yds-head"><span class="yds-head-icon" aria-hidden="true">Rx</span><div class="yds-head-copy"><div class="yds-title" id="yds-title">Direct Prescription Split</div><div class="yds-subtitle">Select the medications to include in the new prescription.</div></div></header><div class="yds-summary"><div class="yds-summary-card"><span class="yds-summary-label">Expiry Date</span><strong class="yds-summary-value">${escapeHTML(expiryLabel)}</strong></div><div class="yds-summary-card"><span class="yds-summary-label">Cycle</span><strong class="yds-summary-value">${escapeHTML(cycleLabel)}</strong></div></div>${accountControl}<div class="yds-body"><label class="yds-select-all"><input type="checkbox" data-select-all><span>Select All</span></label><div class="yds-list">${drugs.map((drug,index) => `<label class="yds-drug"><input type="checkbox" data-drug-index="${index}"><span class="yds-drug-copy"><span class="yds-drug-name">${escapeHTML(drug.name)}</span><span class="yds-drug-hzb">HZB: ${escapeHTML(drug.hzb)}</span></span><span class="yds-drug-state" data-drug-status hidden></span></label>`).join('')}</div></div><footer class="yds-footer"><div class="yds-status" aria-live="polite"><span class="yds-status-icon" aria-hidden="true"></span><span class="yds-status-text"></span></div><div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CANCEL</button><button type="button" class="yds-button yds-button-primary" data-submit disabled> SPLIT </button></div></div></footer></section>`;
+        overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title"><header class="yds-head"><span class="yds-brand-mark" aria-hidden="true">Y</span><div class="yds-head-copy"><span class="yds-kicker">YODAWY WORKSPACE</span><div class="yds-title" id="yds-title">Direct Prescription Split</div><div class="yds-subtitle">Select the medications to include in the new prescription.</div></div></header><div class="yds-summary"><div class="yds-summary-card"><span class="yds-summary-label">Expiry Date</span><strong class="yds-summary-value">${escapeHTML(expiryLabel)}</strong></div><div class="yds-summary-card"><span class="yds-summary-label">Cycle</span><strong class="yds-summary-value">${escapeHTML(cycleLabel)}</strong></div></div>${accountControl}<div class="yds-body"><label class="yds-select-all"><input type="checkbox" data-select-all><span>Select All</span></label><div class="yds-list">${drugs.map((drug,index) => `<label class="yds-drug"><input type="checkbox" data-drug-index="${index}"><span class="yds-drug-copy"><span class="yds-drug-name">${escapeHTML(drug.name)}</span><span class="yds-drug-hzb">HZB: ${escapeHTML(drug.hzb)}</span></span><span class="yds-drug-state" data-drug-status hidden></span></label>`).join('')}</div></div><footer class="yds-footer"><div class="yds-status" aria-live="polite"><span class="yds-status-icon" aria-hidden="true"></span><span class="yds-status-text"></span></div><div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CANCEL</button><button type="button" class="yds-button yds-button-primary" data-submit disabled> SPLIT </button></div></div></footer></section>`;
         document.body.appendChild(overlay);
         state.dialog = overlay;
         const checkboxes = [...overlay.querySelectorAll('[data-drug-index]')];
