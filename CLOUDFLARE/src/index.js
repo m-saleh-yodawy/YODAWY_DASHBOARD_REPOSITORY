@@ -572,12 +572,27 @@ const portalAccountRoutes = async (request, env, path) => {
     const users = await env.DB.prepare("SELECT user_id FROM users WHERE status = 'Active' AND role IN ('USER', 'ADMIN')").all();
     const targets = (users.results || []).map(user => user.user_id);
     if (!targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGETS" }, 400);
+    const requestedKey = normalizeOdooKey(odooKey);
+    const placeholders = targets.map(() => "?").join(",");
+    const existingRows = await env.DB.prepare("SELECT owner_user_id, odoo_key, username FROM portal_accounts WHERE owner_user_id IN (" + placeholders + ") AND provider = 'PORTAL' AND enabled = 1").bind(...targets).all();
+    const existingKeys = new Map(targets.map(userId => [userId, new Set()]));
+    const existingUsernames = new Map(targets.map(userId => [userId, new Set()]));
+    for (const row of existingRows.results || []) {
+      if (row.odoo_key) existingKeys.get(row.owner_user_id)?.add(normalizeOdooKey(row.odoo_key));
+      if (row.username) existingUsernames.get(row.owner_user_id)?.add(String(row.username).trim().toLowerCase());
+    }
+    const missingTargets = targets.filter(userId => requestedKey
+      ? !existingKeys.get(userId)?.has(requestedKey)
+      : !existingUsernames.get(userId)?.has(username.toLowerCase()));
+    const skippedExisting = targets.length - missingTargets.length;
+    if (!missingTargets.length) return respond(request, env, { success: true, createdFor: 0, skippedExisting, totalUsers: targets.length });
     let encrypted;
     try { encrypted = await encryptPortalPassword(env, password); }
     catch (error) { return respond(request, env, { success: false, error: error.message }, 503); }
-    const statements = targets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
+    const statements = missingTargets.map(userId => env.DB.prepare("INSERT INTO portal_accounts (account_id, owner_user_id, provider, account_type, label, username, odoo_key, encrypted_password, encryption_iv, encryption_version, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)").bind("PA-" + randomToken().slice(0, 20).toUpperCase(), userId, provider, accountType, label, username, odooKey || null, encrypted.ciphertext, encrypted.iv, now, now));
     await env.DB.batch(statements);
-    return respond(request, env, { success: true, createdFor: targets.length });
+    await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, 'PORTAL_ACCOUNT_BULK_ADD_MISSING', 'PORTAL_ACCOUNT', ?, ?, ?)").bind(actor.user_id, "BULK", JSON.stringify({ provider, accountType, odooKey, created: missingTargets.length, skippedExisting, totalUsers: targets.length }), now).run();
+    return respond(request, env, { success: true, createdFor: missingTargets.length, skippedExisting, totalUsers: targets.length });
   }
   return null;
 };
