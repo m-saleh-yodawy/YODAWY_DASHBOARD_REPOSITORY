@@ -462,7 +462,9 @@
         const detailsData = await graphQL(PRESCRIPTION_DETAILS_QUERY(prescription.id));
         const details = detailsData.GetPrescriptionDetails;
         if (!details || !Array.isArray(details.Medications)) throw new Error('Portal prescription details are incomplete.');
-        if (details.IsChronic !== true) throw new Error('The selected Portal prescription is not marked as Chronic.');
+        const claimFormType = normalize(details.ClaimFormType || '').toLowerCase();
+        const isChronic = claimFormType === 'chronic' || details.IsChronic === true;
+        if (!isChronic) throw new Error(`The selected Portal prescription is not Chronic. ClaimFormType: ${details.ClaimFormType ?? 'missing'}; IsChronic: ${details.IsChronic ?? 'missing'}.`);
 
         const medications = selectedDrugs.map(drug => {
             const matches = details.Medications.filter(item => String(item?.Drug_Dosage_Form_Id ?? '').trim() === String(drug.hzb).trim());
