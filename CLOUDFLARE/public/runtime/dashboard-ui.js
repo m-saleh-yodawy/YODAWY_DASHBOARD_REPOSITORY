@@ -180,6 +180,11 @@
     const isCurrentUI = () => Boolean(context && rootElement?.isConnected && document.getElementById(CONFIG.ID) === rootElement);
 
     const mountLauncher = () => {
+        if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') {
+            launcherItem?.remove();
+            launcherItem = null;
+            return false;
+        }
         const menu = document.querySelector('.o_main_navbar ul.o_menu_sections[role="menu"]');
         if (!menu) return false;
         if (!launcherItem) {
@@ -216,6 +221,13 @@
     };
 
     const watchLauncher = () => {
+        if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') {
+            launcherObserver?.disconnect();
+            launcherObserver = null;
+            launcherItem?.remove();
+            launcherItem = null;
+            return false;
+        }
         if (!launcherObserver && document.body) {
             launcherObserver = new MutationObserver(() => {
                 if (!launcherItem?.isConnected) mountLauncher();
