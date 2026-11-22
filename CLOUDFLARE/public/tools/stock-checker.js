@@ -20,6 +20,14 @@
         {group:'ENGY',name:'PLATINUM',key:'engyPlatinum',path:'ep/Stock',locationId:645}
     ];
 
+    const DISPLAY_WAREHOUSES=[
+        {group:'ABU RAWASH',name:'GOLD',key:'abuGold'},
+        {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum'},
+        {group:'SILVER',name:'SILVER',key:'silverCombined'},
+        {group:'ENGY',name:'GOLD',key:'engyGold'},
+        {group:'ENGY',name:'PLATINUM',key:'engyPlatinum'}
+    ];
+
     const ID='ms-stock-hzb-checker';
     let warehouseLocationsPromise=null;
 
@@ -125,8 +133,6 @@
             const location=locations.find(item=>item.key===warehouse.key);
             return[warehouse.key,{
                 quantity:0,
-                reserved:0,
-                available:0,
                 unit:'',
                 location:location?.actualName||warehouse.path,
                 found:Boolean(location?.found)
@@ -142,12 +148,19 @@
             const quantity=Number(row.quantity||0);
             const reserved=Number(row.reserved_quantity||0);
             const stock=result[location.key];
+            stock.quantity+=location.key==='abuSilver'?quantity:quantity-reserved;
 
-            stock.quantity+=quantity;
-            stock.reserved+=reserved;
-            stock.available+=quantity-reserved;
             if(!stock.unit&&row.product_uom_id?.[1])stock.unit=row.product_uom_id[1];
         });
+
+        const abuSilver=result.abuSilver;
+        const engySilver=result.engySilver;
+        result.silverCombined={
+            quantity:abuSilver.quantity+engySilver.quantity,
+            unit:abuSilver.unit||engySilver.unit,
+            location:'SIW/Stock + ESIW/Stock',
+            found:abuSilver.found&&engySilver.found
+        };
 
         return result;
     }
@@ -280,7 +293,7 @@
 .ms-stock-result-price::before{content:"PRICE";color:#9b949f!important;font-size:8px!important;font-weight:800!important;letter-spacing:.08em!important}
 .ms-stock-group{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:0!important;padding:11px!important;border:1px solid #d9d9de!important;border-radius:10px!important;background:#fff!important;box-shadow:0 2px 5px rgba(41,36,46,.035)!important}
 .ms-stock-group-title{display:flex!important;align-items:center!important;justify-content:space-between!important;grid-column:1/-1!important;min-height:26px!important;padding:0 1px 8px!important;margin:0 0 1px!important;border:0!important;border-bottom:1px solid #eee9ef!important;border-radius:0!important;background:transparent!important;color:#18181b!important;font-size:10.5px!important;font-weight:800!important;letter-spacing:.045em!important}
-.ms-stock-group-title::after{content:"3 LOCATIONS";display:inline-flex!important;align-items:center!important;height:21px!important;padding:0 7px!important;border:1px solid #e5d9e3!important;border-radius:6px!important;background:#f4eff2!important;color:#68465f!important;font-size:8px!important;font-weight:700!important;letter-spacing:.03em!important}
+.ms-stock-group-count{display:inline-flex!important;align-items:center!important;height:21px!important;padding:0 7px!important;border:1px solid #e5d9e3!important;border-radius:6px!important;background:#f4eff2!important;color:#68465f!important;font-size:8px!important;font-weight:700!important;letter-spacing:.03em!important}
 .ms-stock-group-title i{margin-right:6px!important;color:#875a7b!important;font-size:10px!important}
 .ms-stock-row{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:space-between!important;gap:12px!important;min-width:0!important;min-height:94px!important;padding:10px!important;margin:0!important;border:1px solid #e8e4e9!important;border-radius:9px!important;background:#fff!important;transition:border-color .15s ease,box-shadow .15s ease!important}
 .ms-stock-row:hover{border-color:#d8c7d7!important;box-shadow:0 3px 9px rgba(104,70,95,.07)!important}
@@ -290,11 +303,9 @@
 .ms-stock-row-badge.silver{border-color:#d9dfe4!important;background:#f2f4f6!important;color:#64717c!important}
 .ms-stock-row-badge.platinum{border-color:#d9d9de!important;background:#f2f2f4!important;color:#514a56!important}
 .ms-stock-row-location{overflow:hidden!important;max-width:100%!important;color:#9b949f!important;font-size:9px!important;line-height:1.25!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-.ms-stock-row-stats{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;margin-top:auto!important;padding-top:7px!important;border-top:1px solid #f1edf2!important}
-.ms-stock-row-stats span{display:flex!important;flex-direction:column!important;gap:4px!important;min-width:0!important}
-.ms-stock-row-stats small{color:#9b949f!important;font-size:7px!important;font-weight:800!important;letter-spacing:.04em!important;white-space:nowrap!important}
-.ms-stock-row-stats b{overflow:hidden!important;color:#18181b!important;font-size:13px!important;font-weight:800!important;line-height:1.1!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-.ms-stock-row-stats span:last-child b{color:#68465f!important}
+.ms-stock-row-qty-wrap{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:8px!important;margin-top:auto!important;padding-top:7px!important;border-top:1px solid #f1edf2!important}
+.ms-stock-row-available{color:#9b949f!important;font-size:7.5px!important;font-weight:800!important;letter-spacing:.07em!important}
+.ms-stock-row-qty{color:#68465f!important;font-size:17px!important;font-weight:800!important;letter-spacing:-.03em!important;line-height:1.1!important;white-space:nowrap!important}
 #ms-stock-footer{display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:29px!important;padding:0 15px!important;border-top:1px solid #e6e2e8!important;background:#fff!important;color:#9b949f!important;font-size:8px!important;font-weight:700!important;letter-spacing:.07em!important}
 #ms-stock-footer span:last-child{color:#875a7b!important}
 #ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;flex:0 0 42px!important;padding:0!important;margin:0!important;pointer-events:auto!important}
@@ -423,7 +434,7 @@ const search=async()=>{
             selectedProduct.id
         );
 
-        const groups=['ABU RAWASH','ENGY'];
+        const groups=['ABU RAWASH','SILVER','ENGY'];
 
         result.innerHTML=`
                 <div class="ms-stock-result-title">
@@ -435,31 +446,32 @@ const search=async()=>{
                     <span class="ms-stock-result-price">${priceHTML(selectedProduct)}</span>
                 </div>
 
-                ${groups.map(group=>`
-                    <div class="ms-stock-group">
-                        <div class="ms-stock-group-title"><span><i class="fa fa-warehouse" aria-hidden="true"></i> ${group}</span></div>
-                        ${WAREHOUSES.filter(warehouse=>warehouse.group===group).map(warehouse=>{
-                            const stock=data[warehouse.key];
-                            return `
-                                <div class="ms-stock-row">
-                                    <div class="ms-stock-row-left">
-                                        <span class="ms-stock-row-badge ${warehouse.name.toLowerCase()}">
-                                            ${warehouse.name}
-                                        </span>
-                                        <span class="ms-stock-row-location">
-                                            ${escapeHTML(stock.location)}
-                                        </span>
+                ${groups.map(group=>{
+                    const items=DISPLAY_WAREHOUSES.filter(warehouse=>warehouse.group===group);
+                    return `
+                        <div class="ms-stock-group">
+                            <div class="ms-stock-group-title">
+                                <span><i class="fa fa-warehouse" aria-hidden="true"></i> ${group}</span>
+                                <span class="ms-stock-group-count">${items.length} ${items.length===1?'LOCATION':'LOCATIONS'}</span>
+                            </div>
+                            ${items.map(warehouse=>{
+                                const stock=data[warehouse.key];
+                                return `
+                                    <div class="ms-stock-row">
+                                        <div class="ms-stock-row-left">
+                                            <span class="ms-stock-row-badge ${warehouse.name.toLowerCase()}">${warehouse.name}</span>
+                                            <span class="ms-stock-row-location">${escapeHTML(stock.location)}</span>
+                                        </div>
+                                        <div class="ms-stock-row-qty-wrap">
+                                            <span class="ms-stock-row-available">STOCK AVAILABLE</span>
+                                            <span class="ms-stock-row-qty">${stock.found?Number(stock.quantity||0).toLocaleString()+' '+escapeHTML(stock.unit):'N/A'}</span>
+                                        </div>
                                     </div>
-                                    <div class="ms-stock-row-stats">
-                                        <span><small>ON HAND</small><b>${stock.found?Number(stock.quantity||0).toLocaleString():'N/A'}</b></span>
-                                        <span><small>RESERVED</small><b>${stock.found?Number(stock.reserved||0).toLocaleString():'N/A'}</b></span>
-                                        <span><small>AVAILABLE</small><b>${stock.found?Number(stock.available||0).toLocaleString():'N/A'}</b></span>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `).join('')}
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                }).join('')}
             `;
         }catch(error){
             showStatus(error.message||'Search error');
