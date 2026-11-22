@@ -2,7 +2,7 @@
 // @name         Split Prescription
 // @namespace    https://odoo.yodawy.com/
 // @version      1
-// @description  Create split prescriptions directly from Odoo with exact Portal medication matching.
+// @description  Create split prescriptions with exact Portal matching and live Odoo ticket fields.
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle
