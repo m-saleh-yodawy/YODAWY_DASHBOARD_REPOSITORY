@@ -1,6 +1,6 @@
 (function (global) {
     'use strict';
-    if (global.YODAWY_LIVE_UPDATE_ENGINE?.version >= 4) return;
+    if (global.YODAWY_LIVE_UPDATE_ENGINE?.version >= 5) return;
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         let running = false;
     let stopped = true;
@@ -46,7 +46,6 @@
         const syncFailures = app.tools.getSyncFailures?.() || [];
         const unavailable = app.tools.getUnavailableTools?.() || [];
         if (previousManifest !== nextManifest || updated.length || removed.length || unavailable.length) {
-            lastToolUpdate = Date.now();
             emit('yodawy-live-updated', { type: 'tools', version: sourceVersion || version, updated, removed, unavailable, failures: syncFailures });
         }
         if (syncFailures.length) {
@@ -103,7 +102,6 @@
             if (!next || next === previous || typeof next.init !== 'function') throw new Error('DASHBOARD_UI_UPDATE_FAILED');
             app.ui = next;
             await next.init({ ...app, uiState: state });
-            lastUIUpdate = Date.now();
             emit('yodawy-live-updated', { type: 'dashboard-ui', version: nextVersion });
             return true;
         } catch (error) {
@@ -123,7 +121,7 @@
             if (!current.success || !currentVersion || currentVersion === 'unversioned') throw new Error('LIVE_UPDATE_VERSION_UNAVAILABLE');
             const changed = Boolean(version && version !== currentVersion);
             version = currentVersion;
-            if (changed || !lastCheck) {
+            if (changed) {
                 await syncTools(currentVersion);
                 await hotSwapUI(currentVersion);
                 await refreshData();
