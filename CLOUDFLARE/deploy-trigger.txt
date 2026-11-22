@@ -64,3 +64,4 @@ Apply the personal-first shared account rule to every active user, including act
 Authenticated Portal GraphQL split using saved PORTALS accounts and Open ERX login-token flow: 20261122-split-open-erx-auth-1.
 Fix chronic split validation using ClaimFormType with IsChronic fallback: 20261122-split-claim-form-type-1.
 After confirmed Portal Split, delete the exact selected HZB Sale Order lines from the same Odoo ticket: 20261122-split-odoo-item-cleanup-1.
+Pause direct Sale Order line deletion until the original Odoo Limited Drug removal RPC is verified: 20261122-split-verified-odoo-removal-only-1.
