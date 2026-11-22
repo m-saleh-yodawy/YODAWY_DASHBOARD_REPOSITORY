@@ -287,7 +287,7 @@
         pointer-events:none!important;
         display:block!important;
         font-family:'Nunito Sans','Cairo',system-ui,-apple-system,sans-serif!important;
-    `;`;
+    `;
 
     document.body.appendChild(host);
 
@@ -362,7 +362,7 @@
 #ms-stock-hzb-systray-button i{font-family:FontAwesome!important;font-size:17px!important;color:inherit!important}
 @media(max-width:680px){#ms-stock-panel{max-height:calc(100vh - 66px)!important}#ms-stock-body{max-height:calc(100vh - 130px)!important;padding:10px!important}.ms-stock-group{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ms-stock-row{min-height:88px!important}}
 @media(max-width:430px){#ms-stock-header{padding:10px 11px!important}#ms-stock-warehouse-count{display:none!important}#ms-stock-body{gap:8px!important;padding:8px!important}#ms-stock-search-box{gap:4px!important;padding:5px!important}#ms-stock-search{padding:0 9px!important}.ms-stock-group{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;padding:8px!important}.ms-stock-row{min-height:84px!important;padding:8px!important}.ms-stock-result-title{align-items:flex-start!important}}
-</style></style>
+</style>
 
         <div id="ms-stock-panel">
             <div id="ms-stock-header">
