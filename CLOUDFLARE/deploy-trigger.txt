@@ -74,3 +74,4 @@ Hide the result indicator until a Split attempt begins and lock selected items a
 Center Split in a dashboard-style modal panel and add soft lavender/blue surface colors with correctly interpolated CSS selectors: 20261122-split-centered-dashboard-panel-2.
 Use exact dashboard canvas #E1E1E1, white tool-card panels, brand-purple accents, and SUCCESS/FAILED result labels: 20261122-split-exact-dashboard-canvas-and-status-3.
 Split Prescription Open ERX-style modal surfaces and controls: 20261122-split-open-erx-modal-style-1.
+Split Prescription Yodawy logo, lighter typography and E1E1E1 canvas: 20261122-split-brand-contrast-2.
