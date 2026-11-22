@@ -25,7 +25,22 @@
         return params.has('home') || (!params.has('action') && !params.has('model') && !params.has('view_type'));
     };
 
+    const syncHomeToolVisibility = () => {
+        const styleId = 'yd-odoo-home-tools-hidden';
+        const existing = document.getElementById(styleId);
+        if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com' || !isOdooHome()) {
+            existing?.remove();
+            return;
+        }
+        if (existing) return;
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = '#ms-stock-hzb-systray-item,#ordered-systray-item,#noitems-systray-item{display:none!important}';
+        (document.head || document.documentElement).appendChild(style);
+    };
+
     const scheduleRouteSync = () => {
+        syncHomeToolVisibility();
         if (!initialized) return;
         if (syncing) {
             routeSyncPending = true;
@@ -45,6 +60,7 @@
     };
 
     page.addEventListener('hashchange', scheduleRouteSync);
+    syncHomeToolVisibility();
 
     const createError = message => {
         const error = new Error(message);
