@@ -49,9 +49,8 @@
     const load = async () => {
         const { API } = getDependencies();
         configure();
-        const response = await API.get('/api/dashboard/settings');
-        if (response?.success !== true) throw createError(response?.error || 'Personal settings could not be loaded');
-        settings = validateSettings(response.settings || { userId, tools: {}, startPage: 'tools' });
+        const data = JSON.parse(await API.getFileContent('DASHBOARD/dashboard-settings.json'));
+        settings = validateSettings(data || { userId, tools: {}, startPage: 'tools' });
         loaded = true;
         return getSettings();
     };
