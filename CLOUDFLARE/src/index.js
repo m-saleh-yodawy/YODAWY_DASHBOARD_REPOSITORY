@@ -570,7 +570,7 @@ const portalAccountRoutes = async (request, env, path) => {
     const password = String(body.password || "");
     const dryRun = body.dryRun === true;
     if (provider !== "PORTAL" || accountType !== "NON-PERSONAL" || !label || label.length > 160 || !odooKey || odooKey.length > 160 || !username || username.length > 160 || (!dryRun && !password)) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_DATA" }, 400);
-    const users = await env.DB.prepare("SELECT user_id, name FROM users WHERE status = 'Active' AND role IN ('USER', 'ADMIN') ORDER BY user_id").all();
+    const users = await env.DB.prepare("SELECT user_id, name FROM users WHERE status = 'Active' ORDER BY user_id").all();
     const targets = users.results || [];
     if (!targets.length || targets.length > 300) return respond(request, env, { success: false, error: "INVALID_ACCOUNT_TARGETS" }, 400);
     const targetIds = targets.map(user => user.user_id);
