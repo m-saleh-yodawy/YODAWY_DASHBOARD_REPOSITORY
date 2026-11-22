@@ -148,6 +148,7 @@
     let portalAccountsCache = null;
     let portalAccountsRequest = null;
     const getOpenErxAccounts = async odooKey => call('/api/open-erx/accounts', 'POST', { odooKey: String(odooKey || '') });
+    const runSplitGraphQL = (accountId, operationName, query, variables = {}) => call('/api/open-erx/split/graphql', 'POST', { accountId: String(accountId || ''), operationName: String(operationName || ''), query: String(query || ''), variables });
     const runOpenErx = async (accountId, cardNumber, prescriptionId) => call('/api/open-erx/run', 'POST', { accountId: String(accountId || ''), cardNumber: String(cardNumber || ''), prescriptionId: String(prescriptionId || '') });
     const editOpenErx = async (accountId, prescriptionId, action, payload = {}) => call('/api/open-erx/edit', 'POST', { accountId: String(accountId || ''), prescriptionId: String(prescriptionId || ''), action, ...payload });
     const getPortalAccounts = async (force = false) => {
@@ -197,5 +198,5 @@
     const getUserPassword = async userId => call('/api/dashboard/users/' + encodeURIComponent(userId) + '/password');
     const getRepository = async () => ({ default_branch: 'cloudflare' });
     const getConfig = () => Object.freeze({ owner: 'cloudflare', repo: 'yodawy-dashboard', branch: 'cloudflare', configured: true });
-    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, cleanupUsers, getPortalAccounts, getOpenErxAccounts, runOpenErx, editOpenErx, getPortalAccountsForUser, deletePortalAccountsForUser, savePortalAccount, savePortalAccountsForAll, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
+    global.YODAWY_API_ENGINE = Object.freeze({ version: 3, configure: () => true, request, get, post, put, patch, delete: remove, getFile, getFileContent, getRepository, refresh, recordActivity, cleanupUsers, getPortalAccounts, getOpenErxAccounts, runSplitGraphQL, runOpenErx, editOpenErx, getPortalAccountsForUser, deletePortalAccountsForUser, savePortalAccount, savePortalAccountsForAll, getPortalCredentials, deletePortalAccount, importPortalAccounts, setUserPassword, getUserPassword, clearToken: () => true, getConfig });
 })(window);
