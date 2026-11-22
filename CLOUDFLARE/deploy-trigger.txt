@@ -52,3 +52,5 @@ Finalize global input typography: 16px / 20px, Nunito Sans for English, Cairo fo
 Disable recurring live-update polling, remove redundant startup health/readiness/settings requests, refresh only on user action, and optimize USER bootstrap reads: 20261122-worker-request-optimization-1.
 Serve explicit Dashboard UI refresh from cached Static Assets without Worker API invocation: 20261122-worker-request-optimization-2.
 Apply request reduction consistently to both Cloud Bootstrap and Bookmark Bootstrap entry points: 20261122-worker-request-optimization-3.
+
+Fix CORS headers for system messages asset: 20261122-system-messages-cors-1.
