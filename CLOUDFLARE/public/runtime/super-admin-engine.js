@@ -410,7 +410,7 @@
         if (!name) {
             throw createError('User name is required');
         }
-        if (password.length < 10 || password.length > 128) throw createError('Initial password must be between 10 and 128 characters');
+        if (!password) throw createError('Initial password is required');
 
         if (!['USER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
             throw createError('Invalid user role');
