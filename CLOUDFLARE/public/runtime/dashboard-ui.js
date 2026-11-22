@@ -34,6 +34,7 @@
     let rootElement = null;
     let launcherItem = null;
     let launcherObserver = null;
+    let launcherObserverTarget = null;
     let portalAccounts = null;
     let portalAccountsLoading = false;
     let portalManagementAccounts = null;
@@ -226,20 +227,23 @@
         if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') {
             launcherObserver?.disconnect();
             launcherObserver = null;
+            launcherObserverTarget = null;
             launcherItem?.remove();
             launcherItem = null;
             return false;
         }
-        if (!launcherObserver && document.body) {
+        const navbar = document.querySelector('.o_main_navbar');
+        if (!navbar) return false;
+        if (launcherObserverTarget !== navbar) {
+            launcherObserver?.disconnect();
             launcherObserver = new MutationObserver(() => {
                 const menu = document.querySelector('.o_main_navbar ul.o_menu_sections[role="menu"]');
-                if (!launcherItem?.isConnected || launcherItem.parentElement !== menu || menu?.children[2] !== launcherItem) {
-                    mountLauncher();
-                }
+                if (!launcherItem?.isConnected || launcherItem.parentElement !== menu || menu?.children[2] !== launcherItem) mountLauncher();
             });
-            launcherObserver.observe(document.body, { childList: true, subtree: true });
+            launcherObserver.observe(navbar, { childList: true, subtree: true });
+            launcherObserverTarget = navbar;
         }
-        mountLauncher();
+        return mountLauncher();
     };
 
     const ROLE_ACCESS = Object.freeze({
@@ -5656,6 +5660,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         dropdownMenuClickHandler = dropdownMenuInputHandler = dropdownOutsideClickHandler = dropdownKeydownHandler = dropdownScrollHandler = dropdownResizeHandler = null;
         launcherObserver?.disconnect();
         launcherObserver = null;
+        launcherObserverTarget = null;
         launcherItem?.remove();
         launcherItem = null;
         rootElement?.remove();
