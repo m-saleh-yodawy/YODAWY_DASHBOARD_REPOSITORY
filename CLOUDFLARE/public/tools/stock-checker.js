@@ -250,7 +250,7 @@ function createUI(){
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
 #ms-stock-hzb-checker{pointer-events:none!important}
 #ms-stock-hzb-checker,#ms-stock-hzb-checker *{box-sizing:border-box!important}
-#ms-stock-hzb-checker *:not(.yd-fa-icon){font-family:'Nunito Sans',Arial,sans-serif!important}
+#ms-stock-hzb-checker *{font-family:'Nunito Sans',Arial,sans-serif!important}
 #ms-stock-hzb-checker:has(#ms-stock-panel.open){background:#17131c85!important;backdrop-filter:blur(4px)!important;pointer-events:none!important}
 #ms-stock-panel{position:absolute!important;top:50%!important;left:50%!important;display:none!important;flex-direction:column!important;width:min(900px,calc(100vw - 48px))!important;height:min(680px,calc(100vh - 48px))!important;max-height:calc(100vh - 24px)!important;transform:translate(-50%,-50%)!important;overflow:hidden!important;border:1px solid #d9d9de!important;border-radius:16px!important;background:#f7f6f8!important;color:#18181b!important;box-shadow:0 28px 80px #17131c40!important;pointer-events:auto!important}
 #ms-stock-panel.open{display:flex!important}
