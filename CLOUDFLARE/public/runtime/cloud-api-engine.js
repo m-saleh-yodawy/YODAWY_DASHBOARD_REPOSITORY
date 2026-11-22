@@ -186,7 +186,7 @@
     const savePortalAccount = async account => call('/api/portal-accounts', 'POST', account);
     const deletePortalAccount = async accountId => call('/api/portal-accounts/' + encodeURIComponent(accountId) + '/credentials', 'DELETE');
     const savePortalAccountsForAll = async account => {
-        const result = await call('/api/portal-accounts/bulk', 'POST', account);
+        const result = await call('/api/portal-accounts/bulk-missing', 'POST', account);
         if (result?.success) { portalAccountsCache = null; portalAccountsRequest = null; }
         return result;
     };
