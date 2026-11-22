@@ -249,6 +249,23 @@ const portalAccountRoutes = async (request, env, path) => {
     password = "";
     const login = loginData?.ViewerQuery?._SplitLogin;
     if (!login?.token || !login?.insuranceAgencyId || !login?.agentType) return respond(request, env, { success: false, status: 401, error: "PORTAL_LOGIN_FAILED" });
+    if (operationName === "InsuranceAgencyPrescription") {
+      variables.filter = {
+        ...(variables.filter || {}),
+        AgencyId: String(login.insuranceAgencyId),
+        AgentType: String(login.agentType),
+        BranchId: String(login.branchId || ""),
+        PharmacyId: ""
+      };
+    }
+    if (operationName === "addNewChronicPrescription") {
+      variables.input = {
+        ...variables.input,
+        insuranceCompanyId: String(login.insuranceAgencyId),
+        branchId: String(login.branchId || ""),
+        groupId: String(login.groupId || "")
+      };
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
     try {
