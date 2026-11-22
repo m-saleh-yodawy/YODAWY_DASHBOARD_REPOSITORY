@@ -647,11 +647,11 @@ const dashboardRoutes = async (request, env, path) => {
   }
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
-      env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all(),
+      isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
       env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
-      env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all(),
+      isAdmin ? env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all() : env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE v.user_id = ? AND u.role = 'USER'").bind(actor.user_id).all(),
       env.DB.prepare("SELECT settings_json FROM user_settings WHERE user_id = ?").bind(actor.user_id).first(),
       isSuper ? env.DB.prepare("SELECT user_id, settings_json FROM user_settings").all() : Promise.resolve({ results: [] }),
       env.DB.prepare("SELECT announcement_id AS id, author_id, author_name, body, cycle, created_at, updated_at, updated_by FROM announcements ORDER BY created_at DESC").all(),
