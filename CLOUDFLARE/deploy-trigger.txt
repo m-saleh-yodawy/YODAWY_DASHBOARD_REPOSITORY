@@ -44,3 +44,4 @@ Restrict YODAWY Dashboard launcher to Odoo only while preserving cross-site tool
 Match YODAWY Dashboard launcher to Odoo Overview button, enforce third position, and add 20px spacing: 20261122-dashboard-launcher-navbar-polish-1.
 Rename Odoo launcher to DASHBOARD and replace critical close and Stock Checker icons with inline SVG: 20261122-dashboard-icons-svg-1.
 Finalize DASHBOARD label and self-contained SVG icons across dashboard close, Stock Checker, No Items, Ordered By WH, and Open ERX: 20261122-dashboard-icons-svg-2.
+Scope dashboard launcher mutation observer to Odoo navbar only to avoid monitoring ticket content: 20261122-navbar-observer-scope-1.
