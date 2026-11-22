@@ -286,7 +286,7 @@
         const id = normalizeId(data?.id);
 
         if (!name) throw createError('User name is required');
-        if (password.length < 10 || password.length > 128) throw createError('Initial password must be between 10 and 128 characters');
+        if (!password) throw createError('Initial password is required');
         if (!['USER', 'ADMIN'].includes(role)) throw createError('ADMIN can only create USER or ADMIN accounts.');
 
         if (!['ACTIVE', 'INACTIVE'].includes(status.toUpperCase())) {
