@@ -76,3 +76,4 @@ Use exact dashboard canvas #E1E1E1, white tool-card panels, brand-purple accents
 Split Prescription Open ERX-style modal surfaces and controls: 20261122-split-open-erx-modal-style-1.
 Split Prescription Yodawy logo, lighter typography and E1E1E1 canvas: 20261122-split-brand-contrast-2.
 Split Prescription uniform card borders and S logo: 20261122-split-uniform-border-s-logo-1.
+Split Prescription remove browser confirmation after SPLIT click: 20261122-split-no-browser-confirm-1.
