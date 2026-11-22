@@ -57,5 +57,5 @@ Fix CORS headers for system messages asset: 20261122-system-messages-cors-1.
 Fix Odoo Homepage navbar launcher mutation loop and refresh both bootstrap runtime asset versions: 20261122-home-navbar-loop-fix-1.
 Defer Odoo tool loading until an internal page with navbar is active, and hide tool systray items on Home: 20261122-home-defer-tools-1.
 Preserve native Odoo Chatter composer typography and exclude original Log note textareas from global tool input styling: 20261122-chatter-native-input-preserved-1.
-Expose idempotent Super Admin bulk portal assignment for missing Odoo keys: 20261122-portal-bulk-key-export-2.
+Expose idempotent Super Admin bulk portal assignment for missing Odoo keys: 20261122-portal-bulk-key-export-3.
 Bulk portal account assignment skips existing Odoo keys and audits missing-only additions: 20261122-portal-key-backfill-1.
