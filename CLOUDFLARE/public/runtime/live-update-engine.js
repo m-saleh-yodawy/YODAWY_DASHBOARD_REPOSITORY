@@ -1,11 +1,8 @@
 (function (global) {
     'use strict';
-    if (global.YODAWY_LIVE_UPDATE_ENGINE?.version >= 3) return;
+    if (global.YODAWY_LIVE_UPDATE_ENGINE?.version >= 4) return;
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
-    const INTERVAL = 15000;
-    const MAX_INTERVAL = 120000;
-    const MANIFEST_INTERVAL = 60000;
-    let timer = null;
+        let timer = null;
     let running = false;
     let stopped = true;
     let version = '';
@@ -13,7 +10,6 @@
     let pendingUIVersion = '';
     let failures = 0;
     let lastCheck = 0;
-    let lastManifestCheck = 0;
     let lastToolUpdate = 0;
     let lastUIUpdate = 0;
     let lastError = '';
@@ -43,7 +39,6 @@
     const syncTools = async sourceVersion => {
         const app = global.YODAWY;
         if (!app?.tools?.loadManifest || !app?.tools?.sync) return false;
-        lastManifestCheck = Date.now();
         const previousManifest = JSON.stringify(app.tools.getManifest?.() || []);
         const previousLoaded = new Map((app.tools.getLoadedTools?.() || []).map(tool => [tool.id, tool.sha256]));
         await app.tools.loadManifest();
@@ -161,33 +156,12 @@
             running = false;
         }
     };
-    const nextDelay = () => Math.min(INTERVAL * (2 ** failures), MAX_INTERVAL);
-    const scheduleNext = () => {
-        if (stopped) return;
-        clearTimeout(timer);
-        timer = setTimeout(async () => {
-            timer = null;
-            await check();
-            scheduleNext();
-        }, nextDelay());
-    };
-    const onOnline = () => { check(); };
-    const onVisibility = () => { if (document.visibilityState === 'visible') check(); };
     const start = async () => {
-        if (!stopped) return true;
         stopped = false;
-        global.addEventListener('online', onOnline);
-        document.addEventListener('visibilitychange', onVisibility);
-        await check();
-        scheduleNext();
         return true;
     };
     const stop = () => {
         stopped = true;
-        clearTimeout(timer);
-        timer = null;
-        global.removeEventListener('online', onOnline);
-        document.removeEventListener('visibilitychange', onVisibility);
         return true;
     };
     function getStatus() {
@@ -199,11 +173,10 @@
             pendingUIVersion,
             failures,
             lastCheck,
-            lastManifestCheck,
             lastToolUpdate,
             lastUIUpdate,
             lastError
         };
     }
-    global.YODAWY_LIVE_UPDATE_ENGINE = Object.freeze({ version: 3, start, stop, check, getStatus });
+    global.YODAWY_LIVE_UPDATE_ENGINE = Object.freeze({ version: 4, start, stop, check, getStatus });
 })(window);
