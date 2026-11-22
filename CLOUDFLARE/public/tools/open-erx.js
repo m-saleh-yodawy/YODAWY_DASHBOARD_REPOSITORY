@@ -333,7 +333,7 @@
         const overlay = document.createElement('div');
         overlay.className = 'yd-open-erx-backdrop';
         overlay.innerHTML = '<section class="yd-open-erx-modal" role="dialog" aria-modal="true" aria-labelledby="yd-open-erx-title">' +
-            '<header class="yd-open-erx-header"><div class="yd-open-erx-brand"><span class="yd-open-erx-brand-mark">Y</span><div><span class="yd-open-erx-kicker">YODAWY WORKSPACE</span><h2 id="yd-open-erx-title">Open ERX</h2><p>Open the linked Portal prescription directly from this ticket.</p></div></div><button type="button" data-open-erx-close aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button></header>' +
+            '<header class="yd-open-erx-header"><div class="yd-open-erx-brand"><span class="yd-open-erx-brand-mark">Y</span><div><span class="yd-open-erx-kicker">YODAWY WORKSPACE</span><h2 id="yd-open-erx-title">Open ERX</h2><p>Open the linked Portal prescription directly from this ticket.</p></div></div><button type="button" data-open-erx-close aria-label="Close"><svg class="yd-open-erx-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>' +
             '<div class="yd-open-erx-content"><section class="yd-open-erx-ticket"><div><span>INSURANCE COMPANY</span><strong>' + escapeHTML(data.company) + '</strong></div><div><span>CARD NUMBER</span><strong>' + escapeHTML(data.cardNumber) + '</strong></div><div><span>REFERENCE</span><strong>' + escapeHTML(data.formNumber) + '</strong></div></section>' +
             '<section class="yd-open-erx-account-card"><div class="yd-open-erx-section-head"><div><span class="yd-open-erx-section-kicker">PORTAL CONNECTION</span><h3>Portal Account</h3></div><span class="yd-open-erx-status-pill">READY TO LOAD</span></div><label for="yd-open-erx-account">Select account</label><select id="yd-open-erx-account" data-open-erx-account disabled><option>Loading accounts...</option></select></section>' +
             '<div class="yd-open-erx-status" data-open-erx-status><i class="yd-fa-icon fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Loading matching Portal accounts...</div><div class="yd-open-erx-result" data-open-erx-result hidden></div></div>' +
@@ -371,6 +371,7 @@
 .yd-open-erx-header p{margin:3px 0 0;color:#77717a;font-size:11px}
 .yd-open-erx-header>button{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border:1px solid #e4dbe4;border-radius:9px;background:#fff;color:#68465f;cursor:pointer;transition:.16s}
 .yd-open-erx-header>button:hover{border-color:#d8c7d7;background:#f4eff2;color:#875a7b}
+.yd-open-erx-header>button .yd-open-erx-close-icon{display:block;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .yd-open-erx-content{min-height:0;overflow:auto;padding:18px 20px;scrollbar-width:thin;scrollbar-color:#d7cfd9 transparent}
 .yd-open-erx-ticket{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:13px}
 .yd-open-erx-ticket>div{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px 14px;border:1px solid #e5dce6;border-radius:10px;background:#fff;box-shadow:0 2px 5px #29242e08}
