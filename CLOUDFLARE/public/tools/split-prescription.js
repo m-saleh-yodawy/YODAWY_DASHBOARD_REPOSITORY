@@ -682,17 +682,45 @@
         };
     }
 
-    async function createLogNote(prepared) {
+    async function prepareLogNote(prepared) {
         const rows = prepared.selectedDrugs.map(drug => {
             const limited = cleanDrugName(drug.limited) || [drug.name, drug.hzb].join(', ');
-            return '<p>Limited Drug: ' + escapeHTML(limited) + '<br>SPLIT</p>';
+            return 'Limited Drug: ' + limited + '\nSPLIT';
         });
-        const body = rows.join('<p><br></p>');
-        await rpc('helpdesk.ticket', 'message_post', [[state.ticketId]], {
-            body,
-            message_type: 'comment',
-            subtype_xmlid: 'mail.mt_note'
-        });
+        const note = rows.join('\n\n');
+        const findComposer = () => [...document.querySelectorAll('.o_ComposerTextInput_textarea')].find(isVisible) || null;
+        const findAction = () => [...document.querySelectorAll('.o_Composer_buttonSend')].find(isVisible) || null;
+        const originalComposer = findComposer();
+        const originalText = String(originalComposer?.value || '');
+        let composer = originalComposer;
+        let action = findAction();
+
+        if (!composer || getText(action).toLowerCase() !== 'log') {
+            const button = [...document.querySelectorAll('.o_ChatterTopbar_buttonLogNote')].find(isVisible);
+            if (!button) throw new Error('The Odoo Log Note button was not found.');
+            button.click();
+            const end = Date.now() + 5000;
+            while (Date.now() < end) {
+                composer = findComposer();
+                action = findAction();
+                if (composer && getText(action).toLowerCase() === 'log') break;
+                await sleep(100);
+            }
+        }
+
+        if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer. The Split was completed, but no note was posted or replaced.');
+        const existingText = String(composer.value || originalText);
+        const separator = !existingText ? '' : existingText.endsWith('\n\n') ? '' : existingText.endsWith('\n') ? '\n' : '\n\n';
+        const combined = existingText + separator + note;
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        if (!setter) throw new Error('The Odoo Log Note editor could not be updated.');
+        setter.call(composer, combined);
+        composer.dispatchEvent(new Event('input', { bubbles: true }));
+        composer.dispatchEvent(new Event('change', { bubbles: true }));
+        if (composer.value !== combined) throw new Error('The Split Log Note could not be verified in the Odoo editor.');
+        composer.focus();
+        composer.setSelectionRange(combined.length, combined.length);
+        return { prepared: true, appended: Boolean(existingText), length: combined.length };
     }
 
     function injectStyles() {
@@ -826,12 +854,12 @@
                 let noteError = '';
                 if (cleanup.success) {
                     try {
-                        await createLogNote(prepared);
+                        await prepareLogNote(prepared);
                     } catch (error) {
-                        noteError = error?.message || 'Odoo Log Note could not be added.';
+                        noteError = error?.message || 'Odoo Log Note could not be prepared.';
                     }
                 } else {
-                    noteError = 'SPLIT Log Note was not written because Odoo removal was not verified.';
+                    noteError = 'SPLIT Log Note was not prepared because Odoo removal was not verified.';
                 }
                 state.busy = false;
                 const cleanupMessage = cleanup.success
