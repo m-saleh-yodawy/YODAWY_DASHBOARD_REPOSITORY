@@ -15,8 +15,8 @@
         {group:'ABU RAWASH',name:'GOLD',key:'abuGold',path:'GW/Stock',locationId:617},
         {group:'ABU RAWASH',name:'SILVER',key:'abuSilver',path:'SIW/Stock',locationId:631},
         {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum',path:'AR-PP/Stock',locationId:127},
-        {group:'ENGY',name:'GOLD',key:'engyGold',path:'POST-Engy Gold/Stock',match:'POST-Engy Gold',locationId:673},
-        {group:'ENGY',name:'SILVER',key:'engySilver',path:'PRE-Engy Silver/Stock',match:'PRE-Engy Silver',locationId:659},
+        {group:'ENGY',name:'GOLD',key:'engyGold',path:'egw/Stock',locationId:673},
+        {group:'ENGY',name:'SILVER',key:'engySilver',path:'esiw/Stock',locationId:659},
         {group:'ENGY',name:'PLATINUM',key:'engyPlatinum',path:'ep/Stock',locationId:645}
     ];
 
@@ -43,45 +43,28 @@
         return data.result;
     }
 
-    async function findWarehouseLocation(warehouse){
-        const rows=await rpc('stock.location','search_read',{
-            domain:['|',['complete_name','=',warehouse.path],['name','=',warehouse.path]],
-            fields:['id','name','complete_name'],
-            limit:20
-        });
-
-        const location=rows.find(row=>row.complete_name===warehouse.path)
-            ||rows.find(row=>row.name===warehouse.path);
-
-        if(location)return{...warehouse,id:location.id,actualName:location.complete_name||location.name,found:true};
-
-        if(warehouse.locationId&&warehouse.match){
-            const idRows=await rpc('stock.location','search_read',{
-                domain:[['id','=',warehouse.locationId]],
-                fields:['id','name','complete_name'],
-                limit:1
-            });
-
-            const idLocation=idRows[0];
-            const actualName=String(idLocation?.complete_name||idLocation?.name||'').toLowerCase();
-
-            if(idLocation&&actualName.includes(warehouse.match.toLowerCase())){
-                return{...warehouse,id:idLocation.id,actualName:idLocation.complete_name||idLocation.name,found:true};
-            }
-        }
-
-        return{...warehouse,found:false};
-    }
-
     async function getWarehouseLocations(){
         if(!warehouseLocationsPromise){
-            warehouseLocationsPromise=Promise.all(WAREHOUSES.map(async warehouse=>{
-                try{
-                    return await findWarehouseLocation(warehouse);
-                }catch(error){
-                    return{...warehouse,found:false,error:error.message||'Location lookup failed'};
-                }
-            }));
+            warehouseLocationsPromise=(async()=>{
+                const rows=await rpc('stock.location','search_read',{
+                    domain:[['id','in',WAREHOUSES.map(warehouse=>warehouse.locationId)]],
+                    fields:['id','name','complete_name'],
+                    limit:20
+                });
+
+                return WAREHOUSES.map(warehouse=>{
+                    const location=rows.find(row=>
+                        row.id===warehouse.locationId&&row.complete_name===warehouse.path
+                    );
+
+                    return location
+                        ?{...warehouse,id:location.id,actualName:location.complete_name,found:true}
+                        :{...warehouse,found:false};
+                });
+            })().catch(error=>{
+                warehouseLocationsPromise=null;
+                throw error;
+            });
         }
 
         return warehouseLocationsPromise;
@@ -142,6 +125,8 @@
             const location=locations.find(item=>item.key===warehouse.key);
             return[warehouse.key,{
                 quantity:0,
+                reserved:0,
+                available:0,
                 unit:'',
                 location:location?.actualName||warehouse.path,
                 found:Boolean(location?.found)
@@ -158,7 +143,9 @@
             const reserved=Number(row.reserved_quantity||0);
             const stock=result[location.key];
 
-            stock.quantity+=quantity-reserved;
+            stock.quantity+=quantity;
+            stock.reserved+=reserved;
+            stock.available+=quantity-reserved;
             if(!stock.unit&&row.product_uom_id?.[1])stock.unit=row.product_uom_id[1];
         });
 
@@ -303,9 +290,11 @@
 .ms-stock-row-badge.silver{border-color:#d9dfe4!important;background:#f2f4f6!important;color:#64717c!important}
 .ms-stock-row-badge.platinum{border-color:#d9d9de!important;background:#f2f2f4!important;color:#514a56!important}
 .ms-stock-row-location{overflow:hidden!important;max-width:100%!important;color:#9b949f!important;font-size:9px!important;line-height:1.25!important;text-overflow:ellipsis!important;white-space:nowrap!important}
-.ms-stock-row-qty-wrap{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:5px!important;margin-top:auto!important;padding-top:7px!important;border-top:1px solid #f1edf2!important}
-.ms-stock-row-available{color:#9b949f!important;font-size:7.5px!important;font-weight:800!important;letter-spacing:.07em!important}
-.ms-stock-row-qty{color:#18181b!important;font-size:17px!important;font-weight:800!important;letter-spacing:-.03em!important;line-height:1.1!important;white-space:nowrap!important}
+.ms-stock-row-stats{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;margin-top:auto!important;padding-top:7px!important;border-top:1px solid #f1edf2!important}
+.ms-stock-row-stats span{display:flex!important;flex-direction:column!important;gap:4px!important;min-width:0!important}
+.ms-stock-row-stats small{color:#9b949f!important;font-size:7px!important;font-weight:800!important;letter-spacing:.04em!important;white-space:nowrap!important}
+.ms-stock-row-stats b{overflow:hidden!important;color:#18181b!important;font-size:13px!important;font-weight:800!important;line-height:1.1!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.ms-stock-row-stats span:last-child b{color:#68465f!important}
 #ms-stock-footer{display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:29px!important;padding:0 15px!important;border-top:1px solid #e6e2e8!important;background:#fff!important;color:#9b949f!important;font-size:8px!important;font-weight:700!important;letter-spacing:.07em!important}
 #ms-stock-footer span:last-child{color:#875a7b!important}
 #ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;flex:0 0 42px!important;padding:0!important;margin:0!important;pointer-events:auto!important}
@@ -461,10 +450,11 @@ const search=async()=>{
                                             ${escapeHTML(stock.location)}
                                         </span>
                                     </div>
-                                    <span class="ms-stock-row-qty-wrap">
-                                        <span class="ms-stock-row-available">${stock.found?'AVAILABLE':'LOCATION NOT FOUND'}</span>
-                                        <span class="ms-stock-row-qty">${stock.found?Number(stock.quantity||0).toLocaleString()+' '+escapeHTML(stock.unit):'N/A'}</span>
-                                    </span>
+                                    <div class="ms-stock-row-stats">
+                                        <span><small>ON HAND</small><b>${stock.found?Number(stock.quantity||0).toLocaleString():'N/A'}</b></span>
+                                        <span><small>RESERVED</small><b>${stock.found?Number(stock.reserved||0).toLocaleString():'N/A'}</b></span>
+                                        <span><small>AVAILABLE</small><b>${stock.found?Number(stock.available||0).toLocaleString():'N/A'}</b></span>
+                                    </div>
                                 </div>
                             `;
                         }).join('')}
