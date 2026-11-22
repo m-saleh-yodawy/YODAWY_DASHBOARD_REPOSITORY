@@ -21,7 +21,7 @@
     ];
 
     const ID='ms-stock-hzb-checker';
-    let stockLocationTreePromise=null;
+    let warehouseLocationsPromise=null;
 
     async function rpc(model,method,kwargs){
         const response=await fetch(`/web/dataset/call_kw/${model}/${method}`,{
@@ -43,111 +43,54 @@
         return data.result;
     }
 
-    async function getStockLocationTree(){
-        if(!stockLocationTreePromise){
-            stockLocationTreePromise=(async()=>{
-                const domain=[
-                    ...Array(WAREHOUSES.length-1).fill('|'),
-                    ...WAREHOUSES.map(warehouse=>['id','child_of',warehouse.locationId])
-                ];
-
+    async function getWarehouseLocations(){
+        if(!warehouseLocationsPromise){
+            warehouseLocationsPromise=Promise.all(WAREHOUSES.map(async warehouse=>{
                 const rows=await rpc('stock.location','search_read',{
-                    domain,
-                    fields:['id','complete_name','location_id'],
-                    limit:20000,
-                    order:'complete_name asc'
+                    domain:[
+                        '|',
+                        ['complete_name','=',warehouse.path],
+                        ['name','=',warehouse.path]
+                    ],
+                    fields:['id','name','complete_name'],
+                    limit:20
                 });
 
-                const rootIds=new Set(WAREHOUSES.map(warehouse=>warehouse.locationId));
-                const foundRoots=new Set(rows.filter(row=>rootIds.has(row.id)).map(row=>row.id));
-                const missing=WAREHOUSES.filter(warehouse=>!foundRoots.has(warehouse.locationId));
+                const location=rows.find(row=>row.complete_name===warehouse.path)
+                    ||rows.find(row=>row.name===warehouse.path);
 
-                if(missing.length){
-                    throw Error(`Stock locations not found: ${missing.map(warehouse=>warehouse.path).join(', ')}`);
-                }
+                if(!location)throw Error(`Stock location not found: ${warehouse.path}`);
 
-                const parents=new Map(rows.map(row=>[
-                    row.id,
-                    Array.isArray(row.location_id)?row.location_id[0]:null
-                ]));
-                const rootByLocationId=new Map();
-
-                rows.forEach(row=>{
-                    let current=row.id;
-                    const visited=new Set();
-
-                    while(current&&!visited.has(current)){
-                        if(rootIds.has(current)){
-                            rootByLocationId.set(row.id,current);
-                            break;
-                        }
-
-                        visited.add(current);
-                        current=parents.get(current);
-                    }
-                });
-
-                return{
-                    locationIds:[...rootByLocationId.keys()],
-                    rootByLocationId
-                };
-            })().catch(error=>{
-                stockLocationTreePromise=null;
+                return{...warehouse,id:location.id};
+            })).catch(error=>{
+                warehouseLocationsPromise=null;
                 throw error;
             });
         }
 
-        return stockLocationTreePromise;
+        return warehouseLocationsPromise;
     }
 
-    async function readQuantGroups(productIds,tree){
-        const domain=[
-            ['product_id','in',productIds],
-            ['location_id','in',tree.locationIds]
-        ];
+    async function readProductQuants(productIds,locations){
+        if(!productIds.length)return[];
 
-        try{
-            const groups=await rpc('stock.quant','read_group',{
-                domain,
-                fields:[
-                    'product_id',
-                    'location_id',
-                    'product_uom_id',
-                    'quantity:sum',
-                    'reserved_quantity:sum'
-                ],
-                groupby:['product_id','location_id','product_uom_id'],
-                lazy:false,
-                limit:20000
-            });
-
-            if(groups.some(row=>(row.quantity===undefined&&row.quantity_sum===undefined)||(row.reserved_quantity===undefined&&row.reserved_quantity_sum===undefined))){
-                throw Error('Unsupported stock aggregation response');
-            }
-
-            return groups;
-        }catch{
-            return rpc('stock.quant','search_read',{
-                domain,
-                fields:['product_id','location_id','product_uom_id','quantity','reserved_quantity'],
-                limit:50000,
-                order:'product_id asc'
-            });
-        }
-    }
-
-    function getWarehouseForQuant(row,tree){
-        const locationId=Array.isArray(row.location_id)?row.location_id[0]:row.location_id;
-        const rootId=tree.rootByLocationId.get(locationId);
-        return WAREHOUSES.find(warehouse=>warehouse.locationId===rootId)||null;
+        return rpc('stock.quant','search_read',{
+            domain:[
+                ['product_id','in',productIds],
+                ['location_id','in',locations.map(location=>location.id)]
+            ],
+            fields:['product_id','location_id','product_uom_id','quantity','reserved_quantity'],
+            limit:50000,
+            order:'product_id asc'
+        });
     }
 
     async function searchStockProducts(value){
         const text=value.trim();
         if(!text)return[];
 
-        const [tree,productRows]=await Promise.all([
-            getStockLocationTree(),
+        const [locations,productRows]=await Promise.all([
+            getWarehouseLocations(),
             rpc('product.product','search_read',{
                 domain:[
                     '|','|','|',
@@ -167,12 +110,16 @@
         const productIds=productRows.map(product=>product.id).filter(Boolean);
         if(!productIds.length)return[];
 
-        const quantGroups=await readQuantGroups(productIds,tree);
+        const quants=await readProductQuants(productIds,locations);
         const stockedProductIds=new Set();
 
-        quantGroups.forEach(row=>{
+        quants.forEach(row=>{
             const productId=Array.isArray(row.product_id)?row.product_id[0]:row.product_id;
-            if(productId&&getWarehouseForQuant(row,tree))stockedProductIds.add(productId);
+            const locationId=Array.isArray(row.location_id)?row.location_id[0]:row.location_id;
+            const location=locations.find(item=>item.id===locationId);
+            const available=Number(row.quantity||0)-Number(row.reserved_quantity||0);
+
+            if(productId&&location&&available>0)stockedProductIds.add(productId);
         });
 
         return productRows
@@ -191,20 +138,22 @@
     }
 
     async function stocksForProduct(productId){
-        const tree=await getStockLocationTree();
-        const rows=await readQuantGroups([productId],tree);
-        const result=Object.fromEntries(WAREHOUSES.map(warehouse=>[
-            warehouse.key,
-            {quantity:0,unit:'',location:warehouse.path}
+        const locations=await getWarehouseLocations();
+        const rows=await readProductQuants([productId],locations);
+        const result=Object.fromEntries(locations.map(location=>[
+            location.key,
+            {quantity:0,unit:'',location:location.path}
         ]));
+        const locationById=new Map(locations.map(location=>[location.id,location]));
 
         rows.forEach(row=>{
-            const warehouse=getWarehouseForQuant(row,tree);
-            if(!warehouse)return;
+            const locationId=Array.isArray(row.location_id)?row.location_id[0]:row.location_id;
+            const location=locationById.get(locationId);
+            if(!location)return;
 
-            const quantity=Number(row.quantity??row.quantity_sum??0);
-            const reserved=Number(row.reserved_quantity??row.reserved_quantity_sum??0);
-            const stock=result[warehouse.key];
+            const quantity=Number(row.quantity||0);
+            const reserved=Number(row.reserved_quantity||0);
+            const stock=result[location.key];
 
             stock.quantity+=quantity-reserved;
             if(!stock.unit&&row.product_uom_id?.[1])stock.unit=row.product_uom_id[1];
