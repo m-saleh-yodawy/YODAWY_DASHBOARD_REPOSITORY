@@ -198,10 +198,10 @@
             link.className = 'o_menu_entry_lvl_1 nav-link';
             link.style.cssText = 'height:46px;padding:0 10px;color:white;line-height:46px';
             link.setAttribute('role', 'menuitem');
-            link.setAttribute('aria-label', 'YODAWY Dashboard');
-            link.title = 'YODAWY Dashboard';
+            link.setAttribute('aria-label', 'DASHBOARD');
+            link.title = 'DASHBOARD';
             const label = document.createElement('span');
-            label.textContent = 'YODAWY';
+            label.textContent = 'DASHBOARD';
             link.append(label);
             link.addEventListener('click', event => {
                 event.preventDefault();
@@ -767,6 +767,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     transition: all .15s;
 }
 #yd-dashboard-root .yd-close-btn:hover { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger); }
+#yd-dashboard-root .yd-close-btn .yd-inline-icon { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 #yd-dashboard-root #yd-profile-trigger,
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
@@ -3321,7 +3322,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
                                     '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                     '<button class="yd-dropdown-action yd-logout-action" data-action="logout" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-right-from-bracket"></i></span><span><b>Sign Out</b></span></button>' +
-                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="yd-fa-icon fa-solid fa-xmark"></i></button></div>' +
+                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><svg class="yd-inline-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>';
     };
