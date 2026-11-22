@@ -653,6 +653,7 @@
             return;
         }
         state.fetchRunning = true;
+        state.corporate = null;
         state.mutationAttempted = false;
         state.completed = false;
         const button = document.getElementById(CONFIG.BUTTON_ID);
