@@ -68,8 +68,13 @@
     };
 
     function startPortalRelay() {
-        const nonce = new URLSearchParams(location.search).get(CONFIG.RELAY_QUERY) || '';
+        const params = new URLSearchParams(location.search);
+        const nonce = params.get(CONFIG.RELAY_QUERY) || '';
         if (!nonce || !window.opener || !/^[a-f0-9-]{24,}$/i.test(nonce)) return;
+        params.delete(CONFIG.RELAY_QUERY);
+        const remaining = params.toString();
+        const cleanUrl = location.pathname + (remaining ? '?' + remaining : '') + location.hash;
+        history.replaceState(history.state, '', cleanUrl);
         const allowed = new Set(['GetOdooPayerCorporate', 'InsuranceAgencyPrescription', 'GetPrescriptionDetails', 'addNewChronicPrescription']);
         window.addEventListener('message', async event => {
             if (event.origin !== ODOO_ORIGIN || event.source !== window.opener) return;
@@ -90,9 +95,10 @@
                     method: 'POST',
                     mode: 'cors',
                     credentials: 'omit',
-                    cache: 'no-store',
-                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ operationName, query: request.query, variables: request.variables || {} })
+                    headers: { 'Accept': '*/*', 'Content-Type': 'application/json' },
+                    referrer: PORTAL_ORIGIN + '/',
+                    referrerPolicy: 'strict-origin-when-cross-origin',
+                    body: JSON.stringify({ operationName, variables: request.variables || {}, query: request.query })
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) {
