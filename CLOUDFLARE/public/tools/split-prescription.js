@@ -42,6 +42,9 @@
         completed: false,
         ticketId: 0,
         corporate: null,
+        payer: null,
+        cycle: null,
+        expiryInfo: null,
         portalAccounts: [],
         accountId: '',
         api: null
@@ -393,11 +396,26 @@
         return { label, month, year: Number(match[2]), cycleNumber: numeric };
     }
 
-    function getApiExpiryDate(cycle, payer) {
-        const lastDay = new Date(cycle.year, cycle.month + 1, 0).getDate();
-        const displayDay = payer.expiryDay === 'last' ? lastDay : payer.expiryDay;
-        const apiDay = displayDay - 1;
-        return `${String(cycle.month + 1).padStart(2, '0')}/${String(apiDay).padStart(2, '0')}/${cycle.year}`;
+    function getExpiryInfo(cycle, payer, corporate) {
+        const isAlexBank = normalizeKey(corporate?.name).includes('alexbank');
+        let expiryDate;
+        if (payer.key === 'nextcare' && isAlexBank) {
+            const nextCycle = new Date(cycle.year, cycle.month + 1, 1);
+            expiryDate = new Date(nextCycle.getFullYear(), nextCycle.getMonth(), 22);
+        } else if (payer.key === 'metlife' || payer.expiryDay === 'last') {
+            expiryDate = new Date(cycle.year, cycle.month + 1, 0);
+        } else {
+            expiryDate = new Date(cycle.year, cycle.month, Number(payer.expiryDay));
+        }
+        const apiDate = new Date(expiryDate);
+        apiDate.setDate(apiDate.getDate() - 1);
+        const day = String(expiryDate.getDate()).padStart(2, '0');
+        const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
+        const year = expiryDate.getFullYear();
+        return {
+            displayDate: day + '/' + month + '/' + year,
+            apiDate: String(apiDate.getMonth() + 1).padStart(2, '0') + '/' + String(apiDate.getDate()).padStart(2, '0') + '/' + apiDate.getFullYear()
+        };
     }
 
     function generateSerial() {
@@ -462,19 +480,21 @@
     }
 
     async function prepareSplit(selectedDrugs) {
-        const payer = getPayerConfig();
+        const payer = state.payer || getPayerConfig();
         if (!payer.insuranceCompanyId) throw new Error(`${payer.name} has no verified Agency ID in the supplied HAR. Use a backup engine for this payer until its mapping is captured.`);
         const cardNumber = getField('user_ref');
         const formNumber = getField('prescription_number');
         const corporateInfo = state.corporate || await getCorporateInfo();
         const employer = corporateInfo.name;
-        const cycle = await getCycleInfo();
+        const cycle = state.cycle || await getCycleInfo();
         if (!cardNumber) throw new Error('Odoo Card Number is missing.');
         if (!formNumber) throw new Error('Odoo Prescription Number is missing.');
         if (!employer) throw new Error('Odoo Corporate is missing.');
         if (!selectedDrugs.length) throw new Error('Select at least one medication.');
         if (new Set(selectedDrugs.map(item => item.hzb)).size !== selectedDrugs.length) throw new Error('Duplicate HZB values were selected. The split was stopped.');
 
+        const expiryInfo = getExpiryInfo(cycle, payer, corporateInfo);
+        state.expiryInfo = expiryInfo;
         const [corporate, prescription] = await Promise.all([
             resolveCorporate(payer, employer),
             resolvePrescription(payer, cardNumber, formNumber)
@@ -506,7 +526,7 @@
             maxAmount: '00',
             serial: generateSerial(),
             coPayment: String(details.CoPayment ?? '0'),
-            expiryDate: getApiExpiryDate(cycle, payer),
+            expiryDate: expiryInfo.apiDate,
             medications,
             insuranceCompanyId: payer.insuranceCompanyId,
             note: '',
@@ -521,7 +541,7 @@
             tags: ['SPLIT']
         };
         if (!input.patientName) throw new Error('Patient Name was not returned by Portal.');
-        return { input, payer, corporate, cycle, prescription, details, selectedDrugs };
+        return { input, payer, corporate, cycle, prescription, details, selectedDrugs, expiryDate: expiryInfo.displayDate };
     }
 
     function getTicketFormContext(ticketId) {
@@ -743,8 +763,10 @@
 #${CONFIG.DIALOG_ID} .yds-account{padding:12px 20px 0}
 #${CONFIG.DIALOG_ID} .yds-account label{display:block;margin-bottom:6px;color:#68465f;font-size:11px;font-weight:700}
 #${CONFIG.DIALOG_ID} .yds-account select{width:100%;height:36px;padding:0 10px;border:1px solid #d8cbd5;border-radius:5px;background:#fff;color:#403744;font-size:12px}
-#${CONFIG.DIALOG_ID} .yds-meta{display:flex;flex-wrap:wrap;gap:7px;padding:12px 20px;background:#faf8fa;border-bottom:1px solid #eee7ed}
-#${CONFIG.DIALOG_ID} .yds-pill{padding:5px 9px;border:1px solid #e4d9e2;border-radius:16px;background:#fff;font-size:11px;color:#68465f}
+#${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:12px 20px;background:#faf8fa;border-bottom:1px solid #eee7ed}
+#${CONFIG.DIALOG_ID} .yds-summary-card{min-width:0;padding:9px 11px;border:1px solid #e4d9e2;border-radius:7px;background:#fff}
+#${CONFIG.DIALOG_ID} .yds-summary-label{display:block;color:#827987;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+#${CONFIG.DIALOG_ID} .yds-summary-value{display:block;margin-top:3px;color:#68465f;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 #${CONFIG.DIALOG_ID} .yds-body{padding:14px 20px;overflow:auto}
 #${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;padding:9px 10px;margin-bottom:8px;background:#f8f5f7;border:1px solid #eee7ed;border-radius:6px;font-size:13px;font-weight:600}
 #${CONFIG.DIALOG_ID} .yds-list{display:flex;flex-direction:column;gap:6px}
@@ -754,11 +776,20 @@
 #${CONFIG.DIALOG_ID} .yds-drug-copy{min-width:0;flex:1}
 #${CONFIG.DIALOG_ID} .yds-drug-name{font-size:13px;font-weight:600;overflow-wrap:anywhere}
 #${CONFIG.DIALOG_ID} .yds-drug-hzb{margin-top:3px;color:#777;font-size:11px}
+#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:4px 7px;border:1px solid #d7eadf;border-radius:6px;background:#eef8f2;color:#247a53;font-size:9px;font-weight:800;letter-spacing:.02em;white-space:nowrap}
+#${CONFIG.DIALOG_ID} .yds-drug-state[hidden]{display:none}
+#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"]{border-color:#f0d7d9;background:#fee2e2;color:#dc2626}
+#${CONFIG.DIALOG_ID} .yds-row-state-icon{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#247a53;color:#fff;font-size:10px;font-weight:900}
+#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"] .yds-row-state-icon{background:#dc2626}
 #${CONFIG.DIALOG_ID} .yds-footer{padding:13px 20px;border-top:1px solid #eee7ed;background:#fafafa}
-#${CONFIG.DIALOG_ID} .yds-status{display:none;margin-bottom:10px;padding:9px 11px;border-radius:6px;background:#f8f5f7;color:#68465f;font-size:12px;white-space:pre-wrap;line-height:1.5}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{display:block;background:#fff1f1;color:#a12e2e}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{display:block;background:#edf8f0;color:#236b3c}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"]{display:block}
+#${CONFIG.DIALOG_ID} .yds-status{display:none;align-items:center;justify-content:center;gap:10px;min-height:48px;margin-bottom:10px;padding:9px 13px;border:1px solid #d9e7f2;border-radius:8px;background:#edf4fa;color:#35678f;font-size:13px;font-weight:800;letter-spacing:.02em}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"]{display:flex}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{border-color:#f0d7d9;background:#fee2e2;color:#dc2626}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{border-color:#d7eadf;background:#eef8f2;color:#247a53}
+#${CONFIG.DIALOG_ID} .yds-status-icon{display:inline-grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border-radius:50%;background:#35678f;color:#fff;font-size:18px;font-weight:900;line-height:1}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"] .yds-status-icon{background:#247a53}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"] .yds-status-icon{background:#dc2626}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"] .yds-status-icon{width:18px;height:18px;flex-basis:18px;border:2px solid currentColor;border-right-color:transparent;background:transparent;animation:yds-rotate .7s linear infinite}
 #${CONFIG.DIALOG_ID} .yds-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #${CONFIG.DIALOG_ID} .yds-count{font-size:12px;color:#777}
 #${CONFIG.DIALOG_ID} .yds-buttons{display:flex;gap:8px}
@@ -773,11 +804,31 @@
         document.head.appendChild(style);
     }
 
-    function setStatus(message, kind = 'info') {
+    function setStatus(message, kind = 'info', detail = '') {
         const element = state.dialog?.querySelector('.yds-status');
         if (!element) return;
-        element.textContent = message;
+        const icon = element.querySelector('.yds-status-icon');
+        const text = element.querySelector('.yds-status-text');
+        if (icon) icon.textContent = kind === 'success' ? '✓' : kind === 'error' ? '×' : '';
+        if (text) text.textContent = message;
         element.dataset.kind = kind;
+        element.title = detail || '';
+    }
+
+    function markSelectedDrugs(drugs, kind) {
+        const selectedHzbs = new Set(drugs.map(drug => normalize(drug.hzb)));
+        state.dialog?.querySelectorAll('[data-drug-status]').forEach(badge => {
+            const row = badge.closest('.yds-drug');
+            const checkbox = row?.querySelector('[data-drug-index]');
+            const drug = checkbox ? state.dialog._ydsDrugList?.[Number(checkbox.dataset.drugIndex)] : null;
+            const selected = Boolean(drug && selectedHzbs.has(normalize(drug.hzb)));
+            badge.hidden = !selected;
+            if (!selected) return;
+            badge.dataset.kind = kind;
+            badge.innerHTML = kind === 'success'
+                ? '<span class="yds-row-state-icon">✓</span><span>SPLITTED &amp; DELETED</span>'
+                : '<span class="yds-row-state-icon">×</span><span>FAILED</span>';
+        });
     }
 
     function closeDialog() {
@@ -793,12 +844,11 @@
         state.dialog?.remove();
         const overlay = document.createElement('div');
         overlay.id = CONFIG.DIALOG_ID;
-        const payer = getField('payor_id') || 'Unknown';
-        const employer = state.corporate?.name || 'Not Found';
-        const cycleLabel = getText(document.querySelector('span[name="cycle_id"]')) || getField('cycle_id') || 'Unknown';
+        const cycleLabel = state.cycle?.label || 'Unknown';
+        const expiryLabel = state.expiryInfo?.displayDate || 'Unknown';
         const accountOptions = state.portalAccounts.map(account => `<option value="${escapeHTML(account.id)}">${escapeHTML((account.accountType === 'PERSONAL' ? 'Personal' : 'Non-Personal') + ' · ' + (account.username || account.label || account.id))}</option>`).join('');
         const accountControl = state.portalAccounts.length > 1 ? `<div class="yds-account"><label for="yds-portal-account">PORTAL ACCOUNT</label><select id="yds-portal-account" data-portal-account><option value="">Select Portal account...</option>${accountOptions}</select></div>` : '';
-        overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title"><header class="yds-head"><div class="yds-title" id="yds-title">Direct Prescription Split</div><div class="yds-subtitle">Select the medications to include in the new prescription.</div></header><div class="yds-meta"><span class="yds-pill">Payer: ${escapeHTML(payer)}</span><span class="yds-pill">Corporate: ${escapeHTML(employer)}</span><span class="yds-pill">Cycle: ${escapeHTML(cycleLabel)}</span><span class="yds-pill">Max Amount: 00</span><span class="yds-pill">Tag: SPLIT</span></div>${accountControl}<div class="yds-body"><label class="yds-select-all"><input type="checkbox" data-select-all><span>Select All</span></label><div class="yds-list">${drugs.map((drug,index) => `<label class="yds-drug"><input type="checkbox" data-drug-index="${index}"><span class="yds-drug-copy"><span class="yds-drug-name">${escapeHTML(drug.name)}</span><span class="yds-drug-hzb">HZB: ${escapeHTML(drug.hzb)}</span></span></label>`).join('')}</div></div><footer class="yds-footer"><div class="yds-status" aria-live="polite"></div><div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CANCEL</button><button type="button" class="yds-button yds-button-primary" data-submit disabled> SPLIT </button></div></div></footer></section>`;
+        overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title"><header class="yds-head"><div class="yds-title" id="yds-title">Direct Prescription Split</div><div class="yds-subtitle">Select the medications to include in the new prescription.</div></header><div class="yds-summary"><div class="yds-summary-card"><span class="yds-summary-label">Expiry Date</span><strong class="yds-summary-value">${escapeHTML(expiryLabel)}</strong></div><div class="yds-summary-card"><span class="yds-summary-label">Cycle</span><strong class="yds-summary-value">${escapeHTML(cycleLabel)}</strong></div></div>${accountControl}<div class="yds-body"><label class="yds-select-all"><input type="checkbox" data-select-all><span>Select All</span></label><div class="yds-list">${drugs.map((drug,index) => `<label class="yds-drug"><input type="checkbox" data-drug-index="${index}"><span class="yds-drug-copy"><span class="yds-drug-name">${escapeHTML(drug.name)}</span><span class="yds-drug-hzb">HZB: ${escapeHTML(drug.hzb)}</span></span><span class="yds-drug-state" data-drug-status hidden></span></label>`).join('')}</div></div><footer class="yds-footer"><div class="yds-status" aria-live="polite"><span class="yds-status-icon" aria-hidden="true"></span><span class="yds-status-text"></span></div><div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CANCEL</button><button type="button" class="yds-button yds-button-primary" data-submit disabled> SPLIT </button></div></div></footer></section>`;
         document.body.appendChild(overlay);
         state.dialog = overlay;
         const checkboxes = [...overlay.querySelectorAll('[data-drug-index]')];
@@ -821,6 +871,7 @@
         submit.addEventListener('click', async () => {
             const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
             if (!selected.length || state.busy) return;
+            overlay._ydsDrugList = drugs;
             const selectedAccount = overlay.querySelector('[data-portal-account]')?.value || state.accountId;
             if (!selectedAccount) { setStatus('Select the saved Portal account linked to this Odoo payer.', 'error'); return; }
             state.accountId = selectedAccount;
@@ -869,15 +920,21 @@
                     noteError = 'SPLIT Log Note was not prepared because Odoo removal was not verified.';
                 }
                 state.busy = false;
-                const cleanupMessage = cleanup.success
-                    ? 'Odoo cleanup completed: ' + cleanup.count + ' item line(s) deleted.'
-                    : 'Split created successfully, but Odoo item deletion failed: ' + cleanup.error;
-                const noteMessage = cleanup.success && !noteError
-                    ? 'SPLIT Log Note is ready in Chatter. Close this window, review it, then click Log manually.'
-                    : '';
-                setStatus((created.message || 'Prescription saved successfully.') + '\n' + cleanupMessage + '\nSerial: ' + prepared.input.serial + (noteMessage ? '\n' + noteMessage : '') + (noteError ? '\nLog Note: ' + noteError : ''), cleanup.success ? 'success' : 'error');
+                if (cleanup.success) {
+                    markSelectedDrugs(selected, 'success');
+                    setStatus('SPLITTED & DELETED', 'success');
+                } else {
+                    markSelectedDrugs(selected, 'error');
+                    setStatus('FAILED', 'error', cleanup.error || noteError || 'Odoo item deletion was not verified.');
+                }
+                if (noteError) {
+                    const statusElement = state.dialog?.querySelector('.yds-status');
+                    if (statusElement) statusElement.title = noteError;
+                }
 
                 submit.textContent = 'COMPLETED';
+                checkboxes.forEach(item => { item.disabled = true; });
+                selectAll.disabled = true;
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
                 overlay.querySelector('[data-cancel]').disabled = false;
                 submit.disabled = true;
@@ -885,7 +942,8 @@
                 const status = Number(error?.status || 0);
                 const rejectedBeforeCreate = status >= 400 && status < 500;
                 const uncertain = state.mutationAttempted && !state.completed && !rejectedBeforeCreate;
-                setStatus(`${error?.message || 'Split failed.'}${uncertain ? '\n\nThe request may have reached Portal. Check the prescription history before attempting another split.' : ''}`, 'error');
+                markSelectedDrugs(selected, 'error');
+                setStatus('FAILED', 'error', (error?.message || 'Split failed.') + (uncertain ? ' The request may have reached Portal. Check prescription history before retrying.' : ''));
                 submit.textContent = uncertain ? 'CHECK PORTAL' : 'SPLIT';
                 submit.disabled = uncertain;
                 overlay.querySelector('[data-cancel]').disabled = false;
@@ -911,6 +969,9 @@
         }
         state.fetchRunning = true;
         state.corporate = null;
+        state.payer = null;
+        state.cycle = null;
+        state.expiryInfo = null;
         state.portalAccounts = [];
         state.accountId = '';
         state.mutationAttempted = false;
@@ -924,7 +985,11 @@
             if (!state.portalAccounts.length) throw new Error('No saved Portal account matches this Odoo payer in your PORTALS list.');
             state.accountId = state.portalAccounts.length === 1 ? state.portalAccounts[0].id : '';
             const drugs = await fetchSplitDrugs();
-            state.corporate = await getCorporateInfo();
+            const [corporate, cycle] = await Promise.all([getCorporateInfo(), getCycleInfo()]);
+            state.corporate = corporate;
+            state.cycle = cycle;
+            state.payer = getPayerConfig();
+            state.expiryInfo = getExpiryInfo(cycle, state.payer, corporate);
             showDrugDialog(drugs);
         } catch (error) {
             window.alert('Could not prepare Split.\n\n' + (error?.message || 'Unknown error'));
