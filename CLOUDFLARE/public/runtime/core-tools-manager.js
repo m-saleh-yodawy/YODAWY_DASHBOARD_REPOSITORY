@@ -16,6 +16,35 @@
     let unavailableTools = [];
     let initialized = false;
     let syncing = false;
+    let routeSyncPending = false;
+    let routeSyncScheduled = false;
+
+    const isOdooHome = () => {
+        if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') return false;
+        const params = new URLSearchParams(String(page.location.hash || '').replace(/^#/, ''));
+        return params.has('home') || (!params.has('action') && !params.has('model') && !params.has('view_type'));
+    };
+
+    const scheduleRouteSync = () => {
+        if (!initialized) return;
+        if (syncing) {
+            routeSyncPending = true;
+            return;
+        }
+        if (routeSyncScheduled) return;
+        routeSyncScheduled = true;
+        Promise.resolve().then(() => {
+            routeSyncScheduled = false;
+            if (!initialized) return;
+            if (syncing) {
+                routeSyncPending = true;
+                return;
+            }
+            sync().catch(() => {});
+        });
+    };
+
+    page.addEventListener('hashchange', scheduleRouteSync);
 
     const createError = message => {
         const error = new Error(message);
@@ -150,6 +179,7 @@
     };
 
     const canLoad = (tool, dependencies) => {
+        if (isOdooHome()) return false;
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
 
@@ -205,6 +235,10 @@
     };
 
     const start = async tool => {
+        const dependencies = getDependencies();
+        if (!canLoad(tool, dependencies)) {
+            return loadedTools.has(tool.id) ? stop(tool.id) : false;
+        }
         const existing = loadedTools.get(tool.id);
         if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) return true;
         if (existing && !await stop(tool.id)) throw createError('Tool ' + tool.id + ' cannot be safely replaced because it has no destroy method');
@@ -293,6 +327,10 @@
             return getLoadedTools();
         } finally {
             syncing = false;
+            if (routeSyncPending) {
+                routeSyncPending = false;
+                scheduleRouteSync();
+            }
         }
     };
 
