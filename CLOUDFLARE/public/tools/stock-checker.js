@@ -15,8 +15,8 @@
         {group:'ABU RAWASH',name:'GOLD',key:'abuGold',path:'GW/Stock',locationId:617},
         {group:'ABU RAWASH',name:'SILVER',key:'abuSilver',path:'SIW/Stock',locationId:631},
         {group:'ABU RAWASH',name:'PLATINUM',key:'abuPlatinum',path:'AR-PP/Stock',locationId:127},
-        {group:'ENGY',name:'GOLD',key:'engyGold',path:'egw/Stock',locationId:673},
-        {group:'ENGY',name:'SILVER',key:'engySilver',path:'esiw/Stock',locationId:659},
+        {group:'ENGY',name:'GOLD',key:'engyGold',path:'POST-Engy Gold',locationId:673},
+        {group:'ENGY',name:'SILVER',key:'engySilver',path:'PRE-Engy Silver',locationId:659},
         {group:'ENGY',name:'PLATINUM',key:'engyPlatinum',path:'ep/Stock',locationId:645}
     ];
 
