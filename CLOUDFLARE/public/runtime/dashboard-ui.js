@@ -3919,9 +3919,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 '<div class="yd-info-row"><span>Dashboard Repository</span><strong>' + escapeHTML(context.dashboardRepository || '—') + '</strong></div>' +
                 '<div class="yd-info-row"><span>Branch</span><strong>' + escapeHTML(context.branch || 'main') + '</strong></div>' +
             '</div><div class="yd-card"><div class="yd-card-title"><span class="yd-title-icon"><i class="yd-fa-icon fa-solid fa-lock"></i></span><span>Change Password</span></div>' +
-                '<div class="yd-field"><label for="yd-current-password">Current Password</label><input id="yd-current-password" type="password" autocomplete="current-password" maxlength="128"></div>' +
-                '<div class="yd-field"><label for="yd-new-password">New Password</label><input id="yd-new-password" type="password" autocomplete="new-password" minlength="10" maxlength="128"></div>' +
-                '<div class="yd-field"><label for="yd-confirm-password">Confirm New Password</label><input id="yd-confirm-password" type="password" autocomplete="new-password" minlength="10" maxlength="128"></div>' +
+                '<div class="yd-field"><label for="yd-current-password">Current Password</label><input id="yd-current-password" type="password" autocomplete="current-password" ></div>' +
+                '<div class="yd-field"><label for="yd-new-password">New Password</label><input id="yd-new-password" type="password" autocomplete="new-password" ></div>' +
+                '<div class="yd-field"><label for="yd-confirm-password">Confirm New Password</label><input id="yd-confirm-password" type="password" autocomplete="new-password" ></div>' +
                 '<button type="button" class="yd-primary" data-action="change-password"><i class="yd-fa-icon fa-solid fa-key"></i><span>Update Password</span></button>' +
             '</div></div>';
     };
@@ -4370,7 +4370,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             '<h3>' + (editing ? 'Edit User' : 'Add User') + '</h3>' +
             '<div class="yd-form-grid">' +
                 '<div class="yd-field"><label>Full Name</label><input name="name" required value="' + escapeHTML(formatName(user?.name || '')) + '" placeholder="Employee full name"></div>' +
-                (editing ? '<div class="yd-field"><label>Reset Password (Optional)</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Leave blank to keep current password"></div>' : '<div class="yd-field"><label>Initial Password</label><input name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required placeholder="At least 10 characters"></div>') +
+                (editing ? '<div class="yd-field"><label>Reset Password (Optional)</label><input name="password" type="password"  autocomplete="new-password" placeholder="Leave blank to keep current password"></div>' : '<div class="yd-field"><label>Initial Password</label><input name="password" type="password"  autocomplete="new-password" required placeholder="Enter any password"></div>') +
                 roleDropdown + statusDropdown +
             '</div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Cancel</button><button type="submit" class="yd-primary">' + (editing ? 'Save Changes' : 'Create User') + '</button></div></form>';
         mountModalOverlay(overlay);
@@ -4696,7 +4696,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 const newPassword = document.getElementById('yd-new-password')?.value || '';
                 const confirmPassword = document.getElementById('yd-confirm-password')?.value || '';
                 if (!context.cloudAuth?.changePassword) throw new Error('Cloud password service is not connected yet.');
-                if (newPassword.length < 10 || newPassword.length > 128) throw new Error('New password must contain 10 to 128 characters.');
+                if (!newPassword) throw new Error('New password is required.');
                 if (newPassword !== confirmPassword) throw new Error('New password confirmation does not match.');
                 setButtonLoading(button, 'Updating');
                 await context.cloudAuth.changePassword(currentPassword, newPassword);
