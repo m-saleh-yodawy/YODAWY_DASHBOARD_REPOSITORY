@@ -4,7 +4,7 @@
     PAGE.__YD_CLOUD_LOADER__ = true;
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261123-fa-self-hosted-3';
+    const ASSET_VERSION = '20261123-fa-self-hosted-4';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -63,6 +63,7 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         const link = existing || PAGE.document.createElement('link');
         link.id = id;
         link.rel = 'stylesheet';
+        link.crossOrigin = 'anonymous';
         link.href = href;
         link.onload = () => resolve(true);
         link.onerror = () => resolve(false);
@@ -178,25 +179,27 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
             error.code = 'FONT_AWESOME_STYLESHEET_UNAVAILABLE';
             throw error;
         }
-        if (PAGE.document.fonts?.load) {
-            let loadedFonts;
+        const fontAssets = [
+            { path: 'webfonts/6.7.2/fa-solid-900.woff2', family: 'YD Font Awesome 6 Free', weight: '900' },
+            { path: 'webfonts/6.7.2/fa-regular-400.woff2', family: 'YD Font Awesome 6 Free', weight: '400' },
+            { path: 'webfonts/6.7.2/fa-brands-400.woff2', family: 'YD Font Awesome 6 Brands', weight: '400' }
+        ];
+        await Promise.all(fontAssets.map(async asset => {
             try {
-                loadedFonts = await Promise.all([
-                    PAGE.document.fonts.load('900 16px "YD Font Awesome 6 Free"'),
-                    PAGE.document.fonts.load('400 16px "YD Font Awesome 6 Free"'),
-                    PAGE.document.fonts.load('400 16px "YD Font Awesome 6 Brands"')
-                ]);
+                const response = await PAGE.fetch(runtime + asset.path + '?v=' + ASSET_VERSION, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.arrayBuffer();
+                const signature = new Uint8Array(data).slice(0, 4).reduce((value, byte) => value + byte.toString(16).padStart(2, '0'), '');
+                if (signature !== '774f4632') throw new Error('INVALID_WOFF2_SIGNATURE');
+                const face = new PAGE.FontFace(asset.family, data, { weight: asset.weight, style: 'normal' });
+                await face.load();
+                PAGE.document.fonts.add(face);
             } catch (cause) {
-                const error = new Error('FONT_ASSET_LOAD_FAILED: ' + runtime + 'webfonts/6.7.2/ (' + String(cause?.message || cause) + ')');
+                const error = new Error('FONT_ASSET_LOAD_FAILED: ' + runtime + asset.path + ' (' + String(cause?.message || cause) + ')');
                 error.code = 'FONT_ASSET_LOAD_FAILED';
                 throw error;
             }
-            if (loadedFonts.some(fonts => !fonts.length)) {
-                const error = new Error('FONT_ASSET_LOAD_FAILED: ' + runtime + 'webfonts/6.7.2/');
-                error.code = 'FONT_ASSET_LOAD_FAILED';
-                throw error;
-            }
-        }
+        }));
         const assets = [
             'cloud-api-engine.js',
             'core-auth-engine.js',
