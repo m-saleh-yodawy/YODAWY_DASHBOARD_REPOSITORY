@@ -90,7 +90,8 @@
 
     function getTicketId() {
         const params = new URLSearchParams(location.search);
-        const values = [params.get('id'), params.get('active_id'), params.get('res_id'), location.hash.match(/(?:^|[?&#])id=(\d+)/)?.[1]];
+        const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+        const values = [params.get('id'), params.get('res_id'), hash.get('id')];
         for (const value of values) if (/^\d+$/.test(String(value || ''))) return Number(value);
         const modelNodes = [...document.querySelectorAll('[data-oe-model="helpdesk.ticket"][data-oe-id]')];
         for (const element of modelNodes) {
@@ -102,7 +103,9 @@
             const value = element.getAttribute('data-res-id') || element.getAttribute('data-oe-id');
             if (/^\d+$/.test(String(value || ''))) return Number(value);
         }
-        return 0;
+        const model = params.get('model') || hash.get('model') || '';
+        const activeId = params.get('active_id') || hash.get('active_id') || '';
+        return model === 'helpdesk.ticket' && /^\d+$/.test(activeId) ? Number(activeId) : 0;
     }
 
     async function getCorporateInfo() {
