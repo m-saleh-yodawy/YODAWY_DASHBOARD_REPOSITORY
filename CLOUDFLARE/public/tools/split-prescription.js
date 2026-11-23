@@ -45,7 +45,10 @@
         expiryInfo: null,
         portalAccounts: [],
         accountId: '',
-        api: null
+        api: null,
+        portalCreated: false,
+        logPosted: false,
+        ticketClosed: false
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -86,18 +89,18 @@
     }
 
     function getTicketId() {
-        const values = [
-            new URLSearchParams(location.search).get('id'),
-            new URLSearchParams(location.search).get('active_id'),
-            new URLSearchParams(location.search).get('res_id'),
-            location.hash.match(/(?:^|[?&#])id=(\d+)/)?.[1]
-        ];
+        const params = new URLSearchParams(location.search);
+        const values = [params.get('id'), params.get('active_id'), params.get('res_id'), location.hash.match(/(?:^|[?&#])id=(\d+)/)?.[1]];
         for (const value of values) if (/^\d+$/.test(String(value || ''))) return Number(value);
-        for (const element of document.querySelectorAll('[data-res-id], [data-oe-id], [data-id]')) {
-            for (const name of ['data-res-id', 'data-oe-id', 'data-id']) {
-                const value = element.getAttribute(name);
-                if (/^\d+$/.test(String(value || ''))) return Number(value);
-            }
+        const modelNodes = [...document.querySelectorAll('[data-oe-model="helpdesk.ticket"][data-oe-id]')];
+        for (const element of modelNodes) {
+            const value = element.getAttribute('data-oe-id');
+            if (/^\d+$/.test(String(value || ''))) return Number(value);
+        }
+        const forms = [...document.querySelectorAll('.o_form_view, .o_form_renderer')];
+        for (const element of forms) {
+            const value = element.getAttribute('data-res-id') || element.getAttribute('data-oe-id');
+            if (/^\d+$/.test(String(value || ''))) return Number(value);
         }
         return 0;
     }
@@ -181,7 +184,7 @@
                 cids: base.allowed_company_ids.join(','),
                 menu_id: 366,
                 model: 'helpdesk.ticket',
-                view_type: 'list'
+                view_type: 'form'
             },
             search_default_active_cycle: 1,
             search_default_unassigned: 1
@@ -228,6 +231,56 @@
             throw new Error(error?.data?.message || error?.data?.arguments?.[0] || error?.data?.name || error?.message || 'Odoo request failed.');
         }
         return data.result;
+    }
+
+    async function getTicketStage(ticketId) {
+        const record = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['stage_id', 'previous_state_id', 'team_id']], { context: getSessionContext() }))?.[0];
+        if (!record) throw new Error('Odoo could not read the ticket stage.');
+        const teamId = Number(Array.isArray(record.team_id) ? record.team_id[0] : record.team_id) || 69;
+        const stages = await rpc('helpdesk.stage', 'search_read', [[['name', 'in', ['Confirmed Alternatives', 'Closed']]]], {
+            fields: ['id', 'name', 'team_ids', 'is_close'],
+            limit: 100,
+            context: getSessionContext()
+        });
+        if (!Array.isArray(stages)) throw new Error('Odoo did not return the ticket stages.');
+        const resolve = name => {
+            const matches = stages.filter(stage => normalizeKey(stage?.name) === normalizeKey(name));
+            const teamMatches = matches.filter(stage => Array.isArray(stage.team_ids) && stage.team_ids.map(Number).includes(teamId));
+            const unassignedMatches = matches.filter(stage => !Array.isArray(stage.team_ids) || !stage.team_ids.length);
+            const selected = teamMatches.length ? teamMatches : unassignedMatches.length ? unassignedMatches : matches;
+            if (selected.length !== 1) throw new Error('Could not uniquely identify the ' + name + ' stage for this ticket team.');
+            return selected[0];
+        };
+        return { record, teamId, confirmed: resolve('Confirmed Alternatives'), closed: resolve('Closed') };
+    }
+
+    async function setTicketStage(stageName) {
+        const ticketId = Number(state.ticketId || getTicketId());
+        if (!ticketId) throw new Error('Ticket ID is unavailable while changing the stage.');
+        const stages = await getTicketStage(ticketId);
+        const target = normalizeKey(stageName) === normalizeKey('Closed') ? stages.closed : stages.confirmed;
+        const currentId = Number(Array.isArray(stages.record.stage_id) ? stages.record.stage_id[0] : stages.record.stage_id || 0);
+        if (stageName === 'Closed' && target.is_close !== true) throw new Error('The selected Closed stage is not configured as a closing stage.');
+        if (currentId === Number(target.id)) return { changed: false, stageId: currentId, stageName: target.name };
+        const values = { stage_id: Number(target.id) };
+        if (currentId > 0) values.previous_state_id = currentId;
+        const context = {
+            ...getActionContext(),
+            active_model: 'helpdesk.team',
+            active_id: stages.teamId,
+            active_ids: [stages.teamId],
+            default_team_id: stages.teamId
+        };
+        const written = await rpc('helpdesk.ticket', 'write', [[ticketId], values], { context });
+        if (written !== true) throw new Error('Odoo did not confirm the ticket stage update.');
+        const verified = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['stage_id', 'previous_state_id']], { context: getSessionContext() }))?.[0];
+        const verifiedId = Number(Array.isArray(verified?.stage_id) ? verified.stage_id[0] : verified?.stage_id || 0);
+        if (verifiedId !== Number(target.id)) throw new Error('The ticket did not reach ' + target.name + '. Split was stopped.');
+        return { changed: true, stageId: verifiedId, stageName: target.name };
+    }
+
+    async function ensureConfirmedAlternativesStage() {
+        return setTicketStage('Confirmed Alternatives');
     }
 
     async function graphQL(query, variables = {}) {
@@ -691,19 +744,62 @@
         };
     }
 
-    async function prepareLogNote(prepared) {
-        const rows = prepared.selectedDrugs.map(drug => {
-            const limited = cleanDrugName(drug.limited) || [drug.name, drug.hzb].join(', ');
-            return 'Limited Drug: ' + limited + '\nSPLIT';
-        });
-        const note = rows.join('\n\n');
+    async function checkRemainingLimitedDrugs() {
+        const ticketId = Number(state.ticketId || getTicketId());
+        const baselineId = await getLatestMessageId(ticketId);
+        const context = getActionContext();
+        context.params = { ...(context.params || {}), view_type: 'form' };
+        const action = await rpcButton('helpdesk.ticket', 'action_fetch_suitable_alternatives', [[ticketId]], context);
+        if (/No items need to check/i.test(JSON.stringify(action || {}))) {
+            await removeFetchMessages(ticketId, [], baselineId);
+            return { noItems: true, drugs: [] };
+        }
+        const wizardId = Number(action?.res_id || 0);
+        if (!wizardId) throw new Error('Odoo did not return a verifiable result for the remaining limited drugs.');
+        const wizard = (await rpc('alternative.wizard', 'read', [[wizardId]], {
+            fields: ['non_selected_drugs', 'alternative_lines_ids'],
+            context: getTicketFormContext(ticketId)
+        }))?.[0];
+        if (!wizard || !Object.prototype.hasOwnProperty.call(wizard, 'non_selected_drugs')) throw new Error('Odoo did not return the remaining limited-drug data.');
+        const drugs = parseFetchedDrugs(wizard.non_selected_drugs);
+        await removeFetchMessages(ticketId, drugs, baselineId);
+        return { noItems: drugs.length === 0, drugs };
+    }
+
+    async function waitForSplitLogNote(ticketId, baselineId, targets, timeout = 12000) {
+        const end = Date.now() + timeout;
+        while (Date.now() < end) {
+            const messages = await rpc('mail.message', 'search_read', [[
+                ['model', '=', 'helpdesk.ticket'],
+                ['res_id', '=', ticketId],
+                ...(baselineId ? [['id', '>', baselineId]] : [])
+            ]], {
+                fields: ['id', 'body'],
+                order: 'id desc',
+                limit: 30,
+                context: getSessionContext()
+            });
+            const message = (messages || []).find(item => {
+                const plain = getPlainMessage(item.body);
+                if (!/\bSPLIT\b/i.test(plain)) return false;
+                const hzbs = [...plain.matchAll(/,\s*(\d+)\b/g)].map(match => match[1]);
+                return targets.every(target => hzbs.includes(target.hzb));
+            });
+            if (message) return message;
+            await sleep(180);
+        }
+        throw new Error('Odoo did not confirm the SPLIT Log Note in Chatter.');
+    }
+
+    async function postSplitLogNote(prepared) {
+        const ticketId = Number(state.ticketId || getTicketId());
+        const targets = prepared.selectedDrugs.map(drug => ({ name: normalize(drug.name), hzb: normalize(drug.hzb) }));
+        const baselineId = await getLatestMessageId(ticketId);
+        const note = prepared.selectedDrugs.map(drug => 'Limited Drug: ' + (cleanDrugName(drug.limited) || [drug.name, drug.hzb].join(', '))).join('\n') + '\nSPLIT';
         const findComposer = () => [...document.querySelectorAll('.o_ComposerTextInput_textarea')].find(isVisible) || null;
         const findAction = () => [...document.querySelectorAll('.o_Composer_buttonSend')].find(isVisible) || null;
-        const originalComposer = findComposer();
-        const originalText = String(originalComposer?.value || '');
-        let composer = originalComposer;
+        let composer = findComposer();
         let action = findAction();
-
         if (!composer || getText(action).toLowerCase() !== 'log') {
             const button = [...document.querySelectorAll('.o_ChatterTopbar_buttonLogNote')].find(isVisible);
             if (!button) throw new Error('The Odoo Log Note button was not found.');
@@ -716,16 +812,8 @@
                 await sleep(100);
             }
         }
-
-        if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer. The Split was completed, but no note was posted or replaced.');
-        const currentText = String(composer.value || '');
-        let existingText = currentText || originalText;
-        if (originalText && currentText && originalText !== currentText && !originalText.startsWith(currentText) && !currentText.startsWith(originalText)) {
-            const previousSeparator = originalText.endsWith('\n\n') ? '' : originalText.endsWith('\n') ? '\n' : '\n\n';
-            existingText = originalText + previousSeparator + currentText;
-        } else if (originalText.length > currentText.length && originalText.startsWith(currentText)) {
-            existingText = originalText;
-        }
+        if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer.');
+        const existingText = String(composer.value || '');
         const separator = !existingText ? '' : existingText.endsWith('\n\n') ? '' : existingText.endsWith('\n') ? '\n' : '\n\n';
         const combined = existingText + separator + note;
         const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
@@ -733,10 +821,19 @@
         setter.call(composer, combined);
         composer.dispatchEvent(new Event('input', { bubbles: true }));
         composer.dispatchEvent(new Event('change', { bubbles: true }));
-        if (composer.value !== combined) throw new Error('The Split Log Note could not be verified in the Odoo editor.');
-        composer.focus();
-        composer.setSelectionRange(combined.length, combined.length);
-        return { prepared: true, appended: Boolean(existingText), length: combined.length };
+        if (composer.value !== combined) throw new Error('The SPLIT Log Note could not be verified in the Odoo editor.');
+        if (action.disabled) throw new Error('The Odoo Log Note send button is disabled.');
+        action.click();
+        const message = await waitForSplitLogNote(ticketId, baselineId, targets);
+        const end = Date.now() + 6000;
+        const appearsInDom = () => [...document.querySelectorAll('.o_Message, .o-mail-Message')].some(element => {
+            const plain = getText(element);
+            return /\bSPLIT\b/i.test(plain) && targets.every(target => plain.includes(target.hzb));
+        });
+        while (Date.now() < end && !appearsInDom()) await sleep(120);
+        if (!appearsInDom()) throw new Error('The SPLIT Log Note was saved, but Odoo did not refresh the Chatter DOM. Ticket deletion was stopped.');
+        state.logPosted = true;
+        return { posted: true, messageId: Number(message.id) };
     }
 
     function injectStyles() {
@@ -948,7 +1045,11 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                     throw new Error(created?.message || 'Portal did not confirm prescription creation.');
                 }
                 state.completed = true;
-                setStatus('Portal confirmed the split. Removing the selected items from this Odoo ticket...', 'info');
+                state.portalCreated = true;
+                submit.innerHTML = '<span class="yds-spin"></span>POSTING SPLIT NOTE';
+                setStatus('Portal confirmed the split. Posting the SPLIT note to Odoo Chatter...', 'info');
+                await postSplitLogNote(prepared);
+                setStatus('SPLIT note is visible in Chatter. Removing the selected items from Odoo...', 'info');
                 submit.innerHTML = '<span class="yds-spin"></span>CLEANING ODOO';
                 let cleanup = { success: false, error: '' };
                 try {
@@ -956,30 +1057,34 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                 } catch (error) {
                     cleanup.error = error?.message || 'Odoo item deletion failed.';
                 }
-                let noteError = '';
+                let remaining = null;
+                let closeError = '';
                 if (cleanup.success) {
                     try {
-                        await prepareLogNote(prepared);
+                        remaining = await checkRemainingLimitedDrugs();
+                        if (remaining.noItems) {
+                            await setTicketStage('Closed');
+                            state.ticketClosed = true;
+                        }
                     } catch (error) {
-                        noteError = error?.message || 'Odoo Log Note could not be prepared.';
+                        closeError = error?.message || 'Could not verify whether the ticket can be closed.';
                     }
-                } else {
-                    noteError = 'SPLIT Log Note was not prepared because Odoo removal was not verified.';
                 }
                 state.busy = false;
                 if (cleanup.success) {
                     markSelectedDrugs(selected, 'success');
-                    setStatus('SUCCESS', 'success');
+                    if (state.ticketClosed) {
+                        setStatus('SUCCESS — TICKET CLOSED', 'success');
+                    } else if (closeError) {
+                        setStatus('SPLIT COMPLETED — CLOSURE CHECK FAILED', 'info', closeError);
+                    } else {
+                        setStatus('SPLIT COMPLETED — REMAINING ITEMS', 'info', String(remaining?.drugs?.length || 0) + ' limited drugs still need checking.');
+                    }
                 } else {
                     markSelectedDrugs(selected, 'error');
-                    setStatus('FAILED', 'error', cleanup.error || noteError || 'Odoo item deletion was not verified.');
+                    setStatus('SPLIT CREATED — ODOO CLEANUP FAILED', 'error', cleanup.error || 'Odoo item deletion was not verified.');
                 }
-                if (noteError) {
-                    const statusElement = state.dialog?.querySelector('.yds-status');
-                    if (statusElement) statusElement.title = noteError;
-                }
-
-                submit.textContent = 'COMPLETED';
+                submit.textContent = state.ticketClosed ? 'TICKET CLOSED' : cleanup.success ? 'COMPLETED' : 'CHECK ODOO';
                 checkboxes.forEach(item => { item.disabled = true; });
                 selectAll.disabled = true;
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
@@ -988,14 +1093,18 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             } catch (error) {
                 const status = Number(error?.status || 0);
                 const rejectedBeforeCreate = status >= 400 && status < 500;
-                const uncertain = state.mutationAttempted && !state.completed && !rejectedBeforeCreate;
+                const uncertain = state.mutationAttempted && !state.portalCreated && !rejectedBeforeCreate;
+                const blocked = state.portalCreated || uncertain;
                 markSelectedDrugs(selected, 'error');
-                setStatus('FAILED', 'error', (error?.message || 'Split failed.') + (uncertain ? ' The request may have reached Portal. Check prescription history before retrying.' : ''));
-                submit.textContent = uncertain ? 'CHECK PORTAL' : 'SPLIT';
-                submit.disabled = uncertain;
+                setStatus(state.portalCreated ? 'PORTAL CREATED — ODOO CHECK REQUIRED' : 'FAILED', 'error',
+                    (error?.message || 'Split failed.') + (state.portalCreated
+                        ? ' The Portal prescription already exists. Do not run Split again or a duplicate prescription may be created.'
+                        : uncertain ? ' The request may have reached Portal. Check prescription history before retrying.' : ''));
+                submit.textContent = state.portalCreated ? 'CHECK ODOO' : uncertain ? 'CHECK PORTAL' : 'SPLIT';
+                submit.disabled = blocked;
                 overlay.querySelector('[data-cancel]').disabled = false;
                 state.busy = false;
-                if (!uncertain) update();
+                if (!blocked) update();
             }
         });
         state.keydown = event => {
@@ -1023,9 +1132,15 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         state.accountId = '';
         state.mutationAttempted = false;
         state.completed = false;
+        state.portalCreated = false;
+        state.logPosted = false;
+        state.ticketClosed = false;
         const button = document.getElementById(CONFIG.BUTTON_ID);
         if (button) { button.disabled = true; button.dataset.loading = '1'; }
         try {
+            state.ticketId = getTicketId();
+            if (!state.ticketId) throw new Error('Ticket ID was not found. Open the Helpdesk ticket form and try again.');
+            await ensureConfirmedAlternativesStage();
             const api = await waitForApi();
             const accountResponse = await api.getOpenErxAccounts(getField('payor_id'));
             state.portalAccounts = accountResponse?.success === true && Array.isArray(accountResponse.accounts) ? accountResponse.accounts : [];
