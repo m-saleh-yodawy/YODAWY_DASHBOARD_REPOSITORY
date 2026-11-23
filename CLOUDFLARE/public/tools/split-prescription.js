@@ -1067,7 +1067,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
-        button.innerHTML = '<i class="fa fa-fw fa-scissors o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
+        button.innerHTML = '<i class="fa-solid fa-split o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
