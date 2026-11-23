@@ -75,7 +75,7 @@ const company=companyMap[payer];
 if(!company)return alert(`Unsupported Company: ${payer||'Unknown'}`);
 const cardNumber=card.textContent.trim();
 const formNumber=document.querySelector('span[name="prescription_number"]')?.textContent.trim()||'';
-if(!cardNumber||!formNumber)return alert('Card Number or Prescription Number is missing.');
+if(!cardNumber)return alert('Card Number is missing from Reference.');
 const url=`https://portal.yodawy.com/?tm=1&mode=openPortal&company=${encodeURIComponent(company)}&card=${encodeURIComponent(cardNumber)}&fn=${encodeURIComponent(formNumber)}`;
 window.open(url,'_blank');
 };
@@ -170,7 +170,7 @@ const params=new URLSearchParams(location.search);
 if(params.get('tm')!=='1'||params.get('mode')!=='openPortal'||params.has('split'))return;
 const card=(params.get('card')||'').trim();
 const formNumber=(params.get('fn')||'').trim();
-if(!card||!formNumber)throw new Error('The card number or prescription number is missing from the link.');
+if(!card)throw new Error('The card number is missing from the link.');
 const accounts=await loadAccounts();
 const account=findAccount(accounts,params.get('company')||'');
 await login(account);
@@ -178,7 +178,7 @@ await delay(2000);
 await searchMember();
 await enterCardNumber(card);
 await proceed();
-await selectPrescription(formNumber);
+if(formNumber)await selectPrescription(formNumber);
 }
 
 if(location.hostname==='odoo.yodawy.com'){
