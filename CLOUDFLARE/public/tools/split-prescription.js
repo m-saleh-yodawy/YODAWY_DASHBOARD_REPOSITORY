@@ -892,19 +892,51 @@
         if (!messageId) throw new Error('Odoo did not return a valid SPLIT Chatter message ID.');
         const formatted = await rpc('mail.message', 'message_format', [[messageId]], { context: getSessionContext() });
         if (!Array.isArray(formatted) || !formatted.some(item => Number(item?.id) === messageId)) throw new Error('Odoo did not confirm formatting of the SPLIT Chatter message.');
-        const fetched = await rpc('mail.message', 'message_fetch', [], {
-            context: getSessionContext(),
-            domain: [
-                ...(baselineId ? [['id', '>', baselineId]] : []),
-                ['message_type', '!=', 'user_notification'],
-                ['model', '=', 'helpdesk.ticket'],
-                ['res_id', '=', ticketId]
-            ],
-            limit: false
-        });
-        if (!Array.isArray(fetched) || !fetched.some(item => Number(item?.id) === messageId)) throw new Error('The SPLIT note was saved but Odoo did not return it in the Chatter refresh.');
         state.logPosted = true;
-        return { posted: true, messageId };
+        return { posted: true, messageId, targets };
+    }
+
+    async function refreshTicketComponentsWithAssignToMe(prepared) {
+        const ticketId = Number(state.ticketId || getTicketId());
+        const uid = Number(getSessionContext().uid || 0);
+        if (!ticketId || !uid) throw new Error('The ticket or current Odoo user could not be verified for the component refresh.');
+        const record = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['user_id']], { context: getSessionContext() }))?.[0];
+        const assignedId = Number(Array.isArray(record?.user_id) ? record.user_id[0] : record?.user_id || 0);
+        if (!record || assignedId !== uid) throw new Error('The ticket is not assigned to the current user. The Assign to Me refresh was stopped to avoid changing ticket ownership.');
+        const selectors = [
+            'button[name="assign_ticket_to_self"]',
+            'button[data-name="assign_ticket_to_self"]',
+            'a[name="assign_ticket_to_self"]',
+            '[role="button"][name="assign_ticket_to_self"]'
+        ];
+        let button = selectors.flatMap(selector => [...document.querySelectorAll(selector)]).find(element => isVisible(element) && !element.disabled);
+        if (!button) {
+            button = [...document.querySelectorAll('button, a, [role="button"]')].find(element =>
+                isVisible(element) && !element.disabled && normalize(getText(element)).toLowerCase() === 'assign to me'
+            );
+        }
+        if (!button) throw new Error('The native Assign to Me button was not found. The Chatter component refresh was not triggered.');
+        const targets = prepared.selectedDrugs.map(drug => normalize(drug.hzb));
+        const hasSplitNote = () => [...document.querySelectorAll('.o_Message, .o-mail-Message')].some(element => {
+            const plain = getText(element);
+            return /\bSPLIT\b/i.test(plain) && targets.every(hzb => plain.includes(hzb));
+        });
+        let changed = false;
+        const observer = new MutationObserver(() => { changed = true; });
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+        try {
+            button.click();
+            const end = Date.now() + 12000;
+            while (Date.now() < end) {
+                if (changed && hasSplitNote()) return { refreshed: true, messageId: prepared.messageId || 0 };
+                await sleep(100);
+            }
+        } finally {
+            observer.disconnect();
+        }
+        if (!hasSplitNote()) throw new Error('Assign to Me was triggered, but Odoo did not refresh the SPLIT note in the Chatter components.');
+        if (!changed) throw new Error('The SPLIT note exists, but Odoo component re-render was not detected after Assign to Me.');
+        return { refreshed: true, messageId: prepared.messageId || 0 };
     }
 
     function injectStyles() {
@@ -1093,12 +1125,12 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         revealDeferredChatterMessages();
         setStatus('Publishing the SPLIT note to Odoo Chatter...', 'info');
         try {
-            await postSplitLogNote(state.pendingSplitLog);
+            const posted = await postSplitLogNote(state.pendingSplitLog);
+            await refreshTicketComponentsWithAssignToMe({ ...state.pendingSplitLog, messageId: posted.messageId });
             state.pendingSplitLog = null;
             state.busy = false;
-            setStatus('SPLIT NOTE SAVED — REFRESHING CHATTER...', 'success');
+            setStatus('SPLIT NOTE SAVED — ODOO COMPONENTS REFRESHED', 'success');
             closeDialog();
-            window.location.reload();
         } catch (error) {
             state.busy = false;
             if (button) {
