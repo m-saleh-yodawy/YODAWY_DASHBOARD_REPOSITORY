@@ -24,12 +24,10 @@
         NEXTCARE: {
             payerRef: 'next_care',
             insuranceCompanyId: '5fe1dd72b67e934e07563d84',
-            expiryDay: 22
         },
         METLIFE: {
             payerRef: 'metlife',
             insuranceCompanyId: '',
-            expiryDay: 'last'
         }
     };
 
@@ -396,19 +394,10 @@
         return { label, month, year: Number(match[2]), cycleNumber: numeric };
     }
 
-    function getExpiryInfo(cycle, payer, corporate) {
-        const isAlexBank = normalizeKey(corporate?.name).includes('alexbank');
-        let expiryDate;
-        if (payer.key === 'nextcare' && isAlexBank) {
-            const nextCycle = new Date(cycle.year, cycle.month + 1, 1);
-            expiryDate = new Date(nextCycle.getFullYear(), nextCycle.getMonth(), 22);
-        } else if (payer.key === 'metlife' || payer.expiryDay === 'last') {
-            expiryDate = new Date(cycle.year, cycle.month + 1, 0);
-        } else {
-            expiryDate = new Date(cycle.year, cycle.month, Number(payer.expiryDay));
-        }
+    function getExpiryInfo(cycle) {
+        const expiryDate = new Date(cycle.year, cycle.month, 22);
         const apiDate = new Date(expiryDate);
-        if (!(payer.key === 'nextcare' && isAlexBank)) apiDate.setDate(apiDate.getDate() - 1);
+        apiDate.setDate(apiDate.getDate() - 1);
         const day = String(expiryDate.getDate()).padStart(2, '0');
         const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
         const year = expiryDate.getFullYear();
@@ -493,7 +482,7 @@
         if (!selectedDrugs.length) throw new Error('Select at least one medication.');
         if (new Set(selectedDrugs.map(item => item.hzb)).size !== selectedDrugs.length) throw new Error('Duplicate HZB values were selected. The split was stopped.');
 
-        const expiryInfo = getExpiryInfo(cycle, payer, corporateInfo);
+        const expiryInfo = getExpiryInfo(cycle);
         state.expiryInfo = expiryInfo;
         const [corporate, prescription] = await Promise.all([
             resolveCorporate(payer, employer),
@@ -1047,7 +1036,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             state.corporate = corporate;
             state.cycle = cycle;
             state.payer = getPayerConfig();
-            state.expiryInfo = getExpiryInfo(cycle, state.payer, corporate);
+            state.expiryInfo = getExpiryInfo(cycle);
             showDrugDialog(drugs);
         } catch (error) {
             window.alert('Could not prepare Split.\n\n' + (error?.message || 'Unknown error'));

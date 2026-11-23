@@ -2464,43 +2464,8 @@
         const{month,year}=
               parseCycle(cycle);
 
-        let display;
-
-        if(company==="metlife"){
-            const expiry=
-                  new Date(
-                      year,
-                      month+1,
-                      0
-                  );
-
-            display=
-                `${expiry.getDate()} `+
-                `${expiry.toLocaleString(
-                "en-US",
-                {month:"short"}
-            )} `+
-                `${String(
-                expiry.getFullYear()
-            ).slice(-2)}`;
-        }else{
-            const expiry=
-                  new Date(
-                      year,
-                      month,
-                      22
-                  );
-
-            display=
-                `22 `+
-                `${expiry.toLocaleString(
-                "en-US",
-                {month:"short"}
-            )} `+
-                `${String(
-                expiry.getFullYear()
-            ).slice(-2)}`;
-        }
+        const expiry = new Date(year, month, 22);
+        const display = `22 ${expiry.toLocaleString("en-US", { month: "short" })} ${String(expiry.getFullYear()).slice(-2)}`;
 
         const label=await waitForElement(()=>
                                          [...document.querySelectorAll("label")]
