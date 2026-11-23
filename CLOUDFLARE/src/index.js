@@ -1063,6 +1063,7 @@ export default {
     const response = await env.ASSETS.fetch(request);
     if (url.pathname.startsWith("/runtime/webfonts/")) {
       const headers = new Headers(response.headers);
+      headers.delete("access-control-allow-origin");
       headers.set("access-control-allow-origin", "*");
       headers.set("access-control-allow-methods", "GET, HEAD, OPTIONS");
       headers.set("cross-origin-resource-policy", "cross-origin");

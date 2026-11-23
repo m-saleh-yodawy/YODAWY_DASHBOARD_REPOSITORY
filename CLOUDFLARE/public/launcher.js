@@ -5,7 +5,7 @@
     if (window.__YD_CLOUD_LAUNCHER__) return;
     window.__YD_CLOUD_LAUNCHER__ = true;
     const script = document.createElement('script');
-    script.src = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev/bookmark-bootstrap.js?v=20261123-fa-self-hosted-4';
+    script.src = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev/bookmark-bootstrap.js?v=20261123-fa-self-hosted-5';
     script.async = true;
     script.onload = () => {
         window.__YD_CLOUD_LAUNCHER__ = false;

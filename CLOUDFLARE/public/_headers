@@ -28,14 +28,10 @@
 
 /runtime/*
   Cache-Control: no-cache, must-revalidate
-  Access-Control-Allow-Origin: *
   Timing-Allow-Origin: *
 
 /runtime/webfonts/6.7.2/*
   Cache-Control: public, max-age=31536000, immutable
-  Access-Control-Allow-Origin: *
-  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
-  Cross-Origin-Resource-Policy: cross-origin
   Timing-Allow-Origin: *
 
 /launcher.js
