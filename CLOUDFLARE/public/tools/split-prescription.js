@@ -876,41 +876,22 @@
         if (!state.splitLogBaselineId) state.splitLogBaselineId = await getLatestMessageId(ticketId);
         const baselineId = state.splitLogBaselineId;
         const note = prepared.selectedDrugs.map(drug => 'Limited Drug: ' + (cleanDrugName(drug.limited) || [drug.name, drug.hzb].join(', '))).join('\n') + '\nSPLIT';
-        let message = await findExistingSplitLogNote(ticketId, baselineId, targets);
-        if (!message) {
-            const findComposer = () => [...document.querySelectorAll('.o_ComposerTextInput_textarea')].find(isVisible) || null;
-            const findAction = () => [...document.querySelectorAll('.o_Composer_buttonSend')].find(isVisible) || null;
-            let composer = findComposer();
-            let action = findAction();
-            if (!composer || getText(action).toLowerCase() !== 'log') {
-                const button = [...document.querySelectorAll('.o_ChatterTopbar_buttonLogNote')].find(isVisible);
-                if (!button) throw new Error('The Odoo Log Note button was not found.');
-                button.click();
-                const end = Date.now() + 5000;
-                while (Date.now() < end) {
-                    composer = findComposer();
-                    action = findAction();
-                    if (composer && getText(action).toLowerCase() === 'log') break;
-                    await sleep(100);
-                }
-            }
-            if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer.');
-            const existingText = String(composer.value || '');
-            const separator = !existingText ? '' : existingText.endsWith('\n\n') ? '' : existingText.endsWith('\n') ? '\n' : '\n\n';
-            const combined = existingText + separator + note;
-            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-            if (!setter) throw new Error('The Odoo Log Note editor could not be updated.');
-            setter.call(composer, combined);
-            composer.dispatchEvent(new Event('input', { bubbles: true }));
-            composer.dispatchEvent(new Event('change', { bubbles: true }));
-            if (composer.value !== combined) throw new Error('The SPLIT Log Note could not be verified in the Odoo editor.');
-            if (action.disabled) throw new Error('The Odoo Log Note send button is disabled.');
-            action.click();
-            message = await waitForSplitLogNote(ticketId, baselineId, targets);
+        const message = await findExistingSplitLogNote(ticketId, baselineId, targets);
+        let messageId = Number(message?.id || 0);
+        if (!messageId) {
+            messageId = Number(await rpc('helpdesk.ticket', 'message_post', [ticketId], {
+                attachment_ids: [],
+                body: note.replace(/\n/g, '<br>'),
+                channel_ids: [],
+                message_type: 'comment',
+                partner_ids: [],
+                subtype_xmlid: 'mail.mt_note',
+                context: getSessionContext()
+            }) || 0);
         }
-        const messageId = Number(message.id || 0);
         if (!messageId) throw new Error('Odoo did not return a valid SPLIT Chatter message ID.');
-        await rpc('mail.message', 'message_format', [[messageId]], { context: getSessionContext() });
+        const formatted = await rpc('mail.message', 'message_format', [[messageId]], { context: getSessionContext() });
+        if (!Array.isArray(formatted) || !formatted.some(item => Number(item?.id) === messageId)) throw new Error('Odoo did not confirm formatting of the SPLIT Chatter message.');
         const fetched = await rpc('mail.message', 'message_fetch', [], {
             context: getSessionContext(),
             domain: [
@@ -921,20 +902,7 @@
             ],
             limit: false
         });
-        if (!Array.isArray(fetched) || !fetched.some(item => Number(item?.id) === messageId)) throw new Error('The SPLIT note exists but was not returned by Odoo Chatter refresh.');
-        const appearsInDom = () => [...document.querySelectorAll('.o_Message, .o-mail-Message')].some(element => {
-            const plain = getText(element);
-            return /\bSPLIT\b/i.test(plain) && targets.every(target => plain.includes(target.hzb));
-        });
-        let end = Date.now() + 6000;
-        while (Date.now() < end && !appearsInDom()) await sleep(120);
-        if (!appearsInDom()) {
-            const refresh = [...document.querySelectorAll('.o_ChatterTopbar_buttonRefresh, .o-mail-Chatter-refresh, [data-tooltip="Refresh"]')].find(isVisible);
-            refresh?.click();
-            end = Date.now() + 3000;
-            while (Date.now() < end && !appearsInDom()) await sleep(150);
-        }
-        if (!appearsInDom()) throw new Error('The SPLIT note was saved in Odoo, but the Chatter display did not refresh. Press RETRY CHATTER; the existing note will be reused without duplication.');
+        if (!Array.isArray(fetched) || !fetched.some(item => Number(item?.id) === messageId)) throw new Error('The SPLIT note was saved but Odoo did not return it in the Chatter refresh.');
         state.logPosted = true;
         return { posted: true, messageId };
     }
@@ -1128,7 +1096,9 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             await postSplitLogNote(state.pendingSplitLog);
             state.pendingSplitLog = null;
             state.busy = false;
+            setStatus('SPLIT NOTE SAVED — REFRESHING CHATTER...', 'success');
             closeDialog();
+            window.location.reload();
         } catch (error) {
             state.busy = false;
             if (button) {
