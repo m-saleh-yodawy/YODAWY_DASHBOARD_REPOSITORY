@@ -32,7 +32,6 @@
 
 /runtime/webfonts/6.7.2/*
   Cache-Control: public, max-age=31536000, immutable
-  Timing-Allow-Origin: *
 
 /launcher.js
   Cache-Control: no-cache, must-revalidate
