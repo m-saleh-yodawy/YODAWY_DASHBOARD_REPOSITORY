@@ -90,32 +90,18 @@
         const response = await fetch(url, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                method: 'call',
-                params: {
-                    model,
-                    method,
-                    args,
-                    kwargs
-                },
-                id: Date.now() + Math.random()
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { model, method, args, kwargs }, id: Date.now() + Math.random() })
         });
-
-        const data = await response.json();
-
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data) throw new Error(`Odoo RPC request failed (${response.status})`);
         if (data.error) {
-            throw new Error(
-                data.error.data?.message ||
-                data.error.message ||
-                'Odoo RPC Error'
-            );
+            const details = data.error.data || {};
+            const error = new Error(details.message || data.error.message || 'Odoo RPC Error');
+            error.data = details;
+            error.odooError = data.error;
+            throw error;
         }
-
         return data.result;
     }
 
@@ -426,9 +412,9 @@
         if (baseline && Number.isSafeInteger(baseline.id)) domain.push(['id', '>', baseline.id]);
         if (baseline?.partnerId) domain.push(['author_id', '=', baseline.partnerId]);
         const messages = await rpc('/web/dataset/call_kw/mail.message/search_read', 'mail.message', 'search_read', [domain], {
-            fields: ['id', 'body', 'date', 'author_id', 'message_type'],
+            fields: ['id', 'body', 'date', 'author_id'],
             order: 'id desc',
-            limit: 200,
+            limit: 500,
             context: getContext()
         });
         return Array.isArray(messages) ? messages : [];
@@ -470,47 +456,60 @@
         return Number(Array.isArray(message?.author_id) ? message.author_id[0] : message?.author_id) || 0;
     }
 
-    async function getFetchMessagePair(ticketId, baseline) {
+    function getFetchTableHeaders(body) {
+        const parsed = new DOMParser().parseFromString(String(body || ''), 'text/html');
+        const headers = [];
+        for (const table of parsed.querySelectorAll('table')) {
+            let element = table.previousElementSibling;
+            while (element && (!String(element.textContent || '').trim() || element.tagName === 'BR')) element = element.previousElementSibling;
+            if (!element || element.tagName !== 'P') continue;
+            const limitedDrug = String(element.textContent || '').replace(/\s+/g, ' ').trim();
+            const hzb = extractHZB(limitedDrug);
+            if (hzb) headers.push({ hzb, limitedDrug });
+        }
+        return headers;
+    }
+
+    function getFetchPayloadDrugIds(body) {
+        return [...String(body || '').matchAll(/['"]id['"]\s*:\s*(\d+)/g)].map(match => match[1]);
+    }
+
+    async function getFetchChatter(ticketId, baseline) {
         if (!baseline?.partnerId || !Number.isSafeInteger(baseline.id)) return null;
         const rows = await getFetchMessages(ticketId, baseline);
-        const payloads = rows.filter(message => isFreshFetchMessage(message, baseline) && getMessageAuthorId(message) === baseline.partnerId && isFetchPayload(message.body, ticketId));
-        const tables = rows.filter(message => isFreshFetchMessage(message, baseline) && getMessageAuthorId(message) === baseline.partnerId && isFetchTable(message.body));
+        const fresh = rows.filter(message => isFreshFetchMessage(message, baseline) && getMessageAuthorId(message) === baseline.partnerId);
+        const tables = fresh.filter(message => isFetchTable(message.body)).sort((a, b) => Number(b.id) - Number(a.id));
+        if (!tables.length) return null;
+        const payloads = fresh.filter(message => isFetchPayload(message.body, ticketId));
+        const pairs = [];
         for (const table of tables) {
-            const tableId = Number(table.id), tableTimestamp = messageTimestamp(table);
-            const tableText = String(table.body || '').replace(/<[^>]*>/g, ' ');
-            for (const payload of payloads) {
-                const payloadId = Number(payload.id), payloadTimestamp = messageTimestamp(payload);
-                if (payloadId >= tableId || Math.abs(tableTimestamp - payloadTimestamp) > 5 * 60 * 1000) continue;
-                const drugIds = [...String(payload.body || '').matchAll(/['"]id['"]\s*:\s*(\d+)/g)].map(match => match[1]);
-                if (!drugIds.length || !drugIds.some(id => new RegExp(`(?:^|\\D)${id}(?:\\D|$)`).test(tableText))) continue;
-                return { payload, table };
-            }
+            const tableHeaders = new Set(getFetchTableHeaders(table.body).map(item => item.hzb));
+            const tableId = Number(table.id), tableTime = messageTimestamp(table);
+            const payload = payloads
+                .filter(item => Number(item.id) < tableId && Math.abs(tableTime - messageTimestamp(item)) <= 5 * 60 * 1000)
+                .filter(item => getFetchPayloadDrugIds(item.body).some(id => tableHeaders.has(id)))
+                .sort((a, b) => Math.abs(tableTime - messageTimestamp(a)) - Math.abs(tableTime - messageTimestamp(b)))[0];
+            if (payload) pairs.push({ payload, table });
         }
-        return null;
+        return { table: tables[0], pairs };
     }
 
     async function deleteGeneratedLogs(ticketId, baseline) {
-        const pair = await getFetchMessagePair(ticketId, baseline);
-        if (!pair) return false;
+        const chatter = await getFetchChatter(ticketId, baseline);
+        if (!chatter?.pairs?.length) return false;
         const now = Date.now();
-        if (![pair.payload, pair.table].every(message => isFreshFetchMessage(message, baseline, now))) return false;
-        const ids = [Number(pair.payload.id), Number(pair.table.id)];
-        if (ids.some(id => !Number.isSafeInteger(id) || id <= baseline.id) || new Set(ids).size !== 2) return false;
+        const ids = [...new Set(chatter.pairs.filter(pair => isFreshFetchMessage(pair.payload, baseline, now) && isFreshFetchMessage(pair.table, baseline, now)).flatMap(pair => [Number(pair.payload.id), Number(pair.table.id)]))];
+        if (!ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= baseline.id)) return false;
         const result = await rpc('/web/dataset/call_kw/mail.message/unlink', 'mail.message', 'unlink', [ids], { context: getContext() });
         return result === true;
     }
 
     function getMatchedLimitedDrugsFromTable(body) {
-        const parsed = new DOMParser().parseFromString(String(body || ''), 'text/html');
         const matches = [], seen = new Set();
-        for (const paragraph of parsed.querySelectorAll('p')) {
-            const text = String(paragraph.textContent || '').replace(/\s+/g, ' ').trim();
-            const value = text.replace(/^\s*limited\s+drug\s*:\s*/i, '').trim();
-            if (value === text || !value) continue;
-            const hzb = extractHZB(value);
-            if (!hzb || !ORDERED_CODES.has(hzb) || seen.has(hzb)) continue;
-            seen.add(hzb);
-            matches.push({ hzb, limitedDrug: value });
+        for (const item of getFetchTableHeaders(body)) {
+            if (!ORDERED_CODES.has(item.hzb) || seen.has(item.hzb)) continue;
+            seen.add(item.hzb);
+            matches.push({ hzb: item.hzb, limitedDrug: item.limitedDrug });
         }
         return matches;
     }
@@ -521,30 +520,35 @@
     }
 
     function getFetchErrorText(error) {
-        return [error?.message, error?.data?.message, error?.data?.debug, error?.odooError?.data?.message].filter(Boolean).join(' ');
+        const details = error?.data || error?.odooError?.data || {};
+        return [error?.message, details.message, details.debug, error?.odooError?.message].filter(Boolean).join(' ');
     }
 
     async function fetchWithRetry(ticketId) {
+        const baseline = await getMessageBaseline(ticketId);
+        if (!baseline) return null;
         for (let attempt = 1; attempt <= 3; attempt++) {
             if (!running || destroyed) return null;
-            const baseline = await getMessageBaseline(ticketId);
-            if (!baseline) return null;
+            const existing = await getFetchChatter(ticketId, baseline).catch(() => null);
+            if (existing?.table) return { kind: 'CHATTER', chatter: existing, baseline };
             try {
                 const action = await fetchSuitableAlternatives(ticketId);
                 if (action?.res_id) return { kind: 'WIZARD', action, baseline };
-                const pair = await getFetchMessagePair(ticketId, baseline).catch(() => null);
-                if (pair) return { kind: 'CHATTER', pair, baseline };
+                const chatter = await getFetchChatter(ticketId, baseline).catch(() => null);
+                if (chatter?.table) return { kind: 'CHATTER', chatter, baseline };
                 const text = getFetchOutcomeText(action);
                 if (/No items need to check/i.test(text)) return null;
-                if (!/Failed to get alternative|Odoo Error/i.test(text)) return null;
+                if (!/Failed to get alternative|Odoo Error|Odoo Server Error/i.test(text)) return null;
                 if (attempt === 3) return null;
             } catch (error) {
-                const pair = await getFetchMessagePair(ticketId, baseline).catch(() => null);
-                if (pair) return { kind: 'CHATTER', pair, baseline };
+                const chatter = await getFetchChatter(ticketId, baseline).catch(() => null);
+                if (chatter?.table) return { kind: 'CHATTER', chatter, baseline };
                 if (/No items need to check/i.test(getFetchErrorText(error))) return null;
                 if (attempt === 3) return null;
             }
             await sleep(10000);
+            const delayed = await getFetchChatter(ticketId, baseline).catch(() => null);
+            if (delayed?.table) return { kind: 'CHATTER', chatter: delayed, baseline };
         }
         return null;
     }
@@ -555,27 +559,32 @@
         if (!outcome) return false;
         let matches = [];
         if (outcome.kind === 'WIZARD') {
-            const wizard = await readWizard(Number(outcome.action.res_id));
-            if (!wizard) return false;
-            const lineIds = wizard.alternative_lines_ids || [];
-            if (lineIds.length) {
-                const lines = await readAlternativeLines(lineIds);
-                matches = getMatchedLimitedDrugs(lines);
+            try {
+                const wizard = await readWizard(Number(outcome.action.res_id));
+                const lineIds = wizard?.alternative_lines_ids || [];
+                if (lineIds.length) {
+                    const lines = await readAlternativeLines(lineIds);
+                    matches = getMatchedLimitedDrugs(lines);
+                }
+            } catch {}
+            if (!matches.length) {
+                const chatter = await getFetchChatter(ticketId, outcome.baseline).catch(() => null);
+                if (chatter?.table) matches = getMatchedLimitedDrugsFromTable(chatter.table.body);
             }
         } else if (outcome.kind === 'CHATTER') {
-            matches = getMatchedLimitedDrugsFromTable(outcome.pair.table.body);
+            matches = getMatchedLimitedDrugsFromTable(outcome.chatter.table.body);
         }
         if (!matches.length) {
-            const deleted = await deleteGeneratedLogs(ticketId, outcome.baseline);
+            const deleted = await deleteGeneratedLogs(ticketId, outcome.baseline).catch(() => false);
             if (deleted) {
                 deletedLogs++;
                 updateStats();
             }
             return false;
         }
-        addReportRows(ticketId, matches);
         await postLogNote(ticketId, matches);
         await moveToOrderedByWH(ticketId);
+        addReportRows(ticketId, matches);
         orderedFound++;
         orderedProgress++;
         updateStats();
