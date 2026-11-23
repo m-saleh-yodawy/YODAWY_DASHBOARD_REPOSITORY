@@ -266,12 +266,11 @@
         return matches[0];
     }
 
-    async function setTicketStage(stageName) {
+    async function setConfirmedAlternativesStage() {
         const ticketId = Number(state.ticketId || getTicketId());
         if (!ticketId) throw new Error('Ticket ID is unavailable while changing the stage.');
         const stages = await getTicketStage(ticketId);
-        const closing = normalizeKey(stageName) === normalizeKey('Closed');
-        const target = closing ? await getClosingStage(stages.teamId) : stages.confirmed;
+        const target = stages.confirmed;
         const currentId = Number(Array.isArray(stages.record.stage_id) ? stages.record.stage_id[0] : stages.record.stage_id || 0);
         if (currentId === Number(target.id)) return { changed: false, stageId: currentId, stageName: target.name };
         const values = { stage_id: Number(target.id) };
@@ -292,7 +291,7 @@
     }
 
     async function ensureConfirmedAlternativesStage() {
-        return setTicketStage('Confirmed Alternatives');
+        return setConfirmedAlternativesStage();
     }
 
     async function isTicketClosed() {
