@@ -856,7 +856,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         if (!element) return;
         const icon = element.querySelector('.yds-status-icon');
         const text = element.querySelector('.yds-status-text');
-        if (icon) icon.textContent = kind === 'success' ? '✓' : kind === 'error' ? '×' : '';
+        if (icon) icon.innerHTML = kind === 'success' ? '<i class="yd-fa-icon fa-solid fa-check" aria-hidden="true"></i>' : kind === 'error' ? '<i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i>' : '';
         if (text) text.textContent = message;
         element.dataset.kind = kind;
         element.title = detail || '';
@@ -873,8 +873,8 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             if (!selected) return;
             badge.dataset.kind = kind;
             badge.innerHTML = kind === 'success'
-                ? '<span class="yds-row-state-icon">✓</span><span>SPLIT &amp; DELETED</span>'
-                : '<span class="yds-row-state-icon">×</span><span>FAILED</span>';
+                ? '<span class="yds-row-state-icon"><i class="yd-fa-icon fa-solid fa-check" aria-hidden="true"></i></span><span>SPLIT &amp; DELETED</span>'
+                : '<span class="yds-row-state-icon"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></span><span>FAILED</span>';
         });
     }
 
@@ -1067,7 +1067,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
-        button.innerHTML = '<i class="fa-solid fa-split o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
+        button.innerHTML = '<i class="yd-fa-icon fa-solid fa-code-branch o_button_icon" aria-hidden="true"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
