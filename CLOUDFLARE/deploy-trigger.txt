@@ -79,3 +79,4 @@ Split Prescription uniform card borders and S logo: 20261122-split-uniform-borde
 Split Prescription remove browser confirmation after SPLIT click: 20261122-split-no-browser-confirm-1.
 Move Communication horizontal overflow for long Arabic text: 20261122-move-communication-horizontal-scroll-1.
 Font Awesome self-hosted webfonts and verified runtime loading: 20261123-fa-self-hosted-2.
+Automatic Cloudflare Worker deployment workflow enabled: 20261123-worker-deploy-workflow-1.
