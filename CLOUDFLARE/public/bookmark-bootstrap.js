@@ -4,7 +4,7 @@
     PAGE.__YD_CLOUD_LOADER__ = true;
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261123-fa-self-hosted-6';
+    const ASSET_VERSION = '20261123-fa-self-hosted-7';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;

@@ -27,6 +27,8 @@
   Timing-Allow-Origin: *
 
 /runtime/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, HEAD, OPTIONS
   Cache-Control: no-cache, must-revalidate
   Timing-Allow-Origin: *
 
