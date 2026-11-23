@@ -292,6 +292,14 @@
         return setTicketStage('Confirmed Alternatives');
     }
 
+    async function isTicketClosed() {
+        const ticketId = Number(state.ticketId || getTicketId());
+        const stages = await getTicketStage(ticketId);
+        const closing = await getClosingStage(stages.teamId);
+        const currentId = Number(Array.isArray(stages.record.stage_id) ? stages.record.stage_id[0] : stages.record.stage_id || 0);
+        return currentId === Number(closing.id);
+    }
+
     async function graphQL(query, variables = {}) {
         if (!state.accountId) throw new Error('Select a saved Portal account before continuing.');
         const operationName = query.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] || '';
@@ -1086,10 +1094,13 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                 let closeError = '';
                 if (cleanup.success) {
                     try {
-                        remaining = await checkRemainingLimitedDrugs();
-                        if (remaining.noItems) {
-                            await setTicketStage('Closed');
-                            state.ticketClosed = true;
+                        state.ticketClosed = await isTicketClosed();
+                        if (!state.ticketClosed) {
+                            remaining = await checkRemainingLimitedDrugs();
+                            if (remaining.noItems) {
+                                await setTicketStage('Closed');
+                                state.ticketClosed = true;
+                            }
                         }
                     } catch (error) {
                         closeError = error?.message || 'Could not verify whether the ticket can be closed.';
