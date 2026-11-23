@@ -770,7 +770,7 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     transition: all .15s;
 }
 #yd-dashboard-root .yd-close-btn:hover { border-color: var(--danger-border); background: var(--danger-bg); color: var(--danger); }
-#yd-dashboard-root .yd-close-btn .yd-inline-icon { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#yd-dashboard-root .yd-close-btn .yd-inline-icon { display: block; width: 15px; height: 15px; font-size: 15px; line-height: 15px; }
 
 #yd-dashboard-root #yd-profile-trigger,
 #yd-dashboard-root #yd-profile-trigger .yd-gb-avatar {
@@ -1505,7 +1505,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
 }
 #yd-dashboard-root .yd-icon-btn > .yd-fa-icon { font-size: 15px !important; }
-#yd-dashboard-root .yd-icon-btn > .yd-user-action-icon { display: block !important; visibility: visible !important; opacity: 1 !important; width: 15px !important; min-width: 15px !important; height: 15px !important; max-height: 15px !important; flex: 0 0 15px !important; color: currentColor !important; stroke: currentColor !important; fill: none !important; pointer-events: none !important; }
+
 #yd-dashboard-root .yd-icon-btn:hover { border-color: #d8c7d7; background: var(--brand-soft); color: var(--brand-dark); }
 #yd-dashboard-root .yd-icon-btn.danger { border-color: var(--danger-border); background: #fff; color: var(--danger); }
 #yd-dashboard-root .yd-icon-btn.danger:hover { border-color: #e7bec2; background: var(--danger-bg); color: #a83742; }
@@ -3315,7 +3315,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         const user = context.user || {};
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
         const avatar = escapeHTML(initials(user.name || user.id));
-        const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="' + icon + '"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
+        const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="yd-fa-icon ' + icon + '" aria-hidden="true"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
         return '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
@@ -3325,13 +3325,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
                                     '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                     '<button class="yd-dropdown-action yd-logout-action" data-action="logout" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-right-from-bracket"></i></span><span><b>Sign Out</b></span></button>' +
-                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><svg class="yd-inline-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
+                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="yd-fa-icon fa-solid fa-xmark yd-inline-icon" aria-hidden="true"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>';
     };
 
     const statCard = (label, value, icon, colorClass = 'purple') =>
-        '<div class="yd-kpi-card"><div class="yd-kpi-icon ' + colorClass + '"><i class="' + icon + '"></i></div><div class="yd-kpi-info"><div class="yd-kpi-label">' + escapeHTML(label) + '</div><div class="yd-kpi-value">' + escapeHTML(value) + '</div></div></div>';
+        '<div class="yd-kpi-card"><div class="yd-kpi-icon ' + colorClass + '"><i class="yd-fa-icon ' + icon + '" aria-hidden="true"></i></div><div class="yd-kpi-info"><div class="yd-kpi-label">' + escapeHTML(label) + '</div><div class="yd-kpi-value">' + escapeHTML(value) + '</div></div></div>';
 
     const renderPagination = (currentPage, totalPages, action) => {
         if (totalPages <= 1) return '';
@@ -3465,7 +3465,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         };
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
-        const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2>' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
+        const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2><i class="yd-fa-icon fa-solid ' + group.icon + '" aria-hidden="true"></i> ' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
         const adminTools = canManage
             ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-trash"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
@@ -3521,9 +3521,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             '<div class="yd-tool-summary"><span>' + visibleTools.length + ' Tools</span><span>' + permittedCount + ' Permitted</span><span>' + onCount + ' Enabled</span></div>';
     };
 
-    const editActionIcon = '<svg class="yd-user-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>';
-    const deleteActionIcon = '<svg class="yd-user-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
-    const viewPasswordActionIcon = '<svg class="yd-user-action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square" aria-hidden="true"></i>';
+    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash-can" aria-hidden="true"></i>';
+    const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye" aria-hidden="true"></i>';
 
     const renderUsers = () => {
         const baseUsers = getUsers();
