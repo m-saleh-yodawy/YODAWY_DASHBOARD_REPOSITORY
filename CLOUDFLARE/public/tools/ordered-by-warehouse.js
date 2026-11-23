@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Ordered By Warehouse
 // @namespace    http://tampermonkey.net/
+// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle
@@ -34,6 +35,7 @@
     let deletedLogs = 0;
 
     let report = [];
+    let lastLogFormat = 0;
 
     let xlsxPromise = null;
 
@@ -147,7 +149,7 @@
         };
 
         return await rpc(
-            '/web/dataset/call_kw/helpdesk.ticket/action_fetch_suitable_alternatives',
+            '/web/dataset/call_button',
             'helpdesk.ticket',
             'action_fetch_suitable_alternatives',
             [[ticketId]],
@@ -364,48 +366,28 @@
     }
 
     async function postLogNote(ticketId, matches) {
-        if (!matches.length) {
-            return;
-        }
-
-        const escapeHtml = value =>
-        String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
-        const body = matches
-        .map(item => {
-            const drug =
-                  cleanDrugName(
-                      item.limitedDrug
-                  );
-
-            return `Limited Drug: ${escapeHtml(drug)}<br>ORDERED`;
-        })
-        .join('<br><br>');
-
-        const context = {
-            ...getContext(),
-            active_id: ticketId,
-            active_ids: [ticketId],
-            active_model: 'helpdesk.ticket'
-        };
-
-        await rpc(
-            '/web/dataset/call_kw/helpdesk.ticket/message_post',
-            'helpdesk.ticket',
-            'message_post',
-            [[ticketId]],
-            {
-                body,
-                message_type: 'comment',
-                subtype_xmlid: 'mail.mt_note',
-                context
-            }
-        );
+        if (!matches.length) return;
+        const escapeHtml = value => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const fullNames = matches.map(item => cleanDrugName(item.limitedDrug));
+        const shortNames = fullNames.map(value => value.replace(/,\s*\d+(?:\.\d+)?\s+(?:(?:pack|strip|box|bottle|vial|sachet)\s+of\b|(?:unit|tablet|capsule)\b).*$/i, '').trim());
+        const formats = Array.from({ length: 10 }, (_, index) => index + 1).filter(format => format !== lastLogFormat);
+        const format = formats[Math.floor(Math.random() * formats.length)];
+        lastLogFormat = format;
+        const full = fullNames.map(escapeHtml);
+        const short = shortNames.map(escapeHtml);
+        let body = '';
+        if (format === 1) body = full.map(name => `Limited Drug: ${name}<br>ORDERED`).join('<br><br>');
+        else if (format === 2) body = full.map(name => `Limited Drug: ${name}`).join('<br>') + '<br>ORDERED';
+        else if (format === 3) body = short.join('<br>') + '<br>ORDERED';
+        else if (format === 4) body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br>');
+        else if (format === 5) body = 'ORDERED<br>' + short.join('<br>');
+        else if (format === 6) body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br><br>');
+        else if (format === 7) body = '<p><strong>ORDERED</strong></p><ul>' + full.map(name => `<li>${name}</li>`).join('') + '</ul>';
+        else if (format === 8) body = full.map(name => `<p>Limited Drug: ${name} <strong>— ORDERED</strong></p>`).join('');
+        else if (format === 9) body = '<ul>' + short.map(name => `<li><strong>${name}</strong> — ORDERED</li>`).join('') + '</ul>';
+        else body = '<p><strong>ORDERED ITEMS</strong></p><ol>' + full.map(name => `<li>${name}</li>`).join('') + '</ol>';
+        const context = { ...getContext(), active_id: ticketId, active_ids: [ticketId], active_model: 'helpdesk.ticket' };
+        await rpc('/web/dataset/call_kw/helpdesk.ticket/message_post', 'helpdesk.ticket', 'message_post', [[ticketId]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note', context });
     }
 
     async function moveToOrderedByWH(ticketId) {
@@ -440,19 +422,16 @@
     }
 
     async function getFetchMessages(ticketId, baseline) {
-        const domain = [
-            ['model', '=', 'helpdesk.ticket'],
-            ['res_id', '=', ticketId]
-        ];
+        const domain = [['model', '=', 'helpdesk.ticket'], ['res_id', '=', ticketId]];
         if (baseline && Number.isSafeInteger(baseline.id)) domain.push(['id', '>', baseline.id]);
         if (baseline?.partnerId) domain.push(['author_id', '=', baseline.partnerId]);
-        return await rpc(
-            '/web/dataset/call_kw/mail.message/search_read',
-            'mail.message',
-            'search_read',
-            [domain],
-            { fields: ['id', 'body', 'date', 'author_id'], order: 'id asc', limit: 50, context: getContext() }
-        );
+        const messages = await rpc('/web/dataset/call_kw/mail.message/search_read', 'mail.message', 'search_read', [domain], {
+            fields: ['id', 'body', 'date', 'author_id', 'message_type'],
+            order: 'id desc',
+            limit: 200,
+            context: getContext()
+        });
+        return Array.isArray(messages) ? messages : [];
     }
 
     async function getMessageBaseline(ticketId) {
@@ -471,110 +450,135 @@
         return text.includes(`ticket:${ticketId}`) && ['payer', 'corporate', 'identifier', 'drugs'].every(key => text.includes(`'${key}'`) || text.includes(`"${key}"`));
     }
 
+    function messageTimestamp(message) {
+        const value = String(message?.date || '').trim();
+        if (!value) return NaN;
+        const normalized = value.includes('T') ? value : value.replace(' ', 'T') + 'Z';
+        const timestamp = Date.parse(normalized);
+        return Number.isFinite(timestamp) ? timestamp : NaN;
+    }
+
+    function isFreshFetchMessage(message, baseline, now = Date.now()) {
+        const id = Number(message?.id);
+        const timestamp = messageTimestamp(message);
+        if (!Number.isSafeInteger(id) || id <= baseline.id || !Number.isFinite(timestamp)) return false;
+        const age = now - timestamp;
+        return timestamp >= baseline.startedAt - 10000 && age >= -10000 && age <= 5 * 60 * 1000;
+    }
+
+    function getMessageAuthorId(message) {
+        return Number(Array.isArray(message?.author_id) ? message.author_id[0] : message?.author_id) || 0;
+    }
+
+    async function getFetchMessagePair(ticketId, baseline) {
+        if (!baseline?.partnerId || !Number.isSafeInteger(baseline.id)) return null;
+        const rows = await getFetchMessages(ticketId, baseline);
+        const payloads = rows.filter(message => isFreshFetchMessage(message, baseline) && getMessageAuthorId(message) === baseline.partnerId && isFetchPayload(message.body, ticketId));
+        const tables = rows.filter(message => isFreshFetchMessage(message, baseline) && getMessageAuthorId(message) === baseline.partnerId && isFetchTable(message.body));
+        for (const table of tables) {
+            const tableId = Number(table.id), tableTimestamp = messageTimestamp(table);
+            const tableText = String(table.body || '').replace(/<[^>]*>/g, ' ');
+            for (const payload of payloads) {
+                const payloadId = Number(payload.id), payloadTimestamp = messageTimestamp(payload);
+                if (payloadId >= tableId || Math.abs(tableTimestamp - payloadTimestamp) > 5 * 60 * 1000) continue;
+                const drugIds = [...String(payload.body || '').matchAll(/['"]id['"]\s*:\s*(\d+)/g)].map(match => match[1]);
+                if (!drugIds.length || !drugIds.some(id => new RegExp(`(?:^|\\D)${id}(?:\\D|$)`).test(tableText))) continue;
+                return { payload, table };
+            }
+        }
+        return null;
+    }
+
     async function deleteGeneratedLogs(ticketId, baseline) {
-        if (!baseline?.partnerId || !Number.isSafeInteger(baseline.id)) return false;
-        const messages = await getFetchMessages(ticketId, baseline);
-        const tables = messages.filter(message => isFetchTable(message.body));
-        const payloads = messages.filter(message => isFetchPayload(message.body, ticketId));
-        if (messages.length !== 2 || tables.length !== 1 || payloads.length !== 1) return false;
-        const table = tables[0], payload = payloads[0];
-        if (Number(table.id) !== Number(payload.id) + 1) return false;
-        const drugIds = [...String(payload.body || '').matchAll(/['"]id['"]\s*:\s*(\d+)/g)].map(match => match[1]);
-        const tableText = String(table.body || '').replace(/<[^>]*>/g, ' ');
-        if (!drugIds.length || !drugIds.some(id => new RegExp(`(?:^|\D)${id}(?:\D|$)`).test(tableText))) return false;
-        const ids = [Number(table.id), Number(payload.id)];
-        if (ids.some(id => !Number.isSafeInteger(id) || id <= baseline.id)) return false;
+        const pair = await getFetchMessagePair(ticketId, baseline);
+        if (!pair) return false;
+        const now = Date.now();
+        if (![pair.payload, pair.table].every(message => isFreshFetchMessage(message, baseline, now))) return false;
+        const ids = [Number(pair.payload.id), Number(pair.table.id)];
+        if (ids.some(id => !Number.isSafeInteger(id) || id <= baseline.id) || new Set(ids).size !== 2) return false;
         const result = await rpc('/web/dataset/call_kw/mail.message/unlink', 'mail.message', 'unlink', [ids], { context: getContext() });
         return result === true;
     }
 
+    function getMatchedLimitedDrugsFromTable(body) {
+        const parsed = new DOMParser().parseFromString(String(body || ''), 'text/html');
+        const matches = [], seen = new Set();
+        for (const paragraph of parsed.querySelectorAll('p')) {
+            const text = String(paragraph.textContent || '').replace(/\s+/g, ' ').trim();
+            const value = text.replace(/^\s*limited\s+drug\s*:\s*/i, '').trim();
+            if (value === text || !value) continue;
+            const hzb = extractHZB(value);
+            if (!hzb || !ORDERED_CODES.has(hzb) || seen.has(hzb)) continue;
+            seen.add(hzb);
+            matches.push({ hzb, limitedDrug: value });
+        }
+        return matches;
+    }
+
+    function getFetchOutcomeText(value) {
+        if (typeof value === 'string') return value;
+        try { return JSON.stringify(value ?? {}); } catch { return String(value || ''); }
+    }
+
+    function getFetchErrorText(error) {
+        return [error?.message, error?.data?.message, error?.data?.debug, error?.odooError?.data?.message].filter(Boolean).join(' ');
+    }
+
+    async function fetchWithRetry(ticketId) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            if (!running || destroyed) return null;
+            const baseline = await getMessageBaseline(ticketId);
+            if (!baseline) return null;
+            try {
+                const action = await fetchSuitableAlternatives(ticketId);
+                if (action?.res_id) return { kind: 'WIZARD', action, baseline };
+                const pair = await getFetchMessagePair(ticketId, baseline).catch(() => null);
+                if (pair) return { kind: 'CHATTER', pair, baseline };
+                const text = getFetchOutcomeText(action);
+                if (/No items need to check/i.test(text)) return null;
+                if (!/Failed to get alternative|Odoo Error/i.test(text)) return null;
+                if (attempt === 3) return null;
+            } catch (error) {
+                const pair = await getFetchMessagePair(ticketId, baseline).catch(() => null);
+                if (pair) return { kind: 'CHATTER', pair, baseline };
+                if (/No items need to check/i.test(getFetchErrorText(error))) return null;
+                if (attempt === 3) return null;
+            }
+            await sleep(10000);
+        }
+        return null;
+    }
+
     async function processTicket(ticketId) {
-        if (
-            !running ||
-            destroyed
-        ) {
-            return;
-        }
-
-        const baseline = await getMessageBaseline(ticketId);
-        if (!baseline) return false;
-
-        const action = await fetchSuitableAlternatives(ticketId);
-
-        if (!action?.res_id) {
-            return false;
-        }
-
-        const wizardId =
-              Number(action.res_id);
-
-        if (!wizardId) {
-            return false;
-        }
-
-        const wizard =
-              await readWizard(wizardId);
-
-        if (!wizard) {
-            return false;
-        }
-
-        const lineIds =
-              wizard.alternative_lines_ids || [];
-
-        if (!lineIds.length) {
-            const deleted =
-                  await deleteGeneratedLogs(ticketId, baseline);
-
-            if (deleted) {
-                deletedLogs++;
-                updateStats();
+        if (!running || destroyed) return;
+        const outcome = await fetchWithRetry(ticketId);
+        if (!outcome) return false;
+        let matches = [];
+        if (outcome.kind === 'WIZARD') {
+            const wizard = await readWizard(Number(outcome.action.res_id));
+            if (!wizard) return false;
+            const lineIds = wizard.alternative_lines_ids || [];
+            if (lineIds.length) {
+                const lines = await readAlternativeLines(lineIds);
+                matches = getMatchedLimitedDrugs(lines);
             }
-
-            return false;
+        } else if (outcome.kind === 'CHATTER') {
+            matches = getMatchedLimitedDrugsFromTable(outcome.pair.table.body);
         }
-
-        const lines =
-              await readAlternativeLines(
-                  lineIds
-              );
-
-        const matches =
-              getMatchedLimitedDrugs(
-                  lines
-              );
-
         if (!matches.length) {
-            const deleted =
-                  await deleteGeneratedLogs(ticketId, baseline);
-
+            const deleted = await deleteGeneratedLogs(ticketId, outcome.baseline);
             if (deleted) {
                 deletedLogs++;
                 updateStats();
             }
-
             return false;
         }
-
-        addReportRows(
-            ticketId,
-            matches
-        );
-
-        await postLogNote(
-            ticketId,
-            matches
-        );
-
-        await moveToOrderedByWH(
-            ticketId
-        );
-
+        addReportRows(ticketId, matches);
+        await postLogNote(ticketId, matches);
+        await moveToOrderedByWH(ticketId);
         orderedFound++;
         orderedProgress++;
-
         updateStats();
-
         return true;
     }
 
@@ -1835,6 +1839,7 @@ async function runQueue() {
     orderedProgress = 0;
     deletedLogs = 0;
     report = [];
+    lastLogFormat = 0;
 
     updateStats();
     updateProgress();
