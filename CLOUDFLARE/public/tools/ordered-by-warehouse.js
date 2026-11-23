@@ -460,10 +460,18 @@
         const parsed = new DOMParser().parseFromString(String(body || ''), 'text/html');
         const headers = [];
         for (const table of parsed.querySelectorAll('table')) {
-            let element = table.previousElementSibling;
-            while (element && (!String(element.textContent || '').trim() || element.tagName === 'BR')) element = element.previousElementSibling;
-            if (!element || element.tagName !== 'P') continue;
-            const limitedDrug = String(element.textContent || '').replace(/\s+/g, ' ').trim();
+            let node = table.previousSibling;
+            let limitedDrug = '';
+            while (node) {
+                if (node.nodeType === 1 && node.tagName === 'BR') {
+                    node = node.previousSibling;
+                    continue;
+                }
+                limitedDrug = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (limitedDrug) break;
+                node = node.previousSibling;
+            }
+            if (!limitedDrug) continue;
             const hzb = extractHZB(limitedDrug);
             if (hzb) headers.push({ hzb, limitedDrug });
         }
