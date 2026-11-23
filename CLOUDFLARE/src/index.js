@@ -1061,6 +1061,15 @@ export default {
       return respond(request, env, { success: false, error: "NOT_FOUND" }, 404);
     }
     const response = await env.ASSETS.fetch(request);
+    if (url.pathname.startsWith("/runtime/webfonts/")) {
+      const headers = new Headers(response.headers);
+      headers.set("access-control-allow-origin", "*");
+      headers.set("access-control-allow-methods", "GET, HEAD, OPTIONS");
+      headers.set("cross-origin-resource-policy", "cross-origin");
+      headers.set("cache-control", "public, max-age=31536000, immutable");
+      if (url.pathname.endsWith(".woff2")) headers.set("content-type", "font/woff2");
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    }
     const origin = allowedOrigin(request, env);
     if (!origin) return response;
     const headers = new Headers(response.headers);
