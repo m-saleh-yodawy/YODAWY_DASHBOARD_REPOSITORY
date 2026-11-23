@@ -303,6 +303,21 @@
         return currentId === Number(closing.id);
     }
 
+    async function waitForAutomaticTicketClosure(timeout = 8000) {
+        const ticketId = Number(state.ticketId || getTicketId());
+        if (!ticketId) throw new Error('Ticket ID is unavailable while verifying automatic closure.');
+        const stages = await getTicketStage(ticketId);
+        const closing = await getClosingStage(stages.teamId);
+        const end = Date.now() + timeout;
+        while (Date.now() < end) {
+            const record = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['stage_id']], { context: getSessionContext() }))?.[0];
+            const currentId = Number(Array.isArray(record?.stage_id) ? record.stage_id[0] : record?.stage_id || 0);
+            if (currentId === Number(closing.id)) return true;
+            await sleep(350);
+        }
+        return false;
+    }
+
     async function graphQL(query, variables = {}) {
         if (!state.accountId) throw new Error('Select a saved Portal account before continuing.');
         const operationName = query.match(/\b(?:query|mutation)\s+([A-Za-z0-9_]+)/)?.[1] || '';
@@ -579,6 +594,8 @@
             return { DrugId: String(medication.DrugId), Quantity: quantity, QuantityType: quantityType };
         });
 
+        assertSplitLeavesOriginalMedication(medications.length, details.Medications);
+
         const treatDate = details.IssuingDate || details.StartDate || prescription.StartDate;
         if (!treatDate) throw new Error('The Portal prescription does not contain a treatment date.');
         const input = {
@@ -627,6 +644,11 @@
         return drug?.hzb || '';
     }
 
+    function assertSplitLeavesOriginalMedication(selectedCount, originalMedications) {
+        if (!Array.isArray(originalMedications) || !originalMedications.length) throw new Error('The original Portal prescription medication list is missing. Split was stopped to protect the original prescription.');
+        if (!Number.isInteger(selectedCount) || selectedCount < 1 || selectedCount >= originalMedications.length) throw new Error('Split is not allowed when the selected items are all medications in the original prescription. At least one original medication must remain.');
+    }
+
     function getPlainMessage(body) {
         const template = document.createElement('template');
         template.innerHTML = String(body || '');
@@ -659,6 +681,7 @@
     }
 
     async function deleteSplitItemsFromOdoo(prepared) {
+        assertSplitLeavesOriginalMedication(prepared?.input?.medications?.length, prepared?.details?.Medications);
         const ticketId = Number(state.ticketId || getTicketId());
         if (!ticketId) throw new Error('Current Odoo ticket ID is unavailable.');
 
@@ -1101,8 +1124,8 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                         if (!state.ticketClosed) {
                             remaining = await checkRemainingLimitedDrugs();
                             if (remaining.noItems) {
-                                await setTicketStage('Closed');
-                                state.ticketClosed = true;
+                                state.ticketClosed = await waitForAutomaticTicketClosure();
+                                if (!state.ticketClosed) closeError = 'Odoo reported no remaining Limited Drugs, but its native automatic ticket closure was not confirmed. The ticket was not force-closed.';
                             }
                         }
                     } catch (error) {
@@ -1115,7 +1138,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                     if (state.ticketClosed) {
                         setStatus('SUCCESS — TICKET CLOSED', 'success');
                     } else if (closeError) {
-                        setStatus('SPLIT COMPLETED — CLOSURE CHECK FAILED', 'info', closeError);
+                        setStatus('SPLIT COMPLETED — ODOO AUTO-CLOSE NOT CONFIRMED', 'info', closeError);
                     } else {
                         setStatus('SPLIT COMPLETED — REMAINING ITEMS', 'info', String(remaining?.drugs?.length || 0) + ' limited drugs still need checking.');
                     }
