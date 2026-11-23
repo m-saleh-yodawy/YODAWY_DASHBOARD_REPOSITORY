@@ -4,7 +4,7 @@
     PAGE.__YD_CLOUD_LOADER__ = true;
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261122-personal-first-general-portal-5';
+    const ASSET_VERSION = '20261123-fa-self-hosted-3';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -30,13 +30,21 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         PAGE.document.body.append(root);
     };
     const request = async (path, options = {}) => {
-        const response = await fetch(API + path, {
-            method: options.method || 'GET',
-            headers: { 'content-type': 'application/json', ...(options.token ? { authorization: 'Bearer ' + options.token } : {}) },
-            body: options.body === undefined ? undefined : JSON.stringify(options.body),
-            cache: 'no-store',
-            credentials: 'omit'
-        });
+        let response;
+        try {
+            response = await fetch(API + path, {
+                method: options.method || 'GET',
+                headers: { 'content-type': 'application/json', ...(options.token ? { authorization: 'Bearer ' + options.token } : {}) },
+                body: options.body === undefined ? undefined : JSON.stringify(options.body),
+                cache: 'no-store',
+                credentials: 'omit'
+            });
+        } catch (cause) {
+            const error = new Error('NETWORK_REQUEST_FAILED: ' + path + ' (' + String(cause?.message || cause || 'Network request failed') + ')');
+            error.code = 'NETWORK_ERROR';
+            error.status = 0;
+            throw error;
+        }
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
             const error = new Error(data.error || 'REQUEST_FAILED');
@@ -49,12 +57,13 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     };
     const loadStyle = path => new Promise(resolve => {
         const id = 'yd-fa-icons-style';
+        const href = runtime + path + '?v=' + ASSET_VERSION;
         const existing = PAGE.document.getElementById(id);
-        if (existing?.sheet) return resolve(true);
+        if (existing?.href === href && existing.sheet) return resolve(true);
         const link = existing || PAGE.document.createElement('link');
         link.id = id;
         link.rel = 'stylesheet';
-        link.href = runtime + path + '?v=' + ASSET_VERSION;
+        link.href = href;
         link.onload = () => resolve(true);
         link.onerror = () => resolve(false);
         if (!existing) (PAGE.document.head || PAGE.document.documentElement).append(link);
@@ -164,7 +173,30 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
             }
         });
         Object.defineProperty(PAGE, 'YODAWY_CLOUD_CONTEXT', { value: context, configurable: true });
-        await loadStyle('fa-icons.css');
+        if (!await loadStyle('fa-icons.css')) {
+            const error = new Error('FONT_AWESOME_STYLESHEET_UNAVAILABLE: ' + runtime + 'fa-icons.css');
+            error.code = 'FONT_AWESOME_STYLESHEET_UNAVAILABLE';
+            throw error;
+        }
+        if (PAGE.document.fonts?.load) {
+            let loadedFonts;
+            try {
+                loadedFonts = await Promise.all([
+                    PAGE.document.fonts.load('900 16px "YD Font Awesome 6 Free"'),
+                    PAGE.document.fonts.load('400 16px "YD Font Awesome 6 Free"'),
+                    PAGE.document.fonts.load('400 16px "YD Font Awesome 6 Brands"')
+                ]);
+            } catch (cause) {
+                const error = new Error('FONT_ASSET_LOAD_FAILED: ' + runtime + 'webfonts/6.7.2/ (' + String(cause?.message || cause) + ')');
+                error.code = 'FONT_ASSET_LOAD_FAILED';
+                throw error;
+            }
+            if (loadedFonts.some(fonts => !fonts.length)) {
+                const error = new Error('FONT_ASSET_LOAD_FAILED: ' + runtime + 'webfonts/6.7.2/');
+                error.code = 'FONT_ASSET_LOAD_FAILED';
+                throw error;
+            }
+        }
         const assets = [
             'cloud-api-engine.js',
             'core-auth-engine.js',
