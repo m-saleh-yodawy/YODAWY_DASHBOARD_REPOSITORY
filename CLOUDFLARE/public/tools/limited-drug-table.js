@@ -63,7 +63,7 @@
 .${ALT_CLASS}{cursor:pointer!important}
 .yodawy-price-loading{font-weight:600!important}
 .yodawy-price{font-weight:600!important;white-space:nowrap!important}
-.yodawy-copy-success{position:fixed;left:50%;bottom:25px;transform:translateX(-50%);z-index:999999999;background:${DARK};color:#fff;border:1px solid ${PURPLE};border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.2);animation:yodawyCopyPopup .2s ease}
+.yodawy-copy-success{position:fixed;left:50%;bottom:25px;transform:translateX(-50%);z-index:999999999;display:flex;align-items:center;gap:7px;background:${DARK};color:#fff;border:1px solid ${PURPLE};border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.2);animation:yodawyCopyPopup .2s ease}
 @keyframes yodawyCopyPopup{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 #tm-alt-call-popup{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999999999;display:flex;align-items:center;justify-content:center}
 #tm-alt-call-popup .tm-alt-call-box{width:330px;background:#fff;padding:25px;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.35);text-align:center;font-family:Arial,sans-serif}
@@ -129,7 +129,12 @@ function success(message) {
 
     const popup = document.createElement('div');
     popup.className = 'yodawy-copy-success';
-    popup.textContent = `✓ ${message}`;
+    const icon=document.createElement("i");
+    icon.className="yd-fa-icon fa-solid fa-circle-check";
+    icon.setAttribute("aria-hidden","true");
+    const label=document.createElement("span");
+    label.textContent=message;
+    popup.append(icon,label);
     document.body.appendChild(popup);
 
     schedule(() => {
@@ -624,12 +629,12 @@ function build(body){
 
     const title=document.createElement('div');
     title.className='yodawy-copy-all-title';
-    title.innerHTML=`<span>💊</span><span>Limited Drugs</span><span style="opacity:.75">(${drugs.length})</span>`;
+    title.innerHTML=`<span><i class="yd-fa-icon fa-solid fa-pills" aria-hidden="true"></i></span><span>Limited Drugs</span><span style="opacity:.75">(${drugs.length})</span>`;
 
     const copyAll=document.createElement('button');
     copyAll.className='yodawy-copy-all-button';
     copyAll.type='button';
-    copyAll.textContent='📋';
+    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
 
     copyAll.onclick=async e=>{
         e.preventDefault();
@@ -649,7 +654,7 @@ function build(body){
 
         const arrow=document.createElement('span');
         arrow.className='yodawy-arrow';
-        arrow.textContent='▶';
+        arrow.innerHTML='<i class="yd-fa-icon fa-solid fa-chevron-right" aria-hidden="true"></i>';
 
         const drugTitle=document.createElement('span');
         drugTitle.className='yodawy-drug-title';
@@ -672,7 +677,7 @@ function build(body){
         const copyOne=document.createElement('button');
         copyOne.className='yodawy-copy-one';
         copyOne.type='button';
-        copyOne.textContent='📋';
+        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
 
         copyOne.onclick=async e=>{
             e.preventDefault();
