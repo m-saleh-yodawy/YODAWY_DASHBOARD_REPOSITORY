@@ -755,16 +755,14 @@
         const style = document.createElement('style');
         style.id = 'ydDirectSplitStyles';
         style.textContent = `
-#${CONFIG.DIALOG_ID}{--yds-primary:#875A7B;--yds-primary-strong:#68465F;--yds-primary-soft:#EEE7ED;--yds-soft:#F8F5F7;--yds-bg:#FFFFFF;--yds-surface:#FFFFFF;--yds-surface-muted:#F8F5F7;--yds-text:#302632;--yds-muted:#776C78;--yds-border:#E8E0E8;--yds-input-border:#DED5DF;--yds-success:#2F8F65;--yds-success-bg:#EAF6F0;--yds-danger:#C84444;--yds-danger-bg:#FFF0F0;--yds-info:#477EAA;position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:20px;background:rgba(28,21,30,.56);backdrop-filter:blur(3px);font-family:"Nunito Sans",Nunito,Arial,sans-serif;color:var(--yds-text);font-size:14px;line-height:20px}
+#${CONFIG.DIALOG_ID}{--yds-primary:#875A7B;--yds-primary-strong:#68465F;--yds-primary-soft:#EEE7ED;--yds-soft:#E1E1E1;--yds-bg:#FFFFFF;--yds-surface:#FFFFFF;--yds-surface-muted:#E1E1E1;--yds-text:#302632;--yds-muted:#776C78;--yds-border:#E8E0E8;--yds-input-border:#DED5DF;--yds-success:#2F8F65;--yds-success-bg:#EAF6F0;--yds-danger:#C84444;--yds-danger-bg:#FFF0F0;--yds-info:#477EAA;position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:20px;background:rgba(28,21,30,.56);backdrop-filter:blur(3px);font-family:"Nunito Sans",Nunito,Arial,sans-serif;color:var(--yds-text);font-size:14px;line-height:20px}
 #${CONFIG.DIALOG_ID} *{box-sizing:border-box;font-family:inherit}
 #${CONFIG.DIALOG_ID} :lang(ar),#${CONFIG.DIALOG_ID} :lang(ar) input,#${CONFIG.DIALOG_ID} :lang(ar) select{font-family:"Cairo","Noto Sans Arabic",Arial,sans-serif}
 #${CONFIG.DIALOG_ID} .yds-panel{width:min(660px,calc(100vw - 32px));max-height:min(780px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--yds-border);border-radius:14px;background:var(--yds-bg);color:var(--yds-text);box-shadow:0 20px 56px rgba(24,16,27,.22);animation:yds-modal-enter .16s cubic-bezier(.4,0,.2,1) both}
 #${CONFIG.DIALOG_ID} .yds-head{display:flex;align-items:center;gap:12px;min-width:0;padding:18px 20px;border-bottom:1px solid var(--yds-border);background:var(--yds-surface)}
-#${CONFIG.DIALOG_ID} .yds-brand-mark{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid var(--yds-primary);border-radius:9px;background:var(--yds-primary-soft);color:var(--yds-primary-strong);font-size:16px;font-weight:800;line-height:1}
+#${CONFIG.DIALOG_ID} .yds-brand-mark{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid var(--o-brand-primary,#714B67);border-radius:9px;background:var(--o-brand-primary,#714B67);color:#fff;font-size:16px;font-weight:800;line-height:1}
 #${CONFIG.DIALOG_ID} .yds-head-copy{display:flex;flex:1;flex-direction:column;gap:1px;min-width:0}
-#${CONFIG.DIALOG_ID} .yds-kicker{display:block;color:var(--yds-primary);font-size:11px;font-weight:700;letter-spacing:.06em;line-height:16px}
 #${CONFIG.DIALOG_ID} .yds-title{margin:0;color:var(--yds-text);font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:24px}
-#${CONFIG.DIALOG_ID} .yds-subtitle{margin:0;color:var(--yds-muted);font-size:13px;font-weight:400;line-height:18px}
 #${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 20px;border-bottom:1px solid var(--yds-border);background:var(--yds-surface)}
 #${CONFIG.DIALOG_ID} .yds-summary-card{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 12px;border:1px solid var(--yds-border);border-radius:8px;background:var(--yds-surface-muted)}
 #${CONFIG.DIALOG_ID} .yds-summary-label{display:block;color:var(--yds-muted);font-size:12px;font-weight:500;line-height:16px}
@@ -816,7 +814,7 @@
 #${CONFIG.DIALOG_ID} [hidden]{display:none!important}
 @keyframes yds-rotate{to{transform:rotate(360deg)}}
 @keyframes yds-modal-enter{from{opacity:0;transform:translateY(5px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
-#ydDirectSplitButton.oe_stat_button{border:1px solid #E8E0E8!important;border-radius:8px!important;background:#F8F5F7!important;color:#68465F!important;transition:background-color .15s,border-color .15s}
+#ydDirectSplitButton.oe_stat_button{border:1px solid #E8E0E8!important;border-radius:8px!important;background:#E1E1E1!important;color:#68465F!important;transition:background-color .15s,border-color .15s}
 #ydDirectSplitButton.oe_stat_button:hover:not(:disabled){border-color:#D7C9D8!important;background:#EEE7ED!important}
 #ydDirectSplitButton .o_button_icon{color:#875A7B!important}
 #ydDirectSplitButton .o_stat_text{font-family:"Nunito Sans",Nunito,Arial,sans-serif;font-weight:600}
@@ -900,9 +898,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             <header class="yds-head">
                 <span class="yds-brand-mark" aria-label="Split Prescription">S</span>
                 <div class="yds-head-copy">
-                    <span class="yds-kicker">YODAWY WORKSPACE</span>
                     <div class="yds-title" id="yds-title">Split Prescription</div>
-                    <div class="yds-subtitle">Choose the medications to include in the new prescription.</div>
                 </div>
             </header>
             <div class="yds-summary">
