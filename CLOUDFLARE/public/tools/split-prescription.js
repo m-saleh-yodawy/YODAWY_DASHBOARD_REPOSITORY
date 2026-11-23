@@ -784,7 +784,7 @@
 #${CONFIG.DIALOG_ID} .yds-list{display:flex;flex-direction:column;gap:6px}
 #${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:11px;min-width:0;min-height:54px;padding:9px 12px;border:1px solid var(--yds-border);border-radius:8px;background:var(--yds-surface);cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}
 #${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:#CDBCCD;background:var(--yds-surface-muted)}
-#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:var(--yds-primary);background:var(--yds-primary-subtle);box-shadow:0 0 0 1px rgba(135,90,123,.08)}
+#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:var(--yds-primary);background:var(--yds-soft);box-shadow:0 0 0 1px rgba(135,90,123,.08)}
 #${CONFIG.DIALOG_ID} .yds-drug input,#${CONFIG.DIALOG_ID} .yds-select-all input{width:16px;height:16px;min-width:16px;margin:0;accent-color:var(--yds-primary);flex:0 0 auto;cursor:pointer}
 #${CONFIG.DIALOG_ID} .yds-drug-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 #${CONFIG.DIALOG_ID} .yds-drug-name{color:var(--yds-text);font-size:14px;font-weight:600;line-height:20px;overflow-wrap:anywhere}
