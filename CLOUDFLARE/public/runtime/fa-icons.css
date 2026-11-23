@@ -1,6 +1,6 @@
-@font-face{font-family:"YD Font Awesome 6 Free";src:url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-solid-900.woff2") format("woff2"),url("https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/webfonts/fa-solid-900.woff2") format("woff2");font-style:normal;font-weight:900;font-display:swap}
-@font-face{font-family:"YD Font Awesome 6 Free";src:url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-regular-400.woff2") format("woff2"),url("https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/webfonts/fa-regular-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
-@font-face{font-family:"YD Font Awesome 6 Brands";src:url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/webfonts/fa-brands-400.woff2") format("woff2"),url("https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/webfonts/fa-brands-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"YD Font Awesome 6 Free";src:url("webfonts/6.7.2/fa-solid-900.woff2") format("woff2");font-style:normal;font-weight:900;font-display:swap}
+@font-face{font-family:"YD Font Awesome 6 Free";src:url("webfonts/6.7.2/fa-regular-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"YD Font Awesome 6 Brands";src:url("webfonts/6.7.2/fa-brands-400.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
 .yd-fa-icon{display:inline-block;font-style:normal!important;font-variant:normal!important;line-height:1;text-rendering:auto;-webkit-font-smoothing:antialiased}
 .yd-fa-icon:not(.fa-regular):not(.far):not(.fa-brands):not(.fab){font-family:"YD Font Awesome 6 Free"!important;font-weight:900!important}
 .yd-fa-icon.fa-regular,.yd-fa-icon.far{font-family:"YD Font Awesome 6 Free"!important;font-weight:400!important}
