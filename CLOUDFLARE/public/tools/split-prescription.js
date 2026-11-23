@@ -755,7 +755,7 @@
         const style = document.createElement('style');
         style.id = 'ydDirectSplitStyles';
         style.textContent = `
-#${CONFIG.DIALOG_ID}{--yds-primary:#875A7B;--yds-primary-strong:#68465F;--yds-primary-soft:#EEE7ED;--yds-soft:#E1E1E1;--yds-bg:#FFFFFF;--yds-surface:#FFFFFF;--yds-surface-muted:#E1E1E1;--yds-text:#302632;--yds-muted:#776C78;--yds-border:#E8E0E8;--yds-input-border:#DED5DF;--yds-success:#2F8F65;--yds-success-bg:#EAF6F0;--yds-danger:#C84444;--yds-danger-bg:#FFF0F0;--yds-info:#477EAA;position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:20px;background:rgba(28,21,30,.56);backdrop-filter:blur(3px);font-family:"Nunito Sans",Nunito,Arial,sans-serif;color:var(--yds-text);font-size:14px;line-height:20px}
+#${CONFIG.DIALOG_ID}{--yds-primary:#875A7B;--yds-primary-strong:#68465F;--yds-primary-soft:#EEE7ED;--yds-soft:#E1E1E1;--yds-bg:#FFFFFF;--yds-surface:#FFFFFF;--yds-surface-muted:#E1E1E1;--yds-text:#302632;--yds-muted:#776C78;--yds-border:#E8E0E8;--yds-input-border:#DED5DF;--yds-success:#176B3A;--yds-success-bg:#E3F3E9;--yds-danger:#B42318;--yds-danger-bg:#FDE8E7;--yds-info:#477EAA;position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:20px;background:rgba(28,21,30,.56);backdrop-filter:blur(3px);font-family:"Nunito Sans",Nunito,Arial,sans-serif;color:var(--yds-text);font-size:14px;line-height:20px}
 #${CONFIG.DIALOG_ID} *{box-sizing:border-box;font-family:inherit}
 #${CONFIG.DIALOG_ID} :lang(ar),#${CONFIG.DIALOG_ID} :lang(ar) input,#${CONFIG.DIALOG_ID} :lang(ar) select{font-family:"Cairo","Noto Sans Arabic",Arial,sans-serif}
 #${CONFIG.DIALOG_ID} .yds-panel{width:min(660px,calc(100vw - 32px));max-height:min(780px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--yds-border);border-radius:14px;background:var(--yds-bg);color:var(--yds-text);box-shadow:0 20px 56px rgba(24,16,27,.22);animation:yds-modal-enter .16s cubic-bezier(.4,0,.2,1) both}
@@ -776,27 +776,28 @@
 #${CONFIG.DIALOG_ID} .yds-content-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 #${CONFIG.DIALOG_ID} .yds-section-title{color:var(--yds-text);font-size:14px;font-weight:700;line-height:20px}
 #${CONFIG.DIALOG_ID} .yds-section-hint{margin-top:1px;color:var(--yds-muted);font-size:12px;font-weight:400;line-height:16px}
-#${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;min-height:36px;padding:7px 10px;margin:0;border:1px solid var(--yds-border);border-radius:8px;background:var(--yds-surface-muted);color:var(--yds-text);font-size:13px;font-weight:600;line-height:20px;cursor:pointer;transition:background-color .15s,border-color .15s}
-#${CONFIG.DIALOG_ID} .yds-select-all:hover{border-color:#D7C9D8;background:var(--yds-primary-soft)}
-#${CONFIG.DIALOG_ID} .yds-select-hint{margin-left:auto;color:var(--yds-muted);font-size:12px;font-weight:500}
+#${CONFIG.DIALOG_ID} .yds-select-all{display:flex;align-items:center;gap:9px;min-height:36px;padding:7px 10px;margin:0;border:1px solid var(--o-brand-primary,#714B67);border-radius:8px;background:var(--o-brand-primary,#714B67);color:#fff;font-size:13px;font-weight:700;line-height:20px;cursor:pointer;transition:filter .15s,box-shadow .15s}
+#${CONFIG.DIALOG_ID} .yds-select-all:hover{border-color:var(--o-brand-primary,#714B67);background:var(--o-brand-primary,#714B67);filter:brightness(.94)}
+#${CONFIG.DIALOG_ID} .yds-select-hint{margin-left:auto;color:rgba(255,255,255,.82);font-size:12px;font-weight:600}
 #${CONFIG.DIALOG_ID} .yds-list{display:flex;flex-direction:column;gap:6px}
 #${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:11px;min-width:0;min-height:54px;padding:9px 12px;border:1px solid var(--yds-border);border-radius:8px;background:var(--yds-surface);cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}
 #${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:#CDBCCD;background:var(--yds-surface-muted)}
 #${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:var(--yds-primary);background:var(--yds-soft);box-shadow:0 0 0 1px rgba(135,90,123,.08)}
 #${CONFIG.DIALOG_ID} .yds-drug input,#${CONFIG.DIALOG_ID} .yds-select-all input{width:16px;height:16px;min-width:16px;margin:0;accent-color:var(--yds-primary);flex:0 0 auto;cursor:pointer}
+#${CONFIG.DIALOG_ID} .yds-select-all input{accent-color:#fff}
 #${CONFIG.DIALOG_ID} .yds-drug-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
 #${CONFIG.DIALOG_ID} .yds-drug-name{color:var(--yds-text);font-size:14px;font-weight:600;line-height:20px;overflow-wrap:anywhere}
 #${CONFIG.DIALOG_ID} .yds-drug-hzb{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin:0;padding:1px 6px;border:1px solid var(--yds-border);border-radius:5px;background:var(--yds-surface-muted);color:var(--yds-muted);font-size:11px;font-weight:500;line-height:16px;font-variant-numeric:tabular-nums}
-#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:2px 7px;border:1px solid #B9DAC7;border-radius:999px;background:var(--yds-success-bg);color:var(--yds-success);font-size:11px;font-weight:600;line-height:16px;white-space:nowrap}
+#${CONFIG.DIALOG_ID} .yds-drug-state{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-left:auto;padding:2px 7px;border:1px solid #A8D5B7;border-radius:999px;background:var(--yds-success-bg);color:var(--yds-success);font-size:11px;font-weight:700;line-height:16px;white-space:nowrap}
 #${CONFIG.DIALOG_ID} .yds-drug-state[hidden]{display:none!important}
-#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"]{border-color:#E8BFC2;background:var(--yds-danger-bg);color:var(--yds-danger)}
+#${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"]{border-color:#E5B1AE;background:var(--yds-danger-bg);color:var(--yds-danger)}
 #${CONFIG.DIALOG_ID} .yds-row-state-icon{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:var(--yds-success);color:#fff;font-size:10px;font-weight:700}
 #${CONFIG.DIALOG_ID} .yds-drug-state[data-kind="error"] .yds-row-state-icon{background:var(--yds-danger)}
 #${CONFIG.DIALOG_ID} .yds-footer{display:flex;flex-direction:column;gap:10px;padding:12px 20px 16px;border-top:1px solid var(--yds-border);background:var(--yds-surface)}
 #${CONFIG.DIALOG_ID} .yds-status{display:none;align-items:center;gap:9px;min-height:36px;padding:7px 10px;margin:0;border:1px solid var(--yds-border);border-radius:8px;background:var(--yds-surface-muted);color:var(--yds-text);font-size:13px;font-weight:600;line-height:18px}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="error"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"],#${CONFIG.DIALOG_ID} .yds-status[data-kind="info"]{display:flex}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{border-color:#E8BFC2;background:var(--yds-danger-bg);color:var(--yds-danger)}
-#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{border-color:#B9DAC7;background:var(--yds-success-bg);color:var(--yds-success)}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="error"]{border-color:#E5B1AE;background:var(--yds-danger-bg);color:var(--yds-danger)}
+#${CONFIG.DIALOG_ID} .yds-status[data-kind="success"]{border-color:#A8D5B7;background:var(--yds-success-bg);color:var(--yds-success)}
 #${CONFIG.DIALOG_ID} .yds-status-icon{display:inline-grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border-radius:50%;background:var(--yds-info);color:#fff;font-size:13px;font-weight:700;line-height:1}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="success"] .yds-status-icon{background:var(--yds-success)}
 #${CONFIG.DIALOG_ID} .yds-status[data-kind="error"] .yds-status-icon{background:var(--yds-danger)}
@@ -819,7 +820,7 @@
 #ydDirectSplitButton .o_button_icon{color:#875A7B!important}
 #ydDirectSplitButton .o_stat_text{font-family:"Nunito Sans",Nunito,Arial,sans-serif;font-weight:600}
 #ydDirectSplitButton:focus-visible{outline:2px solid rgba(135,90,123,.35);outline-offset:2px}
-html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body.dark #${CONFIG.DIALOG_ID}{--yds-primary:#A9799C;--yds-primary-strong:#875A7B;--yds-primary-soft:#382B38;--yds-soft:#2B232B;--yds-bg:#19151A;--yds-surface:#211C23;--yds-surface-muted:#2B252E;--yds-text:#F5EFF5;--yds-muted:#B7ABB8;--yds-border:#403543;--yds-input-border:#514353;--yds-success:#55B889;--yds-success-bg:#20372E;--yds-danger:#EF7777;--yds-danger-bg:#3B2528;--yds-info:#78A9D0}
+html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body.dark #${CONFIG.DIALOG_ID}{--yds-primary:#A9799C;--yds-primary-strong:#875A7B;--yds-primary-soft:#382B38;--yds-soft:#2B232B;--yds-bg:#19151A;--yds-surface:#211C23;--yds-surface-muted:#2B252E;--yds-text:#F5EFF5;--yds-muted:#B7ABB8;--yds-border:#403543;--yds-input-border:#514353;--yds-success:#63CF91;--yds-success-bg:#203A2D;--yds-danger:#FF7770;--yds-danger-bg:#472625;--yds-info:#78A9D0}
 html.dark #ydDirectSplitButton.oe_stat_button,html[data-theme="dark"] #ydDirectSplitButton.oe_stat_button,body.dark #ydDirectSplitButton.oe_stat_button{border-color:#514353!important;background:#2B252E!important;color:#F5EFF5!important}
 html.dark #ydDirectSplitButton.oe_stat_button:hover:not(:disabled),html[data-theme="dark"] #ydDirectSplitButton.oe_stat_button:hover:not(:disabled),body.dark #ydDirectSplitButton.oe_stat_button:hover:not(:disabled){background:#382B38!important}
 html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectSplitButton .o_button_icon,body.dark #ydDirectSplitButton .o_button_icon{color:#A9799C!important}
@@ -1066,7 +1067,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
-        button.innerHTML = '<i class="fa fa-fw fa-exchange o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
+        button.innerHTML = '<i class="fa fa-fw fa-scissors o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
