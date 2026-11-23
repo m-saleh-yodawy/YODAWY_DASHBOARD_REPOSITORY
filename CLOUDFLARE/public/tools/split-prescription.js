@@ -48,7 +48,10 @@
         api: null,
         portalCreated: false,
         logPosted: false,
-        ticketClosed: false
+        ticketClosed: false,
+        pendingSplitLog: null,
+        splitLogBaselineId: 0,
+        deferredChatterObserver: null
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -822,6 +825,25 @@
         return { noItems: drugs.length === 0, drugs };
     }
 
+    async function findExistingSplitLogNote(ticketId, baselineId, targets) {
+        const messages = await rpc('mail.message', 'search_read', [[
+            ['model', '=', 'helpdesk.ticket'],
+            ['res_id', '=', ticketId],
+            ...(baselineId ? [['id', '>', baselineId]] : [])
+        ]], {
+            fields: ['id', 'body'],
+            order: 'id desc',
+            limit: 50,
+            context: getSessionContext()
+        });
+        return (messages || []).find(item => {
+            const plain = getPlainMessage(item.body);
+            if (!/\bSPLIT\b/i.test(plain)) return false;
+            const hzbs = [...plain.matchAll(/,\s*(\d+)\b/g)].map(match => match[1]);
+            return targets.every(target => hzbs.includes(target.hzb));
+        }) || null;
+    }
+
     async function waitForSplitLogNote(ticketId, baselineId, targets, timeout = 12000) {
         const end = Date.now() + timeout;
         while (Date.now() < end) {
@@ -849,47 +871,72 @@
 
     async function postSplitLogNote(prepared) {
         const ticketId = Number(state.ticketId || getTicketId());
+        if (!ticketId) throw new Error('Ticket ID is unavailable while posting the SPLIT note.');
         const targets = prepared.selectedDrugs.map(drug => ({ name: normalize(drug.name), hzb: normalize(drug.hzb) }));
-        const baselineId = await getLatestMessageId(ticketId);
+        if (!state.splitLogBaselineId) state.splitLogBaselineId = await getLatestMessageId(ticketId);
+        const baselineId = state.splitLogBaselineId;
         const note = prepared.selectedDrugs.map(drug => 'Limited Drug: ' + (cleanDrugName(drug.limited) || [drug.name, drug.hzb].join(', '))).join('\n') + '\nSPLIT';
-        const findComposer = () => [...document.querySelectorAll('.o_ComposerTextInput_textarea')].find(isVisible) || null;
-        const findAction = () => [...document.querySelectorAll('.o_Composer_buttonSend')].find(isVisible) || null;
-        let composer = findComposer();
-        let action = findAction();
-        if (!composer || getText(action).toLowerCase() !== 'log') {
-            const button = [...document.querySelectorAll('.o_ChatterTopbar_buttonLogNote')].find(isVisible);
-            if (!button) throw new Error('The Odoo Log Note button was not found.');
-            button.click();
-            const end = Date.now() + 5000;
-            while (Date.now() < end) {
-                composer = findComposer();
-                action = findAction();
-                if (composer && getText(action).toLowerCase() === 'log') break;
-                await sleep(100);
+        let message = await findExistingSplitLogNote(ticketId, baselineId, targets);
+        if (!message) {
+            const findComposer = () => [...document.querySelectorAll('.o_ComposerTextInput_textarea')].find(isVisible) || null;
+            const findAction = () => [...document.querySelectorAll('.o_Composer_buttonSend')].find(isVisible) || null;
+            let composer = findComposer();
+            let action = findAction();
+            if (!composer || getText(action).toLowerCase() !== 'log') {
+                const button = [...document.querySelectorAll('.o_ChatterTopbar_buttonLogNote')].find(isVisible);
+                if (!button) throw new Error('The Odoo Log Note button was not found.');
+                button.click();
+                const end = Date.now() + 5000;
+                while (Date.now() < end) {
+                    composer = findComposer();
+                    action = findAction();
+                    if (composer && getText(action).toLowerCase() === 'log') break;
+                    await sleep(100);
+                }
             }
+            if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer.');
+            const existingText = String(composer.value || '');
+            const separator = !existingText ? '' : existingText.endsWith('\n\n') ? '' : existingText.endsWith('\n') ? '\n' : '\n\n';
+            const combined = existingText + separator + note;
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+            if (!setter) throw new Error('The Odoo Log Note editor could not be updated.');
+            setter.call(composer, combined);
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+            composer.dispatchEvent(new Event('change', { bubbles: true }));
+            if (composer.value !== combined) throw new Error('The SPLIT Log Note could not be verified in the Odoo editor.');
+            if (action.disabled) throw new Error('The Odoo Log Note send button is disabled.');
+            action.click();
+            message = await waitForSplitLogNote(ticketId, baselineId, targets);
         }
-        if (!composer || getText(action).toLowerCase() !== 'log') throw new Error('Could not open the Odoo Log Note composer.');
-        const existingText = String(composer.value || '');
-        const separator = !existingText ? '' : existingText.endsWith('\n\n') ? '' : existingText.endsWith('\n') ? '\n' : '\n\n';
-        const combined = existingText + separator + note;
-        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-        if (!setter) throw new Error('The Odoo Log Note editor could not be updated.');
-        setter.call(composer, combined);
-        composer.dispatchEvent(new Event('input', { bubbles: true }));
-        composer.dispatchEvent(new Event('change', { bubbles: true }));
-        if (composer.value !== combined) throw new Error('The SPLIT Log Note could not be verified in the Odoo editor.');
-        if (action.disabled) throw new Error('The Odoo Log Note send button is disabled.');
-        action.click();
-        const message = await waitForSplitLogNote(ticketId, baselineId, targets);
-        const end = Date.now() + 6000;
+        const messageId = Number(message.id || 0);
+        if (!messageId) throw new Error('Odoo did not return a valid SPLIT Chatter message ID.');
+        await rpc('mail.message', 'message_format', [[messageId]], { context: getSessionContext() });
+        const fetched = await rpc('mail.message', 'message_fetch', [], {
+            context: getSessionContext(),
+            domain: [
+                ...(baselineId ? [['id', '>', baselineId]] : []),
+                ['message_type', '!=', 'user_notification'],
+                ['model', '=', 'helpdesk.ticket'],
+                ['res_id', '=', ticketId]
+            ],
+            limit: false
+        });
+        if (!Array.isArray(fetched) || !fetched.some(item => Number(item?.id) === messageId)) throw new Error('The SPLIT note exists but was not returned by Odoo Chatter refresh.');
         const appearsInDom = () => [...document.querySelectorAll('.o_Message, .o-mail-Message')].some(element => {
             const plain = getText(element);
             return /\bSPLIT\b/i.test(plain) && targets.every(target => plain.includes(target.hzb));
         });
+        let end = Date.now() + 6000;
         while (Date.now() < end && !appearsInDom()) await sleep(120);
-        if (!appearsInDom()) throw new Error('The SPLIT Log Note was saved, but Odoo did not refresh the Chatter DOM. Ticket deletion was stopped.');
+        if (!appearsInDom()) {
+            const refresh = [...document.querySelectorAll('.o_ChatterTopbar_buttonRefresh, .o-mail-Chatter-refresh, [data-tooltip="Refresh"]')].find(isVisible);
+            refresh?.click();
+            end = Date.now() + 3000;
+            while (Date.now() < end && !appearsInDom()) await sleep(150);
+        }
+        if (!appearsInDom()) throw new Error('The SPLIT note was saved in Odoo, but the Chatter display did not refresh. Press RETRY CHATTER; the existing note will be reused without duplication.');
         state.logPosted = true;
-        return { posted: true, messageId: Number(message.id) };
+        return { posted: true, messageId };
     }
 
     function injectStyles() {
@@ -1020,12 +1067,76 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         });
     }
 
+    function revealDeferredChatterMessages() {
+        state.deferredChatterObserver?.disconnect();
+        state.deferredChatterObserver = null;
+        document.querySelectorAll('[data-yds-deferred-chatter="1"]').forEach(element => {
+            element.style.display = element.dataset.ydsPreviousDisplay || '';
+            delete element.dataset.ydsDeferredChatter;
+            delete element.dataset.ydsPreviousDisplay;
+        });
+    }
+
+    function startDeferredChatterHiding(drugs) {
+        revealDeferredChatterMessages();
+        const targets = drugs.map(drug => normalize(drug.hzb)).filter(Boolean);
+        const inspect = element => {
+            if (!element || element.nodeType !== 1) return;
+            const roots = new Set();
+            const closest = element.closest('.o_Message, .o-mail-Message');
+            if (closest) roots.add(closest);
+            if (element.matches('.o_Message, .o-mail-Message')) roots.add(element);
+            element.querySelectorAll('.o_Message, .o-mail-Message').forEach(root => roots.add(root));
+            for (const root of roots) {
+                const plain = getText(root);
+                if (!/Removed Limited Drugs/i.test(plain) || !targets.every(hzb => plain.includes(hzb))) continue;
+                if (root.dataset.ydsDeferredChatter === '1') continue;
+                root.dataset.ydsPreviousDisplay = root.style.display || '';
+                root.dataset.ydsDeferredChatter = '1';
+                root.style.display = 'none';
+            }
+        };
+        state.deferredChatterObserver = new MutationObserver(records => {
+            for (const record of records) for (const node of record.addedNodes) inspect(node.nodeType === 1 ? node : node.parentElement);
+        });
+        state.deferredChatterObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
     function closeDialog() {
-        if (state.busy) return;
+        if (state.busy || (state.pendingSplitLog && !state.logPosted)) return;
+        revealDeferredChatterMessages();
         state.dialog?.remove();
         state.dialog = null;
         document.removeEventListener('keydown', state.keydown, true);
+    }
 
+    async function closeDialogAction() {
+        if (state.busy) return;
+        if (!state.pendingSplitLog || state.logPosted) {
+            closeDialog();
+            return;
+        }
+        const button = state.dialog?.querySelector('[data-cancel]');
+        state.busy = true;
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<span class="yds-spin"></span>POSTING NOTE';
+        }
+        revealDeferredChatterMessages();
+        setStatus('Publishing the SPLIT note to Odoo Chatter...', 'info');
+        try {
+            await postSplitLogNote(state.pendingSplitLog);
+            state.pendingSplitLog = null;
+            state.busy = false;
+            closeDialog();
+        } catch (error) {
+            state.busy = false;
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'RETRY CHATTER';
+            }
+            setStatus('SPLIT COMPLETED — CHATTER NOTE NOT CONFIRMED', 'error', error?.message || 'The SPLIT note could not be confirmed in Chatter. Press RETRY CHATTER to continue without creating a duplicate note.');
+        }
     }
 
     function showDrugDialog(drugs) {
@@ -1076,8 +1187,12 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         checkboxes.forEach(item => item.addEventListener('change', update));
         selectAll.addEventListener('change', () => { checkboxes.forEach(item => { item.checked = selectAll.checked; }); update(); });
         overlay.querySelector('[data-portal-account]')?.addEventListener('change', event => { state.accountId = event.target.value; update(); });
-        overlay.querySelector('[data-cancel]').addEventListener('click', closeDialog);
-        overlay.addEventListener('click', event => { if (event.target === overlay) closeDialog(); });
+        overlay.querySelector('[data-cancel]').addEventListener('click', closeDialogAction);
+        overlay.addEventListener('click', event => {
+            if (event.target !== overlay) return;
+            if (state.pendingSplitLog && !state.logPosted) setStatus('Press CLOSE to publish the SPLIT note and show the completed Chatter messages.', 'info');
+            else closeDialog();
+        });
         submit.addEventListener('click', async () => {
             const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
             if (!selected.length || state.busy) return;
@@ -1104,17 +1219,17 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                 }
                 state.completed = true;
                 state.portalCreated = true;
-                submit.innerHTML = '<span class="yds-spin"></span>POSTING SPLIT NOTE';
-                setStatus('Portal confirmed the split. Posting the SPLIT note to Odoo Chatter...', 'info');
-                await postSplitLogNote(prepared);
-                setStatus('SPLIT note is visible in Chatter. Removing the selected items from Odoo...', 'info');
                 submit.innerHTML = '<span class="yds-spin"></span>CLEANING ODOO';
+                setStatus('Portal confirmed the split. Removing the selected items from Odoo...', 'info');
+                startDeferredChatterHiding(prepared.selectedDrugs);
                 let cleanup = { success: false, error: '' };
                 try {
                     cleanup = await deleteSplitItemsFromOdoo(prepared);
                 } catch (error) {
                     cleanup.error = error?.message || 'Odoo item deletion failed.';
                 }
+                if (cleanup.success) state.pendingSplitLog = prepared;
+                else revealDeferredChatterMessages();
                 let remaining = null;
                 let closeError = '';
                 if (cleanup.success) {
@@ -1135,11 +1250,11 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                 if (cleanup.success) {
                     markSelectedDrugs(selected, 'success');
                     if (state.ticketClosed) {
-                        setStatus('SUCCESS — TICKET CLOSED', 'success');
+                        setStatus('SUCCESS — TICKET CLOSED · PRESS CLOSE FOR CHATTER', 'success');
                     } else if (closeError) {
-                        setStatus('SPLIT COMPLETED — ODOO AUTO-CLOSE NOT CONFIRMED', 'info', closeError);
+                        setStatus('SPLIT COMPLETED — AUTO-CLOSE NOT CONFIRMED · PRESS CLOSE FOR CHATTER', 'info', closeError);
                     } else {
-                        setStatus('SPLIT COMPLETED — REMAINING ITEMS', 'info', String(remaining?.drugs?.length || 0) + ' limited drugs still need checking.');
+                        setStatus('SPLIT COMPLETED — REMAINING ITEMS · PRESS CLOSE FOR CHATTER', 'info', String(remaining?.drugs?.length || 0) + ' limited drugs still need checking.');
                     }
                 } else {
                     markSelectedDrugs(selected, 'error');
@@ -1169,7 +1284,10 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             }
         });
         state.keydown = event => {
-            if (event.key === 'Escape' && state.dialog === overlay && !state.busy) closeDialog();
+            if (event.key === 'Escape' && state.dialog === overlay && !state.busy) {
+                if (state.pendingSplitLog && !state.logPosted) setStatus('Press CLOSE to publish the SPLIT note and show the completed Chatter messages.', 'info');
+                else closeDialog();
+            }
             if (event.key === 'Enter' && state.dialog === overlay && !submit.disabled && !state.busy) submit.click();
         };
         document.addEventListener('keydown', state.keydown, true);
@@ -1196,11 +1314,15 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         state.portalCreated = false;
         state.logPosted = false;
         state.ticketClosed = false;
+        state.pendingSplitLog = null;
+        state.splitLogBaselineId = 0;
+        revealDeferredChatterMessages();
         const button = document.getElementById(CONFIG.BUTTON_ID);
         if (button) { button.disabled = true; button.dataset.loading = '1'; }
         try {
             state.ticketId = getTicketId();
             if (!state.ticketId) throw new Error('Ticket ID was not found. Open the Helpdesk ticket form and try again.');
+            state.splitLogBaselineId = await getLatestMessageId(state.ticketId);
             const api = await waitForApi();
             const accountResponse = await api.getOpenErxAccounts(getField('payor_id'));
             state.portalAccounts = accountResponse?.success === true && Array.isArray(accountResponse.accounts) ? accountResponse.accounts : [];
