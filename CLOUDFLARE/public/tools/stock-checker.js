@@ -250,7 +250,7 @@ function createUI(){
 #ms-stock-name{display:flex!important;flex-direction:column!important;line-height:1.2!important}
 #ms-stock-name strong{font-size:13px!important;color:#fff!important}
 #ms-stock-name span{margin-top:2px!important;font-size:10px!important;color:rgba(255,255,255,.75)!important}
-#ms-stock-close{display:flex!important;align-items:center!important;justify-content:center!important;width:28px!important;height:28px!important;border:1px solid rgba(255,255,255,.35)!important;border-radius:4px!important;background:transparent!important;color:#fff!important;cursor:pointer!important;font-size:17px!important;padding:0!important;margin:0!important;outline:0!important}
+#ms-stock-close{width:28px!important;height:28px!important;border:1px solid rgba(255,255,255,.35)!important;border-radius:4px!important;background:transparent!important;color:#fff!important;cursor:pointer!important;font-size:17px!important;padding:0!important;margin:0!important;outline:0!important}
 #ms-stock-body{height:426px!important;padding:10px!important;background:#fff!important}
 #ms-stock-form{margin:0!important;padding:0!important}
 #ms-stock-search-box{position:relative!important;display:flex!important;align-items:center!important;gap:7px!important;height:48px!important;padding:7px 9px!important;margin:0 0 8px!important;border:1px solid #d9d9d9!important;border-radius:4px!important;background:#fff!important}
@@ -301,7 +301,7 @@ function createUI(){
                 <span>Search by product name or HZB</span>
             </div>
         </div>
-        <button id="ms-stock-close" type="button" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
+        <button id="ms-stock-close" type="button">×</button>
     </div>
 
     <div id="ms-stock-body">
@@ -558,7 +558,7 @@ function createUI(){
     systrayItem.setAttribute('role','menuitem');
     systrayItem.innerHTML=`
         <button id="ms-stock-hzb-systray-button" type="button" title="Stock HZB" aria-label="Stock HZB">
-            <i class="yd-fa-icon fa-solid fa-cubes" role="img" aria-label="Stock HZB"></i>
+            <i class="yd-custom-icon fa fa-cubes" role="img" aria-label="Stock HZB"></i>
         </button>`;
 
     const systrayButton=systrayItem.firstElementChild;

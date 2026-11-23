@@ -556,7 +556,7 @@ panel.innerHTML=`
 <span>No Items Screenshot</span>
 </div>
 </div>
-<button id="noitems-close" type="button" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
+<button id="noitems-close" type="button">×</button>
 </div>
 <div id="noitems-body">
 <div id="noitems-info">
@@ -610,9 +610,9 @@ panel.innerHTML=`
 <div id="noitems-status-text">IDLE</div>
 </div>
 <div id="noitems-controls">
-<button id="noitems-start" class="noitems-btn" type="button"><i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i><span>START NO ITEMS</span></button>
-<button id="noitems-pause" class="noitems-btn" type="button"><i class="yd-fa-icon fa-solid fa-pause" aria-hidden="true"></i><span>PAUSE</span></button>
-<button id="noitems-resume" class="noitems-btn" type="button"><i class="yd-fa-icon fa-solid fa-play" aria-hidden="true"></i><span>RESUME</span></button>
+<button id="noitems-start" class="noitems-btn" type="button">▶ START NO ITEMS</button>
+<button id="noitems-pause" class="noitems-btn" type="button">Ⅱ PAUSE</button>
+<button id="noitems-resume" class="noitems-btn" type="button">▶ RESUME</button>
 </div>
 </div>
 <div id="noitems-footer">YODAWY • NO ITEMS</div>
@@ -723,7 +723,7 @@ style.textContent=`
 #noitems-name{display:flex;flex-direction:column;line-height:1.2}
 #noitems-name strong{font-size:13px}
 #noitems-name span{margin-top:2px;font-size:10px;color:rgba(255,255,255,.75)}
-#noitems-close{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(255,255,255,.35);border-radius:4px;background:transparent;color:#fff;cursor:pointer;font-size:17px}
+#noitems-close{width:28px;height:28px;border:1px solid rgba(255,255,255,.35);border-radius:4px;background:transparent;color:#fff;cursor:pointer;font-size:17px}
 #noitems-body{padding:12px}
 #noitems-info,#noitems-confirm{display:flex;align-items:center;justify-content:space-between;min-height:42px;padding:7px 9px;margin-bottom:10px;border:1px solid #d9d9d9;border-radius:4px}
 #noitems-info-label{font-size:11px;font-weight:600}
@@ -750,7 +750,7 @@ style.textContent=`
 #noitems-status-dot{width:7px;height:7px;border-radius:50%;background:#666}
 #noitems-status-text{font-size:11px;font-weight:600}
 #noitems-controls{display:flex;gap:7px}
-.noitems-btn{display:flex;align-items:center;justify-content:center;gap:7px;height:36px;flex:1;border:1px solid #68465f;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer}
+.noitems-btn{height:36px;flex:1;border:1px solid #68465f;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer}
 #noitems-start,#noitems-resume{background:#875A7B;color:#fff}
 #noitems-pause{background:#fff;color:#875A7B}
 .noitems-btn:hover{opacity:.9}
@@ -772,7 +772,7 @@ systray.setAttribute('role','menuitem');
 
 systray.innerHTML=`
 <button id="noitems-systray-button" type="button" title="No Items Automation" aria-label="No Items Automation">
-<i class="yd-fa-icon fa-solid fa-camera" aria-hidden="true"></i>
+<i class="yd-custom-icon fa fa-camera"></i>
 <span id="noitems-counter">0</span>
 </button>
 `;
@@ -842,7 +842,7 @@ startButton.addEventListener('click',e=>{
         :'OFF — Screenshot + Log Note ONLY';
 
     if(!window.confirm(
-        `WARNING: CONFIRM SWITCH IS ${state.confirm?'ON':'OFF'}\n\n${mode}\n\nAre you sure you want to START?`
+        `⚠️ CONFIRM SWITCH IS ${state.confirm?'ON':'OFF'}\n\n${mode}\n\nAre you sure you want to START?`
     ))return;
 
     run();

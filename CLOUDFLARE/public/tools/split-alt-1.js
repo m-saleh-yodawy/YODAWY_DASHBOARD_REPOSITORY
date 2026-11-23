@@ -1011,7 +1011,7 @@
 
         const warning = duplicates.length ? `
 <div class="tm-warning">
-    <div class="tm-warning-icon"><i class="yd-fa-icon fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+    <div class="tm-warning-icon">⚠️</div>
     <div class="tm-warning-content">
         <div class="tm-warning-title">DUPLICATE DRUGS DETECTED</div>
         ${duplicates.map(group => `
@@ -1034,7 +1034,7 @@
             <div class="tm-title">Select Drugs To Split</div>
             <div class="tm-subtitle">Select the items you want to send to Portal</div>
         </div>
-        <button type="button" class="tm-close" id="tmSplitClose" aria-label="Close"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></button>
+        <button type="button" class="tm-close" id="tmSplitClose">×</button>
     </div>
     <div class="tm-body">
         ${warning}
@@ -1191,12 +1191,12 @@
         overlay.innerHTML = `
 <div class="tm-support-dialog">
     <div class="tm-support-header">
-        <div class="tm-support-icon"><i class="yd-fa-icon fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+        <div class="tm-support-icon">⚠️</div>
         <div class="tm-support-title">NOT SUPPORTED ACCOUNT</div>
     </div>
     <div class="tm-support-body">
         <div class="tm-support-message">
-            <div class="tm-support-badge"><i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i></div>
+            <div class="tm-support-badge">×</div>
             <div class="tm-support-text">
                 <strong>Splitting is not supported</strong>
                 <span>This account does not accept prescription splitting.</span>
@@ -1237,7 +1237,7 @@
         overlay.innerHTML = `
 <div class="tm-fetch-dialog">
     <div class="tm-fetch-header">
-        <div class="tm-fetch-icon"><i class="yd-fa-icon fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+        <div class="tm-fetch-icon">⚠️</div>
         <div class="tm-fetch-title">FETCH FAILED</div>
     </div>
     <div class="tm-fetch-body">
@@ -1362,7 +1362,7 @@
         button.title = 'Fetch Split Drugs';
 
         button.innerHTML = `
-<i class="yd-fa-icon fa-solid fa-code-branch o_button_icon" aria-hidden="true"></i>
+<i class="fa fa-fw fa-exchange o_button_icon"></i>
 <div class="o_stat_info">
     <span class="o_stat_text">Split</span>
 </div>`;
