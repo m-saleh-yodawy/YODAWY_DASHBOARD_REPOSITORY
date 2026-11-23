@@ -237,30 +237,39 @@
         const record = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['stage_id', 'previous_state_id', 'team_id']], { context: getSessionContext() }))?.[0];
         if (!record) throw new Error('Odoo could not read the ticket stage.');
         const teamId = Number(Array.isArray(record.team_id) ? record.team_id[0] : record.team_id) || 69;
-        const stages = await rpc('helpdesk.stage', 'search_read', [[['name', 'in', ['Confirmed Alternatives', 'Closed']]]], {
-            fields: ['id', 'name', 'team_ids', 'is_close'],
+        const stages = await rpc('helpdesk.stage', 'search_read', [[['name', '=', 'Confirmed Alternatives']]], {
+            fields: ['id', 'name', 'team_ids'],
             limit: 100,
             context: getSessionContext()
         });
-        if (!Array.isArray(stages)) throw new Error('Odoo did not return the ticket stages.');
-        const resolve = name => {
-            const matches = stages.filter(stage => normalizeKey(stage?.name) === normalizeKey(name));
-            const teamMatches = matches.filter(stage => Array.isArray(stage.team_ids) && stage.team_ids.map(Number).includes(teamId));
-            const unassignedMatches = matches.filter(stage => !Array.isArray(stage.team_ids) || !stage.team_ids.length);
-            const selected = teamMatches.length ? teamMatches : unassignedMatches.length ? unassignedMatches : matches;
-            if (selected.length !== 1) throw new Error('Could not uniquely identify the ' + name + ' stage for this ticket team.');
-            return selected[0];
-        };
-        return { record, teamId, confirmed: resolve('Confirmed Alternatives'), closed: resolve('Closed') };
+        const teamMatches = (stages || []).filter(stage => Array.isArray(stage.team_ids) && stage.team_ids.map(Number).includes(teamId));
+        const unassignedMatches = (stages || []).filter(stage => !Array.isArray(stage.team_ids) || !stage.team_ids.length);
+        const matches = teamMatches.length ? teamMatches : unassignedMatches.length ? unassignedMatches : stages || [];
+        if (matches.length !== 1) throw new Error('Could not uniquely identify the Confirmed Alternatives stage for this ticket team.');
+        return { record, teamId, confirmed: matches[0] };
+    }
+
+    async function getClosingStage(teamId) {
+        const stages = await rpc('helpdesk.stage', 'search_read', [[['is_close', '=', true]]], {
+            fields: ['id', 'name', 'team_ids'],
+            limit: 100,
+            context: getSessionContext()
+        });
+        if (!Array.isArray(stages)) throw new Error('Odoo did not return closing stages.');
+        const teamMatches = stages.filter(stage => Array.isArray(stage.team_ids) && stage.team_ids.map(Number).includes(teamId));
+        const unassignedMatches = stages.filter(stage => !Array.isArray(stage.team_ids) || !stage.team_ids.length);
+        const matches = teamMatches.length ? teamMatches : unassignedMatches.length ? unassignedMatches : stages;
+        if (matches.length !== 1) throw new Error('Could not uniquely identify the closing stage for this ticket team. The ticket was left open.');
+        return matches[0];
     }
 
     async function setTicketStage(stageName) {
         const ticketId = Number(state.ticketId || getTicketId());
         if (!ticketId) throw new Error('Ticket ID is unavailable while changing the stage.');
         const stages = await getTicketStage(ticketId);
-        const target = normalizeKey(stageName) === normalizeKey('Closed') ? stages.closed : stages.confirmed;
+        const closing = normalizeKey(stageName) === normalizeKey('Closed');
+        const target = closing ? await getClosingStage(stages.teamId) : stages.confirmed;
         const currentId = Number(Array.isArray(stages.record.stage_id) ? stages.record.stage_id[0] : stages.record.stage_id || 0);
-        if (stageName === 'Closed' && target.is_close !== true) throw new Error('The selected Closed stage is not configured as a closing stage.');
         if (currentId === Number(target.id)) return { changed: false, stageId: currentId, stageName: target.name };
         const values = { stage_id: Number(target.id) };
         if (currentId > 0) values.previous_state_id = currentId;
@@ -761,7 +770,21 @@
             context: getTicketFormContext(ticketId)
         }))?.[0];
         if (!wizard || !Object.prototype.hasOwnProperty.call(wizard, 'non_selected_drugs')) throw new Error('Odoo did not return the remaining limited-drug data.');
-        const drugs = parseFetchedDrugs(wizard.non_selected_drugs);
+        let drugs = parseFetchedDrugs(wizard.non_selected_drugs);
+        if (!drugs.length && Array.isArray(wizard.alternative_lines_ids) && wizard.alternative_lines_ids.length) {
+            const fields = await rpc('alternative.wizard', 'fields_get', [['alternative_lines_ids']], {
+                attributes: ['relation'],
+                context: getSessionContext()
+            });
+            const lineModel = fields?.alternative_lines_ids?.relation;
+            if (!lineModel) throw new Error('Could not identify the remaining alternative wizard line model.');
+            const lines = await rpc(lineModel, 'read', [wizard.alternative_lines_ids], {
+                fields: ['is_header', 'limited_drug'],
+                context: getSessionContext()
+            });
+            drugs = (lines || []).filter(line => line?.is_header === true).map(line => extractDrug(line.limited_drug)).filter(Boolean);
+            drugs = [...new Map(drugs.map(drug => [drug.hzb, drug])).values()];
+        }
         await removeFetchMessages(ticketId, drugs, baselineId);
         return { noItems: drugs.length === 0, drugs };
     }
@@ -1034,6 +1057,8 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
             overlay.querySelector('[data-cancel]').disabled = true;
             submit.innerHTML = '<span class="yds-spin"></span>PREPARING';
             try {
+                setStatus('Moving ticket to Confirmed Alternatives...', 'info');
+                await ensureConfirmedAlternativesStage();
                 const prepared = await prepareSplit(selected);
                 submit.innerHTML = '<span class="yds-spin"></span>CREATING';
                 setStatus('Sending the creation request directly to the Portal API...', 'info');
@@ -1140,7 +1165,6 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         try {
             state.ticketId = getTicketId();
             if (!state.ticketId) throw new Error('Ticket ID was not found. Open the Helpdesk ticket form and try again.');
-            await ensureConfirmedAlternativesStage();
             const api = await waitForApi();
             const accountResponse = await api.getOpenErxAccounts(getField('payor_id'));
             state.portalAccounts = accountResponse?.success === true && Array.isArray(accountResponse.accounts) ? accountResponse.accounts : [];
