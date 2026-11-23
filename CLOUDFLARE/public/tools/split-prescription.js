@@ -184,7 +184,7 @@
                 cids: base.allowed_company_ids.join(','),
                 menu_id: 366,
                 model: 'helpdesk.ticket',
-                view_type: 'form'
+                view_type: 'list'
             },
             search_default_active_cycle: 1,
             search_default_unassigned: 1
