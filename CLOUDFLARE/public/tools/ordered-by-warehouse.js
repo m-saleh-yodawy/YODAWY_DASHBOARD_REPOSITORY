@@ -367,7 +367,7 @@
         const base = baseNames.map(escapeHtml);
         const short = shortNames.map(escapeHtml);
         let body = '';
-        if (format === 1) body = full.map(name => `Limited Drug: ${name}<br>${ordered()}<br>${ordered()}`).join('<br><br>');
+        if (format === 1) body = full.map(name => `Limited Drug: ${name}<br>${ordered()}`).join('<br><br>');
         else if (format === 2) body = full.map(name => `Limited Drug: ${name}`).join('<br>') + '<br>' + ordered();
         else if (format === 3) body = base.join('<br>') + '<br>' + ordered();
         else if (format === 4) body = base.map(name => `${name} &gt;&gt;&gt; ${ordered()}`).join('<br>');
