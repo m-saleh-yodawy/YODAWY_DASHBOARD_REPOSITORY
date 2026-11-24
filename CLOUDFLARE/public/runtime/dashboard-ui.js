@@ -524,8 +524,12 @@
     font-synthesis: none;
     text-rendering: optimizeLegibility;
 }
+#yd-dashboard-root, #yd-dashboard-root *, #yd-dashboard-root *::before, #yd-dashboard-root *::after,
+body > .yd-modal-backdrop, body > .yd-modal-backdrop *, body > .yd-modal-backdrop *::before, body > .yd-modal-backdrop *::after,
+body > .ui-select-menu.yd-select-portal-menu, body > .ui-select-menu.yd-select-portal-menu *, body > .ui-select-menu.yd-select-portal-menu *::before, body > .ui-select-menu.yd-select-portal-menu *::after {
+    box-sizing: border-box !important;
+}
 #yd-dashboard-root *:not(.yd-fa-icon), #yd-dashboard-root *:not(.yd-fa-icon)::before, #yd-dashboard-root *:not(.yd-fa-icon)::after {
-    box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
 }
 
