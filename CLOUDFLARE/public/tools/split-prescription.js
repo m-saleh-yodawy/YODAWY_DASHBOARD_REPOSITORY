@@ -1598,7 +1598,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 state.busy = false;
                 if (!blocked) update();
                 try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
-            try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
             }
         });
         state.keydown = event => {
