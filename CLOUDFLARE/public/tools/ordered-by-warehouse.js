@@ -355,9 +355,8 @@
         if (!matches.length) return;
         const escapeHtml = value => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const fullNames = matches.map(item => cleanDrugName(item.limitedDrug));
-        const shortNames = fullNames.map(value => value.replace(/,\s*\d+(?:\.\d+)?\s+(?:(?:pack|strip|box|bottle|vial|sachet)\s+of\b|(?:unit|tablet|capsule)\b).*$/i, '').trim());
-        const formats = Array.from({ length: 10 }, (_, index) => index + 1).filter(format => format !== lastLogFormat);
-        const format = formats[Math.floor(Math.random() * formats.length)];
+        const shortNames = fullNames.map(value => value.replace(/,\\s*\\d+(?:\\.\\d+)?\\s+(?:(?:pack|strip|box|bottle|vial|sachet)\\s+of\\b|(?:unit|tablet|capsule)\\b).*$/i, '').trim());
+        const format = Math.floor(Math.random() * 6) + 1;
         lastLogFormat = format;
         const full = fullNames.map(escapeHtml);
         const short = shortNames.map(escapeHtml);
@@ -367,11 +366,7 @@
         else if (format === 3) body = short.join('<br>') + '<br>ORDERED';
         else if (format === 4) body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br>');
         else if (format === 5) body = 'ORDERED<br>' + short.join('<br>');
-        else if (format === 6) body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br><br>');
-        else if (format === 7) body = '<p><strong>ORDERED</strong></p><ul>' + full.map(name => `<li>${name}</li>`).join('') + '</ul>';
-        else if (format === 8) body = full.map(name => `<p>Limited Drug: ${name} <strong>— ORDERED</strong></p>`).join('');
-        else if (format === 9) body = '<ul>' + short.map(name => `<li><strong>${name}</strong> — ORDERED</li>`).join('') + '</ul>';
-        else body = '<p><strong>ORDERED ITEMS</strong></p><ol>' + full.map(name => `<li>${name}</li>`).join('') + '</ol>';
+        else body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br><br>');
         const context = { ...getContext(), active_id: ticketId, active_ids: [ticketId], active_model: 'helpdesk.ticket' };
         await rpc('/web/dataset/call_kw/helpdesk.ticket/message_post', 'helpdesk.ticket', 'message_post', [[ticketId]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note', context });
     }
