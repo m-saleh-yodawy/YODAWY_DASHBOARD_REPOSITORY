@@ -55,7 +55,8 @@
         deferredChatterObserver: null,
         journal: null,
         componentsRefreshed: false,
-        verificationTab: null
+        verificationTab: null,
+        lastPortalOutcome: null
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -77,6 +78,25 @@
     function updateSplitJournal(patch) {
         if (!state.journal) return null;
         return saveSplitJournal({ ...state.journal, ...patch });
+    }
+    function savePortalOutcome(ticketId, status, response) {
+        try {
+            const cycle = state.cycle;
+            const cleanupDate = cycle ? [cycle.year, String(cycle.month + 1).padStart(2, '0'), '23'].join('-') : '';
+            const key = CONFIG.JOURNAL_PREFIX + 'outcome.' + Number(ticketId);
+            const current = JSON.parse(localStorage.getItem(key) || 'null') || {};
+            const outcomes = Array.isArray(current.outcomes) ? current.outcomes : [];
+            outcomes.push({ status, response: response ?? null, timestamp: Date.now() });
+            const record = { version: 1, ticketId: Number(ticketId), cleanupDate: current.cleanupDate || cleanupDate, outcomes: outcomes.slice(-10) };
+            localStorage.setItem(key, JSON.stringify(record));
+            state.lastPortalOutcome = outcomes[outcomes.length - 1];
+        } catch {}
+    }
+    function readPortalOutcome(ticketId) {
+        try {
+            const record = JSON.parse(localStorage.getItem(CONFIG.JOURNAL_PREFIX + 'outcome.' + Number(ticketId)) || 'null');
+            return Array.isArray(record?.outcomes) ? record.outcomes[record.outcomes.length - 1] || null : null;
+        } catch { return null; }
     }
     function removeSplitJournal(ticketId) {
         try { localStorage.removeItem(CONFIG.JOURNAL_PREFIX + Number(ticketId)); } catch {}
@@ -115,7 +135,7 @@
             const tab = window.open('about:blank', '_blank');
             if (!tab) return null;
             tab.document.title = 'Yodawy ERX Verification';
-            tab.document.body.innerHTML = '<main style="font:14px Arial,sans-serif;padding:32px;color:#68465f">Split is running. This tab will open the ticket ERX if verification is needed.</main>';
+            if (tab.document.body) tab.document.body.textContent = 'Split is running. This tab will open the ticket ERX if verification is needed.';
             return tab;
         } catch { return null; }
     }
@@ -1232,6 +1252,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
 
     async function closeDialogAction() {
         if (state.busy) return;
+        if (!state.verificationTab) state.verificationTab = reserveVerificationTab();
         if (!state.pendingSplitLog || (state.logPosted && state.componentsRefreshed)) { closeDialog(); return; }
         const button = state.dialog?.querySelector('[data-cancel]');
         state.busy = true;
@@ -1252,12 +1273,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (state.journal) updateSplitJournal({ completed: true, phase: 'completed' });
             state.pendingSplitLog = null;
             state.busy = false;
+            closeVerificationTab();
             setStatus('SPLIT NOTE SAVED — ODOO COMPONENTS REFRESHED', 'success');
             closeDialog();
         } catch (error) {
             state.busy = false;
-            if (button) { button.disabled = false; button.textContent = state.logPosted ? 'RETRY REFRESH' : 'RETRY CHATTER'; }
+            if (button) { button.disabled = false; button.textContent = 'RETRY'; }
             setStatus('SPLIT COMPLETED — FINALIZATION NEEDS RETRY', 'error', error?.message || 'The SPLIT note or Odoo Chatter refresh could not be confirmed.');
+            openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
         }
     }
 
@@ -1418,6 +1441,10 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         const selectAll = overlay.querySelector('[data-select-all]');
         const count = overlay.querySelector('[data-count]');
         const submit = overlay.querySelector('[data-submit]');
+        if (state.lastPortalOutcome?.status === 'rejected') {
+            submit.textContent = 'RETRY';
+            setStatus('The previous Portal response did not create a Split. RETRY will start a new attempt.', 'info');
+        }
         const update = () => {
             const selected = checkboxes.filter(item => item.checked).length;
             count.textContent = `${selected} selected`;
@@ -1482,9 +1509,11 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 const created = result.addNewChronicPrescription;
                 if (created?.isSuccess !== true) {
                     state.mutationAttempted = false;
+                    savePortalOutcome(state.ticketId, 'rejected', created || result || null);
                     updateSplitJournal({ portalCreated: false, portalStatus: 'rejected', portalResponse: created || result || null, phase: 'portal_rejected', mutationAttempted: false });
                     throw new Error(created?.message || 'Portal did not confirm prescription creation.');
                 }
+                savePortalOutcome(state.ticketId, 'confirmed', created);
                 updateSplitJournal({ portalCreated: true, portalStatus: 'confirmed', portalResponse: created, portalResponseReceivedAt: Date.now(), phase: 'cleanup_pending' });
                 let portalErx = null;
                 try { portalErx = await findCreatedSplitErx(state.journal); } catch {}
@@ -1551,7 +1580,10 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 const uncertain = state.mutationAttempted && !state.portalCreated && !rejectedBeforeCreate;
                 const blocked = state.portalCreated || uncertain;
                 try {
-                    if (uncertain && state.journal) updateSplitJournal({ phase: 'portal_creation_uncertain', portalStatus: 'uncertain', portalResponse: null, portalError: error?.message || 'Portal response was not received.', mutationAttempted: true });
+                    if (uncertain && state.journal) {
+                        savePortalOutcome(state.ticketId, 'uncertain', { error: error?.message || 'Portal response was not received.' });
+                        updateSplitJournal({ phase: 'portal_creation_uncertain', portalStatus: 'uncertain', portalResponse: null, portalError: error?.message || 'Portal response was not received.', mutationAttempted: true });
+                    }
                     else if (!state.portalCreated && state.journal?.phase !== 'portal_rejected') removeSplitJournal(state.ticketId);
                 } catch {}
                 markSelectedDrugs(selected, state.portalCreated ? 'pending' : 'error');
@@ -1610,6 +1642,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         try {
             state.ticketId = getTicketId();
             if (!state.ticketId) throw new Error('Ticket ID was not found. Open the Helpdesk ticket form and try again.');
+            state.lastPortalOutcome = readPortalOutcome(state.ticketId);
             const savedJournal = readSplitJournal(state.ticketId);
             if (savedJournal) {
                 state.journal = savedJournal;
