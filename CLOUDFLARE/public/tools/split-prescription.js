@@ -54,7 +54,8 @@
         splitLogBaselineId: 0,
         deferredChatterObserver: null,
         journal: null,
-        componentsRefreshed: false
+        componentsRefreshed: false,
+        recoveryModeAvailable: false
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -865,8 +866,7 @@
     async function findExistingSplitLogNote(ticketId, baselineId, targets) {
         const messages = await rpc('mail.message', 'search_read', [[
             ['model', '=', 'helpdesk.ticket'],
-            ['res_id', '=', ticketId],
-            ...(baselineId ? [['id', '>', baselineId]] : [])
+            ['res_id', '=', ticketId]
         ]], {
             fields: ['id', 'body'],
             order: 'id desc',
@@ -1310,7 +1310,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             </div>
             <footer class="yds-footer">
                 <div class="yds-status" aria-live="polite"><span class="yds-status-icon"></span><span class="yds-status-text"></span></div>
-                <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>Cancel</button><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
+                <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>Cancel</button><button type="button" class="yds-button" data-recover ${state.recoveryModeAvailable ? '' : 'hidden'}>RETRY EXISTING</button><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
             </footer>
         </section>`;
         document.body.appendChild(overlay);
@@ -1319,17 +1319,69 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         const selectAll = overlay.querySelector('[data-select-all]');
         const count = overlay.querySelector('[data-count]');
         const submit = overlay.querySelector('[data-submit]');
+        const recover = overlay.querySelector('[data-recover]');
         const update = () => {
             const selected = checkboxes.filter(item => item.checked).length;
             count.textContent = `${selected} selected`;
             const accountReady = state.portalAccounts.length === 1 || Boolean(overlay.querySelector('[data-portal-account]')?.value || state.accountId);
             submit.disabled = selected === 0 || state.busy || !accountReady;
+            if (recover) recover.disabled = selected === 0 || state.busy || !accountReady;
             selectAll.checked = selected === checkboxes.length && selected > 0;
             selectAll.indeterminate = selected > 0 && selected < checkboxes.length;
         };
         checkboxes.forEach(item => item.addEventListener('change', update));
         selectAll.addEventListener('change', () => { checkboxes.forEach(item => { item.checked = selectAll.checked; }); update(); });
         overlay.querySelector('[data-portal-account]')?.addEventListener('change', event => { state.accountId = event.target.value; update(); });
+        recover?.addEventListener('click', async () => {
+            const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
+            if (!selected.length || state.busy) return;
+            const names = selected.map(drug => drug.name + ' (HZB ' + drug.hzb + ')').join('\\n');
+            if (!window.confirm('Confirm that this Split already exists in Portal. This recovery will NOT create another prescription. It will only continue Odoo cleanup and Chatter finalization.\\n\\n' + names)) return;
+            const selectedAccount = overlay.querySelector('[data-portal-account]')?.value || state.accountId;
+            if (!selectedAccount) { setStatus('Select the saved Portal account linked to this Odoo payer.', 'error'); return; }
+            state.accountId = selectedAccount;
+            state.busy = true;
+            submit.disabled = true;
+            recover.disabled = true;
+            overlay.querySelector('[data-cancel]').disabled = true;
+            recover.innerHTML = '<span class="yds-spin"></span>PREPARING RECOVERY';
+            try {
+                await ensureConfirmedAlternativesStage();
+                const prepared = await prepareSplit(selected);
+                saveSplitJournal({
+                    version: 1,
+                    ticketId: Number(state.ticketId),
+                    formNumber: getField('prescription_number'),
+                    selectedDrugs: prepared.selectedDrugs.map(drug => ({ name: normalize(drug.name), hzb: normalize(drug.hzb), limited: cleanDrugName(drug.limited) })),
+                    selectedCount: prepared.input.medications.length,
+                    originalMedicationCount: prepared.details.Medications.length,
+                    baselineMessageId: Number(state.splitLogBaselineId || 0),
+                    portalCreated: true,
+                    cleanupCompleted: false,
+                    splitLogPosted: false,
+                    splitLogMessageId: 0,
+                    componentsRefreshed: false,
+                    ticketStatusChecked: false,
+                    completed: false,
+                    legacyRecovery: true,
+                    phase: 'cleanup_pending'
+                });
+                state.portalCreated = true;
+                state.completed = true;
+                state.mutationAttempted = false;
+                state.pendingSplitLog = null;
+                state.logPosted = false;
+                state.componentsRefreshed = false;
+                state.busy = false;
+                await resumeSplitWorkflow();
+            } catch (error) {
+                state.busy = false;
+                setStatus('EXISTING SPLIT RECOVERY NOT STARTED', 'error', error?.message || 'Recovery could not be prepared.');
+                overlay.querySelector('[data-cancel]').disabled = false;
+                recover.textContent = 'RETRY EXISTING';
+                update();
+            }
+        });
         overlay.querySelector('[data-cancel]').addEventListener('click', closeDialogAction);
         overlay.addEventListener('click', event => {
             if (event.target !== overlay) return;
@@ -1488,6 +1540,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.splitLogBaselineId = 0;
         state.journal = null;
         state.componentsRefreshed = false;
+        state.recoveryModeAvailable = false;
         revealDeferredChatterMessages();
         const button = document.getElementById(CONFIG.BUTTON_ID);
         if (button) { button.disabled = true; button.dataset.loading = '1'; }
@@ -1510,6 +1563,9 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (!state.portalAccounts.length) throw new Error('No saved Portal account matches this Odoo payer in your PORTALS list.');
             state.accountId = state.portalAccounts.length === 1 ? state.portalAccounts[0].id : '';
             const drugs = await fetchSplitDrugs();
+            const stageInfo = await getTicketStage(state.ticketId);
+            const currentStageId = Number(Array.isArray(stageInfo.record.stage_id) ? stageInfo.record.stage_id[0] : stageInfo.record.stage_id || 0);
+            state.recoveryModeAvailable = currentStageId === Number(stageInfo.confirmed.id);
             const [corporate, cycle] = await Promise.all([getCorporateInfo(), getCycleInfo()]);
             state.corporate = corporate;
             state.cycle = cycle;
