@@ -144,7 +144,7 @@
         state.verificationTab = null;
     }
     function buildErxUrl(prescription) {
-        const id = normalize(prescription?.id || '');
+        const id = normalize(prescription?.FHIRReference || prescription?.formNumber || prescription?.id || '');
         const number = normalize(prescription?.PrescriptionNumber || prescription?.prescriptionNumber || '');
         if (!/^[a-f0-9-]{36}$/i.test(id) || !number) return '';
         return 'https://callcenter.yodawy.com/#/Prescription/' + encodeURIComponent(id) + '/' + encodeURIComponent(number) + '?_k=' + Math.random().toString(36).slice(2, 8);
@@ -175,7 +175,7 @@
         if (!Array.isArray(rows)) throw new Error('Portal did not return prescription history while verifying the Split.');
         const expected = journal.selectedDrugs.map(drug => normalize(drug.hzb));
         const attemptedAt = Number(journal.portalAttemptedAt || Date.now()) - 120000;
-        const candidates = rows.filter(item => String(item?.id || '') !== String(journal.originalPrescriptionId || '') && (!item?.CreationDate || Number.isNaN(Date.parse(item.CreationDate)) || Date.parse(item.CreationDate) >= attemptedAt)).slice(0, 15);
+        const candidates = rows.filter(item => String(item?.id || '') !== String(journal.originalPrescriptionId || '') && (!item?.CreationDate || Number.isNaN(Date.parse(item.CreationDate)) || Date.parse(item.CreationDate) >= attemptedAt)).sort((a, b) => Date.parse(b?.CreationDate || 0) - Date.parse(a?.CreationDate || 0)).slice(0, 5);
         for (const candidate of candidates) {
             if (!candidate?.id) continue;
             let details;
@@ -1252,8 +1252,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
 
     async function closeDialogAction() {
         if (state.busy) return;
-        if (!state.verificationTab) state.verificationTab = reserveVerificationTab();
         if (!state.pendingSplitLog || (state.logPosted && state.componentsRefreshed)) { closeDialog(); return; }
+        if (!state.verificationTab) state.verificationTab = reserveVerificationTab();
         const button = state.dialog?.querySelector('[data-cancel]');
         state.busy = true;
         if (button) { button.disabled = true; button.innerHTML = '<span class="yds-spin"></span>FINALIZING'; }
@@ -1490,7 +1490,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                     portalAccountId: state.accountId,
                     cardNumber: prepared.input.cardNumber,
                     originalPrescriptionId: prepared.prescription.id,
-                    sourceErxUrl: buildErxUrl(prepared.prescription),
+                    sourceErxUrl: buildErxUrl(prepared.details),
                     portalAttemptedAt: 0,
                     portalCreated: false,
                     cleanupCompleted: false,
@@ -1566,7 +1566,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                     markSelectedDrugs(selected, 'pending');
                     setStatus('SPLIT CREATED — ODOO CLEANUP FAILED', 'error', cleanup.error || 'Odoo item deletion was not verified.');
                 }
-                submit.textContent = state.ticketClosed ? 'TICKET CLOSED' : cleanup.success ? 'COMPLETED' : 'RETRY ODOO';
+                submit.textContent = state.ticketClosed ? 'TICKET CLOSED' : cleanup.success ? 'COMPLETED' : 'RETRY';
                 checkboxes.forEach(item => { item.disabled = true; });
                 selectAll.disabled = true;
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
