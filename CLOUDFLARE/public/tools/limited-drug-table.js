@@ -122,6 +122,7 @@
 
 const clean=t=>(t||'').replace(/\s+/g,' ').trim();
 const normalize=t=>clean(t).replace(/^Limited\s+Drug\s*:\s*/i,'');
+const productName=t=>normalize(t).replace(/,\s*\d+(?:\.\d+)?\s+[^,]+,\s*\d+\s*$/,'');
 const isTitle=t=>{t=normalize(t);return t.length>3&&/,\s*\d+\s*$/.test(t)};
 
 function success(message) {
@@ -566,7 +567,7 @@ async function addAll(drugs){
 
     append(
         el,
-        drugs.map(d=>`Limited Drug: ${d}`).join('\n')
+        drugs.map(d=>`Limited Drug: ${productName(d)}`).join('\n')
     );
 
     success(`${drugs.length} Limited Drug(s) added to Log Note`);
@@ -586,7 +587,7 @@ async function withoutAlt(drug){
 
     append(
         el,
-        `Limited Drug: ${drug}\nWITHOUT ALT - ${status}`
+        `Limited Drug: ${productName(drug)}\n[ WITHOUT ALT - ${status} ]`
     );
 }
 
@@ -604,7 +605,7 @@ async function alternative(drug,alt){
 
     append(
         el,
-        `Limited Drug: ${drug}\n${alt}\nWITH ALT - ${status}`
+        `Limited Drug: ${productName(drug)}\nAlternative Drug: ${alt}\n[ WITH ALT - ${status} ]`
     );
 }
 
@@ -678,7 +679,6 @@ function build(body){
             e.preventDefault();
             e.stopPropagation();
             await withoutAlt(x.title);
-            showButtonFeedback(wout);
         };
 
         const copyOne=document.createElement('button');
@@ -690,7 +690,7 @@ function build(body){
             e.preventDefault();
             e.stopPropagation();
 
-            const itemText=`Limited Drug: ${x.title}`;
+            const itemText=`Limited Drug: ${productName(x.title)}`;
             const el=await openLog();
 
             if(state.destroyed)return;
