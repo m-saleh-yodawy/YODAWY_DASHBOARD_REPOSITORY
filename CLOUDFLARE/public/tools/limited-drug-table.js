@@ -690,10 +690,14 @@ function build(body){
             e.preventDefault();
             e.stopPropagation();
 
-            await copy(
-                `Limited Drug: ${x.title}`,
-                'Limited Drug copied'
-            );
+            const itemText=`Limited Drug: ${x.title}`;
+            const el=await openLog();
+
+            if(state.destroyed)return;
+            if(!el)return alert('Log Note box was not found.');
+
+            append(el,itemText);
+            await copy(itemText,'Limited Drug copied');
             showButtonFeedback(copyOne);
         };
 
