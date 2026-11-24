@@ -358,7 +358,7 @@
         const baseNames = fullNames.map(value => value.replace(/,\s*\d+(?:\.\d+)?\s+(?:(?:pack|strip|box|bottle|vial|sachet)\s+of\b|(?:unit|tablet|capsule)\b).*$/i, '').replace(/,\s*\d+\s*$/,'').trim());
         const shortNames = baseNames.map(value => value.split(/\s+/)[0].trim());
         const ordered = () => {
-            const styles = [value => value.toUpperCase(), value => value.toLowerCase(), value => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase(), value => value.split('').map((char, index) => index % 2 ? char.toLowerCase() : char.toUpperCase()).join('')];
+            const styles = [value => value.toUpperCase(), value => value.toLowerCase(), value => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()];
             return styles[Math.floor(Math.random() * styles.length)]('ORDERED');
         };
         const format = Math.floor(Math.random() * 6) + 1;
