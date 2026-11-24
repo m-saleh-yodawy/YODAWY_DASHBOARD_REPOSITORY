@@ -751,7 +751,7 @@ button.className='btn oe_stat_button';
 button.title='Fetch Split Drugs';
 
 button.innerHTML=`
-<i class="fa fa-fw fa-exchange o_button_icon"></i>
+<i class="yd-fa-icon fa-solid fa-right-left fa-fw o_button_icon" aria-hidden="true"></i>
 <div class="o_stat_info">
 <span class="o_stat_text">Let's Split</span>
 </div>
