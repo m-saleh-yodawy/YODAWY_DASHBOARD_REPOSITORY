@@ -1168,7 +1168,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
                 <div class="yds-list">${drugs.map((drug,index) => `<label class="yds-drug"><input type="checkbox" data-drug-index="${index}"><span class="yds-drug-copy"><span class="yds-drug-name">${escapeHTML(drug.name)}</span><span class="yds-drug-hzb">HZB: ${escapeHTML(drug.hzb)}</span></span><span class="yds-drug-state" data-drug-status hidden></span></label>`).join("")}</div>
             </div>
             <footer class="yds-footer">
-                <div class="yds-status" aria-live="polite"><span class="yds-status-icon" aria-hidden="true"></span><span class="yds-status-text"></span></div>
+                <div class="yds-status" aria-live="polite"><span class="yds-status-icon"></span><span class="yds-status-text"></span></div>
                 <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>Cancel</button><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
             </footer>
         </section>`;
@@ -1355,7 +1355,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
-        button.innerHTML = '<i class="yd-fa-icon fa-solid fa-scissors fa-fw o_button_icon" aria-hidden="true"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
+        button.innerHTML = '<i class="yd-fa-icon fa-solid fa-scissors fa-fw o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();

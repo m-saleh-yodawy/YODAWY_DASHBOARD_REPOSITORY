@@ -413,7 +413,7 @@
         return transaction?.actorName || transaction?.actor?.name || actor?.name || actorId || 'Unknown';
     };
 
-    const renderPendingBadge = () => '<span class="yd-pending-badge" role="status" aria-label="Loading"><span class="yd-control-spinner" aria-hidden="true"></span></span>';
+    const renderPendingBadge = () => '<span class="yd-pending-badge" role="status" aria-label="Loading"><span class="yd-control-spinner"></span></span>';
     const renderFailedBadge = (label = 'FAILED') => '<span class="yd-pending-badge yd-pending-failed"><i class="yd-fa-icon fa-solid fa-circle-exclamation"></i><span>' + escapeHTML(label) + '</span></span>';
     const setButtonLoading = (button, label = 'Loading') => {
         if (!button) return;
@@ -456,7 +456,7 @@
         }).join('');
         return '<div class="ui-select yd-dropdown yd-select-dropdown' + extraClass + (disabled ? ' disabled' : '') + '" data-dropdown data-multiple="' + String(multiple) + '" data-open="false" data-placeholder="' + escapeHTML(placeholder) + '" data-value="' + escapeHTML(storedValue) + '"' + attrs + '>' +
             '<input type="hidden"' + nameAttr + idAttr + ' value="' + escapeHTML(multiple ? storedValue : selectedOption.value) + '">' +
-            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value"' + (selected.length ? ' data-placeholder="false"' : ' data-placeholder="true"') + '>' + escapeHTML(label) + '</span><i class="ui-select-chevron yd-fa-icon fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="false"' + (disabled ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value"' + (selected.length ? ' data-placeholder="false"' : ' data-placeholder="true"') + '>' + escapeHTML(label) + '</span><i class="ui-select-chevron yd-fa-icon fa-solid fa-chevron-down"></i></button>' +
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu' + extraMenuClass + '" role="listbox" aria-multiselectable="' + String(multiple) + '" hidden><div class="ui-select-group">' + header + items + '</div></div></div>';
     };
 
@@ -3323,7 +3323,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const user = context.user || {};
         const name = escapeHTML(formatName(user.name || user.id || 'User'));
         const avatar = escapeHTML(initials(user.name || user.id));
-        const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="yd-fa-icon ' + icon + '" aria-hidden="true"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
+        const menu = navItems().map(([id, icon, label]) => '<button type="button" data-page="' + id + '" class="yd-nav ' + (activePage === id ? 'active' : '') + '"><span class="yd-nav-icon"><i class="yd-fa-icon ' + icon + '"></i></span><span>' + escapeHTML(label) + '</span></button>').join('');
         return '<div id="yd-overlay" class="' + (isOpen ? 'open' : '') + '">' +
                 '<div id="yd-modal" role="dialog" aria-modal="true" aria-label="Yodawy Dashboard">' +
                     '<header id="yd-header"><div class="yd-brand"><div class="yd-brand-logo">Y</div><div class="yd-brand-title">YODAWY DASHBOARD</div></div>' +
@@ -3333,13 +3333,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                                     '<div class="yd-gb-card"><div class="yd-gb-ring-lg"><div class="yd-gb-avatar-lg">' + avatar + '</div></div><div class="yd-gb-name">' + name + '</div><div class="yd-gb-meta">ID: ' + escapeHTML(user.id || user.userId || context.userId || '—') + '</div><div class="yd-gb-pills">' + renderRolePill(context.userRole) + '<span class="yd-pill green">Connected</span></div></div>' +
                                     '<button class="yd-dropdown-action yd-refresh-action" data-action="refresh-connection" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-arrow-rotate-right"></i></span><span><b>Refresh</b></span></button>' +
                                     '<button class="yd-dropdown-action yd-logout-action" data-action="logout" type="button"><span class="yd-action-icon"><i class="yd-fa-icon fa-solid fa-right-from-bracket"></i></span><span><b>Sign Out</b></span></button>' +
-                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="yd-fa-icon fa-solid fa-xmark yd-inline-icon" aria-hidden="true"></i></button></div>' +
+                                '</div></div><button class="yd-close-btn" data-action="close-dashboard" type="button" title="Close"><i class="yd-fa-icon fa-solid fa-xmark yd-inline-icon"></i></button></div>' +
                     '</header><div id="yd-body"><aside id="yd-sidebar"><div class="yd-nav-label">Workspace</div>' + menu + '<div class="yd-sidebar-bottom">Authenticated Workspace<br>Yodawy Tools Cloud · v1</div></aside><main id="yd-main">' + body + '</main></div>' +
                 '</div></div>';
     };
 
     const statCard = (label, value, icon, colorClass = 'purple') =>
-        '<div class="yd-kpi-card"><div class="yd-kpi-icon ' + colorClass + '"><i class="yd-fa-icon ' + icon + '" aria-hidden="true"></i></div><div class="yd-kpi-info"><div class="yd-kpi-label">' + escapeHTML(label) + '</div><div class="yd-kpi-value">' + escapeHTML(value) + '</div></div></div>';
+        '<div class="yd-kpi-card"><div class="yd-kpi-icon ' + colorClass + '"><i class="yd-fa-icon ' + icon + '"></i></div><div class="yd-kpi-info"><div class="yd-kpi-label">' + escapeHTML(label) + '</div><div class="yd-kpi-value">' + escapeHTML(value) + '</div></div></div>';
 
     const renderPagination = (currentPage, totalPages, action) => {
         if (totalPages <= 1) return '';
@@ -3473,7 +3473,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         };
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
-        const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2><i class="yd-fa-icon fa-solid ' + group.icon + '" aria-hidden="true"></i> ' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
+        const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2><i class="yd-fa-icon fa-solid ' + group.icon + '"></i> ' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
         const adminTools = canManage
             ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-trash"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
@@ -3484,13 +3484,13 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             ? '<div class="yd-tool-settings-placeholder"><span class="yd-control-spinner"></span><strong>Loading portal accounts...</strong></div>'
             : error
                 ? '<div class="yd-empty">' + escapeHTML(error) + '</div>'
-                : '<div class="yd-portal-search-wrap"><i class="yd-fa-icon fa-solid fa-magnifying-glass" aria-hidden="true"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty"' + (accounts.length ? ' hidden' : '') + '>No portal accounts found for this user.</div>' + populatedGroups.map(renderGroup).join('');
+                : '<div class="yd-portal-search-wrap"><i class="yd-fa-icon fa-solid fa-magnifying-glass"></i><input class="yd-search" id="yd-portal-search" type="search" autocomplete="off" placeholder="Search by payer, username or password" aria-label="Search portal accounts"></div><nav class="yd-portal-section-nav" aria-label="Portal account sections">' + sectionLinks + '</nav><div class="yd-empty yd-portal-search-empty"' + (accounts.length ? ' hidden' : '') + '>No portal accounts found for this user.</div>' + populatedGroups.map(renderGroup).join('');
         return '<section class="yd-welcome"><div><h1>Portals</h1><p>View portal usernames and passwords grouped by account type.</p></div></section>' + adminTools + content;
     };
 
     const renderSplitAccountSettings = settings => {
         if (!portalAccounts && !portalAccountsLoading) loadPortalAccounts();
-        if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><span class="yd-control-spinner" aria-hidden="true"></span></span><span><strong>Split Account</strong></span></div>';
+        if (portalAccountsLoading || !portalAccounts) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><span class="yd-control-spinner"></span></span><span><strong>Split Account</strong></span></div>';
         const accounts = portalAccounts.filter(account => account.provider === 'METLIFE');
         const types = [...new Set(accounts.map(account => account.accountType).filter(type => ['PERSONAL', 'ALTERNATIVE'].includes(type)))];
         if (!types.length) return '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="yd-fa-icon fa-solid fa-circle-info"></i></span><span><strong>Split Account</strong><small>No MetLife accounts are configured for this user.</small></span></div>';
@@ -3529,9 +3529,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             '<div class="yd-tool-summary"><span>' + visibleTools.length + ' Tools</span><span>' + permittedCount + ' Permitted</span><span>' + onCount + ' Enabled</span></div>';
     };
 
-    const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square" aria-hidden="true"></i>';
-    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash-can" aria-hidden="true"></i>';
-    const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye" aria-hidden="true"></i>';
+    const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square"></i>';
+    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash-can"></i>';
+    const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye"></i>';
 
     const renderUsers = () => {
         const baseUsers = getUsers();
@@ -3677,7 +3677,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             : '<div class="yd-allowed-users-footer"><button type="button" class="yd-secondary" data-action="cancel-allowed-users" data-tool="' + escapeHTML(toolId) + '">Cancel</button><button type="button" class="yd-primary" data-action="save-allowed-users" data-tool="' + escapeHTML(toolId) + '">Apply</button></div>';
         const selectedValues = allSelected ? activeUsers.map(user => String(user.id || '').trim().toUpperCase()) : [...draft.allowedUsers];
         return '<div class="ui-select yd-dropdown yd-select-dropdown yd-allowed-users-dropdown' + (isOpen ? ' open' : '') + (pending ? ' disabled' : '') + '" data-multiple="true" data-open="' + String(isOpen) + '" data-placeholder="Select users" data-value="' + escapeHTML(JSON.stringify(selectedValues)) + '" data-tool="' + escapeHTML(toolId) + '">' +
-            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<i class="ui-select-chevron yd-fa-icon fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+            '<button type="button" class="ui-select-trigger yd-dropdown-trigger" data-action="toggle-dropdown" aria-haspopup="listbox" aria-expanded="' + String(isOpen) + '"' + (pending ? ' disabled' : '') + '><span class="ui-select-value yd-dropdown-value" data-placeholder="' + String(!selectedCount) + '">' + escapeHTML(label) + '</span>' + (pending ? renderPendingBadge(pendingLabel) : '') + '<i class="ui-select-chevron yd-fa-icon fa-solid fa-chevron-down"></i></button>' +
             '<div class="ui-select-menu ui-select-content yd-dropdown-menu yd-allowed-users-menu" role="listbox" aria-multiselectable="true"' + (isOpen ? '' : ' hidden') + '><div class="ui-select-group"><input type="search" class="yd-allowed-users-search" placeholder="ACTIVE SEARCH" aria-label="Search allowed users"><div class="yd-allowed-users-list">' + (userOptions || '<div class="yd-empty">No users available.</div>') + '<div class="yd-allowed-users-search-empty" hidden>No matching users found.</div></div>' + footer + '</div></div></div>';
     };
 
@@ -3814,7 +3814,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             const actions = canManage && !busy
                 ? '<footer class="yd-announcement-footer"><div class="yd-announcement-actions"><button type="button" class="yd-icon-btn" data-action="edit-announcement" data-id="' + id + '" title="Edit announcement" aria-label="Edit announcement">' + editActionIcon + '</button><button type="button" class="yd-icon-btn danger" data-action="delete-announcement" data-id="' + id + '" title="Delete announcement" aria-label="Delete announcement">' + deleteActionIcon + '</button></div></footer>'
                 : '';
-            return '<article class="yd-announcement-card' + (busy ? ' yd-announcement-pending' : state === 'FAILED' ? ' is-failed' : '') + '" ' + (busy ? 'aria-busy="true" aria-disabled="true"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<i class="yd-fa-icon fa-regular fa-clock" aria-hidden="true"></i></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
+            return '<article class="yd-announcement-card' + (busy ? ' yd-announcement-pending' : state === 'FAILED' ? ' is-failed' : '') + '" ' + (busy ? 'aria-busy="true" aria-disabled="true"' : '') + '><header class="yd-announcement-head yd-announcement-header"><div class="yd-announcement-author-wrap"><div class="yd-announcement-avatar">' + escapeHTML(initials(authorName)) + '</div><div class="yd-announcement-meta"><strong class="yd-announcement-author"><span class="yd-announcement-by">By:</span> ' + author + '</strong><time class="yd-announcement-date">' + escapeHTML(published.date + ' • ' + published.time) + '<i class="yd-fa-icon fa-regular fa-clock"></i></time>' + statusBadge + '</div></div><div class="yd-announcement-cycle-wrap">' + cycleControl + '</div></header><div class="yd-announcement-body" dir="rtl">' + escapeHTML(post.body) + '</div>' + actions + '</article>';
         };
         const pendingCreates = [...pendingAnnouncements.values()].filter(item => item.action !== 'DELETE_ANNOUNCEMENT');
         const pendingDeletes = new Map([...pendingAnnouncements.values()].filter(item => item.action === 'DELETE_ANNOUNCEMENT').map(item => [String(item.id), item]));
@@ -3909,7 +3909,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
 
 
     const renderSites = () => {
-        if (!siteAccessLoaded || siteAccessLoading) return '<section class="yd-welcome"><div><h1>Website Access</h1><p>Loading centralized website rules...</p></div></section><div class="yd-card yd-empty"><span class="yd-control-spinner" aria-hidden="true"></span> Loading site configuration</div>';
+        if (!siteAccessLoaded || siteAccessLoading) return '<section class="yd-welcome"><div><h1>Website Access</h1><p>Loading centralized website rules...</p></div></section><div class="yd-card yd-empty"><span class="yd-control-spinner"></span> Loading site configuration</div>';
         const rows = (siteAccessSites || []).map((site, index) => {
             const protocols = Array.isArray(site.protocols) ? site.protocols : ['https:'];
             const protocol = protocols.includes('https:') && protocols.includes('http:') ? 'both' : protocols.includes('http:') ? 'http:' : 'https:';
@@ -4371,7 +4371,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><i class="yd-fa-icon fa-solid fa-copy"></i></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
         mountModalOverlay(overlay);
         const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
         overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
@@ -4397,7 +4397,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             try {
                 await navigator.clipboard.writeText(input.value);
                 clearTimeout(button._ydCopyTimer);
-                button.innerHTML = '<i class="yd-fa-icon fa-solid fa-check" aria-hidden="true"></i>';
+                button.innerHTML = '<i class="yd-fa-icon fa-solid fa-check"></i>';
                 button.classList.add('is-copied');
                 button.setAttribute('aria-label', 'Copied');
                 button.title = 'Copied';
@@ -4715,7 +4715,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                     button.setAttribute('aria-busy', 'true');
                     const icon = button.querySelector('.yd-action-icon');
                     const label = button.querySelector('b');
-                    if (icon) icon.innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
+                    if (icon) icon.innerHTML = '<span class="yd-control-spinner"></span>';
                     if (label) label.textContent = 'Refresh';
                 }
                 showNotice('Refreshing dashboard files, data and available tools...');
@@ -5488,7 +5488,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 const original = actionButton.innerHTML;
                 actionButton.disabled = true;
                 actionButton.setAttribute('aria-busy', 'true');
-                actionButton.querySelector('.yd-action-icon').innerHTML = '<span class="yd-control-spinner" aria-hidden="true"></span>';
+                actionButton.querySelector('.yd-action-icon').innerHTML = '<span class="yd-control-spinner"></span>';
                 actionButton.querySelector('b').textContent = 'Signing Out';
                 try {
                     await context.cloudAuth.logout();

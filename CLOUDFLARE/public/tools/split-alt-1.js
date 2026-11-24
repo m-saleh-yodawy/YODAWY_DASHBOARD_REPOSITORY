@@ -1362,7 +1362,7 @@
         button.title = 'Fetch Split Drugs';
 
         button.innerHTML = `
-<i class="yd-fa-icon fa-solid fa-right-left fa-fw o_button_icon" aria-hidden="true"></i>
+<i class="yd-fa-icon fa-solid fa-right-left fa-fw o_button_icon"></i>
 <div class="o_stat_info">
     <span class="o_stat_text">Split</span>
 </div>`;
