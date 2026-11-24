@@ -639,7 +639,7 @@ function build(body){
     const copyAll=document.createElement('button');
     copyAll.className='yodawy-copy-all-button';
     copyAll.type='button';
-    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
+    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy"></i>';
 
     copyAll.onclick=async e=>{
         e.preventDefault();
