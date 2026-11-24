@@ -60,6 +60,7 @@
     const localTransactions = new Map();
     const pendingAnnouncements = new Map();
     const pendingLocalTools = new Map();
+    const pendingPermissionBulk = new Set();
     const trackedTransactions = new Set();
     let networkPage = 1;
     let siteAccessSites = null;
@@ -1723,7 +1724,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
 }
 #yd-dashboard-root .yd-visibility-bulk-label {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 800 !important;
     letter-spacing: .035em;
 }
@@ -2074,7 +2075,7 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
 #yd-dashboard-root .yd-network-table td { white-space: normal; }
 #yd-dashboard-root .yd-network-activity { display: flex; flex-direction: column; gap: 2px; min-width: 180px; }
 #yd-dashboard-root .yd-network-activity strong { color: var(--ink); font-size: 11px; }
-#yd-dashboard-root .yd-network-activity small { color: var(--muted); font-size: 9px; }
+#yd-dashboard-root .yd-network-activity small { color: var(--muted); font-size: 10px; }
 #yd-dashboard-root .yd-network-pagination {
     display: flex;
     align-items: center;
@@ -2786,9 +2787,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     color: #1d4ed8 !important;
 }
 #yd-dashboard-root .yd-pill.yd-role-admin {
-    border-color: #fecaca !important;
-    background: #fee2e2 !important;
-    color: #b91c1c !important;
+    border-color: #d8c8d5 !important;
+    background: #eee7ed !important;
+    color: #68465f !important;
 }
 #yd-dashboard-root .yd-pill.yd-role-user {
     border-color: #bbf7d0 !important;
@@ -2804,7 +2805,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .yd-allowed-use
     font-weight: 700 !important;
 }
 #yd-dashboard-root .yd-role-label.yd-role-super-admin { border-color: #bfdbfe !important; background: #dbeafe !important; color: #1d4ed8 !important; }
-#yd-dashboard-root .yd-role-label.yd-role-admin { border-color: #fecaca !important; background: #fee2e2 !important; color: #b91c1c !important; }
+#yd-dashboard-root .yd-role-label.yd-role-admin { border-color: #d8c8d5 !important; background: #eee7ed !important; color: #68465f !important; }
 #yd-dashboard-root .yd-role-label.yd-role-user { border-color: #bbf7d0 !important; background: #dcfce7 !important; color: #15803d !important; }
 
 #yd-dashboard-root input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
@@ -3296,6 +3297,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
 }
 
 `;
+        style.textContent += String.raw`\n#yd-dashboard-root :is(button,a,input,select,textarea,[tabindex]):focus-visible,\nbody > .yd-modal-backdrop :is(button,a,input,select,textarea,[tabindex]):focus-visible,\nbody > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,input,select,textarea,[tabindex]):focus-visible {\n    outline: 2px solid #875a7b !important;\n    outline-offset: 2px !important;\n}\n`;
         (document.head || document.documentElement).appendChild(style);
     };
 
@@ -3458,7 +3460,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             const username = String(account.username || '');
             const fallback = username.includes('_') ? username.slice(username.indexOf('_') + 1).trim() : username;
             const title = String(account.label || '').trim() || fallback || username || 'Unnamed Account';
-            const searchText = [account.payer, account.provider, account.label, account.username, account.password, account.odooKey].filter(Boolean).join(' ').toLocaleLowerCase();
+            const searchText = [account.payer, account.provider, account.label, account.username, account.odooKey].filter(Boolean).join(' ').toLocaleLowerCase();
             return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '" data-portal-search="' + escapeHTML(searchText) + '">' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong></span></span></summary>' +
                 '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="yd-fa-icon fa-solid fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="yd-fa-icon fa-solid fa-copy"></i></button></div></div></div></div></details>';
@@ -3592,7 +3594,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
             });
             const allPermitted = currentStates.length > 0 && currentStates.every(state => state.granted);
             const allForced = currentStates.length > 0 && currentStates.every(state => state.forced);
-            const bulkPending = Boolean(pendingUser) || tools.some(tool => Boolean(getPendingPermission(userId, tool.id)));
+            const bulkPending = Boolean(pendingUser) || pendingPermissionBulk.has(userId) || tools.some(tool => Boolean(getPendingPermission(userId, tool.id)));
             const bulkDisabled = !active || bulkPending || !tools.length;
             const bulkPermittedControl = '<button type="button" class="yd-switch yd-permission-bulk ' + (allPermitted ? 'on' : '') + '" data-action="toggle-permission" data-bulk="true" data-field="granted" data-value="' + String(allPermitted) + '" data-user="' + escapeHTML(userId) + '" role="switch" aria-checked="' + String(allPermitted) + '" aria-label="Toggle all permitted tools for ' + escapeHTML(user.name || userId) + '"' + (bulkDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>';
             const bulkForcedControl = isSuperAdmin ? '<button type="button" class="yd-switch yd-switch-forced yd-permission-bulk ' + (allForced ? 'on' : '') + '" data-action="toggle-permission" data-bulk="true" data-field="forcedState" data-value="' + String(allForced) + '" data-user="' + escapeHTML(userId) + '" role="switch" aria-checked="' + String(allForced) + '" aria-label="Toggle all forced states for ' + escapeHTML(user.name || userId) + '"' + (bulkDisabled ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button>' : '<span class="yd-pill yellow">Super Admin Only</span>';
@@ -3603,7 +3605,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 const forced = pending?.permissionField === 'forcedState' && typeof pending.permissionValue === 'boolean' ? pending.permissionValue : record.forcedState === true;
                 if (granted) grantedCount++;
                 if (forced) forcedCount++;
-                const blocked = !active || Boolean(pending || pendingUser);
+                const blocked = !active || Boolean(pending || pendingUser || pendingPermissionBulk.has(userId));
                 const permissionDisabled = blocked || (!isSuperAdmin && forced);
                 const pendingBadge = '';
                 const userEnabled = isSuperAdmin && context.userSettings?.[userId]?.[tool.id] === 'ENABLED';
@@ -3612,7 +3614,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 const forcedControl = isSuperAdmin
                     ? '<div class="yd-permission-control"><button type="button" class="yd-switch yd-switch-forced ' + (forced ? 'on' : '') + (pending?.permissionField === 'forcedState' || pendingUser ? ' is-loading' : '') + '" data-action="toggle-permission" data-field="forcedState" data-value="' + String(forced) + '" data-user="' + escapeHTML(userId) + '" data-tool="' + escapeHTML(tool.id) + '" role="switch" aria-checked="' + String(forced) + '" aria-label="Force state for ' + escapeHTML(tool.name) + '"' + (blocked ? ' disabled' : '') + '><span class="yd-switch-knob"></span></button></div>'
                     : '<div class="yd-permission-control">' + (forced ? '<span class="yd-pill yellow" title="Protected by Forced State">Protected</span>' : '') + '</div>';
-                return '<div class="yd-permission-row' + (pending || pendingUser ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + userEnabledControl + permittedControl + forcedControl + '</div></div>';
+                return '<div class="yd-permission-row' + (pending || pendingUser || pendingPermissionBulk.has(userId) ? ' is-pending' : '') + '"><div class="yd-permission-tool"><strong>' + escapeHTML(tool.name) + '</strong>' + pendingBadge + '<span>' + escapeHTML(tool.id) + '</span></div><div class="yd-permission-controls">' + userEnabledControl + permittedControl + forcedControl + '</div></div>';
             }).join('');
             const expanded = expandedUsers.has(userId) ? ' open' : '';
             const userBadge = '';
@@ -3984,12 +3986,55 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         return (pages[activePage] || renderOverview)();
     };
 
+    const captureRenderSearchState = root => {
+        const searches = {};
+        for (const id of ['yd-portal-search', 'yd-user-search', 'yd-tool-search']) {
+            const input = root.querySelector('#' + id);
+            if (input) searches[id] = input.value;
+        }
+        const permissions = {};
+        root.querySelectorAll('details[data-user-accordion]').forEach(item => {
+            const input = item.querySelector('.yd-permission-search');
+            if (input) permissions[item.dataset.user] = input.value;
+        });
+        return { searches, permissions };
+    };
+
+    const restoreRenderSearchState = (root, state) => {
+        if (!root || !state) return;
+        const restore = (input, value) => {
+            if (!input || typeof value !== 'string') return;
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        for (const [id, value] of Object.entries(state.searches || {})) restore(root.querySelector('#' + id), value);
+        for (const [userId, value] of Object.entries(state.permissions || {})) {
+            const item = [...root.querySelectorAll('details[data-user-accordion]')].find(entry => entry.dataset.user === userId);
+            restore(item?.querySelector('.yd-permission-search'), value);
+        }
+    };
+
+    const captureFocusState = root => {
+        const active = document.activeElement;
+        if (!active || !root?.contains(active)) return null;
+        return { id: active.id || '', action: active.dataset?.action || '', page: active.dataset?.page || '', user: active.dataset?.user || '', tool: active.dataset?.tool || '', field: active.dataset?.field || '', bulk: active.dataset?.bulk || '' };
+    };
+
+    const restoreFocusState = (root, state) => {
+        if (!root || !state) return;
+        let target = state.id ? root.querySelector('#' + state.id) : null;
+        if (!target && state.action) target = [...root.querySelectorAll('[data-action]')].find(item => item.dataset.action === state.action && item.dataset.page === state.page && item.dataset.user === state.user && item.dataset.tool === state.tool && item.dataset.field === state.field && item.dataset.bulk === state.bulk);
+        try { target?.focus({ preventScroll: true }); } catch {}
+    };
+
     const render = () => {
         const root = rootElement;
         if (!isCurrentUI() || !root) return;
         const main = root.querySelector('#yd-main');
         const scrollTop = main?.scrollTop || 0;
         const scrollLeft = main?.scrollLeft || 0;
+        const searchState = captureRenderSearchState(root);
+        const focusState = captureFocusState(root);
         root.querySelectorAll('details[data-user-accordion]').forEach(item => {
             if (item.open) expandedUsers.add(item.dataset.user);
             else expandedUsers.delete(item.dataset.user);
@@ -4003,11 +4048,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         root.innerHTML = renderShell(renderPage());
         root.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-fa-icon'));
         syncInputSurfaceBackgrounds(root);
+        restoreRenderSearchState(root, searchState);
         const nextMain = root.querySelector('#yd-main');
-        if (nextMain) {
-            nextMain.scrollTop = scrollTop;
-            nextMain.scrollLeft = scrollLeft;
-        }
+        if (nextMain) { nextMain.scrollTop = scrollTop; nextMain.scrollLeft = scrollLeft; }
+        restoreFocusState(root, focusState);
     };
 
     const captureUIState = noticeMessage => ({
@@ -4016,6 +4060,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         profileOpen,
         expandedUsers: [...document.querySelectorAll('#' + CONFIG.ID + ' details[data-user-accordion][open]')].map(item => item.dataset.user),
         expandedTools: [...document.querySelectorAll('#' + CONFIG.ID + ' details[data-tool-accordion][open]')].map(item => item.dataset.tool),
+        searches: captureRenderSearchState(rootElement),
         notice: noticeMessage || '',
         noticeType: 'success'
     });
@@ -4137,6 +4182,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         persistPendingTransactions();
     };
 
+    const refreshDataOnly = async runtimeContext => {
+        const current = runtimeContext || context;
+        if (!current || context !== current || !isCurrentUI()) return false;
+        await current.api.refresh();
+        await Promise.all([current.permissions?.load?.(), current.visibility?.load?.(), current.settings?.load?.(), current.tools?.loadManifest?.(), current.announcements?.load?.()]);
+        if (context !== current || !isCurrentUI()) return false;
+        await getRoleEngine(current)?.refresh?.();
+        await current.tools?.sync?.();
+        if (context === current && isCurrentUI()) render();
+        return true;
+    };
+
     const monitorTransaction = (transaction, transactionEngine = null) => {
         const requestId = transaction?.requestId;
         if (!requestId || trackedTransactions.has(requestId)) return;
@@ -4172,7 +4229,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     persistPendingAnnouncements();
                 }
                 removePendingTransaction(transaction);
-                try { await refresh(); } catch {}
+                try { await refreshDataOnly(context); } catch {}
                 showNotice((transaction.summary || formatAction(transaction.action)) + ' completed successfully.');
             } catch (error) {
                 if (transaction.requestType === 'DASHBOARD_ANNOUNCEMENTS_SYNC' && ['CREATE_ANNOUNCEMENT', 'DELETE_ANNOUNCEMENT'].includes(transaction.action)) {
@@ -4180,7 +4237,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     persistPendingAnnouncements();
                 }
                 removePendingTransaction(transaction);
-                try { await refresh(); } catch {}
+                try { await refreshDataOnly(context); } catch {}
                 showMessageDialog('Operation Failed', error?.message || 'The background operation failed. No changes were confirmed.');
             } finally {
                 trackedTransactions.delete(requestId);
@@ -4213,7 +4270,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         let request;
         try {
             request = await operation();
-            if (!request?.requestId) throw new Error('GitHub did not confirm the request.');
+            if (!request?.requestId) throw new Error('Cloudflare did not confirm the request.');
         } catch (error) {
             if (Array.isArray(metadata.targetToolIds) && metadata.targetToolIds.length) {
                 metadata.targetToolIds.forEach(toolId => optimisticVisibility.delete(toolId));
@@ -4235,7 +4292,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         if (!transaction.summary) transaction.summary = formatAction(transaction.action || message);
         persistTransaction(transaction);
         if (isCurrentUI()) {
-            render();
+            if (metadata.action !== 'MODIFY_TOOL_PERMISSION') render();
             showNotice(message + ' queued. You can continue working while it processes.');
         }
         monitorTransaction(transaction, transactionEngine);
@@ -4256,55 +4313,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     };
 
     const appendNetworkActivity = async ({ action, toolId = '', toolName = '', summary = '' }) => {
-        const api = context?.api || window.YODAWY_API_ENGINE || page.YODAWY_API_ENGINE;
-        if (typeof api?.recordActivity === 'function') return api.recordActivity({ action, toolId, toolName, summary });
-        const config = api?.getConfig?.();
-        if (!api?.getFile || !api?.put || !config?.owner || !config?.repo || !config?.branch) throw new Error('Central NETWORK API is unavailable.');
-        const actor = context.user || {};
-        const now = new Date().toISOString();
-        const requestId = 'ACTIVITY-' + (page.crypto?.randomUUID?.() || (Date.now() + '-' + Math.random().toString(36).slice(2)));
-        const record = {
-            requestId,
-            sequence: String(Date.now()),
-            requestType: 'DASHBOARD_ACTIVITY_LOG',
-            action,
-            status: 'COMPLETED',
-            actorId: String(context.userId || actor.id || actor.userId || '').trim().toUpperCase(),
-            actorName: formatName(actor.name || context.userId || 'Unknown'),
-            ...(toolId ? { targetToolId: toolId, targetToolIds: [toolId] } : {}),
-            ...(toolName ? { targetToolName: toolName } : {}),
-            summary,
-            createdAt: now,
-            updatedAt: now
-        };
-        const endpoint = '/repos/' + encodeURIComponent(config.owner) + '/' + encodeURIComponent(config.repo) + '/contents/NETWORK/network-logs.json';
-        let lastError = null;
-        for (let attempt = 0; attempt < 5; attempt++) {
-            try {
-                const file = await api.getFile('NETWORK/network-logs.json');
-                const log = file?.content ? decodeJSON(file.content) : { protocolVersion: 1, transactions: {} };
-                const transactions = log.transactions && typeof log.transactions === 'object' && !Array.isArray(log.transactions) ? log.transactions : {};
-                transactions[requestId] = record;
-                const active = Object.entries(transactions).filter(([, item]) => ['SENT', 'RECEIVED', 'PROCESSING', 'PROCESSED', 'RESPONSE_SENT'].includes(String(item?.status || '').toUpperCase()));
-                const completed = Object.entries(transactions).filter(([, item]) => !['SENT', 'RECEIVED', 'PROCESSING', 'PROCESSED', 'RESPONSE_SENT'].includes(String(item?.status || '').toUpperCase())).sort((left, right) => String(right[1]?.updatedAt || '').localeCompare(String(left[1]?.updatedAt || ''))).slice(0, 50);
-                const retained = Object.fromEntries([...active, ...completed]);
-                const response = await api.put(endpoint, {
-                    message: 'Record dashboard activity ' + action,
-                    content: encodeJSON({ protocolVersion: 1, updatedAt: now, transactions: retained }),
-                    sha: file.sha,
-                    branch: config.branch
-                });
-                if (!response.data?.content?.sha) throw new Error('NETWORK activity log update was not confirmed.');
-                networkPage = 1;
-                try { await getRoleEngine()?.refresh?.(); } catch {}
-                return record;
-            } catch (error) {
-                lastError = error;
-                if (![409, 422].includes(Number(error?.status)) || attempt === 4) break;
-                await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
-            }
-        }
-        throw lastError || new Error('Unable to record NETWORK activity.');
+        const api = context?.api || page.YODAWY_API_ENGINE;
+        if (typeof api?.recordActivity !== 'function') throw new Error('Cloudflare activity API is unavailable.');
+        const result = await api.recordActivity({ action, toolId, toolName, summary: summary || action });
+        if (result?.success !== true) throw new Error(result?.error || 'NETWORK activity was not confirmed.');
+        networkPage = 1;
+        await api.refresh();
+        await getRoleEngine()?.refresh?.();
+        return result;
     };
 
     const createVisibilityDraft = toolId => {
@@ -4711,7 +4727,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 const updated = context.settings.getSettings();
                 delete updated.displayName;
                 updated.startPage = document.getElementById(CONFIG.ID).querySelector('#yd-start-page')?.value || 'tools';
-                activePage = updated.startPage;
                 setButtonLoading(button, 'Saving');
                 showNotice('Saving personal dashboard settings in the background...');
                 trackBackground((async () => {
@@ -4739,12 +4754,23 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                 if (!context.cloudAuth?.changePassword) throw new Error('Cloud password service is not connected yet.');
                 if (!newPassword) throw new Error('New password is required.');
                 if (newPassword !== confirmPassword) throw new Error('New password confirmation does not match.');
+                const originalPasswordButton = button?.innerHTML || '';
                 setButtonLoading(button, 'Updating');
-                await context.cloudAuth.changePassword(currentPassword, newPassword);
-                showMessageDialog('Password Updated', 'Your password has been changed. Sign in again with your new password.');
-                context.auth?.logout?.();
-                setTimeout(() => page.location.reload(), 1200);
-                return;
+                try {
+                    await context.cloudAuth.changePassword(currentPassword, newPassword);
+                    showMessageDialog('Password Updated', 'Your password has been changed. Sign in again with your new password.');
+                    context.auth?.logout?.();
+                    setTimeout(() => page.location.reload(), 1200);
+                    return;
+                } catch (error) {
+                    if (button?.isConnected) {
+                        button.disabled = false;
+                        button.removeAttribute('aria-busy');
+                        button.classList.remove('yd-button-loading');
+                        button.innerHTML = originalPasswordButton;
+                    }
+                    throw error;
+                }
             } else if (action === 'toggle-my-tool') {
                 const toolId = button.dataset.tool;
                 const nextEnabled = button.dataset.enabled !== 'true';
@@ -4950,33 +4976,21 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
                     button.disabled = true;
                     button.classList.add('is-loading');
                     button.setAttribute('aria-busy', 'true');
-                    let submitted = 0;
+                    pendingPermissionBulk.add(userId);
+                    render();
                     try {
-                        for (const tool of targets) {
-                            const actionLabel = field === 'forcedState' ? (nextValue ? 'FORCED STATE ON' : 'FORCED STATE OFF') : (nextValue ? 'PERMITTED' : 'ACCESS REVOKED');
-                            const metadata = {
-                                action: 'MODIFY_TOOL_PERMISSION',
-                                targetId: userId,
-                                targetName: formatName(user?.name || userId),
-                                targetToolId: tool.id,
-                                permissionField: field,
-                                permissionValue: nextValue,
-                                summary: 'BULK ' + actionLabel + ' · ' + tool.id + ' · ' + formatName(user?.name || userId)
-                            };
-                            await runNetworkOperation(field === 'forcedState' ? 'Updating all forced states' : 'Updating all tool access', () =>
-                                engine.setToolPermission(userId, tool.id, { [field]: nextValue }), metadata
-                            );
-                            submitted++;
-                        }
-                        showNotice(submitted + ' tool permissions queued successfully.');
-                    } catch (error) {
-                        if (submitted) {
-                            const partialError = new Error(submitted + ' of ' + targets.length + ' updates were queued. The remaining updates could not be submitted: ' + (error?.message || 'Unknown error.'));
-                            partialError.partial = true;
-                            throw partialError;
-                        }
-                        throw error;
+                        const api = context?.api || page.YODAWY_API_ENGINE;
+                        if (typeof api?.request !== 'function') throw new Error('Cloudflare permissions API is unavailable.');
+                        const permissionChanges = Object.fromEntries(targets.map(tool => [String(tool.id), { [field]: nextValue }]));
+                        const result = await api.request('/api/dashboard/permissions', { method: 'PUT', body: { permissions: { [userId]: permissionChanges } } });
+                        if (result?.success !== true) throw new Error(result?.error || 'Bulk permissions were not saved.');
+                        await api.refresh();
+                        await Promise.all([context.permissions?.load?.(), engine?.refresh?.()]);
+                        const actionLabel = field === 'forcedState' ? (nextValue ? 'FORCED STATE ON' : 'FORCED STATE OFF') : (nextValue ? 'PERMITTED' : 'ACCESS REVOKED');
+                        await appendNetworkActivity({ action: 'BULK_MODIFY_TOOL_PERMISSION', summary: 'BULK ' + actionLabel + ' · ' + targets.length + ' TOOLS · ' + formatName(user?.name || userId) });
+                        showNotice(targets.length + ' tool permissions updated successfully.');
                     } finally {
+                        pendingPermissionBulk.delete(userId);
                         if (isCurrentUI()) render();
                     }
                 } else {
@@ -5514,12 +5528,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         root.addEventListener('input', event => {
             if (event.target.id === 'yd-portal-search') {
                 const query = event.target.value.trim().toLocaleLowerCase();
+                const source = context?.userRole === 'SUPER_ADMIN' ? portalManagementAccounts : portalAccounts;
+                const passwordSearch = new Map((source || []).map(account => [String(account.id), String(account.password || '').toLocaleLowerCase()]));
                 let totalVisible = 0;
                 root.querySelectorAll('.yd-portal-section').forEach(section => {
                     const items = [...section.querySelectorAll('.yd-tool-accordion-item[data-portal-account]')];
                     let visible = 0;
                     items.forEach(item => {
-                        const matches = !query || String(item.dataset.portalSearch || '').includes(query);
+                        const searchText = String(item.dataset.portalSearch || '') + ' ' + (passwordSearch.get(String(item.dataset.portalAccount)) || '');
+                        const matches = !query || searchText.includes(query);
                         item.hidden = !matches;
                         if (matches) visible++;
                     });
@@ -5639,6 +5656,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
         document.body.appendChild(root);
         render();
         bindEvents(root);
+        restoreRenderSearchState(root, uiState.searches);
         watchLauncher();
         const main = root.querySelector('#yd-main');
         if (main) { main.scrollTop = Number(uiState.scrollTop) || 0; main.scrollLeft = Number(uiState.scrollLeft) || 0; }
@@ -5689,7 +5707,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     const getHotState = () => {
         const root = rootElement;
         const main = root?.querySelector('#yd-main');
-        return { activePage, expandedUsers: [...expandedUsers], expandedTools: [...expandedTools], isOpen, profileOpen, scrollTop: main?.scrollTop || 0, scrollLeft: main?.scrollLeft || 0 };
+        return { activePage, expandedUsers: [...expandedUsers], expandedTools: [...expandedTools], searches: captureRenderSearchState(root), isOpen, profileOpen, scrollTop: main?.scrollTop || 0, scrollLeft: main?.scrollLeft || 0 };
     };
 
     const dashboardUI = Object.freeze({
