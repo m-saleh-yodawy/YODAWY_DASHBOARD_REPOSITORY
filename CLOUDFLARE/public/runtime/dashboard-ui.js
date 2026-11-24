@@ -492,7 +492,6 @@
         document.getElementById('yd-poppins-font')?.remove();
         ensureExternalStylesheet('yd-nunito-sans-font', 'https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300..900&display=swap');
         ensureExternalStylesheet('yd-cairo-font', 'https://fonts.googleapis.com/css2?family=Cairo:wght@300..900&display=swap');
-        ensureExternalStylesheet('yd-fa-icons-style', 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev/runtime/fa-icons.css');
         const style = document.getElementById(CONFIG.STYLE_ID) || document.createElement('style');
         style.id = CONFIG.STYLE_ID;
         style.textContent = String.raw`

@@ -2,7 +2,7 @@ return (async function (PAGE, STORE) {
     'use strict';
     const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261123-fa-self-hosted-7';
+    const ASSET_VERSION = '20261124-dashboard-icons-isolated-1';
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
@@ -75,7 +75,6 @@ return (async function (PAGE, STORE) {
         script.onerror = () => { script.remove(); reject(new Error('RUNTIME_ASSET_FAILED: ' + path)); };
         (PAGE.document.head || PAGE.document.documentElement).append(script);
     });
-    await loadScript('input-typography-engine.js').catch(() => false);
     let accessToken = '';
     let user = null;
     let context = null;
