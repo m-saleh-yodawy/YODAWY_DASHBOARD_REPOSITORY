@@ -3,7 +3,17 @@ return (async function (PAGE, STORE) {
     try { PAGE.YODAWY_INPUT_TYPOGRAPHY?.destroy?.(); } catch {}
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261124-no-global-typography-v1';
+    const ASSET_VERSION = '20261124-global-tool-box-sizing-v1';
+    const installToolBoxSizing = () => {
+        const id = 'yd-tools-box-sizing';
+        if (PAGE.document.getElementById(id)) return;
+        const scope = ':where([id^="yd"],[id^="tm"],[id^="ms-"],[id^="noitems"],[id^="ordered"],[class*="yd-"],[class*="yds-"],[class*="tm-"],[class*="ms-"],[class*="noitems-"],[class*="ordered-"])';
+        const style = PAGE.document.createElement('style');
+        style.id = id;
+        style.textContent = scope + ',' + scope + ' *,' + scope + '::before,' + scope + '::after,' + scope + ' *::before,' + scope + ' *::after{box-sizing:border-box!important}';
+        (PAGE.document.head || PAGE.document.documentElement).appendChild(style);
+    };
+    installToolBoxSizing();
     const messages = await fetch(API + '/system-messages.json', { cache: 'no-store' }).then(response => response.ok ? response.json() : { messages: {} }).then(data => data.messages || {}).catch(() => ({}));
     const showError = failure => {
         if (PAGE.document.getElementById('yd-cloud-error')) return;
