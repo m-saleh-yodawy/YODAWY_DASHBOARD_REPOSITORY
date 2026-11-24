@@ -67,7 +67,8 @@
         } catch { return null; }
     }
     function saveSplitJournal(journal) {
-        const next = { ...journal, updatedAt: Date.now() };
+        const cycle = state.cycle || null;
+        const next = { ...journal, cycleLabel: journal.cycleLabel || cycle?.label || '', cycleNumber: journal.cycleNumber || cycle?.cycleNumber || '', cycleMonth: journal.cycleMonth ?? cycle?.month ?? null, cycleYear: journal.cycleYear || cycle?.year || 0, cleanupDate: journal.cleanupDate || (cycle ? new Date(cycle.year, cycle.month, 23).toISOString().slice(0, 10) : ''), updatedAt: Date.now() };
         state.journal = next;
         try { localStorage.setItem(CONFIG.JOURNAL_PREFIX + Number(next.ticketId), JSON.stringify(next)); }
         catch { throw new Error('Could not persist the Split progress in this browser. No further Odoo action was started.'); }
@@ -80,6 +81,34 @@
     function removeSplitJournal(ticketId) {
         try { localStorage.removeItem(CONFIG.JOURNAL_PREFIX + Number(ticketId)); } catch {}
         if (Number(state.journal?.ticketId) === Number(ticketId)) state.journal = null;
+    }
+    function runCycleStorageCleanup() {
+        const now = new Date();
+        const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+        const prefix = CONFIG.JOURNAL_PREFIX;
+        const expired = [];
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (!key?.startsWith(prefix)) continue;
+            try {
+                const journal = JSON.parse(localStorage.getItem(key) || 'null');
+                if (journal?.cleanupDate && journal.cleanupDate <= today) expired.push(key);
+            } catch { expired.push(key); }
+        }
+        if (!expired.length) return false;
+        expired.forEach(key => { try { localStorage.removeItem(key); } catch {} });
+        const marker = prefix + 'cleanup-refresh.' + today;
+        if (localStorage.getItem(marker)) return false;
+        try { localStorage.setItem(marker, '1'); } catch {}
+        return true;
+    }
+    async function cleanupCycleStorageOnTicket() {
+        try {
+            state.ticketId = getTicketId();
+            if (!state.ticketId) return;
+            state.cycle = await getCycleInfo();
+            if (runCycleStorageCleanup()) location.reload();
+        } catch {}
     }
     function getPreparedFromJournal(journal) {
         const selectedDrugs = journal.selectedDrugs.map(drug => ({ ...drug }));
@@ -1614,7 +1643,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function init() {
-        if (isTicketForm()) createButton();
+        if (isTicketForm()) { createButton(); cleanupCycleStorageOnTicket(); }
     }
 
     state.observer = new MutationObserver(() => {
