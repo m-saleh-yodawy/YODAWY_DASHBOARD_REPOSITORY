@@ -55,7 +55,7 @@
         deferredChatterObserver: null,
         journal: null,
         componentsRefreshed: false,
-        recoveryModeAvailable: false
+        verificationTab: null
     };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -110,13 +110,73 @@
             if (runCycleStorageCleanup()) location.reload();
         } catch {}
     }
+    function reserveVerificationTab() {
+        try {
+            const tab = window.open('about:blank', '_blank');
+            if (!tab) return null;
+            tab.document.title = 'Yodawy ERX Verification';
+            tab.document.body.innerHTML = '<main style="font:14px Arial,sans-serif;padding:32px;color:#68465f">Split is running. This tab will open the ticket ERX if verification is needed.</main>';
+            return tab;
+        } catch { return null; }
+    }
+    function closeVerificationTab() {
+        try { if (state.verificationTab && !state.verificationTab.closed) state.verificationTab.close(); } catch {}
+        state.verificationTab = null;
+    }
+    function buildErxUrl(prescription) {
+        const id = normalize(prescription?.id || '');
+        const number = normalize(prescription?.PrescriptionNumber || prescription?.prescriptionNumber || '');
+        if (!/^[a-f0-9-]{36}$/i.test(id) || !number) return '';
+        return 'https://callcenter.yodawy.com/#/Prescription/' + encodeURIComponent(id) + '/' + encodeURIComponent(number) + '?_k=' + Math.random().toString(36).slice(2, 8);
+    }
+    function openErxAfterFailure(url) {
+        if (!url) { closeVerificationTab(); return; }
+        try {
+            if (state.verificationTab && !state.verificationTab.closed) {
+                state.verificationTab.location.replace(url);
+                state.verificationTab = null;
+                return;
+            }
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'OPEN ERX';
+            link.dataset.openSplitErx = '1';
+            const buttons = state.dialog?.querySelector('.yds-buttons');
+            if (buttons && !buttons.querySelector('[data-open-split-erx]')) buttons.prepend(link);
+        } catch {}
+    }
+    async function findCreatedSplitErx(journal) {
+        const payer = state.payer || getPayerConfig();
+        if (!state.accountId || !journal.cardNumber || !journal.selectedDrugs?.length) return null;
+        const data = await graphQL(PRESCRIPTIONS_QUERY, { filter: { AgencyId: payer.insuranceCompanyId, CardNumber: journal.cardNumber, AgentType: '4' } });
+        const rows = data.InsuranceAgencyPrescription;
+        if (!Array.isArray(rows)) throw new Error('Portal did not return prescription history while verifying the Split.');
+        const expected = journal.selectedDrugs.map(drug => normalize(drug.hzb));
+        const attemptedAt = Number(journal.portalAttemptedAt || Date.now()) - 120000;
+        const candidates = rows.filter(item => String(item?.id || '') !== String(journal.originalPrescriptionId || '') && (!item?.CreationDate || Number.isNaN(Date.parse(item.CreationDate)) || Date.parse(item.CreationDate) >= attemptedAt)).slice(0, 15);
+        for (const candidate of candidates) {
+            if (!candidate?.id) continue;
+            let details;
+            try { details = (await graphQL(PRESCRIPTION_DETAILS_QUERY(candidate.id))).GetPrescriptionDetails; } catch { continue; }
+            if (!details || !Array.isArray(details.Medications)) continue;
+            const tags = Array.isArray(details.Tags) ? details.Tags.map(tag => normalize(typeof tag === 'string' ? tag : tag?.name || tag?.Name)).map(normalizeKey) : [];
+            const hzbs = new Set(details.Medications.map(item => normalize(item?.Drug_Dosage_Form_Id)).filter(Boolean));
+            if (!tags.includes('split') || !expected.every(hzb => hzbs.has(hzb))) continue;
+            return { id: String(details.id || candidate.id), PrescriptionNumber: String(details.PrescriptionNumber || candidate.PrescriptionNumber || ''), formNumber: String(details.FHIRReference || ''), CreationDate: details.CreationDate || candidate.CreationDate || '', tags };
+        }
+        return null;
+    }
     function getPreparedFromJournal(journal) {
         const selectedDrugs = journal.selectedDrugs.map(drug => ({ ...drug }));
         return {
             selectedDrugs,
             input: { medications: Array.from({ length: Number(journal.selectedCount) || selectedDrugs.length }, () => ({})) },
             details: { Medications: Array.from({ length: Number(journal.originalMedicationCount) || selectedDrugs.length + 1 }, () => ({})) },
-            messageId: Number(journal.splitLogMessageId || 0)
+            messageId: Number(journal.splitLogMessageId || 0),
+            input: { medications: Array.from({ length: Number(journal.selectedCount) || selectedDrugs.length }, () => ({})), cardNumber: journal.cardNumber || '' },
+            prescription: { id: journal.originalPrescriptionId || '', PrescriptionNumber: journal.formNumber || '' }
         };
     }
     const normalizeKey = value => normalize(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1202,7 +1262,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     async function resumeSplitWorkflow() {
-        if (state.busy || !state.journal?.portalCreated) return;
+        if (state.busy || !state.journal) return;
         state.busy = true;
         const prepared = getPreparedFromJournal(state.journal);
         const primary = state.dialog?.querySelector('[data-submit]');
@@ -1210,6 +1270,12 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         if (primary) { primary.disabled = true; primary.innerHTML = '<span class="yds-spin"></span>RETRYING'; }
         if (close) close.disabled = true;
         try {
+            if (!state.journal.portalCreated) {
+                setStatus('Verifying the Portal response before any Odoo action...', 'info');
+                const found = await findCreatedSplitErx(state.journal);
+                if (!found) throw new Error('Portal has not confirmed a matching SPLIT prescription yet. No Odoo item was deleted. Retry after the Portal history is updated.');
+                updateSplitJournal({ portalCreated: true, portalStatus: 'confirmed_by_history', portalResponse: { isSuccess: true, verified: true, prescriptionId: found.id, prescriptionNumber: found.PrescriptionNumber }, portalErx: found, portalErxUrl: buildErxUrl(found), phase: 'cleanup_pending' });
+            }
             if (!state.journal.cleanupCompleted) {
                 setStatus('Checking the current Odoo items before cleanup...', 'info');
                 const cleanup = await deleteSplitItemsFromOdoo(prepared);
@@ -1251,13 +1317,15 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (primary) { primary.disabled = true; primary.textContent = 'COMPLETED'; }
             if (close) { close.disabled = false; close.textContent = 'CLOSE'; }
             markSelectedDrugs(prepared.selectedDrugs, 'success');
+            closeVerificationTab();
         } catch (error) {
             setStatus('SPLIT ALREADY CREATED — RETRY REQUIRED', 'error', error?.message || 'The remaining Odoo step could not be confirmed.');
             if (primary) {
                 primary.disabled = false;
-                primary.textContent = state.journal.cleanupCompleted ? (state.journal.splitLogPosted ? 'RETRY REFRESH' : 'RETRY CHATTER') : 'RETRY ODOO';
+                primary.textContent = 'RETRY';
             }
             if (close) { close.disabled = false; close.textContent = 'CLOSE'; }
+            openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
         } finally { state.busy = false; }
     }
 
@@ -1268,12 +1336,12 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         overlay.id = CONFIG.DIALOG_ID;
         const drugs = journal.selectedDrugs || [];
         const completed = Boolean(journal.completed);
-        const uncertain = !journal.portalCreated && ['portal_creation_started', 'portal_creation_uncertain'].includes(journal.phase);
+        const needsPortalCheck = !journal.portalCreated && ['portal_creation_started', 'portal_creation_uncertain'].includes(journal.phase);
         overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title">
             <header class="yds-head"><span class="yds-brand-mark" aria-label="Split Prescription">S</span><div class="yds-head-copy"><div class="yds-title" id="yds-title">Split Prescription Recovery</div></div></header>
             <div class="yds-summary">
                 <div class="yds-summary-card"><span class="yds-summary-label">Odoo Ticket</span><strong class="yds-summary-value">${escapeHTML(journal.ticketId)}</strong></div>
-                <div class="yds-summary-card"><span class="yds-summary-label">Split status</span><strong class="yds-summary-value">${completed ? 'Completed' : uncertain ? 'Portal status uncertain' : 'Portal created'}</strong></div>
+                <div class="yds-summary-card"><span class="yds-summary-label">Split status</span><strong class="yds-summary-value">${completed ? 'Completed' : journal.portalCreated ? 'Portal confirmed' : 'Portal verification required'}</strong></div>
             </div>
             <div class="yds-body">
                 <div class="yds-content-head"><div><div class="yds-section-title">Medications</div><div class="yds-section-hint">Previously selected items. A new Portal split will not be created.</div></div></div>
@@ -1281,13 +1349,15 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             </div>
             <footer class="yds-footer">
                 <div class="yds-status" aria-live="polite"><span class="yds-status-icon"></span><span class="yds-status-text"></span></div>
-                <div class="yds-actions"><span class="yds-count">${drugs.length} protected item(s)</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CLOSE</button><button type="button" class="yds-button yds-button-primary" data-submit ${completed || uncertain ? 'disabled' : ''}>${completed ? 'COMPLETED' : uncertain ? 'CHECK PORTAL' : journal.cleanupCompleted ? journal.splitLogPosted ? 'RETRY REFRESH' : 'RETRY CHATTER' : 'RETRY ODOO'}</button></div></div>
+                <div class="yds-actions"><span class="yds-count">${drugs.length} protected item(s)</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CLOSE</button><button type="button" class="yds-button yds-button-primary" data-submit ${completed ? 'disabled' : ''}>${completed ? 'COMPLETED' : 'RETRY'}</button></div></div>
             </footer>
         </section>`;
         document.body.appendChild(overlay);
         state.dialog = overlay;
         state.ticketId = Number(journal.ticketId);
         state.journal = journal;
+        state.accountId = String(journal.portalAccountId || '');
+        state.payer = getPayerConfig();
         state.splitLogBaselineId = Number(journal.baselineMessageId || 0);
         state.logPosted = Boolean(journal.splitLogPosted);
         state.componentsRefreshed = Boolean(journal.componentsRefreshed);
@@ -1295,9 +1365,9 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         const primary = overlay.querySelector('[data-submit]');
         const close = overlay.querySelector('[data-cancel]');
         if (completed) setStatus('This ticket already has a confirmed Split. Creating another Split is blocked.', 'success');
-        else if (uncertain) setStatus('The Portal creation request may have completed, but its response was not confirmed. Verify Portal history before any new Split.', 'error');
-        else setStatus(journal.cleanupCompleted ? 'Portal Split is safe. Retry only the remaining Chatter/finalization step.' : 'Portal Split is already created. Retry will continue with Odoo cleanup only.', 'info');
-        primary.addEventListener('click', resumeSplitWorkflow);
+        else if (needsPortalCheck) setStatus('Portal response was not confirmed. RETRY will check Portal history first and will not delete anything unless the Split is verified.', 'error');
+        else setStatus(journal.cleanupCompleted ? 'Portal Split is confirmed. RETRY will continue only the unfinished Chatter step.' : 'Portal Split is confirmed. RETRY will continue Odoo cleanup without creating another prescription.', 'info');
+        primary.addEventListener('click', () => { state.verificationTab = reserveVerificationTab(); resumeSplitWorkflow(); });
         close.addEventListener('click', () => {
             if (state.busy) return;
             if (state.pendingSplitLog && (!state.logPosted || !state.componentsRefreshed)) closeDialogAction();
@@ -1339,7 +1409,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             </div>
             <footer class="yds-footer">
                 <div class="yds-status" aria-live="polite"><span class="yds-status-icon"></span><span class="yds-status-text"></span></div>
-                <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>Cancel</button><button type="button" class="yds-button" data-recover ${state.recoveryModeAvailable ? '' : 'hidden'}>RETRY EXISTING</button><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
+                <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>Cancel</button><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
             </footer>
         </section>`;
         document.body.appendChild(overlay);
@@ -1348,73 +1418,17 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         const selectAll = overlay.querySelector('[data-select-all]');
         const count = overlay.querySelector('[data-count]');
         const submit = overlay.querySelector('[data-submit]');
-        const recover = overlay.querySelector('[data-recover]');
         const update = () => {
             const selected = checkboxes.filter(item => item.checked).length;
             count.textContent = `${selected} selected`;
             const accountReady = state.portalAccounts.length === 1 || Boolean(overlay.querySelector('[data-portal-account]')?.value || state.accountId);
             submit.disabled = selected === 0 || state.busy || !accountReady;
-            if (recover) recover.disabled = selected === 0 || state.busy || !accountReady;
             selectAll.checked = selected === checkboxes.length && selected > 0;
             selectAll.indeterminate = selected > 0 && selected < checkboxes.length;
         };
         checkboxes.forEach(item => item.addEventListener('change', update));
         selectAll.addEventListener('change', () => { checkboxes.forEach(item => { item.checked = selectAll.checked; }); update(); });
         overlay.querySelector('[data-portal-account]')?.addEventListener('change', event => { state.accountId = event.target.value; update(); });
-        recover?.addEventListener('click', async () => {
-            const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
-            if (!selected.length || state.busy) return;
-            const names = selected.map(drug => drug.name + ' (HZB ' + drug.hzb + ')').join('\n');
-            if (!window.confirm('Confirm that this Split already exists in Portal. This recovery will NOT create another prescription. It will only continue Odoo cleanup and Chatter finalization.\n\n' + names)) return;
-            const selectedAccount = overlay.querySelector('[data-portal-account]')?.value || state.accountId;
-            if (!selectedAccount) { setStatus('Select the saved Portal account linked to this Odoo payer.', 'error'); return; }
-            state.accountId = selectedAccount;
-            state.recoveryModeAvailable = false;
-            recover.hidden = true;
-            state.busy = true;
-            submit.disabled = true;
-            recover.disabled = true;
-            overlay.querySelector('[data-cancel]').disabled = true;
-            recover.innerHTML = '<span class="yds-spin"></span>PREPARING RECOVERY';
-            try {
-                await ensureConfirmedAlternativesStage();
-                const prepared = await prepareSplit(selected);
-                saveSplitJournal({
-                    version: 1,
-                    ticketId: Number(state.ticketId),
-                    formNumber: getField('prescription_number'),
-                    selectedDrugs: prepared.selectedDrugs.map(drug => ({ name: normalize(drug.name), hzb: normalize(drug.hzb), limited: cleanDrugName(drug.limited) })),
-                    selectedCount: prepared.input.medications.length,
-                    originalMedicationCount: prepared.details.Medications.length,
-                    baselineMessageId: Number(state.splitLogBaselineId || 0),
-                    portalCreated: true,
-                    cleanupCompleted: false,
-                    splitLogPosted: false,
-                    splitLogMessageId: 0,
-                    componentsRefreshed: false,
-                    ticketStatusChecked: false,
-                    completed: false,
-                    legacyRecovery: true,
-                    phase: 'cleanup_pending'
-                });
-                state.portalCreated = true;
-                state.completed = true;
-                state.mutationAttempted = false;
-                state.pendingSplitLog = null;
-                state.logPosted = false;
-                state.componentsRefreshed = false;
-                state.busy = false;
-                await resumeSplitWorkflow();
-            } catch (error) {
-                state.busy = false;
-                state.recoveryModeAvailable = true;
-                recover.hidden = false;
-                setStatus('EXISTING SPLIT RECOVERY NOT STARTED', 'error', error?.message || 'Recovery could not be prepared.');
-                overlay.querySelector('[data-cancel]').disabled = false;
-                recover.textContent = 'RETRY EXISTING';
-                update();
-            }
-        });
         overlay.querySelector('[data-cancel]').addEventListener('click', closeDialogAction);
         overlay.addEventListener('click', event => {
             if (event.target !== overlay) return;
@@ -1422,13 +1436,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             else closeDialog();
         });
         submit.addEventListener('click', async () => {
-            if (state.journal?.portalCreated) { await resumeSplitWorkflow(); return; }
+            if (state.journal?.portalCreated || ['portal_creation_started', 'portal_creation_uncertain'].includes(state.journal?.phase)) { state.verificationTab = reserveVerificationTab(); await resumeSplitWorkflow(); return; }
             const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
             if (!selected.length || state.busy) return;
             overlay._ydsDrugList = drugs;
             const selectedAccount = overlay.querySelector('[data-portal-account]')?.value || state.accountId;
             if (!selectedAccount) { setStatus('Select the saved Portal account linked to this Odoo payer.', 'error'); return; }
             state.accountId = selectedAccount;
+            state.verificationTab = reserveVerificationTab();
             state.busy = true;
             submit.disabled = true;
             overlay.querySelector('[data-cancel]').disabled = true;
@@ -1445,6 +1460,11 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                     selectedCount: prepared.input.medications.length,
                     originalMedicationCount: prepared.details.Medications.length,
                     baselineMessageId: Number(state.splitLogBaselineId || 0),
+                    portalAccountId: state.accountId,
+                    cardNumber: prepared.input.cardNumber,
+                    originalPrescriptionId: prepared.prescription.id,
+                    sourceErxUrl: buildErxUrl(prepared.prescription),
+                    portalAttemptedAt: 0,
                     portalCreated: false,
                     cleanupCompleted: false,
                     splitLogPosted: false,
@@ -1457,18 +1477,22 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 submit.innerHTML = '<span class="yds-spin"></span>CREATING';
                 setStatus('Sending the creation request directly to the Portal API...', 'info');
                 state.mutationAttempted = true;
-                updateSplitJournal({ phase: 'portal_creation_started', mutationAttempted: true });
+                updateSplitJournal({ phase: 'portal_creation_started', mutationAttempted: true, portalAttemptedAt: Date.now() });
                 const result = await graphQL(CREATE_PRESCRIPTION_MUTATION, { input: prepared.input });
                 const created = result.addNewChronicPrescription;
                 if (created?.isSuccess !== true) {
                     state.mutationAttempted = false;
+                    updateSplitJournal({ portalCreated: false, portalStatus: 'rejected', portalResponse: created || result || null, phase: 'portal_rejected', mutationAttempted: false });
                     throw new Error(created?.message || 'Portal did not confirm prescription creation.');
                 }
+                updateSplitJournal({ portalCreated: true, portalStatus: 'confirmed', portalResponse: created, portalResponseReceivedAt: Date.now(), phase: 'cleanup_pending' });
+                let portalErx = null;
+                try { portalErx = await findCreatedSplitErx(state.journal); } catch {}
+                if (portalErx) updateSplitJournal({ portalErx, portalErxUrl: buildErxUrl(portalErx) });
                 state.completed = true;
                 state.portalCreated = true;
-                state.recoveryModeAvailable = false;
-                if (recover) recover.hidden = true;
-                updateSplitJournal({ portalCreated: true, phase: 'cleanup_pending', portalCreatedAt: Date.now() });
+
+                updateSplitJournal({ portalCreated: true, portalStatus: 'confirmed', phase: 'cleanup_pending', portalCreatedAt: Date.now() });
                 submit.innerHTML = '<span class="yds-spin"></span>CLEANING ODOO';
                 setStatus('Portal confirmed the split. Removing the selected items from Odoo...', 'info');
                 startDeferredChatterHiding(prepared.selectedDrugs);
@@ -1519,25 +1543,28 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
                 overlay.querySelector('[data-cancel]').disabled = false;
                 submit.disabled = cleanup.success;
+                if (cleanup.success) closeVerificationTab();
+                else openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
             } catch (error) {
                 const status = Number(error?.status || 0);
                 const rejectedBeforeCreate = status >= 400 && status < 500;
                 const uncertain = state.mutationAttempted && !state.portalCreated && !rejectedBeforeCreate;
                 const blocked = state.portalCreated || uncertain;
                 try {
-                    if (uncertain && state.journal) updateSplitJournal({ phase: 'portal_creation_uncertain', mutationAttempted: true });
-                    else if (!state.portalCreated) removeSplitJournal(state.ticketId);
+                    if (uncertain && state.journal) updateSplitJournal({ phase: 'portal_creation_uncertain', portalStatus: 'uncertain', portalResponse: null, portalError: error?.message || 'Portal response was not received.', mutationAttempted: true });
+                    else if (!state.portalCreated && state.journal?.phase !== 'portal_rejected') removeSplitJournal(state.ticketId);
                 } catch {}
                 markSelectedDrugs(selected, state.portalCreated ? 'pending' : 'error');
                 setStatus(state.portalCreated ? 'PORTAL CREATED — ODOO CHECK REQUIRED' : 'FAILED', 'error',
                     (error?.message || 'Split failed.') + (state.portalCreated
                         ? ' The Portal prescription already exists. Do not run Split again or a duplicate prescription may be created.'
                         : uncertain ? ' The request may have reached Portal. Check prescription history before retrying.' : ''));
-                submit.textContent = state.portalCreated ? 'RETRY ODOO' : uncertain ? 'CHECK PORTAL' : 'SPLIT';
-                submit.disabled = uncertain;
+                submit.textContent = 'RETRY';
+                submit.disabled = false;
                 overlay.querySelector('[data-cancel]').disabled = false;
                 state.busy = false;
                 if (!blocked) update();
+                openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
             }
         });
         state.keydown = event => {
@@ -1549,7 +1576,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         };
         document.addEventListener('keydown', state.keydown, true);
         update();
-        if (state.recoveryModeAvailable) setStatus('Ticket is already in Confirmed Alternatives. Use RETRY EXISTING only after verifying that the Split exists in Portal.', 'info');
+
     }
 
     async function startSplit() {
@@ -1576,7 +1603,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.splitLogBaselineId = 0;
         state.journal = null;
         state.componentsRefreshed = false;
-        state.recoveryModeAvailable = false;
+
         revealDeferredChatterMessages();
         const button = document.getElementById(CONFIG.BUTTON_ID);
         if (button) { button.disabled = true; button.dataset.loading = '1'; }
@@ -1599,9 +1626,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (!state.portalAccounts.length) throw new Error('No saved Portal account matches this Odoo payer in your PORTALS list.');
             state.accountId = state.portalAccounts.length === 1 ? state.portalAccounts[0].id : '';
             const drugs = await fetchSplitDrugs();
-            const stageInfo = await getTicketStage(state.ticketId);
-            const currentStageId = Number(Array.isArray(stageInfo.record.stage_id) ? stageInfo.record.stage_id[0] : stageInfo.record.stage_id || 0);
-            state.recoveryModeAvailable = currentStageId === Number(stageInfo.confirmed.id);
             const [corporate, cycle] = await Promise.all([getCorporateInfo(), getCycleInfo()]);
             state.corporate = corporate;
             state.cycle = cycle;
