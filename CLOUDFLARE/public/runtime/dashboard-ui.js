@@ -3297,7 +3297,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
 }
 
 `;
-        style.textContent += String.raw`\n#yd-dashboard-root :is(button,a,input,select,textarea,[tabindex]):focus-visible,\nbody > .yd-modal-backdrop :is(button,a,input,select,textarea,[tabindex]):focus-visible,\nbody > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,input,select,textarea,[tabindex]):focus-visible {\n    outline: 2px solid #875a7b !important;\n    outline-offset: 2px !important;\n}\n`;
+        style.textContent += `
+#yd-dashboard-root :is(button,a,input,select,textarea,[tabindex]):focus-visible,
+body > .yd-modal-backdrop :is(button,a,input,select,textarea,[tabindex]):focus-visible,
+body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,input,select,textarea,[tabindex]):focus-visible {
+    outline: 2px solid #875a7b !important;
+    outline-offset: 2px !important;
+}
+`;
         (document.head || document.documentElement).appendChild(style);
     };
 
@@ -4017,13 +4024,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"],
     const captureFocusState = root => {
         const active = document.activeElement;
         if (!active || !root?.contains(active)) return null;
-        return { id: active.id || '', action: active.dataset?.action || '', page: active.dataset?.page || '', user: active.dataset?.user || '', tool: active.dataset?.tool || '', field: active.dataset?.field || '', bulk: active.dataset?.bulk || '' };
+        return { id: active.id || '', action: active.dataset?.action || '', page: active.dataset?.page || '', user: active.dataset?.user || '', tool: active.dataset?.tool || '', field: active.dataset?.field || '', bulk: active.dataset?.bulk || '', permissionUser: active.closest?.('details[data-user-accordion]')?.dataset.user || '' };
     };
 
     const restoreFocusState = (root, state) => {
         if (!root || !state) return;
         let target = state.id ? root.querySelector('#' + state.id) : null;
         if (!target && state.action) target = [...root.querySelectorAll('[data-action]')].find(item => item.dataset.action === state.action && item.dataset.page === state.page && item.dataset.user === state.user && item.dataset.tool === state.tool && item.dataset.field === state.field && item.dataset.bulk === state.bulk);
+        if (!target && state.permissionUser) target = [...root.querySelectorAll('details[data-user-accordion]')].find(item => item.dataset.user === state.permissionUser)?.querySelector('.yd-permission-search');
         try { target?.focus({ preventScroll: true }); } catch {}
     };
 
