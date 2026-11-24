@@ -974,7 +974,8 @@
     async function findExistingSplitLogNote(ticketId, baselineId, targets) {
         const messages = await rpc('mail.message', 'search_read', [[
             ['model', '=', 'helpdesk.ticket'],
-            ['res_id', '=', ticketId]
+            ['res_id', '=', ticketId],
+            ...(baselineId ? [['id', '>', baselineId]] : [])
         ]], {
             fields: ['id', 'body'],
             order: 'id desc',
@@ -1039,6 +1040,22 @@
         if (!Array.isArray(formatted) || !formatted.some(item => Number(item?.id) === messageId)) throw new Error('Odoo did not confirm formatting of the SPLIT Chatter message.');
         state.logPosted = true;
         return { posted: true, messageId, targets };
+    }
+
+    async function ensureSplitLogPosted(prepared) {
+        if (state.logPosted || state.journal?.splitLogPosted) {
+            state.logPosted = true;
+            return true;
+        }
+        setStatus('Saving the SPLIT note to Odoo Chatter before cleanup...', 'info');
+        const posted = await postSplitLogNote(prepared);
+        updateSplitJournal({
+            splitLogPosted: true,
+            splitLogMessageId: posted.messageId,
+            phase: state.journal?.cleanupCompleted ? 'chatter_pending' : 'cleanup_pending'
+        });
+        state.logPosted = true;
+        return true;
     }
 
     function findTicketFormController() {
@@ -1268,12 +1285,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             submit.innerHTML = '<span class="yds-spin"></span>FINALIZING';
         }
         revealDeferredChatterMessages();
-        if (!state.logPosted) {
-            setStatus('Saving the SPLIT note to Odoo Chatter...', 'info');
-            const posted = await postSplitLogNote(prepared);
-            updateSplitJournal({ splitLogPosted: true, splitLogMessageId: posted.messageId, phase: 'chatter_pending' });
-            state.logPosted = true;
-        }
+        await ensureSplitLogPosted(prepared);
         if (!state.componentsRefreshed) {
             setStatus('Refreshing the Odoo ticket and Chatter without leaving this page...', 'info');
             const refresh = await softReloadTicketView();
@@ -1306,6 +1318,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 updateSplitJournal({ portalCreated: true, portalStatus: 'confirmed_by_history', portalResponse: { isSuccess: true, verified: true, prescriptionId: found.id, prescriptionNumber: found.PrescriptionNumber }, portalErx: found, portalErxUrl: buildErxUrl(found), phase: 'cleanup_pending' });
             }
             if (!state.journal.cleanupCompleted) {
+                await ensureSplitLogPosted(prepared);
                 setStatus('Checking the current Odoo items before cleanup...', 'info');
                 const cleanup = await deleteSplitItemsFromOdoo(prepared);
                 updateSplitJournal({ cleanupCompleted: true, removedNoteId: Number(cleanup.noteId || 0), phase: 'cleanup_complete' });
@@ -1498,6 +1511,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 state.portalCreated = true;
 
                 updateSplitJournal({ portalCreated: true, portalStatus: 'confirmed', phase: 'cleanup_pending', portalCreatedAt: Date.now() });
+                state.pendingSplitLog = prepared;
+                await ensureSplitLogPosted(prepared);
                 submit.innerHTML = '<span class="yds-spin"></span>CLEANING ODOO';
                 setStatus('Portal confirmed the split. Removing the selected items from Odoo...', 'info');
                 startDeferredChatterHiding(prepared.selectedDrugs);
