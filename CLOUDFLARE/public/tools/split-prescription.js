@@ -743,13 +743,17 @@
             throw new Error('Odoo Fetch did not return an alternatives wizard after the Portal split. No delete action was submitted.');
         }
         const wizard = (await rpc('alternative.wizard', 'read', [[wizardId], ['alternative_lines_ids', 'non_selected_drugs']], { context }))?.[0];
+        const hasDrugList = typeof wizard?.non_selected_drugs === 'string';
+        const listedText = hasDrugList ? normalize(wizard.non_selected_drugs) : '';
+        const isListed = target => hasDrugList && new RegExp('(?:^|\\\\D)' + target.hzb + '(?:\\\\D|$)').test(listedText);
         const lineIds = Array.isArray(wizard?.alternative_lines_ids) ? wizard.alternative_lines_ids.map(Number).filter(id => id > 0) : [];
         if (!lineIds.length) {
-            const listed = parseFetchedDrugs(wizard?.non_selected_drugs);
-            const stillPresent = targets.filter(target => listed.some(drug => drug.hzb === target.hzb));
+            const stillPresent = targets.filter(isListed);
             await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
-            if (!stillPresent.length) return { success: true, count: targets.length, alreadyRemoved: targets.length, names: targets.map(target => target.name), noteId: 0 };
-            throw new Error('Odoo Fetch returned no alternative wizard lines while selected HZBs are still present: ' + stillPresent.map(target => target.hzb).join(', '));
+            if (!stillPresent.length && hasDrugList) return { success: true, count: targets.length, alreadyRemoved: targets.length, names: targets.map(target => target.name), noteId: 0 };
+            throw new Error(!hasDrugList
+                ? 'Odoo returned no alternative wizard lines and no verifiable Limited Drugs list. Cleanup was not repeated.'
+                : 'Odoo Fetch returned no alternative wizard lines while selected HZBs are still present: ' + stillPresent.map(target => target.hzb).join(', '));
         }
         const relation = await rpc('alternative.wizard', 'fields_get', [['alternative_lines_ids']], { attributes: ['relation'], context });
         const lineModel = relation?.alternative_lines_ids?.relation;
@@ -770,6 +774,11 @@
                 throw new Error('Odoo returned duplicate matches for ' + target.name + ' (HZB ' + target.hzb + '). No delete action was submitted.');
             }
             if (matches.length === 1) selectedHeaders.set(target.hzb, Number(matches[0].id));
+        }
+        const unmatchedStillPresent = targets.filter(target => !selectedHeaders.has(target.hzb) && isListed(target));
+        if (unmatchedStillPresent.length) {
+            await removeFetchMessages(ticketId, prepared.selectedDrugs, baselineId);
+            throw new Error('Odoo still lists these selected HZBs, but their wizard header could not be matched safely: ' + unmatchedStillPresent.map(target => target.hzb).join(', ') + '. No deletion was submitted.');
         }
         const pendingTargets = targets.filter(target => selectedHeaders.has(target.hzb));
         if (!pendingTargets.length) {
