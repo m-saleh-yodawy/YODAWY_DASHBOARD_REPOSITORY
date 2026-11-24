@@ -1041,47 +1041,19 @@
         return { posted: true, messageId, targets };
     }
 
-    async function refreshTicketComponentsWithAssignToMe(prepared) {
-        const ticketId = Number(state.ticketId || getTicketId());
-        const uid = Number(getSessionContext().uid || 0);
-        if (!ticketId || !uid) throw new Error('The ticket or current Odoo user could not be verified for the component refresh.');
-        const record = (await rpc('helpdesk.ticket', 'read', [[ticketId], ['user_id']], { context: getSessionContext() }))?.[0];
-        const assignedId = Number(Array.isArray(record?.user_id) ? record.user_id[0] : record?.user_id || 0);
-        if (!record || assignedId !== uid) throw new Error('The ticket is not assigned to the current user. The Assign to Me refresh was stopped to avoid changing ticket ownership.');
-        const selectors = [
-            'button[name="assign_ticket_to_self"]',
-            'button[data-name="assign_ticket_to_self"]',
-            'a[name="assign_ticket_to_self"]',
-            '[role="button"][name="assign_ticket_to_self"]'
-        ];
-        let button = selectors.flatMap(selector => [...document.querySelectorAll(selector)]).find(element => isVisible(element) && !element.disabled);
-        if (!button) {
-            button = [...document.querySelectorAll('button, a, [role="button"]')].find(element =>
-                isVisible(element) && !element.disabled && normalize(getText(element)).toLowerCase() === 'assign to me'
-            );
+    async function softReloadTicketView() {
+        const action = { type: 'ir.actions.client', tag: 'soft_reload' };
+        const service = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.action;
+        if (typeof service?.doAction === 'function') {
+            await service.doAction(action);
+            return { refreshed: true, method: 'soft_reload' };
         }
-        if (!button) throw new Error('The native Assign to Me button was not found. The Chatter component refresh was not triggered.');
-        const targets = prepared.selectedDrugs.map(drug => normalize(drug.hzb));
-        const hasSplitNote = () => [...document.querySelectorAll('.o_Message, .o-mail-Message')].some(element => {
-            const plain = getText(element);
-            return /\bSPLIT\b/i.test(plain) && targets.every(hzb => plain.includes(hzb));
-        });
-        let changed = false;
-        const observer = new MutationObserver(() => { changed = true; });
-        observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
-        try {
-            button.click();
-            const end = Date.now() + 12000;
-            while (Date.now() < end) {
-                if (changed && hasSplitNote()) return { refreshed: true, messageId: prepared.messageId || 0 };
-                await sleep(100);
-            }
-        } finally {
-            observer.disconnect();
+        const legacy = window.odoo?.__DEBUG__?.services?.['web.ActionManager'];
+        if (typeof legacy?.doAction === 'function') {
+            await legacy.doAction(action);
+            return { refreshed: true, method: 'soft_reload' };
         }
-        if (!hasSplitNote()) throw new Error('Assign to Me was triggered, but Odoo did not refresh the SPLIT note in the Chatter components.');
-        if (!changed) throw new Error('The SPLIT note exists, but Odoo component re-render was not detected after Assign to Me.');
-        return { refreshed: true, messageId: prepared.messageId || 0 };
+        throw new Error('Odoo Action Service is unavailable. The ticket DOM was not refreshed.');
     }
 
     function injectStyles() {
@@ -1096,6 +1068,9 @@
 #${CONFIG.DIALOG_ID} .yds-head{display:flex;align-items:center;gap:12px;min-width:0;padding:18px 20px;border-bottom:1px solid var(--yds-border);background:var(--yds-surface)}
 #${CONFIG.DIALOG_ID} .yds-brand-mark{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border:1px solid var(--o-brand-primary,#714B67);border-radius:9px;background:var(--o-brand-primary,#714B67);color:#fff;font-size:16px;font-weight:800;line-height:1}
 #${CONFIG.DIALOG_ID} .yds-head-copy{display:flex;flex:1;flex-direction:column;gap:1px;min-width:0}
+#${CONFIG.DIALOG_ID} .yds-close-panel{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;margin-left:auto;padding:0;border:1px solid var(--yds-border);border-radius:8px;background:transparent;color:var(--yds-muted);font-size:23px;font-weight:400;line-height:1;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s}
+#${CONFIG.DIALOG_ID} .yds-close-panel:hover{border-color:var(--yds-input-border);background:var(--yds-surface-muted);color:var(--yds-text)}
+#${CONFIG.DIALOG_ID} .yds-close-panel:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(135,90,123,.18)}
 #${CONFIG.DIALOG_ID} .yds-title{margin:0;color:var(--yds-text);font-size:17px;font-weight:700;letter-spacing:-.01em;line-height:24px}
 #${CONFIG.DIALOG_ID} .yds-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px 20px;border-bottom:1px solid var(--yds-border);background:var(--yds-surface)}
 #${CONFIG.DIALOG_ID} .yds-summary-card{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 12px;border:1px solid var(--yds-border);border-radius:8px;background:var(--yds-surface-muted)}
@@ -1241,46 +1216,45 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.deferredChatterObserver.observe(document.body, { childList: true, subtree: true });
     }
 
-    function closeDialog() {
-        if (state.busy || (state.pendingSplitLog && !state.logPosted)) return;
+    function closeDialog(force = false) {
+        if (state.busy && !force) return false;
+        if (state.pendingSplitLog && !state.logPosted && !force) return false;
         revealDeferredChatterMessages();
         state.dialog?.remove();
         state.dialog = null;
         document.removeEventListener('keydown', state.keydown, true);
+        return true;
     }
 
-    async function closeDialogAction() {
-        if (state.busy) return;
-        if (!state.pendingSplitLog || (state.logPosted && state.componentsRefreshed)) { closeDialog(); return; }
-
-        const button = state.dialog?.querySelector('[data-cancel]');
-        state.busy = true;
-        if (button) { button.disabled = true; button.innerHTML = '<span class="yds-spin"></span>FINALIZING'; }
-        revealDeferredChatterMessages();
-        setStatus(state.logPosted ? 'Refreshing the Odoo Chatter components...' : 'Publishing the SPLIT note to Odoo Chatter...', 'info');
-        try {
-            let posted = { messageId: Number(state.journal?.splitLogMessageId || state.pendingSplitLog.messageId || 0) };
-            if (!state.logPosted) {
-                posted = await postSplitLogNote(state.pendingSplitLog);
-                if (state.journal) updateSplitJournal({ splitLogPosted: true, splitLogMessageId: posted.messageId, phase: 'chatter_pending' });
-            }
-            if (!state.componentsRefreshed) {
-                await refreshTicketComponentsWithAssignToMe({ ...state.pendingSplitLog, messageId: posted.messageId });
-                state.componentsRefreshed = true;
-                if (state.journal) updateSplitJournal({ componentsRefreshed: true });
-            }
-            if (state.journal) updateSplitJournal({ completed: true, phase: 'completed' });
-            state.pendingSplitLog = null;
-            state.busy = false;
-
-            setStatus('SPLIT NOTE SAVED — ODOO COMPONENTS REFRESHED', 'success');
-            closeDialog();
-        } catch (error) {
-            state.busy = false;
-            if (button) { button.disabled = false; button.textContent = 'RETRY'; }
-            setStatus('SPLIT COMPLETED — FINALIZATION NEEDS RETRY', 'error', error?.message || 'The SPLIT note or Odoo Chatter refresh could not be confirmed.');
-            try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
+    async function finalizeSplitWorkflow(prepared) {
+        state.pendingSplitLog = prepared;
+        state.splitLogBaselineId = Number(state.journal?.baselineMessageId || state.splitLogBaselineId || 0);
+        state.logPosted = Boolean(state.journal?.splitLogPosted || state.logPosted);
+        state.componentsRefreshed = Boolean(state.journal?.componentsRefreshed || state.componentsRefreshed);
+        const submit = state.dialog?.querySelector('[data-submit]');
+        if (submit) {
+            submit.disabled = true;
+            submit.innerHTML = '<span class="yds-spin"></span>FINALIZING';
         }
+        revealDeferredChatterMessages();
+        if (!state.logPosted) {
+            setStatus('Saving the SPLIT note to Odoo Chatter...', 'info');
+            const posted = await postSplitLogNote(prepared);
+            updateSplitJournal({ splitLogPosted: true, splitLogMessageId: posted.messageId, phase: 'chatter_pending' });
+            state.logPosted = true;
+        }
+        if (!state.componentsRefreshed) {
+            setStatus('Refreshing the Odoo ticket and Chatter without leaving this page...', 'info');
+            await softReloadTicketView();
+            state.componentsRefreshed = true;
+            updateSplitJournal({ componentsRefreshed: true, phase: 'soft_reloaded' });
+        }
+        updateSplitJournal({ completed: true, phase: 'completed' });
+        state.pendingSplitLog = null;
+        state.busy = false;
+        markSelectedDrugs(prepared.selectedDrugs, 'success');
+        setStatus('SPLIT COMPLETED — TICKET & CHATTER REFRESHED', 'success');
+        closeDialog(true);
     }
 
     async function resumeSplitWorkflow() {
@@ -1288,9 +1262,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.busy = true;
         const prepared = getPreparedFromJournal(state.journal);
         const primary = state.dialog?.querySelector('[data-submit]');
-        const close = state.dialog?.querySelector('[data-cancel]');
         if (primary) { primary.disabled = true; primary.innerHTML = '<span class="yds-spin"></span>RETRYING'; }
-        if (close) close.disabled = true;
         try {
             if (!state.journal.portalCreated) {
                 setStatus('Verifying the Portal response before any Odoo action...', 'info');
@@ -1318,37 +1290,16 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 } catch (error) { closeError = error?.message || 'Ticket closure could not be verified.'; }
                 updateSplitJournal({ ticketStatusChecked: true, ticketClosed, closeError });
             }
-            state.pendingSplitLog = prepared;
-            state.splitLogBaselineId = Number(state.journal.baselineMessageId || 0);
-            state.logPosted = Boolean(state.journal.splitLogPosted);
-            state.componentsRefreshed = Boolean(state.journal.componentsRefreshed);
-            if (!state.logPosted) {
-                setStatus('Saving the SPLIT note...', 'info');
-                const posted = await postSplitLogNote(prepared);
-                updateSplitJournal({ splitLogPosted: true, splitLogMessageId: posted.messageId, phase: 'chatter_pending' });
-            }
-            if (!state.componentsRefreshed) {
-                setStatus('Refreshing Odoo Chatter components...', 'info');
-                await refreshTicketComponentsWithAssignToMe({ ...prepared, messageId: Number(state.journal.splitLogMessageId || 0) });
-                state.componentsRefreshed = true;
-                updateSplitJournal({ componentsRefreshed: true });
-            }
-            updateSplitJournal({ completed: true, phase: 'completed' });
-            state.pendingSplitLog = null;
-            setStatus('SPLIT COMPLETED — ODOO CLEANUP & CHATTER CONFIRMED', 'success', state.journal.closeError || '');
-            if (primary) { primary.disabled = true; primary.textContent = 'COMPLETED'; }
-            if (close) { close.disabled = false; close.textContent = 'CLOSE'; }
-            markSelectedDrugs(prepared.selectedDrugs, 'success');
-
+            await finalizeSplitWorkflow(prepared);
         } catch (error) {
-            setStatus('SPLIT ALREADY CREATED — RETRY REQUIRED', 'error', error?.message || 'The remaining Odoo step could not be confirmed.');
+            state.busy = false;
+            setStatus('SPLIT RECOVERY FAILED — RETRY REQUIRED', 'error', error?.message || 'The remaining Odoo step could not be confirmed.');
             if (primary) {
                 primary.disabled = false;
                 primary.textContent = 'RETRY';
             }
-            if (close) { close.disabled = false; close.textContent = 'CLOSE'; }
             try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
-        } finally { state.busy = false; }
+        }
     }
 
     function showResumeDialog(journal) {
@@ -1360,7 +1311,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         const completed = Boolean(journal.completed);
         const needsPortalCheck = !journal.portalCreated && ['portal_creation_started', 'portal_creation_uncertain'].includes(journal.phase);
         overlay.innerHTML = `<section class="yds-panel" role="dialog" aria-modal="true" aria-labelledby="yds-title">
-            <header class="yds-head"><span class="yds-brand-mark" aria-label="Split Prescription">S</span><div class="yds-head-copy"><div class="yds-title" id="yds-title">Split Prescription Recovery</div></div></header>
+            <header class="yds-head"><span class="yds-brand-mark" aria-label="Split Prescription">S</span><div class="yds-head-copy"><div class="yds-title" id="yds-title">Split Prescription Recovery</div></div><button type="button" class="yds-close-panel" data-close-panel aria-label="Close panel" title="Close">×</button></header>
             <div class="yds-summary">
                 <div class="yds-summary-card"><span class="yds-summary-label">Odoo Ticket</span><strong class="yds-summary-value">${escapeHTML(journal.ticketId)}</strong></div>
                 <div class="yds-summary-card"><span class="yds-summary-label">Split status</span><strong class="yds-summary-value">${completed ? 'Completed' : journal.portalCreated ? 'Portal confirmed' : 'Portal verification required'}</strong></div>
@@ -1371,7 +1322,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             </div>
             <footer class="yds-footer">
                 <div class="yds-status" aria-live="polite"><span class="yds-status-icon"></span><span class="yds-status-text"></span></div>
-                <div class="yds-actions"><span class="yds-count">${drugs.length} protected item(s)</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>CLOSE</button><button type="button" class="yds-button yds-button-primary" data-submit ${completed ? 'disabled' : ''}>${completed ? 'COMPLETED' : 'RETRY'}</button></div></div>
+                <div class="yds-actions"><span class="yds-count">${drugs.length} protected item(s)</span><div class="yds-buttons"><button type="button" class="yds-button yds-button-primary" data-submit ${completed ? 'disabled' : ''}>${completed ? 'COMPLETED' : 'RETRY'}</button></div></div>
             </footer>
         </section>`;
         document.body.appendChild(overlay);
@@ -1385,19 +1336,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.componentsRefreshed = Boolean(journal.componentsRefreshed);
         if (journal.cleanupCompleted && !journal.completed) state.pendingSplitLog = getPreparedFromJournal(journal);
         const primary = overlay.querySelector('[data-submit]');
-        const close = overlay.querySelector('[data-cancel]');
         if (completed) setStatus('This ticket already has a confirmed Split. Creating another Split is blocked.', 'success');
         else if (needsPortalCheck) setStatus('Portal response was not confirmed. RETRY will check Portal history first and will not delete anything unless the Split is verified.', 'error');
         else setStatus(journal.cleanupCompleted ? 'Portal Split is confirmed. RETRY will continue only the unfinished Chatter step.' : 'Portal Split is confirmed. RETRY will continue Odoo cleanup without creating another prescription.', 'info');
         primary.addEventListener('click', resumeSplitWorkflow);
-        close.addEventListener('click', () => {
-            if (state.busy) return;
-            if (state.pendingSplitLog && (!state.logPosted || !state.componentsRefreshed)) closeDialogAction();
-            else closeDialog();
-        });
-        overlay.addEventListener('click', event => { if (event.target === overlay && !state.busy) close.click(); });
+        overlay.querySelector('[data-close-panel]').addEventListener('click', () => closeDialog(true));
+        overlay.addEventListener('click', event => { if (event.target === overlay) closeDialog(true); });
         state.keydown = event => {
-            if (event.key === 'Escape' && state.dialog === overlay && !state.busy) close.click();
+            if (event.key === 'Escape' && state.dialog === overlay) closeDialog(true);
             if (event.key === 'Enter' && state.dialog === overlay && !primary.disabled && !state.busy) primary.click();
         };
         document.addEventListener('keydown', state.keydown, true);
@@ -1418,6 +1364,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 <div class="yds-head-copy">
                     <div class="yds-title" id="yds-title">Split Prescription</div>
                 </div>
+                <button type="button" class="yds-close-panel" data-close-panel aria-label="Close panel" title="Close">×</button>
             </header>
             <div class="yds-summary">
                 <div class="yds-summary-card"><span class="yds-summary-label">Expiry date</span><strong class="yds-summary-value">${escapeHTML(expiryLabel)}</strong></div>
@@ -1431,7 +1378,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             </div>
             <footer class="yds-footer">
                 <div class="yds-status" aria-live="polite"><span class="yds-status-icon"></span><span class="yds-status-text"></span></div>
-                <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button" data-cancel>Cancel</button><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
+                <div class="yds-actions"><span class="yds-count" data-count>0 selected</span><div class="yds-buttons"><button type="button" class="yds-button yds-button-primary" data-submit disabled>Split</button></div></div>
             </footer>
         </section>`;
         document.body.appendChild(overlay);
@@ -1455,12 +1402,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         checkboxes.forEach(item => item.addEventListener('change', update));
         selectAll.addEventListener('change', () => { checkboxes.forEach(item => { item.checked = selectAll.checked; }); update(); });
         overlay.querySelector('[data-portal-account]')?.addEventListener('change', event => { state.accountId = event.target.value; update(); });
-        overlay.querySelector('[data-cancel]').addEventListener('click', closeDialogAction);
-        overlay.addEventListener('click', event => {
-            if (event.target !== overlay) return;
-            if (state.pendingSplitLog && !state.logPosted) setStatus('Press CLOSE to publish the SPLIT note and show the completed Chatter messages.', 'info');
-            else closeDialog();
-        });
+        overlay.querySelector('[data-close-panel]').addEventListener('click', () => closeDialog(true));
+        overlay.addEventListener('click', event => { if (event.target === overlay) closeDialog(true); });
         submit.addEventListener('click', async () => {
             if (state.journal?.portalCreated || ['portal_creation_started', 'portal_creation_uncertain'].includes(state.journal?.phase)) { await resumeSplitWorkflow(); return; }
             const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
@@ -1472,7 +1415,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
 
             state.busy = true;
             submit.disabled = true;
-            overlay.querySelector('[data-cancel]').disabled = true;
             submit.innerHTML = '<span class="yds-spin"></span>PREPARING';
             try {
                 setStatus('Moving ticket to Confirmed Alternatives...', 'info');
@@ -1550,31 +1492,20 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                         closeError = error?.message || 'Could not verify whether the ticket can be closed.';
                     }
                 }
-                state.busy = false;
                 if (cleanup.success) {
                     updateSplitJournal({ ticketStatusChecked: true, ticketClosed: state.ticketClosed, closeError });
                     markSelectedDrugs(selected, 'success');
-                    if (state.ticketClosed) {
-                        setStatus('SUCCESS — TICKET CLOSED · PRESS CLOSE FOR CHATTER', 'success');
-                    } else if (closeError) {
-                        setStatus('SPLIT COMPLETED — AUTO-CLOSE NOT CONFIRMED · PRESS CLOSE FOR CHATTER', 'info', closeError);
-                    } else {
-                        setStatus('SPLIT COMPLETED — REMAINING ITEMS · PRESS CLOSE FOR CHATTER', 'info', String(remaining?.drugs?.length || 0) + ' limited drugs still need checking.');
-                    }
+                    await finalizeSplitWorkflow(prepared);
                 } else {
+                    state.busy = false;
                     markSelectedDrugs(selected, 'pending');
                     setStatus('SPLIT CREATED — ODOO CLEANUP FAILED', 'error', cleanup.error || 'Odoo item deletion was not verified.');
-                }
-                submit.textContent = state.ticketClosed ? 'TICKET CLOSED' : cleanup.success ? 'COMPLETED' : 'RETRY';
-                checkboxes.forEach(item => { item.disabled = true; });
-                selectAll.disabled = true;
-                overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
-                overlay.querySelector('[data-cancel]').disabled = false;
-                submit.disabled = cleanup.success;
-                if (!cleanup.success) {
+                    submit.textContent = 'RETRY';
+                    submit.disabled = false;
+                    checkboxes.forEach(item => { item.disabled = true; });
+                    selectAll.disabled = true;
                     try { await openTicketErx(); } catch (openError) { setStatus('SPLIT CREATED — ERX COULD NOT OPEN', 'error', openError?.message || cleanup.error || ''); }
                 }
-
             } catch (error) {
                 const status = Number(error?.status || 0);
                 const rejectedBeforeCreate = status >= 400 && status < 500;
@@ -1587,24 +1518,21 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                     }
                     else if (!state.portalCreated && state.journal?.phase !== 'portal_rejected') removeSplitJournal(state.ticketId);
                 } catch {}
-                markSelectedDrugs(selected, state.portalCreated ? 'pending' : 'error');
-                setStatus(state.portalCreated ? 'PORTAL CREATED — ODOO CHECK REQUIRED' : 'FAILED', 'error',
+                const cleanupFinished = Boolean(state.journal?.cleanupCompleted);
+                markSelectedDrugs(selected, cleanupFinished ? 'success' : state.portalCreated ? 'pending' : 'error');
+                setStatus(cleanupFinished ? 'SPLIT & CLEANUP COMPLETED — FINALIZATION NEEDS RETRY' : state.portalCreated ? 'PORTAL CREATED — ODOO CHECK REQUIRED' : 'FAILED', 'error',
                     (error?.message || 'Split failed.') + (state.portalCreated
                         ? ' The Portal prescription already exists. Do not run Split again or a duplicate prescription may be created.'
                         : uncertain ? ' The request may have reached Portal. Check prescription history before retrying.' : ''));
                 submit.textContent = 'RETRY';
                 submit.disabled = false;
-                overlay.querySelector('[data-cancel]').disabled = false;
                 state.busy = false;
                 if (!blocked) update();
                 try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
             }
         });
         state.keydown = event => {
-            if (event.key === 'Escape' && state.dialog === overlay && !state.busy) {
-                if (state.pendingSplitLog && !state.logPosted) setStatus('Press CLOSE to publish the SPLIT note and show the completed Chatter messages.', 'info');
-                else closeDialog();
-            }
+            if (event.key === 'Escape' && state.dialog === overlay) closeDialog(true);
             if (event.key === 'Enter' && state.dialog === overlay && !submit.disabled && !state.busy) submit.click();
         };
         document.addEventListener('keydown', state.keydown, true);
