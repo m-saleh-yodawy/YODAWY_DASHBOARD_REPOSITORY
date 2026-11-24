@@ -1041,19 +1041,50 @@
         return { posted: true, messageId, targets };
     }
 
+    function findTicketFormController() {
+        const services = window.odoo?.__DEBUG__?.services || {};
+        for (const service of Object.values(services)) {
+            for (const action of service?.__parentedChildren || []) {
+                for (const controller of action?.__parentedChildren || []) {
+                    if (controller?.modelName === 'helpdesk.ticket' && typeof controller.reload === 'function') return controller;
+                }
+            }
+        }
+        return null;
+    }
+
+    async function attemptSoftDomReload(run) {
+        let changed = false;
+        const observer = new MutationObserver(() => { changed = true; });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+        try {
+            await run();
+            const end = Date.now() + 900;
+            while (!changed && Date.now() < end) await sleep(40);
+            return changed;
+        } catch {
+            return false;
+        } finally {
+            observer.disconnect();
+        }
+    }
+
     async function softReloadTicketView() {
         const action = { type: 'ir.actions.client', tag: 'soft_reload' };
-        const service = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.action;
-        if (typeof service?.doAction === 'function') {
-            await service.doAction(action);
-            return { refreshed: true, method: 'soft_reload' };
+        const controller = findTicketFormController();
+        const owl = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.action;
+        const debug = window.odoo?.__DEBUG__?.services || {};
+        const legacy = debug['web.ActionManager'] || Object.values(debug).find(service => typeof service?.doAction === 'function');
+        const attempts = [
+            { method: 'form_controller', run: typeof controller?.reload === 'function' ? () => controller.reload() : null },
+            { method: 'owl_action_service', run: typeof owl?.doAction === 'function' ? () => owl.doAction(action) : null },
+            { method: 'legacy_action_manager', run: typeof legacy?.doAction === 'function' ? () => legacy.doAction(action) : null }
+        ];
+        for (const attempt of attempts) {
+            if (!attempt.run) continue;
+            if (await attemptSoftDomReload(attempt.run)) return { refreshed: true, method: attempt.method };
         }
-        const legacy = window.odoo?.__DEBUG__?.services?.['web.ActionManager'];
-        if (typeof legacy?.doAction === 'function') {
-            await legacy.doAction(action);
-            return { refreshed: true, method: 'soft_reload' };
-        }
-        throw new Error('Odoo Action Service is unavailable. The ticket DOM was not refreshed.');
+        return { refreshed: false, method: 'unavailable' };
     }
 
     function injectStyles() {
@@ -1245,15 +1276,19 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         }
         if (!state.componentsRefreshed) {
             setStatus('Refreshing the Odoo ticket and Chatter without leaving this page...', 'info');
-            await softReloadTicketView();
-            state.componentsRefreshed = true;
-            updateSplitJournal({ componentsRefreshed: true, phase: 'soft_reloaded' });
+            const refresh = await softReloadTicketView();
+            state.componentsRefreshed = refresh.refreshed;
+            updateSplitJournal({ componentsRefreshed: refresh.refreshed, refreshMethod: refresh.method });
         }
-        updateSplitJournal({ completed: true, phase: 'completed' });
+        updateSplitJournal({ completed: true, phase: 'completed', componentsRefreshed: state.componentsRefreshed, refreshPending: !state.componentsRefreshed });
         state.pendingSplitLog = null;
         state.busy = false;
         markSelectedDrugs(prepared.selectedDrugs, 'success');
-        setStatus('SPLIT COMPLETED — TICKET & CHATTER REFRESHED', 'success');
+        setStatus(
+            state.componentsRefreshed ? 'SPLIT COMPLETED — TICKET & CHATTER REFRESHED' : 'SPLIT COMPLETED — CHATTER SAVED',
+            'success',
+            state.componentsRefreshed ? '' : 'The Split, Odoo cleanup and Chatter note are confirmed. Odoo view refresh was unavailable in this session; no retry is needed.'
+        );
         closeDialog(true);
     }
 

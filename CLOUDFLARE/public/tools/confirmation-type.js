@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Confirmation Type
 // @namespace    https://odoo.yodawy.com/
+// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle
@@ -37,6 +38,8 @@
         initialized: false,
         destroyed: false,
         loading: false,
+        activeTicketId: 0,
+        activeValue: 0,
         observer: null,
         request: null,
         toastTimers: new Set(),
@@ -166,16 +169,14 @@
         },
 
         controller() {
-            const services = window.odoo?.__DEBUG__?.services;
-            if (!services) return null;
+            const services = window.odoo?.__DEBUG__?.services || {};
 
             for (const service of Object.values(services)) {
                 for (const action of service?.__parentedChildren || []) {
                     for (const controller of action?.__parentedChildren || []) {
                         if (
                             controller?.modelName === C.M &&
-                            controller.handle &&
-                            controller.saveRecord
+                            typeof controller.reload === 'function'
                         ) {
                             return controller;
                         }
@@ -184,6 +185,37 @@
             }
 
             return null;
+        },
+
+        async softReloadTicketView() {
+            const action = { type: 'ir.actions.client', tag: 'soft_reload' };
+            const controller = this.controller();
+            const owl = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.action;
+            const debug = window.odoo?.__DEBUG__?.services || {};
+            const legacy = debug['web.ActionManager'] || Object.values(debug).find(service => typeof service?.doAction === 'function');
+            const attempts = [
+                typeof controller?.reload === 'function' ? () => controller.reload() : null,
+                typeof owl?.doAction === 'function' ? () => owl.doAction(action) : null,
+                typeof legacy?.doAction === 'function' ? () => legacy.doAction(action) : null
+            ];
+
+            for (const attempt of attempts) {
+                if (!attempt) continue;
+                let changed = false;
+                const observer = new MutationObserver(() => { changed = true; });
+                observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+                try {
+                    await attempt();
+                    const end = Date.now() + 900;
+                    while (!changed && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 40));
+                    if (changed) return true;
+                } catch {
+                } finally {
+                    observer.disconnect();
+                }
+            }
+
+            return false;
         }
     };
 
@@ -230,7 +262,10 @@
                 return;
             }
 
-            if (document.getElementById(C.I)) return;
+            if (document.getElementById(C.I)) {
+                if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
+                return;
+            }
 
             const box = document.querySelector('.oe_button_box');
             if (!box) return;
@@ -243,6 +278,7 @@
             if (split) {
                 box.insertBefore(split, container.nextSibling);
             }
+            if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
         },
 
         removeButtons() {
@@ -335,16 +371,15 @@
 
                 if (state.destroyed || request.signal.aborted) return;
 
-                const controller = api.controller();
-
-                if (controller) {
-                    await controller.reload();
-                }
+                state.activeTicketId = id;
+                state.activeValue = value;
+                const refreshed = await api.softReloadTicketView();
 
                 if (state.destroyed || request.signal.aborted) return;
 
+                ui.render();
                 ui.active(value);
-                ui.toast('Updated successfully.');
+                ui.toast(refreshed ? 'Updated successfully.' : 'Saved successfully. View refresh unavailable.');
             } catch (error) {
                 if (!state.destroyed && error?.name !== 'AbortError') {
                     ui.toast('Something went wrong.');
