@@ -43,15 +43,17 @@
 .yodawy-copy-all{display:flex!important;align-items:center!important;justify-content:space-between!important;width:100%!important;box-sizing:border-box!important;background:#8595a2!important;color:#000!important;border-radius:5px!important;padding:4px 8px!important;margin:0 0 30px!important;font-size:13px!important;font-weight:500!important;line-height:1.2!important;min-height:32px!important;user-select:none!important}
 .yodawy-copy-all-title{display:flex;align-items:center;gap:5px;min-width:0;flex:1 1 auto;line-height:1.2}
 .yodawy-copy-all-title span{line-height:1.2}
-.yodawy-copy-all-button{flex-shrink:0!important;background:#fff!important;color:#000!important;border:1px solid #fff!important;border-radius:4px!important;padding:6px!important;font-size:10px!important;font-weight:bold!important;line-height:1!important;cursor:pointer!important;transition:transform .12s ease}
+.yodawy-copy-all-button{flex-shrink:0!important;background:#fff!important;color:#000!important;border:0!important;outline:none!important;box-shadow:none!important;border-radius:4px!important;padding:6px!important;font-size:12px!important;font-weight:bold!important;line-height:1!important;cursor:pointer!important;transition:color .15s ease,transform .12s ease}
 .yodawy-copy-all-button:active{transform:scale(.96)}
+.yodawy-copy-all-button:focus,.yodawy-copy-all-button:focus-visible,.yodawy-copy-one:focus,.yodawy-copy-one:focus-visible,.yodawy-without-alt:focus,.yodawy-without-alt:focus-visible{outline:none!important;border:0!important;box-shadow:none!important}
+.yodawy-copy-feedback{color:#198754!important}
 .yodawy-accordion-item{display:block!important;width:100%!important;box-sizing:border-box!important;border-radius:5px!important;overflow:hidden!important;margin-bottom:40px!important;background:#fff!important;box-shadow:0 1px 3px rgba(104,70,95,.1)}
 .yodawy-accordion-header,.yodawy-accordion-header:hover,.yodawy-accordion-header.open,.yodawy-accordion-header.open:hover{display:flex!important;align-items:center!important;width:100%!important;box-sizing:border-box!important;overflow:hidden;padding:4px!important;margin:0!important;background:#c5c5c5!important;color:#000!important;cursor:pointer!important;user-select:none!important}
 .yodawy-arrow{overflow:hidden;width:30px!important;min-width:10px!important;max-width:10px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:10px!important;line-height:1!important;color:#000!important;transition:transform .14s ease}
 .yodawy-accordion-header.open .yodawy-arrow{transform:rotate(90deg)}
 .yodawy-drug-title{flex:1 1 auto!important;min-width:0!important;padding:4px!important;margin:0!important;font-size:13px!important;font-weight:500!important;line-height:1.2!important;word-break:break-word!important;overflow-wrap:anywhere!important;color:#000!important;letter-spacing:1px}
 .yodawy-header-actions{display:flex!important;align-items:center!important;gap:16px!important;flex-shrink:0!important;margin-right:5px!important;height:100%!important}
-.yodawy-without-alt,.yodawy-copy-one{flex-shrink:0!important;background:#fff!important;color:#000!important;border:1px solid #fff!important;border-radius:4px!important;padding:6px!important;margin:0!important;font-size:10px!important;line-height:1!important;font-weight:bold!important;cursor:pointer!important;pointer-events:auto!important;transition:transform .12s ease}
+.yodawy-without-alt,.yodawy-copy-one{flex-shrink:0!important;background:#fff!important;color:#000!important;border:0!important;outline:none!important;box-shadow:none!important;border-radius:4px!important;padding:6px!important;margin:0!important;font-size:10px!important;line-height:1!important;font-weight:bold!important;cursor:pointer!important;pointer-events:auto!important;transition:color .15s ease,transform .12s ease}
 .yodawy-without-alt:active,.yodawy-copy-one:active{transform:scale(.94)}
 .yodawy-accordion-body{display:block!important;width:100%!important;box-sizing:border-box!important;background:#fff!important;overflow:hidden!important;max-height:0!important;opacity:0!important;transform:translateY(-5px)!important;transition:max-height .16s ease,opacity .12s ease,transform .16s ease!important}
 .yodawy-accordion-body.open{max-height:1000px!important;opacity:1!important;transform:translateY(0)!important}
@@ -137,6 +139,14 @@ function success(message) {
         popup.style.transition = 'opacity .2s ease';
         schedule(() => popup.remove(), 200);
     }, 1200);
+}
+
+function showButtonFeedback(button){
+    if(state.destroyed||!button)return;
+    const original=button.innerHTML;
+    button.innerHTML='<i class="yd-fa-icon fa-solid fa-check"></i>';
+    button.classList.add('yodawy-copy-feedback');
+    schedule(()=>{if(!state.destroyed&&button.isConnected){button.innerHTML=original;button.classList.remove('yodawy-copy-feedback');}},900);
 }
 
 async function copy(text,message){
@@ -629,12 +639,13 @@ function build(body){
     const copyAll=document.createElement('button');
     copyAll.className='yodawy-copy-all-button';
     copyAll.type='button';
-    copyAll.textContent='📋';
+    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
 
     copyAll.onclick=async e=>{
         e.preventDefault();
         e.stopPropagation();
         await addAll(drugs);
+        showButtonFeedback(copyAll);
     };
 
     bar.append(title,copyAll);
@@ -667,12 +678,13 @@ function build(body){
             e.preventDefault();
             e.stopPropagation();
             await withoutAlt(x.title);
+            showButtonFeedback(wout);
         };
 
         const copyOne=document.createElement('button');
         copyOne.className='yodawy-copy-one';
         copyOne.type='button';
-        copyOne.textContent='📋';
+        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
 
         copyOne.onclick=async e=>{
             e.preventDefault();
@@ -682,6 +694,7 @@ function build(body){
                 `Limited Drug: ${x.title}`,
                 'Limited Drug copied'
             );
+            showButtonFeedback(copyOne);
         };
 
         actions.append(wout,copyOne);
