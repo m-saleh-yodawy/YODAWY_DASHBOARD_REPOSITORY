@@ -55,7 +55,6 @@
         deferredChatterObserver: null,
         journal: null,
         componentsRefreshed: false,
-        verificationTab: null,
         lastPortalOutcome: null
     };
 
@@ -130,53 +129,42 @@
             if (runCycleStorageCleanup()) location.reload();
         } catch {}
     }
-    function reserveVerificationTab() {
-        try {
-            const tab = window.open('about:blank', '_blank');
-            if (!tab) return null;
-            tab.document.title = 'Yodawy ERX Verification';
-            if (tab.document.body) tab.document.body.textContent = 'Split is running. This tab will open the ticket ERX if verification is needed.';
-            return tab;
-        } catch { return null; }
-    }
-    function closeVerificationTab() {
-        try { if (state.verificationTab && !state.verificationTab.closed) state.verificationTab.close(); } catch {}
-        state.verificationTab = null;
-    }
     function buildErxUrl(prescription) {
         const id = normalize(prescription?.FHIRReference || prescription?.formNumber || prescription?.id || '');
         const number = normalize(prescription?.PrescriptionNumber || prescription?.prescriptionNumber || '');
         if (!/^[a-f0-9-]{36}$/i.test(id) || !number) return '';
         return 'https://callcenter.yodawy.com/#/Prescription/' + encodeURIComponent(id) + '/' + encodeURIComponent(number) + '?_k=' + Math.random().toString(36).slice(2, 8);
     }
-    async function openErxAfterFailure(url) {
-        let target = url || '';
-        if (!target) {
-            try {
-                const api = state.api?.runOpenErx ? state.api : await waitForApi();
-                const accountId = state.journal?.portalAccountId || state.accountId;
-                const cardNumber = state.journal?.cardNumber || getField('user_ref');
-                const formNumber = state.journal?.formNumber || getField('prescription_number');
-                const result = await api.runOpenErx(accountId, cardNumber, formNumber);
-                if (result?.success === true) target = buildErxUrl(result.prescription);
-            } catch {}
+    async function openTicketErx() {
+        const ticketId = Number(state.ticketId || getTicketId());
+        if (!ticketId) throw new Error('Ticket ID is unavailable. Odoo ERX could not be opened.');
+        const nativeButton = document.querySelector('button[name="open_erx_link"], button[data-name="open_erx_link"]');
+        if (nativeButton && !nativeButton.disabled) {
+            nativeButton.click();
+            return true;
         }
-        if (!target) { closeVerificationTab(); return; }
-        try {
-            if (state.verificationTab && !state.verificationTab.closed) {
-                state.verificationTab.location.replace(target);
-                state.verificationTab = null;
-                return;
-            }
-            const link = document.createElement('a');
-            link.href = target;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = 'OPEN ERX';
-            link.dataset.openSplitErx = '1';
-            const buttons = state.dialog?.querySelector('.yds-buttons');
-            if (buttons && !buttons.querySelector('[data-open-split-erx]')) buttons.prepend(link);
-        } catch {}
+        const action = await rpcButton('helpdesk.ticket', 'open_erx_link', [[ticketId]], getActionContext());
+        if (action?.type !== 'ir.actions.act_url' || action?.target !== '_blank' || !action?.url) throw new Error('Odoo did not return a valid ERX action.');
+        const service = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.action;
+        if (typeof service?.doAction === 'function') {
+            await service.doAction(action);
+            return true;
+        }
+        const legacy = window.odoo?.__DEBUG__?.services?.['web.ActionManager'];
+        if (typeof legacy?.doAction === 'function') {
+            await legacy.doAction(action);
+            return true;
+        }
+        const link = document.createElement('a');
+        link.href = action.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'OPEN ERX';
+        link.dataset.openSplitErx = '1';
+        const buttons = state.dialog?.querySelector('.yds-buttons');
+        if (buttons && !buttons.querySelector('[data-open-split-erx]')) buttons.prepend(link);
+        link.click();
+        return true;
     }
     async function findCreatedSplitErx(journal) {
         const payer = state.payer || getPayerConfig();
@@ -1264,7 +1252,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     async function closeDialogAction() {
         if (state.busy) return;
         if (!state.pendingSplitLog || (state.logPosted && state.componentsRefreshed)) { closeDialog(); return; }
-        if (!state.verificationTab) state.verificationTab = reserveVerificationTab();
+
         const button = state.dialog?.querySelector('[data-cancel]');
         state.busy = true;
         if (button) { button.disabled = true; button.innerHTML = '<span class="yds-spin"></span>FINALIZING'; }
@@ -1284,14 +1272,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (state.journal) updateSplitJournal({ completed: true, phase: 'completed' });
             state.pendingSplitLog = null;
             state.busy = false;
-            closeVerificationTab();
+
             setStatus('SPLIT NOTE SAVED — ODOO COMPONENTS REFRESHED', 'success');
             closeDialog();
         } catch (error) {
             state.busy = false;
             if (button) { button.disabled = false; button.textContent = 'RETRY'; }
             setStatus('SPLIT COMPLETED — FINALIZATION NEEDS RETRY', 'error', error?.message || 'The SPLIT note or Odoo Chatter refresh could not be confirmed.');
-            openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
+            try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
         }
     }
 
@@ -1351,7 +1339,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (primary) { primary.disabled = true; primary.textContent = 'COMPLETED'; }
             if (close) { close.disabled = false; close.textContent = 'CLOSE'; }
             markSelectedDrugs(prepared.selectedDrugs, 'success');
-            closeVerificationTab();
+
         } catch (error) {
             setStatus('SPLIT ALREADY CREATED — RETRY REQUIRED', 'error', error?.message || 'The remaining Odoo step could not be confirmed.');
             if (primary) {
@@ -1359,7 +1347,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 primary.textContent = 'RETRY';
             }
             if (close) { close.disabled = false; close.textContent = 'CLOSE'; }
-            openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
+            try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
         } finally { state.busy = false; }
     }
 
@@ -1401,7 +1389,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         if (completed) setStatus('This ticket already has a confirmed Split. Creating another Split is blocked.', 'success');
         else if (needsPortalCheck) setStatus('Portal response was not confirmed. RETRY will check Portal history first and will not delete anything unless the Split is verified.', 'error');
         else setStatus(journal.cleanupCompleted ? 'Portal Split is confirmed. RETRY will continue only the unfinished Chatter step.' : 'Portal Split is confirmed. RETRY will continue Odoo cleanup without creating another prescription.', 'info');
-        primary.addEventListener('click', () => { state.verificationTab = reserveVerificationTab(); resumeSplitWorkflow(); });
+        primary.addEventListener('click', resumeSplitWorkflow);
         close.addEventListener('click', () => {
             if (state.busy) return;
             if (state.pendingSplitLog && (!state.logPosted || !state.componentsRefreshed)) closeDialogAction();
@@ -1474,14 +1462,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             else closeDialog();
         });
         submit.addEventListener('click', async () => {
-            if (state.journal?.portalCreated || ['portal_creation_started', 'portal_creation_uncertain'].includes(state.journal?.phase)) { state.verificationTab = reserveVerificationTab(); await resumeSplitWorkflow(); return; }
+            if (state.journal?.portalCreated || ['portal_creation_started', 'portal_creation_uncertain'].includes(state.journal?.phase)) { await resumeSplitWorkflow(); return; }
             const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
             if (!selected.length || state.busy) return;
             overlay._ydsDrugList = drugs;
             const selectedAccount = overlay.querySelector('[data-portal-account]')?.value || state.accountId;
             if (!selectedAccount) { setStatus('Select the saved Portal account linked to this Odoo payer.', 'error'); return; }
             state.accountId = selectedAccount;
-            state.verificationTab = reserveVerificationTab();
+
             state.busy = true;
             submit.disabled = true;
             overlay.querySelector('[data-cancel]').disabled = true;
@@ -1583,8 +1571,10 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 overlay.querySelector('[data-cancel]').textContent = 'CLOSE';
                 overlay.querySelector('[data-cancel]').disabled = false;
                 submit.disabled = cleanup.success;
-                if (cleanup.success) closeVerificationTab();
-                else openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
+                if (!cleanup.success) {
+                    try { await openTicketErx(); } catch (openError) { setStatus('SPLIT CREATED — ERX COULD NOT OPEN', 'error', openError?.message || cleanup.error || ''); }
+                }
+
             } catch (error) {
                 const status = Number(error?.status || 0);
                 const rejectedBeforeCreate = status >= 400 && status < 500;
@@ -1607,7 +1597,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 overlay.querySelector('[data-cancel]').disabled = false;
                 state.busy = false;
                 if (!blocked) update();
-                openErxAfterFailure(state.journal?.portalErxUrl || state.journal?.sourceErxUrl || '');
+                try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
+            try { await openTicketErx(); } catch (openError) { setStatus('SPLIT FAILED — ERX COULD NOT OPEN', 'error', openError?.message || error?.message || ''); }
             }
         });
         state.keydown = event => {
