@@ -684,7 +684,7 @@ function build(body){
         const copyOne=document.createElement('button');
         copyOne.className='yodawy-copy-one';
         copyOne.type='button';
-        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy" aria-hidden="true"></i>';
+        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy"></i>';
 
         copyOne.onclick=async e=>{
             e.preventDefault();
