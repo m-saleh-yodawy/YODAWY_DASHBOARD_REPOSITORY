@@ -1335,11 +1335,13 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         recover?.addEventListener('click', async () => {
             const selected = checkboxes.filter(item => item.checked).map(item => drugs[Number(item.dataset.drugIndex)]);
             if (!selected.length || state.busy) return;
-            const names = selected.map(drug => drug.name + ' (HZB ' + drug.hzb + ')').join('\\n');
-            if (!window.confirm('Confirm that this Split already exists in Portal. This recovery will NOT create another prescription. It will only continue Odoo cleanup and Chatter finalization.\\n\\n' + names)) return;
+            const names = selected.map(drug => drug.name + ' (HZB ' + drug.hzb + ')').join('\n');
+            if (!window.confirm('Confirm that this Split already exists in Portal. This recovery will NOT create another prescription. It will only continue Odoo cleanup and Chatter finalization.\n\n' + names)) return;
             const selectedAccount = overlay.querySelector('[data-portal-account]')?.value || state.accountId;
             if (!selectedAccount) { setStatus('Select the saved Portal account linked to this Odoo payer.', 'error'); return; }
             state.accountId = selectedAccount;
+            state.recoveryModeAvailable = false;
+            recover.hidden = true;
             state.busy = true;
             submit.disabled = true;
             recover.disabled = true;
@@ -1376,6 +1378,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 await resumeSplitWorkflow();
             } catch (error) {
                 state.busy = false;
+                state.recoveryModeAvailable = true;
+                recover.hidden = false;
                 setStatus('EXISTING SPLIT RECOVERY NOT STARTED', 'error', error?.message || 'Recovery could not be prepared.');
                 overlay.querySelector('[data-cancel]').disabled = false;
                 recover.textContent = 'RETRY EXISTING';
@@ -1433,6 +1437,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
                 }
                 state.completed = true;
                 state.portalCreated = true;
+                state.recoveryModeAvailable = false;
+                if (recover) recover.hidden = true;
                 updateSplitJournal({ portalCreated: true, phase: 'cleanup_pending', portalCreatedAt: Date.now() });
                 submit.innerHTML = '<span class="yds-spin"></span>CLEANING ODOO';
                 setStatus('Portal confirmed the split. Removing the selected items from Odoo...', 'info');
@@ -1514,6 +1520,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         };
         document.addEventListener('keydown', state.keydown, true);
         update();
+        if (state.recoveryModeAvailable) setStatus('Ticket is already in Confirmed Alternatives. Use RETRY EXISTING only after verifying that the Split exists in Portal.', 'info');
     }
 
     async function startSplit() {
