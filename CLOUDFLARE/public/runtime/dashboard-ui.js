@@ -3469,7 +3469,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             const searchText = [account.payer, account.provider, account.label, account.username, account.odooKey].filter(Boolean).join(' ').toLocaleLowerCase();
             return '<details class="yd-tool-accordion-item" data-portal-account="' + escapeHTML(account.id) + '" data-portal-search="' + escapeHTML(searchText) + '">' +
                 '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(title) + '</strong></span></span></summary>' +
-                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="yd-fa-icon fa-solid fa-copy"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="yd-fa-icon fa-solid fa-copy"></i></button></div></div></div></div></details>';
+                '<div class="yd-tool-accordion-body"><div class="yd-portal-account-fields"><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(username || '—') + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="username" aria-label="Copy username"><i class="yd-fa-icon fa-solid fa-clone"></i></button></div></div><div class="yd-portal-account-field"><div class="yd-portal-account-value"><span>' + escapeHTML(String(account.password || '')) + '</span><button type="button" class="yd-portal-copy" data-action="copy-portal-value" data-account="' + escapeHTML(account.id) + '" data-field="password" aria-label="Copy password"><i class="yd-fa-icon fa-solid fa-clone"></i></button></div></div></div></div></details>';
         };
         const sectionIds = ['personal-linked', 'company-linked', 'personal-unlinked', 'company-unlinked'];
         const populatedGroups = groups.map((group, index) => ({ ...group, index, items: accounts.filter(account => account.accountType === group.type && Boolean(String(account.odooKey || '').trim()) === group.known) })).filter(group => group.items.length);
@@ -3530,7 +3530,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
     };
 
     const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square"></i>';
-    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash-can"></i>';
+    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash"></i>';
     const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye"></i>';
 
     const renderUsers = () => {
@@ -4371,7 +4371,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         if (context.userRole !== 'SUPER_ADMIN' || !user?.id || !context.api?.getUserPassword) throw new Error('Password viewing is available to SUPER ADMIN only.');
         const overlay = document.createElement('div');
         overlay.className = 'yd-modal-backdrop';
-        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><i class="yd-fa-icon fa-solid fa-copy"></i></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
+        overlay.innerHTML = '<section class="yd-modal yd-user-password-modal" role="dialog" aria-modal="true"><h3>User Password</h3><div class="yd-field"><label>User</label><div class="yd-user-password-identity"><div class="yd-user-password-id"><input type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(user.id) + '"></div><input class="yd-user-password-name" type="text" readonly tabindex="-1" dir="ltr" value="' + escapeHTML(formatName(user.name)) + '"></div></div><div class="yd-field"><label>Password</label><div class="yd-user-password-value"><input id="yd-revealed-user-password" type="text" readonly autocomplete="off" spellcheck="false" placeholder="Loading password..." value=""><button type="button" class="yd-secondary yd-user-password-copy" data-action="copy-user-password" disabled aria-label="Copy password" title="Copy password"><i class="yd-fa-icon fa-solid fa-clone"></i></button></div><p class="yd-user-password-message" role="status">Retrieving encrypted password...</p></div><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-modal-close>Close</button></div></section>';
         mountModalOverlay(overlay);
         const close = () => { const field = overlay.querySelector('#yd-revealed-user-password'); if (field) field.value = ''; overlay.remove(); };
         overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('[data-modal-close]')) close(); });
@@ -5383,14 +5383,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                     await navigator.clipboard.writeText(value);
                     clearTimeout(actionButton._ydCopyTimer);
                     const icon = actionButton.querySelector('i');
-                    icon?.classList.remove('fa-copy');
+                    icon?.classList.remove('fa-clone');
                     icon?.classList.add('fa-check');
                     actionButton.classList.add('is-copied');
                     actionButton.setAttribute('aria-label', 'Copied');
                     actionButton._ydCopyTimer = setTimeout(() => {
                         if (actionButton.isConnected) {
                             icon?.classList.remove('fa-check');
-                            icon?.classList.add('fa-copy');
+                            icon?.classList.add('fa-clone');
                             actionButton.classList.remove('is-copied');
                             actionButton.setAttribute('aria-label', actionButton.dataset.field === 'username' ? 'Copy username' : 'Copy password');
                         }
