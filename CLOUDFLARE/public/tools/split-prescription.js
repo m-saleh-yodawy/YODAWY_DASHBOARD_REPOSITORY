@@ -149,16 +149,27 @@
         if (!/^[a-f0-9-]{36}$/i.test(id) || !number) return '';
         return 'https://callcenter.yodawy.com/#/Prescription/' + encodeURIComponent(id) + '/' + encodeURIComponent(number) + '?_k=' + Math.random().toString(36).slice(2, 8);
     }
-    function openErxAfterFailure(url) {
-        if (!url) { closeVerificationTab(); return; }
+    async function openErxAfterFailure(url) {
+        let target = url || '';
+        if (!target) {
+            try {
+                const api = state.api?.runOpenErx ? state.api : await waitForApi();
+                const accountId = state.journal?.portalAccountId || state.accountId;
+                const cardNumber = state.journal?.cardNumber || getField('user_ref');
+                const formNumber = state.journal?.formNumber || getField('prescription_number');
+                const result = await api.runOpenErx(accountId, cardNumber, formNumber);
+                if (result?.success === true) target = buildErxUrl(result.prescription);
+            } catch {}
+        }
+        if (!target) { closeVerificationTab(); return; }
         try {
             if (state.verificationTab && !state.verificationTab.closed) {
-                state.verificationTab.location.replace(url);
+                state.verificationTab.location.replace(target);
                 state.verificationTab = null;
                 return;
             }
             const link = document.createElement('a');
-            link.href = url;
+            link.href = target;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
             link.textContent = 'OPEN ERX';
