@@ -1004,15 +1004,7 @@
 #${CONFIG.DIALOG_ID} [hidden]{display:none!important}
 @keyframes yds-rotate{to{transform:rotate(360deg)}}
 @keyframes yds-modal-enter{from{opacity:0;transform:translateY(5px) scale(.995)}to{opacity:1;transform:translateY(0) scale(1)}}
-#ydDirectSplitButton.oe_stat_button{border:1px solid #E8E0E8!important;border-radius:8px!important;background:#E1E1E1!important;color:#68465F!important;transition:background-color .15s,border-color .15s}
-#ydDirectSplitButton.oe_stat_button:hover:not(:disabled){border-color:#D7C9D8!important;background:#EEE7ED!important}
-#ydDirectSplitButton .o_button_icon{color:#875A7B!important}
-#ydDirectSplitButton .o_stat_text{font-family:"Nunito Sans",Nunito,Arial,sans-serif;font-weight:600}
-#ydDirectSplitButton:focus-visible{outline:2px solid rgba(135,90,123,.35);outline-offset:2px}
 html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body.dark #${CONFIG.DIALOG_ID}{--yds-primary:#A9799C;--yds-primary-strong:#875A7B;--yds-primary-soft:#382B38;--yds-soft:#2B232B;--yds-bg:#19151A;--yds-surface:#211C23;--yds-surface-muted:#2B252E;--yds-text:#F5EFF5;--yds-muted:#B7ABB8;--yds-border:#403543;--yds-input-border:#514353;--yds-success:#63CF91;--yds-success-bg:#203A2D;--yds-danger:#FF7770;--yds-danger-bg:#472625;--yds-info:#78A9D0}
-html.dark #ydDirectSplitButton.oe_stat_button,html[data-theme="dark"] #ydDirectSplitButton.oe_stat_button,body.dark #ydDirectSplitButton.oe_stat_button{border-color:#514353!important;background:#2B252E!important;color:#F5EFF5!important}
-html.dark #ydDirectSplitButton.oe_stat_button:hover:not(:disabled),html[data-theme="dark"] #ydDirectSplitButton.oe_stat_button:hover:not(:disabled),body.dark #ydDirectSplitButton.oe_stat_button:hover:not(:disabled){background:#382B38!important}
-html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectSplitButton .o_button_icon,body.dark #ydDirectSplitButton .o_button_icon{color:#A9799C!important}
 @media(max-width:520px){
 #${CONFIG.DIALOG_ID}{padding:12px}
 #${CONFIG.DIALOG_ID} .yds-panel{width:100%;max-height:calc(100dvh - 24px);border-radius:12px}
@@ -1355,7 +1347,7 @@ html.dark #ydDirectSplitButton .o_button_icon,html[data-theme="dark"] #ydDirectS
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
-        button.innerHTML = '<i class="yd-fa-icon fa-solid fa-scissors fa-fw o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
+        button.innerHTML = '<i class="yd-fa-icon fa-solid fa-arrows-split-up-and-left fa-fw o_button_icon"></i><div class="o_stat_info"><span class="o_stat_text">Direct Split</span></div>';
         button.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
