@@ -68,7 +68,7 @@
     }
     function saveSplitJournal(journal) {
         const cycle = state.cycle || null;
-        const next = { ...journal, cycleLabel: journal.cycleLabel || cycle?.label || '', cycleNumber: journal.cycleNumber || cycle?.cycleNumber || '', cycleMonth: journal.cycleMonth ?? cycle?.month ?? null, cycleYear: journal.cycleYear || cycle?.year || 0, cleanupDate: journal.cleanupDate || (cycle ? new Date(cycle.year, cycle.month, 23).toISOString().slice(0, 10) : ''), updatedAt: Date.now() };
+        const next = { ...journal, cycleLabel: journal.cycleLabel || cycle?.label || '', cycleNumber: journal.cycleNumber || cycle?.cycleNumber || '', cycleMonth: journal.cycleMonth ?? cycle?.month ?? null, cycleYear: journal.cycleYear || cycle?.year || 0, cleanupDate: journal.cleanupDate || (cycle ? [cycle.year, String(cycle.month + 1).padStart(2, '0'), '23'].join('-') : ''), updatedAt: Date.now() };
         state.journal = next;
         try { localStorage.setItem(CONFIG.JOURNAL_PREFIX + Number(next.ticketId), JSON.stringify(next)); }
         catch { throw new Error('Could not persist the Split progress in this browser. No further Odoo action was started.'); }
@@ -97,7 +97,7 @@
         }
         if (!expired.length) return false;
         expired.forEach(key => { try { localStorage.removeItem(key); } catch {} });
-        const marker = prefix + 'cleanup-refresh.' + today;
+        const marker = 'yds.split.storage-refresh.' + today;
         if (localStorage.getItem(marker)) return false;
         try { localStorage.setItem(marker, '1'); } catch {}
         return true;
