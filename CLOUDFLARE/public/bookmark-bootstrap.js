@@ -186,14 +186,17 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         ];
         await Promise.all(fontAssets.map(async asset => {
             try {
-                const response = await PAGE.fetch(runtime + asset.path + '?v=' + ASSET_VERSION, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+                const response = await PAGE.fetch(runtime + asset.path + '?v=' + ASSET_VERSION, { mode: 'cors', credentials: 'omit', cache: 'no-store' });
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.arrayBuffer();
                 const signature = new Uint8Array(data).slice(0, 4).reduce((value, byte) => value + byte.toString(16).padStart(2, '0'), '');
                 if (signature !== '774f4632') throw new Error('INVALID_WOFF2_SIGNATURE');
                 const face = new PAGE.FontFace(asset.family, data, { weight: asset.weight, style: 'normal' });
-                await face.load();
-                PAGE.document.fonts.add(face);
+                const loadedFace = await face.load();
+                if (loadedFace.status !== 'loaded') throw new Error('FONT_FACE_NOT_LOADED');
+                PAGE.document.fonts.add(loadedFace);
+                await PAGE.document.fonts.load(asset.weight + ' 16px "' + asset.family + '"');
+                if (!PAGE.document.fonts.check(asset.weight + ' 16px "' + asset.family + '"')) throw new Error('FONT_FACE_NOT_REGISTERED');
             } catch (cause) {
                 const error = new Error('FONT_ASSET_LOAD_FAILED: ' + runtime + asset.path + ' (' + String(cause?.message || cause) + ')');
                 error.code = 'FONT_ASSET_LOAD_FAILED';
