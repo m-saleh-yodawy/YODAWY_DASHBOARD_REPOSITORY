@@ -355,18 +355,24 @@
         if (!matches.length) return;
         const escapeHtml = value => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const fullNames = matches.map(item => cleanDrugName(item.limitedDrug));
-        const shortNames = fullNames.map(value => value.replace(/,\\s*\\d+(?:\\.\\d+)?\\s+(?:(?:pack|strip|box|bottle|vial|sachet)\\s+of\\b|(?:unit|tablet|capsule)\\b).*$/i, '').trim());
+        const baseNames = fullNames.map(value => value.replace(/,\s*\d+(?:\.\d+)?\s+(?:(?:pack|strip|box|bottle|vial|sachet)\s+of\b|(?:unit|tablet|capsule)\b).*$/i, '').replace(/,\s*\d+\s*$/,'').trim());
+        const shortNames = baseNames.map(value => value.split(/\s+/)[0].trim());
+        const ordered = () => {
+            const styles = [value => value.toUpperCase(), value => value.toLowerCase(), value => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase(), value => value.split('').map((char, index) => index % 2 ? char.toLowerCase() : char.toUpperCase()).join('')];
+            return styles[Math.floor(Math.random() * styles.length)]('ORDERED');
+        };
         const format = Math.floor(Math.random() * 6) + 1;
         lastLogFormat = format;
         const full = fullNames.map(escapeHtml);
+        const base = baseNames.map(escapeHtml);
         const short = shortNames.map(escapeHtml);
         let body = '';
-        if (format === 1) body = full.map(name => `Limited Drug: ${name}<br>ORDERED`).join('<br><br>');
-        else if (format === 2) body = full.map(name => `Limited Drug: ${name}`).join('<br>') + '<br>ORDERED';
-        else if (format === 3) body = short.join('<br>') + '<br>ORDERED';
-        else if (format === 4) body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br>');
-        else if (format === 5) body = 'ORDERED<br>' + short.join('<br>');
-        else body = short.map(name => `${name} &gt;&gt;&gt; ORDERED`).join('<br><br>');
+        if (format === 1) body = full.map(name => `Limited Drug: ${name}<br>${ordered()}<br>${ordered()}`).join('<br><br>');
+        else if (format === 2) body = full.map(name => `Limited Drug: ${name}`).join('<br>') + '<br>' + ordered();
+        else if (format === 3) body = base.join('<br>') + '<br>' + ordered();
+        else if (format === 4) body = base.map(name => `${name} &gt;&gt;&gt; ${ordered()}`).join('<br>');
+        else if (format === 5) body = ordered() + '<br>' + short.join('<br>');
+        else body = short.map(name => `${name} &gt;&gt;&gt; ${ordered()}`).join('<br><br>');
         const context = { ...getContext(), active_id: ticketId, active_ids: [ticketId], active_model: 'helpdesk.ticket' };
         await rpc('/web/dataset/call_kw/helpdesk.ticket/message_post', 'helpdesk.ticket', 'message_post', [[ticketId]], { body, message_type: 'comment', subtype_xmlid: 'mail.mt_note', context });
     }
