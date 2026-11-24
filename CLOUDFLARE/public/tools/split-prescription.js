@@ -969,9 +969,9 @@
 #${CONFIG.DIALOG_ID} .yds-select-all:hover{border-color:var(--o-brand-primary,#714B67);background:var(--o-brand-primary,#714B67);filter:brightness(.94)}
 #${CONFIG.DIALOG_ID} .yds-select-hint{margin-left:auto;color:rgba(255,255,255,.82);font-size:12px;font-weight:600}
 #${CONFIG.DIALOG_ID} .yds-list{display:flex;flex-direction:column;gap:6px}
-#${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:11px;min-width:0;min-height:54px;padding:9px 12px;border:3px solid transparent;border-radius:8px;background:var(--yds-surface-muted);cursor:pointer;transition:border-color .15s,border-width .15s}
-#${CONFIG.DIALOG_ID} .yds-drug:hover{border:1px solid var(--yds-primary);background:var(--yds-surface-muted)}
-#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border:3px solid var(--yds-primary);background:var(--yds-surface-muted);box-shadow:none}
+#${CONFIG.DIALOG_ID} .yds-drug{display:flex;align-items:center;gap:11px;min-width:0;min-height:54px;padding:9px 12px;border:3px solid transparent;border-radius:8px;background:var(--yds-surface-muted);cursor:pointer;transition:border-color .15s,background-color .15s}
+#${CONFIG.DIALOG_ID} .yds-drug:hover{border-color:var(--yds-primary);background:var(--yds-surface-muted)}
+#${CONFIG.DIALOG_ID} .yds-drug:has(input:checked){border-color:var(--yds-primary);background:var(--yds-surface-muted);box-shadow:none}
 #${CONFIG.DIALOG_ID} .yds-drug input,#${CONFIG.DIALOG_ID} .yds-select-all input{width:16px;height:16px;min-width:16px;margin:0;accent-color:var(--yds-primary);flex:0 0 auto;cursor:pointer}
 #${CONFIG.DIALOG_ID} .yds-select-all input{accent-color:#fff}
 #${CONFIG.DIALOG_ID} .yds-drug-copy{display:flex;flex:1;flex-direction:column;gap:2px;min-width:0}
