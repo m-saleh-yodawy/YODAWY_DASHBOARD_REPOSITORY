@@ -640,7 +640,7 @@ function build(body){
     const copyAll=document.createElement('button');
     copyAll.className='yodawy-copy-all-button';
     copyAll.type='button';
-    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-copy"></i>';
+    copyAll.innerHTML='<i class="yd-fa-icon fa-solid fa-clone"></i>';
 
     copyAll.onclick=async e=>{
         e.preventDefault();
@@ -673,7 +673,7 @@ function build(body){
         const wout=document.createElement('button');
         wout.className='yodawy-without-alt';
         wout.type='button';
-        wout.innerHTML='<i class="yd-fa-icon fa-solid fa-trash-can"></i>'; 
+        wout.innerHTML='<i class="yd-fa-icon fa-solid fa-trash"></i>'; 
 
         wout.onclick=async e=>{
             e.preventDefault();
@@ -684,7 +684,7 @@ function build(body){
         const copyOne=document.createElement('button');
         copyOne.className='yodawy-copy-one';
         copyOne.type='button';
-        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-copy"></i>';
+        copyOne.innerHTML='<i class="yd-fa-icon fa-solid fa-clone"></i>';
 
         copyOne.onclick=async e=>{
             e.preventDefault();
