@@ -1058,50 +1058,117 @@
         return true;
     }
 
-    function findTicketFormController() {
+    function controllerValues(value) {
+        if (Array.isArray(value)) return value;
+        if (value instanceof Map || value instanceof Set) return [...value.values()];
+        return value && typeof value === 'object' ? Object.values(value) : [];
+    }
+
+    function findTicketFormController(ticketId) {
         const services = window.odoo?.__DEBUG__?.services || {};
-        for (const service of Object.values(services)) {
-            for (const action of service?.__parentedChildren || []) {
-                for (const controller of action?.__parentedChildren || []) {
-                    if (controller?.modelName === 'helpdesk.ticket' && typeof controller.reload === 'function') return controller;
-                }
+        const owlRoot = window.odoo?.__WOWL_DEBUG__?.root;
+        const roots = [
+            ...controllerValues(services),
+            services.action,
+            services['web.ActionManager'],
+            services.action?.currentController,
+            services['web.ActionManager']?.currentController,
+            owlRoot?.env?.services?.action?.currentController,
+            window.odoo?.__DEBUG__?.root,
+            owlRoot
+        ];
+        const queue = roots.filter(Boolean);
+        const visited = new WeakSet();
+        while (queue.length) {
+            const candidate = queue.shift();
+            if (!candidate || typeof candidate !== 'object' || visited.has(candidate)) continue;
+            visited.add(candidate);
+            if (candidate.modelName === 'helpdesk.ticket' && typeof candidate.reload === 'function') {
+                let destroyed = false;
+                try { destroyed = Boolean(candidate.isDestroyed?.()); } catch { destroyed = true; }
+                const element = candidate.el || candidate.$el?.[0];
+                let recordIds = [];
+                try {
+                    const env = candidate.model?.get?.(candidate.handle, { env: true });
+                    recordIds = [env?.currentId, ...(Array.isArray(env?.ids) ? env.ids : [])].map(Number).filter(Number.isSafeInteger);
+                } catch {}
+                if (!destroyed && element?.isConnected !== false && (!recordIds.length || recordIds.includes(Number(ticketId)))) return candidate;
             }
+            queue.push(
+                ...controllerValues(candidate.__parentedChildren),
+                candidate.currentController,
+                candidate.controller,
+                candidate.viewController,
+                candidate.activeController
+            );
         }
         return null;
     }
 
-    async function attemptSoftDomReload(run) {
-        let changed = false;
-        const observer = new MutationObserver(() => { changed = true; });
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+    function refreshResourceKind(entry) {
+        const url = String(entry?.name || '');
+        if (!url.includes('/web/dataset/call_kw/')) return '';
+        if (url.includes('/web/dataset/call_kw/helpdesk.ticket/read')) return 'ticket';
+        if (url.includes('/web/dataset/call_kw/mail.message/read') || url.includes('/web/dataset/call_kw/mail.message/message_fetch')) return 'chatter';
+        if (/\/(?:helpdesk\.tag\/read|mail\.followers\/(?:read|read_followers)|ir\.attachment\/search_read|mail\.activity\/activity_format|helpdesk\.ticket\/get_suggested_recipients)(?:[?#]|$)/.test(url)) return 'related';
+        return '';
+    }
+
+    async function reloadTicketFormController(controller, timeout = 12000) {
+        const perf = window.performance;
+        if (!perf?.getEntriesByType || typeof perf.now !== 'function') return false;
+        const startedAt = perf.now();
+        let ticketRead = false;
+        let chatterRead = false;
+        let lastRequestAt = startedAt;
+        const seen = new Set();
+        const inspect = entries => {
+            for (const entry of entries || []) {
+                if (entry.entryType !== 'resource' || entry.startTime < startedAt - 1) continue;
+                const kind = refreshResourceKind(entry);
+                if (!kind) continue;
+                const key = entry.name + ':' + entry.startTime;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                lastRequestAt = perf.now();
+                if (kind === 'ticket') ticketRead = true;
+                if (kind === 'chatter') chatterRead = true;
+            }
+        };
+        let observer = null;
         try {
-            await run();
-            const end = Date.now() + 900;
-            while (!changed && Date.now() < end) await sleep(40);
-            return changed;
+            if (typeof window.PerformanceObserver === 'function') {
+                observer = new window.PerformanceObserver(list => inspect(list.getEntries()));
+                observer.observe({ type: 'resource', buffered: true });
+            }
         } catch {
+            observer?.disconnect();
+            observer = null;
+        }
+        try {
+            await controller.reload();
+            const deadline = Date.now() + timeout;
+            while (Date.now() < deadline) {
+                inspect(perf.getEntriesByType('resource'));
+                if (ticketRead && chatterRead && perf.now() - lastRequestAt >= 900) return true;
+                await sleep(50);
+            }
             return false;
         } finally {
-            observer.disconnect();
+            observer?.disconnect();
         }
     }
 
     async function softReloadTicketView() {
-        const action = { type: 'ir.actions.client', tag: 'soft_reload' };
-        const controller = findTicketFormController();
-        const owl = window.odoo?.__WOWL_DEBUG__?.root?.env?.services?.action;
-        const debug = window.odoo?.__DEBUG__?.services || {};
-        const legacy = debug['web.ActionManager'] || Object.values(debug).find(service => typeof service?.doAction === 'function');
-        const attempts = [
-            { method: 'form_controller', run: typeof controller?.reload === 'function' ? () => controller.reload() : null },
-            { method: 'owl_action_service', run: typeof owl?.doAction === 'function' ? () => owl.doAction(action) : null },
-            { method: 'legacy_action_manager', run: typeof legacy?.doAction === 'function' ? () => legacy.doAction(action) : null }
-        ];
-        for (const attempt of attempts) {
-            if (!attempt.run) continue;
-            if (await attemptSoftDomReload(attempt.run)) return { refreshed: true, method: attempt.method };
+        const ticketId = Number(state.ticketId || getTicketId());
+        const controller = findTicketFormController(ticketId);
+        if (!controller) return { refreshed: false, method: 'form_controller_unavailable' };
+        try {
+            const refreshed = await reloadTicketFormController(controller);
+            return { refreshed, method: refreshed ? 'form_controller_reload' : 'refresh_not_confirmed' };
+        } catch {
+            return { refreshed: false, method: 'form_controller_reload_failed' };
         }
-        return { refreshed: false, method: 'unavailable' };
     }
 
     function injectStyles() {
