@@ -24,14 +24,16 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --global wrangler@4
-      - name: Deploy Worker and static assets
+      - name: Apply D1 migrations and deploy Worker
         working-directory: CLOUDFLARE
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
         run: |
+          set -euo pipefail
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
             echo "::error::CLOUDFLARE_API_TOKEN is missing from repository Actions secrets."
             exit 1
           fi
+          wrangler d1 migrations apply yodawy-dashboard --remote --config wrangler.jsonc
           wrangler deploy --config wrangler.jsonc

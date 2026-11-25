@@ -1,0 +1,294 @@
+name: TEMPLATE - PERSONAL WORKFLOW
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-personal-sync-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup-template-workflow:
+    if: github.repository != 'm-saleh-yodawy/YODAWY_TEMPLATE_REPOSITORY'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Personal Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch || github.ref_name }}
+          fetch-depth: 1
+
+      - name: Remove Template Workflow From Personal Repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event.repository.default_branch || github.ref_name }}
+          CURRENT_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          WORKFLOW_FILE=".github/workflows/template-personal.yml"
+          if [[ ! -f "$WORKFLOW_FILE" ]]; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -- "$WORKFLOW_FILE"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "CLEANUP: remove template-only workflow [skip ci]"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${CURRENT_REPOSITORY}.git"
+          for ATTEMPT in 1 2 3; do
+            if git push origin "HEAD:${TARGET_BRANCH}"; then
+              exit 0
+            fi
+            git fetch origin "$TARGET_BRANCH"
+            git rebase "origin/${TARGET_BRANCH}" || { git rebase --abort || true; exit 1; }
+          done
+          exit 1
+
+  sync-personal-repositories:
+    if: github.repository == 'm-saleh-yodawy/YODAWY_TEMPLATE_REPOSITORY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Template Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Synchronize Personal Repositories Safely
+        env:
+          GH_TOKEN: ${{ secrets.YODAWY_REPOSITORIES_SYNC_TOKEN }}
+          OWNER: m-saleh-yodawy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            exit 1
+          fi
+          gh auth setup-git
+
+          TEMPLATE_ROOT="$GITHUB_WORKSPACE"
+          WORK_DIR="$RUNNER_TEMP/personal-template-sync"
+          mkdir -p "$WORK_DIR"
+
+          EXCLUDED_REPOSITORIES=(
+            "YODAWY_TEMPLATE_REPOSITORY"
+            "YODAWY_USERS_REPOSITORY"
+            "YODAWY_TOOLS_REPOSITORY"
+            "YODAWY_DASHBOARD_REPOSITORY"
+          )
+
+          gh api --paginate "/user/repos?visibility=all&affiliation=owner&per_page=100" \
+            --jq ".[] | select(.owner.login == \"$OWNER\" and .archived == false) | [.full_name, .default_branch] | @tsv" \
+            > "$WORK_DIR/repositories.tsv"
+
+          FAILED=0
+
+          while IFS=$'\t' read -r REPOSITORY BRANCH; do
+            [[ -n "$REPOSITORY" && -n "$BRANCH" ]] || continue
+            REPOSITORY_NAME="${REPOSITORY#*/}"
+            EXCLUDED=false
+            for EXCLUDED_NAME in "${EXCLUDED_REPOSITORIES[@]}"; do
+              if [[ "$REPOSITORY_NAME" == "$EXCLUDED_NAME" ]]; then
+                EXCLUDED=true
+                break
+              fi
+            done
+            [[ "$EXCLUDED" == true ]] && continue
+
+            if ! [[ "$REPOSITORY_NAME" =~ ^Q-[0-9]{3,}_[A-Z0-9_]+$ ]]; then
+              continue
+            fi
+
+            if ! gh api "repos/$REPOSITORY/contents/DASHBOARD/dashboard-settings.json?ref=$BRANCH" >/dev/null 2>&1; then
+              continue
+            fi
+
+            TARGET_DIR="$WORK_DIR/$REPOSITORY_NAME"
+            rm -rf "$TARGET_DIR"
+            if ! git clone --single-branch --branch "$BRANCH" "https://github.com/$REPOSITORY.git" "$TARGET_DIR"; then
+              FAILED=$((FAILED + 1))
+              continue
+            fi
+
+            RSYNC_ARGS=(
+              -a
+              --delete
+              --exclude='/.git/'
+              --exclude='/.github/workflows/template-personal.yml'
+              --exclude='/DASHBOARD/dashboard-settings.json'
+              --exclude='/NETWORK/'
+              --exclude='/CONFIG/portal-accounts.json'
+            )
+
+            if ! rsync "${RSYNC_ARGS[@]}" "$TEMPLATE_ROOT/" "$TARGET_DIR/"; then
+              FAILED=$((FAILED + 1))
+              continue
+            fi
+
+            python3 - "$TEMPLATE_ROOT/DASHBOARD/dashboard-settings.json" "$TARGET_DIR/DASHBOARD/dashboard-settings.json" "$TARGET_DIR/NETWORK/processed-transactions.json" "$TARGET_DIR/NETWORK/network-logs.json" "$REPOSITORY_NAME" <<'PY'
+          import json
+          import re
+          import sys
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          t_path = Path(sys.argv[1])
+          p_path = Path(sys.argv[2])
+          net_proc_path = Path(sys.argv[3])
+          net_logs_path = Path(sys.argv[4])
+          repo_name = sys.argv[5]
+          net_dir = net_logs_path.parent
+          MAX_REQUESTS = 50
+          ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
+
+          def utc_now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def merge_schema(t_val, p_val):
+              if isinstance(t_val, dict):
+                  if not isinstance(p_val, dict):
+                      p_val = {}
+                  if not t_val:
+                      return p_val
+                  merged = {k: merge_schema(v, p_val[k]) if k in p_val else v for k, v in t_val.items()}
+                  for pk, pv in p_val.items():
+                      if pk not in merged:
+                          merged[pk] = pv
+                  return merged
+              return p_val
+
+          def read_valid_dict(path):
+              if not path.is_file():
+                  return {}
+              raw = path.read_text(encoding="utf-8-sig").strip()
+              if not raw:
+                  return {}
+              try:
+                  val = json.loads(raw)
+                  return val if isinstance(val, dict) else {}
+              except Exception:
+                  failed_dir = net_dir / "FAILED"
+                  failed_dir.mkdir(parents=True, exist_ok=True)
+                  backup = failed_dir / f"malformed-{path.name}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.txt"
+                  backup.write_text(raw, encoding="utf-8")
+                  return {}
+
+          def write_if_changed(path, data):
+              if path.is_file():
+                  try:
+                      if json.loads(path.read_text(encoding="utf-8-sig")) == data:
+                          return
+                  except Exception:
+                      pass
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+          t_data = read_valid_dict(t_path)
+          p_data = read_valid_dict(p_path)
+          merged = merge_schema(t_data, p_data)
+          m_uid = re.match(r"^(Q-\d{3,})_", repo_name)
+          default_uid = m_uid.group(1) if m_uid else ""
+          merged.setdefault("owner", "m-saleh-yodawy")
+          merged.setdefault("repository", repo_name)
+          merged.setdefault("userId", default_uid)
+          merged.setdefault("displayName", repo_name)
+          merged.setdefault("startPage", "overview")
+          merged.setdefault("dashboardOpen", False)
+          if not isinstance(merged.get("tools"), dict):
+              merged["tools"] = {}
+
+          write_if_changed(p_path, merged)
+
+          net_dir.mkdir(parents=True, exist_ok=True)
+          proc_data = read_valid_dict(net_proc_path) if net_proc_path.is_file() else {}
+          logs_data = read_valid_dict(net_logs_path)
+
+          tx_map = {}
+          for src_tx in (proc_data.get("transactions"), logs_data.get("transactions")):
+              if isinstance(src_tx, dict):
+                  for k, v in src_tx.items():
+                      if isinstance(v, dict):
+                          rid = str(v.get("requestId") or k).strip()
+                          if rid:
+                              tx_map[rid] = {**tx_map.get(rid, {}), **v, "requestId": rid}
+
+          active_tx, term_tx = {}, []
+          for k, v in tx_map.items():
+              rid = str(v.get("requestId") or k).strip()
+              st = str(v.get("status") or "COMPLETED").strip().upper()
+              c_at = str(v.get("createdAt") or v.get("updatedAt") or utc_now()).strip()
+              ts_u = str(v.get("updatedAt") or v.get("processedAt") or v.get("receivedAt") or c_at).strip()
+              actor_raw = v.get("actor")
+              actor_id = str(v.get("actorId") or (actor_raw.get("id") if isinstance(actor_raw, dict) else default_uid) or default_uid or "SYSTEM").strip().upper()
+              rec = {
+                  "requestId": rid,
+                  "sequence": str(v.get("sequence") or "001").strip(),
+                  "requestType": str(v.get("requestType") or "DASHBOARD_PERSONAL_SYNC").strip(),
+                  "action": str(v.get("action") or "UPDATE_DASHBOARD_SETTINGS").strip().upper(),
+                  "status": st,
+                  "actorId": actor_id,
+                  "createdAt": c_at,
+                  "updatedAt": ts_u,
+              }
+              for opt in ("parentRequestId", "targetId", "error", "cleanup"):
+                  val = v.get(opt) or (v.get("lastError") if opt == "error" else None)
+                  if val:
+                      rec[opt] = str(val).strip()
+              if st in ACTIVE_STATES:
+                  active_tx[rid] = rec
+              else:
+                  term_tx.append((ts_u, rid, rec))
+          term_tx.sort(key=lambda x: (x[0], x[1]))
+
+          kept_tx = {**active_tx, **{rid: rec for _, rid, rec in term_tx[-MAX_REQUESTS:]}}
+          prev_txs = logs_data.get("transactions") if isinstance(logs_data.get("transactions"), dict) else {}
+          u_ts = logs_data.get("updatedAt") if (prev_txs == kept_tx and logs_data.get("updatedAt") and "auditLogs" not in logs_data) else utc_now()
+
+          compact_logs = {
+              "protocolVersion": 1,
+              "updatedAt": u_ts,
+              "transactions": kept_tx,
+          }
+          write_if_changed(net_logs_path, compact_logs)
+
+          for obs_name in ("processed-transactions.json", "user-response.json", "request-logs.json", "requests-history.json"):
+              obs_file = net_dir / obs_name
+              if obs_file.is_file():
+                  obs_file.unlink()
+          PY
+
+            cd "$TARGET_DIR"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            if git diff --cached --quiet; then
+              continue
+            fi
+            git commit -m "TEMPLATE: synchronize personal repository and compact network-logs [skip ci]"
+            PUSHED=false
+            for ATTEMPT in 1 2 3 4; do
+              if git push origin "HEAD:$BRANCH"; then
+                PUSHED=true
+                break
+              fi
+              git fetch origin "$BRANCH" || break
+              git rebase "origin/$BRANCH" || { git rebase --abort || true; break; }
+            done
+            [[ "$PUSHED" == true ]] || FAILED=$((FAILED + 1))
+          done < "$WORK_DIR/repositories.tsv"
+
+          [[ "$FAILED" -eq 0 ]]

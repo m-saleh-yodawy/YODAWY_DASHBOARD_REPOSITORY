@@ -1,0 +1,496 @@
+name: PERSONAL WORKFLOW
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "NETWORK/dashboard-personal-request-*.json"
+      - "NETWORK/tools-personal-request-*.json"
+      - "NETWORK/users-personal-request-*.json"
+      - ".github/workflows/personal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: personal-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  process-requests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Personal Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Process Canonical Request Queue and Update Settings
+        env:
+          CURRENT_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy
+          import json
+          import os
+          import re
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          ROOT = Path.cwd()
+          NETWORK = ROOT / "NETWORK"
+          FAILED_DIR = NETWORK / "FAILED"
+          SETTINGS_FILE = ROOT / "DASHBOARD" / "dashboard-settings.json"
+          LOGS_FILE = NETWORK / "network-logs.json"
+          LEGACY_PROC_FILE = NETWORK / "processed-transactions.json"
+          OBSOLETE_FILES = [
+              LEGACY_PROC_FILE,
+              NETWORK / "user-response.json",
+              NETWORK / "request-logs.json",
+              NETWORK / "requests-history.json",
+          ]
+
+          CURRENT_REPOSITORY = os.environ["CURRENT_REPOSITORY"]
+          CURRENT_REPO_NAME = CURRENT_REPOSITORY.rsplit("/", 1)[-1]
+          REPO_UID_MATCH = re.match(r"^(Q-\d{3,})_", CURRENT_REPO_NAME)
+          DEFAULT_UID = REPO_UID_MATCH.group(1) if REPO_UID_MATCH else ""
+          MAX_REQUESTS = 50
+          ACTIVE_STATES = {"SENT", "RECEIVED", "PROCESSING", "PROCESSED", "RESPONSE_SENT"}
+
+          CHANNEL_MAP = {
+              "dashboard": ("dashboard-personal-receipt", "personal-dashboard-response"),
+              "tools": ("tools-personal-receipt", "personal-tools-response"),
+              "users": ("users-personal-receipt", "personal-users-response"),
+          }
+
+          ALLOWED_SOURCES = {
+              "m-saleh-yodawy/yodawy_dashboard_repository": {"dashboard", "tools", "users"},
+              "yodawy_dashboard_repository": {"dashboard", "tools", "users"},
+              "m-saleh-yodawy/yodawy_tools_repository": {"tools"},
+              "yodawy_tools_repository": {"tools"},
+              "m-saleh-yodawy/yodawy_users_repository": {"users"},
+              "yodawy_users_repository": {"users"},
+          }
+          ALLOWED_SETTINGS = {"displayName", "startPage", "dashboardOpen", "tools"}
+
+          def utc_now():
+              return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+          def default_settings():
+              return {
+                  "owner": "m-saleh-yodawy",
+                  "repository": CURRENT_REPO_NAME,
+                  "userId": DEFAULT_UID,
+                  "displayName": CURRENT_REPO_NAME,
+                  "startPage": "overview",
+                  "dashboardOpen": False,
+                  "tools": {},
+              }
+
+          def default_logs():
+              return {"protocolVersion": 1, "updatedAt": utc_now(), "transactions": {}}
+
+          def read_json(path, default=None):
+              if not path.is_file():
+                  return copy.deepcopy(default)
+              raw = path.read_text(encoding="utf-8-sig").strip()
+              if not raw:
+                  return copy.deepcopy(default)
+              try:
+                  parsed = json.loads(raw)
+              except Exception:
+                  FAILED_DIR.mkdir(parents=True, exist_ok=True)
+                  backup = FAILED_DIR / f"malformed-{path.name}-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.txt"
+                  backup.write_text(raw, encoding="utf-8")
+                  return copy.deepcopy(default)
+              return parsed if isinstance(parsed, dict) and parsed else copy.deepcopy(default)
+
+          def write_json(path, data):
+              if not isinstance(data, dict) or not data:
+                  raise ValueError(f"Refusing to write empty JSON to {path}")
+              if path.is_file():
+                  try:
+                      if json.loads(path.read_text(encoding="utf-8-sig")) == data:
+                          return
+                  except Exception:
+                      pass
+              path.parent.mkdir(parents=True, exist_ok=True)
+              tmp = path.with_suffix(path.suffix + ".tmp")
+              tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+              tmp.replace(path)
+
+          def normalize_action(action):
+              act = str(action or "").strip().upper()
+              mapping = {
+                  "PERSONAL_TOOLS_SYNC": "SYNC_PERSONAL_TOOLS",
+                  "USERS_PERSONAL_SYNC": "SYNC_USER_METADATA",
+                  "UPDATE_SETTINGS": "UPDATE_DASHBOARD_SETTINGS",
+                  "DASHBOARD_PERSONAL_SYNC": "UPDATE_DASHBOARD_SETTINGS",
+              }
+              return mapping.get(act, act or "UPDATE_DASHBOARD_SETTINGS")
+
+          def compact_logs(doc, legacy_txs=None):
+              txs = copy.deepcopy(doc.get("transactions")) if isinstance(doc.get("transactions"), dict) else {}
+              if isinstance(legacy_txs, dict):
+                  for k, v in legacy_txs.items():
+                      if isinstance(v, dict):
+                          txs.setdefault(k, v)
+              active, terminal = {}, []
+              for k, v in txs.items():
+                  if not isinstance(v, dict):
+                      continue
+                  rid = str(v.get("requestId") or k).strip()
+                  if not rid:
+                      continue
+                  st = str(v.get("status") or "COMPLETED").strip().upper()
+                  c_at = str(v.get("createdAt") or v.get("updatedAt") or utc_now()).strip()
+                  u_at = str(v.get("updatedAt") or v.get("processedAt") or v.get("receivedAt") or c_at).strip()
+                  actor_raw = v.get("actor")
+                  actor_id = str(v.get("actorId") or (actor_raw.get("id") if isinstance(actor_raw, dict) else DEFAULT_UID) or DEFAULT_UID or "SYSTEM").strip().upper()
+                  rec = {
+                      "requestId": rid,
+                      "sequence": str(v.get("sequence") or "001").strip(),
+                      "requestType": str(v.get("requestType") or "DASHBOARD_PERSONAL_SYNC").strip(),
+                      "action": normalize_action(v.get("action") or v.get("requestType")),
+                      "status": st,
+                      "actorId": actor_id,
+                      "createdAt": c_at,
+                      "updatedAt": u_at,
+                  }
+                  for opt in ("parentRequestId", "targetId", "error", "cleanup"):
+                      val = v.get(opt) or (v.get("lastError") if opt == "error" else None)
+                      if val:
+                          rec[opt] = str(val).strip()
+                  if st in ACTIVE_STATES:
+                      active[rid] = rec
+                  else:
+                      terminal.append((u_at, rid, rec))
+              terminal.sort(key=lambda x: (x[0], x[1]))
+              kept = {**active, **{rid: rec for _, rid, rec in terminal[-MAX_REQUESTS:]}}
+              prev_txs = doc.get("transactions") if isinstance(doc.get("transactions"), dict) else {}
+              u_ts = doc.get("updatedAt") if (prev_txs == kept and doc.get("updatedAt") and "auditLogs" not in doc) else utc_now()
+              return {"protocolVersion": 1, "updatedAt": u_ts, "transactions": kept}
+
+          def enabled_from_val(val):
+              if isinstance(val, bool):
+                  return val
+              if isinstance(val, str):
+                  u = val.strip().upper()
+                  if u in {"ENABLED", "TRUE", "ON"}:
+                      return True
+                  if u in {"DISABLED", "FALSE", "OFF"}:
+                      return False
+              if isinstance(val, dict):
+                  return enabled_from_val(val.get("enabled", False))
+              raise ValueError(f"Invalid tool state: {val!r}")
+
+          NETWORK.mkdir(parents=True, exist_ok=True)
+          FAILED_DIR.mkdir(parents=True, exist_ok=True)
+
+          legacy_proc = read_json(LEGACY_PROC_FILE, {})
+          logs_state = compact_logs(read_json(LOGS_FILE, default_logs()), legacy_proc.get("transactions") if isinstance(legacy_proc, dict) else None)
+          for obs in OBSOLETE_FILES:
+              if obs.is_file():
+                  obs.unlink()
+
+          tx_map = logs_state["transactions"]
+          settings = read_json(SETTINGS_FILE, default_settings())
+          for k, v in default_settings().items():
+              settings.setdefault(k, v)
+          if not isinstance(settings.get("tools"), dict):
+              settings["tools"] = {}
+
+          req_files = sorted(
+              p for p in NETWORK.iterdir()
+              if p.is_file()
+              and re.fullmatch(r"(?:dashboard|tools|users)-personal-request-\d{3,}\.json", p.name)
+          )
+
+          for req_path in req_files:
+              msg = read_json(req_path, {})
+              if not isinstance(msg, dict) or not msg:
+                  continue
+
+              req_id = str(msg.get("requestId") or "").strip()
+              if not req_id:
+                  continue
+              if tx_map.get(req_id, {}).get("status") in {"PROCESSED", "RESPONSE_SENT", "COMPLETED"}:
+                  continue
+
+              seq_match = re.search(r"-(\d{3,})\.json$", req_path.name)
+              seq = str(msg.get("sequence") or (seq_match.group(1) if seq_match else "001")).strip()
+
+              src = msg.get("source", {})
+              src_repo = f"{src.get('owner', 'm-saleh-yodawy')}/{src.get('repository', '')}".strip("/").lower() if isinstance(src, dict) else str(src).lower()
+              allowed_channels = ALLOWED_SOURCES.get(src_repo) or ALLOWED_SOURCES.get(src_repo.rsplit("/", 1)[-1])
+              if isinstance(allowed_channels, str):
+                  allowed_channels = {allowed_channels}
+              request_channel = req_path.name.split("-personal-request-", 1)[0].lower()
+              channel = request_channel if request_channel in (allowed_channels or set()) else None
+
+              if not channel or channel not in CHANNEL_MAP or int(msg.get("protocolVersion", 1)) != 1:
+                  received_ts = utc_now()
+                  err_text = "Unsupported protocolVersion or unauthorized source repository"
+                  write_json(FAILED_DIR / f"{req_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "status": "REJECTED",
+                      "failedAt": received_ts,
+                      "error": err_text,
+                  })
+                  tx_map[req_id] = {
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "requestType": "DASHBOARD_PERSONAL_SYNC",
+                      "action": "UPDATE_DASHBOARD_SETTINGS",
+                      "status": "REJECTED",
+                      "actorId": "UNKNOWN",
+                      "createdAt": received_ts,
+                      "updatedAt": received_ts,
+                      "error": err_text,
+                  }
+                  continue
+
+              rec_prefix, resp_prefix = CHANNEL_MAP[channel]
+              receipt_path = NETWORK / f"{rec_prefix}-{seq}.json"
+              response_path = NETWORK / f"{resp_prefix}-{seq}.json"
+              received_ts = utc_now()
+
+              dest = msg.get("destination", {})
+              dest_repo = str(dest.get("repository", "")).rsplit("/", 1)[-1].strip() if isinstance(dest, dict) else ""
+              if dest_repo and dest_repo.casefold() != CURRENT_REPO_NAME.casefold():
+                  err_text = f"Destination mismatch: expected {CURRENT_REPO_NAME}, got {dest_repo}"
+                  write_json(FAILED_DIR / f"{req_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "status": "REJECTED",
+                      "error": err_text,
+                      "failedAt": received_ts,
+                  })
+                  write_json(response_path, {
+                      "protocolVersion": 1,
+                      "requestId": req_id,
+                      "transactionId": req_id,
+                      "sequence": seq,
+                      "requestType": str(msg.get("requestType") or "DASHBOARD_PERSONAL_SYNC"),
+                      "status": "REJECTED",
+                      "processedAt": received_ts,
+                      "details": err_text,
+                  })
+                  tx_map[req_id] = {
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "requestType": str(msg.get("requestType") or "DASHBOARD_PERSONAL_SYNC"),
+                      "action": "UPDATE_DASHBOARD_SETTINGS",
+                      "status": "REJECTED",
+                      "actorId": "UNKNOWN",
+                      "createdAt": received_ts,
+                      "updatedAt": received_ts,
+                      "error": err_text,
+                  }
+                  continue
+
+              req_type = str(msg.get("requestType") or msg.get("action") or "").strip().upper()
+              write_json(receipt_path, {
+                  "protocolVersion": 1,
+                  "requestId": req_id,
+                  "transactionId": req_id,
+                  "sequence": seq,
+                  "requestType": req_type or "DASHBOARD_PERSONAL_SYNC",
+                  "status": "RECEIVED",
+                  "receivedAt": received_ts,
+              })
+
+              original = copy.deepcopy(settings)
+              payload = msg.get("payload") if isinstance(msg.get("payload"), dict) else msg
+              raw_action = req_type or "UPDATE_DASHBOARD_SETTINGS"
+
+              try:
+                  if channel == "tools" or req_type == "PERSONAL_TOOLS_SYNC":
+                      raw_action = "SYNC_PERSONAL_TOOLS"
+                      catalog = msg.get("catalog") or payload.get("catalog") or {}
+                      active_ids = catalog.get("activeToolIds", [])
+                      raw_permitted = payload.get("permittedToolIds") if isinstance(payload.get("permittedToolIds"), list) else catalog.get("permittedToolIds")
+                      permitted_set = {str(x).strip().upper() for x in raw_permitted} if isinstance(raw_permitted, list) else None
+                      existing_tools = settings.get("tools", {}) if isinstance(settings.get("tools"), dict) else {}
+                      synced_tools = {}
+                      for tid in active_ids:
+                          tid_str = str(tid).strip().upper()
+                          if not re.fullmatch(r"TOOL-\d{3,}", tid_str):
+                              raise ValueError(f"Invalid tool ID: {tid_str}")
+                          prev_en = enabled_from_val(existing_tools[tid_str]) if tid_str in existing_tools else False
+                          is_permitted = True if permitted_set is None else (tid_str in permitted_set)
+                          synced_tools[tid_str] = "ENABLED" if (prev_en and is_permitted) else "DISABLED"
+                      settings["tools"] = synced_tools
+                  elif channel == "users" or req_type == "USERS_PERSONAL_SYNC":
+                      raw_action = "SYNC_USER_METADATA"
+                      settings["owner"] = str(payload.get("owner") or settings.get("owner") or "m-saleh-yodawy").strip()
+                      settings["repository"] = str(payload.get("repository") or CURRENT_REPO_NAME).strip()
+                      if str(payload.get("userId") or "").strip():
+                          settings["userId"] = str(payload["userId"]).strip().upper()
+                      if str(payload.get("displayName") or "").strip():
+                          settings["displayName"] = str(payload["displayName"]).strip()
+                      settings.setdefault("startPage", "overview")
+                      settings.setdefault("dashboardOpen", False)
+                      if not isinstance(settings.get("tools"), dict):
+                          settings["tools"] = {}
+                      if isinstance(payload.get("permittedToolIds"), list):
+                          perm_set = {str(x).strip().upper() for x in payload["permittedToolIds"]}
+                          cur_t = settings.get("tools", {})
+                          for tid_k in list(cur_t.keys()):
+                              if tid_k not in perm_set:
+                                  cur_t[tid_k] = "DISABLED"
+                          settings["tools"] = cur_t
+                  else:
+                      action = str(payload.get("action") or req_type).strip().upper()
+                      raw_action = action or "UPDATE_DASHBOARD_SETTINGS"
+                      permitted_list = payload.get("permittedToolIds")
+                      permitted_set = {str(x).strip().upper() for x in permitted_list} if isinstance(permitted_list, list) else None
+
+                      if action == "TOGGLE_PERSONAL_TOOL":
+                          tid = str(payload.get("toolId", "")).strip().upper()
+                          en = enabled_from_val(payload.get("enabled"))
+                          if not re.fullmatch(r"TOOL-\d{3,}", tid):
+                              raise ValueError(f"Invalid tool ID: {tid}")
+                          if permitted_set is not None and tid not in permitted_set:
+                              raise PermissionError(f"Tool {tid} is not permitted for this user")
+                          tools_map = settings.get("tools", {}) if isinstance(settings.get("tools"), dict) else {}
+                          tools_map[tid] = "ENABLED" if en else "DISABLED"
+                          settings["tools"] = tools_map
+                      else:
+                          updates = payload.get("settings") if isinstance(payload.get("settings"), dict) else payload
+                          applied = 0
+                          for k, v in updates.items():
+                              if k not in ALLOWED_SETTINGS:
+                                  continue
+                              if k in {"displayName", "startPage"}:
+                                  if not isinstance(v, str) or not v.strip():
+                                      raise ValueError(f"{k} must be a non-empty string")
+                                  settings[k] = v.strip()
+                                  applied += 1
+                              elif k == "dashboardOpen":
+                                  if not isinstance(v, bool):
+                                      raise ValueError("dashboardOpen must be boolean")
+                                  settings[k] = v
+                                  applied += 1
+                              elif k == "tools":
+                                  if not isinstance(v, dict):
+                                      raise ValueError("tools must be an object")
+                                  tools_map = settings.get("tools", {}) if isinstance(settings.get("tools"), dict) else {}
+                                  for tid, tval in v.items():
+                                      tid_s = str(tid).strip().upper()
+                                      if not re.fullmatch(r"TOOL-\d{3,}", tid_s):
+                                          raise ValueError(f"Invalid tool ID: {tid_s}")
+                                      if permitted_set is not None and tid_s not in permitted_set:
+                                          raise PermissionError(f"Tool {tid_s} is not permitted for this user")
+                                      tools_map[tid_s] = "ENABLED" if enabled_from_val(tval) else "DISABLED"
+                                  settings["tools"] = tools_map
+                                  applied += 1
+                          if applied == 0:
+                              raise ValueError("No valid dashboard settings fields provided")
+
+                  if settings != original or not SETTINGS_FILE.is_file():
+                      write_json(SETTINGS_FILE, settings)
+
+                  status_val = "COMPLETED"
+                  details_msg = "Personal dashboard settings synchronized successfully."
+              except Exception as err:
+                  settings = original
+                  status_val = "REJECTED"
+                  details_msg = str(err)
+
+              ts = utc_now()
+              canon_action = normalize_action(raw_action)
+              raw_actor = msg.get("actor") if isinstance(msg.get("actor"), dict) else {}
+              actor_uid = str(raw_actor.get("id") or raw_actor.get("userId") or settings.get("userId") or DEFAULT_UID or "SYSTEM").strip().upper()
+
+              write_json(receipt_path, {
+                  "protocolVersion": 1,
+                  "requestId": req_id,
+                  "transactionId": req_id,
+                  "sequence": seq,
+                  "requestType": req_type or "DASHBOARD_PERSONAL_SYNC",
+                  "status": "PROCESSED" if status_val == "COMPLETED" else "REJECTED",
+                  "processedAt": ts,
+                  "details": details_msg,
+              })
+              write_json(response_path, {
+                  "protocolVersion": 1,
+                  "requestId": req_id,
+                  "transactionId": req_id,
+                  "sequence": seq,
+                  "requestType": req_type or "DASHBOARD_PERSONAL_SYNC",
+                  "status": status_val,
+                  "completedAt": ts,
+                  "details": details_msg,
+              })
+
+              if status_val == "COMPLETED":
+                  msg["status"] = "PROCESSED"
+                  msg["processedAt"] = ts
+                  write_json(req_path, msg)
+                  tx_map[req_id] = {
+                      "requestId": req_id,
+                      "parentRequestId": msg.get("parentRequestId"),
+                      "sequence": seq,
+                      "requestType": req_type or "DASHBOARD_PERSONAL_SYNC",
+                      "action": canon_action,
+                      "status": "RESPONSE_SENT",
+                      "actorId": actor_uid,
+                      "createdAt": str(msg.get("createdAt") or received_ts),
+                      "updatedAt": ts,
+                  }
+              else:
+                  write_json(FAILED_DIR / f"{req_id}.json", {
+                      "protocolVersion": 1,
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "status": "REJECTED",
+                      "error": details_msg,
+                      "failedAt": ts,
+                  })
+                  tx_map[req_id] = {
+                      "requestId": req_id,
+                      "sequence": seq,
+                      "requestType": req_type or "DASHBOARD_PERSONAL_SYNC",
+                      "action": canon_action,
+                      "status": "REJECTED",
+                      "actorId": actor_uid,
+                      "createdAt": str(msg.get("createdAt") or received_ts),
+                      "updatedAt": ts,
+                      "error": details_msg,
+                  }
+
+          if not SETTINGS_FILE.is_file():
+              write_json(SETTINGS_FILE, settings)
+
+          write_json(LOGS_FILE, compact_logs(logs_state))
+          PY
+
+      - name: Commit Receipts, Responses, and Settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A NETWORK DASHBOARD/dashboard-settings.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "personal: process canonical sync requests and compact network-logs [skip ci]"
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort || true; exit 1; }
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+          done
+          exit 1

@@ -1,0 +1,148 @@
+name: Sync Tools to Cloudflare
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "TOOLS/**/*.js"
+      - "TOOLS/*.js"
+      - "TOOLS/manifest.json"
+      - "LEGACY/**/*.js"
+      - "LEGACY/*.js"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: official-tools-deployment
+  cancel-in-progress: false
+
+jobs:
+  sync-and-deploy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --global wrangler@4
+      - name: Build tool manifest, Cloudflare assets, and D1 registry
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is missing from repository Actions secrets."
+            exit 1
+          fi
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const crypto = require("node:crypto");
+
+          const sourceDir = path.resolve("TOOLS");
+          const legacyDir = path.resolve("LEGACY");
+          const assetsDir = path.resolve("CLOUDFLARE/public/tools");
+          const sqlPath = path.resolve("CLOUDFLARE/sync-tools.sql");
+          const manifestPath = path.join(sourceDir, "manifest.json");
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+          const tools = Array.isArray(manifest.tools) ? manifest.tools : [];
+          const byFile = new Map(tools.map(tool => [tool.file, tool]));
+          const files = fs.readdirSync(sourceDir).filter(file => file.endsWith(".js") && !/^(test-|.*\.(test|spec))/i.test(file) && !/^BACKUP-SPLIT-/i.test(file)).sort();
+
+          if (!files.length) throw new Error("No official JavaScript tools were found in TOOLS.");
+
+          let nextId = tools.reduce((max, tool) => Math.max(max, Number(String(tool.id).match(/TOOL-(\d+)/)?.[1] || 0)), 0) + 1;
+          fs.mkdirSync(assetsDir, { recursive: true });
+
+          const active = files.map(file => {
+            const sourcePath = path.join(sourceDir, file);
+            const content = fs.readFileSync(sourcePath, "utf8");
+            const name = content.match(/^\s*\/\/\s*@name\s+(.+)$/m)?.[1]?.trim() || path.basename(file, ".js");
+            const description = content.match(/^\s*\/\/\s*@description\s+(.+)$/m)?.[1]?.trim();
+            let tool = byFile.get(file);
+
+            if (!tool) {
+              tool = { id: "TOOL-" + String(nextId++).padStart(3, "0"), file, name, description: description || "", enabled: true };
+              tools.push(tool);
+              byFile.set(file, tool);
+            }
+
+            tool.name = name;
+            if (description) tool.description = description;
+            tool.enabled = true;
+            delete tool.version;
+
+            const version = content.match(/^\s*\/\/\s*@version\s+(.+)$/m)?.[1]?.trim();
+            if (version && version !== "1") throw new Error(file + " must use @version 1.");
+
+            const expectedFile = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
+            if (file !== expectedFile) throw new Error(file + " must match its @name: " + expectedFile);
+            if (/\b(?:odoo|portal)\b/i.test(name)) throw new Error(file + " must not include platform names.");
+
+            tool.sha256 = crypto.createHash("sha256").update(content, "utf8").digest("hex");
+            fs.copyFileSync(sourcePath, path.join(assetsDir, file));
+            return tool;
+          });
+
+          const activeFiles = new Set(files);
+          const legacyFile = "portal-tool-old.js";
+          const legacyPath = path.join(legacyDir, legacyFile);
+          let legacySha256 = null;
+
+          if (fs.existsSync(legacyPath)) {
+            const legacyContent = fs.readFileSync(legacyPath, "utf8");
+            legacySha256 = crypto.createHash("sha256").update(legacyContent, "utf8").digest("hex");
+            fs.copyFileSync(legacyPath, path.join(assetsDir, legacyFile));
+          }
+
+          for (const tool of tools) {
+            if (!activeFiles.has(tool.file)) tool.enabled = false;
+          }
+
+          const preservedAssets = new Set([...activeFiles, legacyFile]);
+          for (const file of fs.readdirSync(assetsDir)) {
+            if (file.endsWith(".js") && !preservedAssets.has(file)) fs.unlinkSync(path.join(assetsDir, file));
+          }
+
+          delete manifest.version;
+          for (const tool of tools) delete tool.version;
+          manifest.tools = tools.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+
+          const quote = value => "'" + String(value ?? "").replace(/'/g, "''") + "'";
+          const statements = active.map(tool =>
+            "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled) VALUES (" +
+            [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1].map(quote).join(", ") +
+            ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, updated_at=CURRENT_TIMESTAMP;"
+          );
+
+          if (legacySha256) statements.push("UPDATE tools SET sha256=" + quote(legacySha256) + ", updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote("TOOL-017") + ";");
+
+          for (const tool of tools.filter(item => !item.enabled)) {
+            statements.push("UPDATE tools SET enabled=0, updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote(tool.id) + ";");
+          }
+
+          for (const tool of active) {
+            statements.push("INSERT OR IGNORE INTO tool_visibility (tool_id, mode, updated_at) VALUES (" + quote(tool.id) + ", 'PRIVATE', CURRENT_TIMESTAMP);");
+          }
+
+          fs.writeFileSync(sqlPath, statements.join("\n") + "\n");
+          NODE
+          wrangler d1 migrations apply yodawy-dashboard --remote --config CLOUDFLARE/wrangler.jsonc
+          wrangler d1 execute yodawy-dashboard --remote --file=CLOUDFLARE/sync-tools.sql --config CLOUDFLARE/wrangler.jsonc
+          rm -f CLOUDFLARE/sync-tools.sql
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add TOOLS/manifest.json CLOUDFLARE/public/tools
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Sync official tools and Cloudflare assets [skip ci]"
+          git push origin HEAD:main

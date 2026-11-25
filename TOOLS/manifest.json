@@ -1,0 +1,116 @@
+{
+  "tools": [
+    {
+      "id": "TOOL-001",
+      "file": "confirmation-type.js",
+      "name": "Confirmation Type",
+      "description": "Add confirmation type controls to tickets.",
+      "enabled": true,
+      "sha256": "afa61b1ca9515d9343943885cbb40b828cd510ddc5b8730706d3aececd6ed337"
+    },
+    {
+      "id": "TOOL-004",
+      "file": "limited-drug-table.js",
+      "name": "Limited Drug Table",
+      "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
+      "enabled": true,
+      "sha256": "ed6a694134d45466362b4ac3b52d8e3bd2e4bbd22aa55f6ac7afd851ec7db71c"
+    },
+    {
+      "id": "TOOL-006",
+      "file": "alternative-quantity-warning.js",
+      "name": "Alternative Quantity Warning",
+      "description": "Warn when alternative quantities exceed the allowed pack-size difference.",
+      "enabled": true,
+      "sha256": "04e029fed4743c45776e0bb400fef982ea79f6b50ca7c9159edd25a00c45e479"
+    },
+    {
+      "id": "TOOL-007",
+      "file": "metlife-card-number.js",
+      "name": "Metlife Card Number",
+      "description": "Automate card number handling in the insurance system.",
+      "enabled": true,
+      "sha256": "a9e5a41ec07b79e8351d903d34ed9322c7734c2089347db03b9845701eb3626e"
+    },
+    {
+      "id": "TOOL-008",
+      "file": "no-items-automation.js",
+      "name": "No Items Automation",
+      "description": "Find tickets with no items to check, capture evidence, and add log notes.",
+      "enabled": true,
+      "sha256": "3d95813fb17165b1d414d164d984ed053f97c925ebcaf0770730044ddaf2a146"
+    },
+    {
+      "id": "TOOL-010",
+      "file": "log-note-tools.js",
+      "name": "Log Note Tools",
+      "description": "Add Edit & Delete buttons to Odoo Log Notes",
+      "enabled": true,
+      "sha256": "7e49bcb5dc9adba45f3ab33bc3916cdbf2afe3240a1a1153ca9f35f3d1041c4b"
+    },
+    {
+      "id": "TOOL-011",
+      "file": "move-communication.js",
+      "name": "Move Communication",
+      "description": "Move the Communication section above Reference with aligned fields and phone copy.",
+      "enabled": true,
+      "sha256": "560183f58dbad104d9f92db3710369fa18d2f79a89683da166a8e685e7395df2"
+    },
+    {
+      "id": "TOOL-012",
+      "file": "ordered-by-warehouse.js",
+      "name": "Ordered By Warehouse",
+      "description": "Automate ordered-by-warehouse workflows.",
+      "enabled": true,
+      "sha256": "5f102d4cdeb0758c2a080259d4c3c59e175c58bd6da5de9844a91628a7cf524b"
+    },
+    {
+      "id": "TOOL-014",
+      "file": "stock-checker.js",
+      "name": "Stock Checker",
+      "description": "Search product stock across Abu Rawash and Engy warehouses.",
+      "enabled": true,
+      "sha256": "7a5a22ba018b41782abaa5c5f4558e74e6aac4825da930b1cb7dfc33aad5069b"
+    },
+    {
+      "id": "TOOL-015",
+      "file": "open-erx.js",
+      "name": "Open ERX",
+      "description": "Open matching Portal prescriptions inside Odoo.",
+      "enabled": true,
+      "sha256": "e0283b9accf302d099d1090be62db55d6891746d239082813c697bbb62b94dd1"
+    },
+    {
+      "id": "TOOL-016",
+      "file": "move-communication-2.js",
+      "name": "Move Communication 2 (Retired)",
+      "description": "Retired and replaced by Move Communication (TOOL-011).",
+      "enabled": false,
+      "sha256": "a8e395993b3fecdd9f7d65689fada4dd9ee4db874d0d58cdeab41518ef15e5a7"
+    },
+    {
+      "id": "TOOL-018",
+      "file": "split-prescription.js",
+      "name": "Split Prescription",
+      "description": "Create split prescriptions with exact Portal matching and live Odoo ticket fields.",
+      "enabled": true,
+      "sha256": "35505809584e79e34817a10f083e49392c08fb0ff548f2ddd139eab39d296b8d"
+    },
+    {
+      "id": "TOOL-019",
+      "file": "split-alt-1.js",
+      "name": "Split Alt 1",
+      "description": "Split Alt 1 legacy Portal Split workflow.",
+      "enabled": true,
+      "sha256": "0b7cb9c9b60c7b6d7bd64b75d4aaf36ba8996d893f140dd317091b397bbe4fd7"
+    },
+    {
+      "id": "TOOL-020",
+      "file": "split-alt-2.js",
+      "name": "Split Alt 2",
+      "description": "Split Alt 2 legacy Portal Split workflow.",
+      "enabled": true,
+      "sha256": "cbee97e33c2d974994818f34568e539d389d2d763a0f1a5d6e0b0a25a9695afe"
+    }
+  ]
+}
