@@ -139,8 +139,8 @@ jobs:
         working-directory: CLOUDFLARE
         run: |
           set -euo pipefail
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN is missing from repository Actions secrets."
+          if [ -z "$CLOUDFLARE_D1_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_D1_API_TOKEN is missing or needs D1 Write permission."
             exit 1
           fi
           export CLOUDFLARE_API_TOKEN="$CLOUDFLARE_D1_API_TOKEN"
