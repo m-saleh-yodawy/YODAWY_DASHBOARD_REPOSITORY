@@ -1,5 +1,6 @@
 // ==UserScript==
 // @name         Limited Drug Table
+// @version      1
 // @namespace    https://odoo.yodawy.com/
 // @author       Mohamed Saleh
 // @description  Limited Drug Accordion with alternative pricing and Log Note actions
@@ -139,21 +140,31 @@ function success(message) {
     }, 1200);
 }
 
-async function copy(text,message){
-    if(state.destroyed)return;
+async function copy(text){
+    if(state.destroyed)return false;
 
-    if(navigator.clipboard&&window.isSecureContext){
-        await navigator.clipboard.writeText(text);
-    }else{
-        const t=document.createElement('textarea');
-        t.value=text;
-        t.style.cssText='position:fixed;left:-9999px';
-        document.body.appendChild(t);
-        t.select();
-        document.execCommand('copy');
+    try{
+        if(navigator.clipboard&&window.isSecureContext){
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+    }catch{}
+
+    const t=document.createElement('textarea');
+    t.value=text;
+    t.style.cssText='position:fixed;left:-9999px';
+    document.body.appendChild(t);
+    t.select();
+
+    let copied=false;
+
+    try{
+        copied=document.execCommand('copy');
+    }finally{
         t.remove();
     }
-    success(message);
+
+    return copied;
 }
 
 function validTable(table){
@@ -528,9 +539,11 @@ async function openLog(){
 function append(el,text){
     if(state.destroyed||!el)return;
 
-    const value=el.value?.trim()
-        ?`${el.value.trimEnd()}\n\n${text}`
-        :text;
+    const current=String(el.value??'');
+    const separator=current.length
+        ?current.endsWith('\n\n')?'':current.endsWith('\n')?'\n':'\n\n'
+        :'';
+    const value=`${current}${separator}${text}`;
 
     const set=Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
@@ -576,7 +589,7 @@ async function withoutAlt(drug){
 
     append(
         el,
-        `Limited Drug: ${drug}\nWITHOUT ALT - ${status}`
+        `Limited Drug: ${drug}\n[ WITHOUT ALT - ${status} ]`
     );
 }
 
@@ -594,7 +607,7 @@ async function alternative(drug,alt){
 
     append(
         el,
-        `Limited Drug: ${drug}\n${alt}\nWITH ALT - ${status}`
+        `Limited Drug: ${drug}\nAlternative Drug: ${alt}\n[ WITH ALT - ${status} ]`
     );
 }
 
@@ -678,10 +691,20 @@ function build(body){
             e.preventDefault();
             e.stopPropagation();
 
-            await copy(
-                `Limited Drug: ${x.title}`,
-                'Limited Drug copied'
-            );
+            const text=`Limited Drug: ${x.title}`;
+            let copied=false;
+
+            try{
+                copied=await copy(text);
+            }catch{}
+
+            const el=await openLog();
+
+            if(state.destroyed)return;
+            if(!el)return alert('Log Note box was not found.');
+
+            append(el,text);
+            success(copied?'Limited Drug copied and added to Log Note':'Limited Drug added to Log Note');
         };
 
         actions.append(wout,copyOne);
