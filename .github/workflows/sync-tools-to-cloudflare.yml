@@ -151,6 +151,18 @@ jobs:
           set -euo pipefail
           export CLOUDFLARE_API_TOKEN="$CLOUDFLARE_D1_API_TOKEN"
           wrangler d1 execute yodawy-dashboard --remote --file=sync-tools.sql --config wrangler.jsonc
+      - name: Deploy updated Worker assets
+        working-directory: CLOUDFLARE
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is missing from repository Actions secrets."
+            exit 1
+          fi
+          wrangler deploy --config wrangler.jsonc
       - name: Remove generated SQL and commit synchronized files
         run: |
           set -euo pipefail
