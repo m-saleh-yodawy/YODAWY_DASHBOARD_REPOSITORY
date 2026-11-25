@@ -8,6 +8,7 @@ on:
       - "TOOLS/**/*.js"
       - "TOOLS/*.js"
       - "TOOLS/manifest.json"
+      - ".github/workflows/sync-tools-to-cloudflare.yml"
       - "LEGACY/**/*.js"
       - "LEGACY/*.js"
   workflow_dispatch:
@@ -23,6 +24,9 @@ jobs:
   sync-and-deploy:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,9 +36,6 @@ jobs:
           node-version: "22"
       - run: npm install --global wrangler@4
       - name: Build tool manifest, Cloudflare assets, and D1 registry
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
         run: |
           set -euo pipefail
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
@@ -135,8 +136,23 @@ jobs:
 
           fs.writeFileSync(sqlPath, statements.join("\n") + "\n");
           NODE
-          wrangler d1 migrations apply yodawy-dashboard --remote --config CLOUDFLARE/wrangler.jsonc
-          wrangler d1 execute yodawy-dashboard --remote --file=CLOUDFLARE/sync-tools.sql --config CLOUDFLARE/wrangler.jsonc
+      - name: Apply D1 migrations
+        working-directory: CLOUDFLARE
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is missing from repository Actions secrets."
+            exit 1
+          fi
+          wrangler d1 migrations apply yodawy-dashboard --remote --config wrangler.jsonc
+      - name: Synchronize D1 tool registry
+        working-directory: CLOUDFLARE
+        run: |
+          set -euo pipefail
+          wrangler d1 execute yodawy-dashboard --remote --file=sync-tools.sql --config wrangler.jsonc
+      - name: Remove generated SQL and commit synchronized files
+        run: |
+          set -euo pipefail
           rm -f CLOUDFLARE/sync-tools.sql
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
