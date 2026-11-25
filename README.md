@@ -18,7 +18,8 @@ Single source repository for the YODAWY Dashboard, Cloudflare Worker, D1 migrati
 
 ## Required GitHub Actions secret
 
-- `CLOUDFLARE_API_TOKEN`: deploys the Worker and synchronizes D1.
+- `CLOUDFLARE_API_TOKEN`: deploys the Worker and static assets.
+- `CLOUDFLARE_D1_API_TOKEN`: applies D1 migrations and synchronizes the tool registry. Grant this token D1 Edit access for the configured account.
 - `YODAWY_REPOSITORIES_SYNC_TOKEN`: reads and updates the personal repositories used by the template workflow.
 
 Never store API tokens, passwords, or personal portal credentials in repository files. Portal credentials belong in the encrypted Cloudflare D1 account store.
