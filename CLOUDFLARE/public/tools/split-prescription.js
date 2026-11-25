@@ -627,10 +627,10 @@
         return { label, month, year: Number(match[2]), cycleNumber: numeric };
     }
 
-    function getExpiryInfo(cycle) {
-        const expiryDate = new Date(cycle.year, cycle.month, 22);
+    function getExpiryInfo(cycle, payer = state.payer || getPayerConfig()) {
+        const expiryDate = payer.key === 'metlife' ? new Date(cycle.year, cycle.month + 1, 0) : new Date(cycle.year, cycle.month, 22);
         const apiDate = new Date(expiryDate);
-        apiDate.setDate(apiDate.getDate() - 1);
+        if (payer.key !== 'metlife') apiDate.setDate(apiDate.getDate() - 1);
         const day = String(expiryDate.getDate()).padStart(2, '0');
         const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
         const year = expiryDate.getFullYear();
@@ -715,7 +715,7 @@
         if (!selectedDrugs.length) throw new Error('Select at least one medication.');
         if (new Set(selectedDrugs.map(item => item.hzb)).size !== selectedDrugs.length) throw new Error('Duplicate HZB values were selected. The split was stopped.');
 
-        const expiryInfo = getExpiryInfo(cycle);
+        const expiryInfo = getExpiryInfo(cycle, payer);
         state.expiryInfo = expiryInfo;
         const [corporate, prescription] = await Promise.all([
             resolveCorporate(payer, employer),
