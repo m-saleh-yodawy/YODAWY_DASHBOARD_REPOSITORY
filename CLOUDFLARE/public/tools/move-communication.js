@@ -39,6 +39,7 @@
         phoneRowParent:null,
         phoneRowNext:null,
         copyHandlers:new Map(),
+        copyTimers:new Map(),
         legacy:null,
         legacyPaused:false,
         suspended:false,
@@ -113,9 +114,16 @@
                     if(!document.execCommand('copy'))throw new Error('Copy failed');
                     input.remove();
                 }
+                if(state.destroyed||state.suspended||!element.isConnected)return;
                 element.style.setProperty('color','#16a34a','important');
-                await new Promise(resolve=>setTimeout(resolve,450));
-                if(element.isConnected)element.style.setProperty('color','#212529','important');
+                await new Promise(resolve=>{
+                    const timer=setTimeout(()=>{
+                        state.copyTimers.delete(timer);
+                        resolve();
+                    },450);
+                    state.copyTimers.set(timer,resolve);
+                });
+                if(!state.destroyed&&!state.suspended&&element.isConnected)element.style.setProperty('color','#212529','important');
             }catch{
                 element.style.setProperty('color','#212529','important');
             }
@@ -135,6 +143,11 @@
     };
 
     const restoreCopyFields=()=>{
+        for(const [timer,resolve] of state.copyTimers){
+            clearTimeout(timer);
+            resolve();
+        }
+        state.copyTimers.clear();
         for(const [element,item] of state.copyHandlers){
             element.removeEventListener('click',item.handler);
             if(item.original.style===null)element.removeAttribute('style');

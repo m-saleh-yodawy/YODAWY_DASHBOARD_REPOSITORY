@@ -72,7 +72,7 @@
       "name": "Move Communication",
       "description": "Move the Communication section above Reference with aligned fields and phone copy.",
       "enabled": true,
-      "sha256": "560183f58dbad104d9f92db3710369fa18d2f79a89683da166a8e685e7395df2",
+      "sha256": "1575ef0ba66f6ffb27bb2f0f6ca8b2fa047a106dd943efa7e1c060fe96fd5def",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
@@ -135,7 +135,7 @@
       "name": "Split Alt 1",
       "description": "Split Alt 1 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "dda83450fb78bb6bbbaf4a08fee4259e412c9d697c9448cd1cab2e442e2bfef1",
+      "sha256": "e1df08dd6ce18b77a283410e8c03206f3876d10a54681176cf0ddb789bc606fc",
       "matches": [
         "https://odoo.yodawy.com/*",
         "https://portal.yodawy.com/*"
@@ -147,7 +147,7 @@
       "name": "Split Alt 2",
       "description": "Split Alt 2 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "94ebb2ebf7d07c0340c67e732a49724ba7f394c3bea770ffc56912b95edf633d",
+      "sha256": "4046f312ac456f1284d9ef124223ef26bf73feeab349ac5973c85906de4acf34",
       "matches": [
         "https://odoo.yodawy.com/*",
         "https://portal.yodawy.com/*"
