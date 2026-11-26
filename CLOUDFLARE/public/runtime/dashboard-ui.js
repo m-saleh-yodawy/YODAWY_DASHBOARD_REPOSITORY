@@ -3975,40 +3975,24 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const users = getLogUsers();
         if (!users.length) return '<div class="yd-network-page yd-logs-page"><section class="yd-welcome"><div><h1>Logs</h1><p>Review each user account and its activity history.</p></div></section><div class="yd-card yd-empty">No users are available.</div></div>';
         if (!users.some(user => String(user.id) === selectedLogUserId)) selectedLogUserId = String(users[0].id);
-        const selected = users.find(user => String(user.id) === selectedLogUserId) || users[0];
         const options = users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (String(user.id) === selectedLogUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name || user.id)) + ' · ' + escapeHTML(user.id) + '</option>').join('');
         const rows = userLogEntries.map(item => {
             const type = String(item.eventType || '').toUpperCase();
             const labels = {
-                ACCOUNT_CREATED: ['Account created', 'fa-solid fa-user-plus', 'created'],
-                LOGIN: ['Logged in to Dashboard', 'fa-solid fa-right-to-bracket', 'login'],
-                LOGOUT: ['Logged out of Dashboard', 'fa-solid fa-right-from-bracket', 'logout'],
-                SESSION_STARTED: ['Historical session started', 'fa-solid fa-circle-play', 'session'],
-                SESSION_ENDED: ['Historical session ended', 'fa-solid fa-circle-stop', 'session'],
+                LOGIN: ['Logged in with username & password', 'fa-solid fa-right-to-bracket', 'login'],
                 TOOL_STARTED: ['Opened tool', 'fa-solid fa-play', 'tool-open'],
                 TOOL_STOPPED: ['Closed tool', 'fa-solid fa-stop', 'tool-close']
             };
-            const meta = labels[type] || [formatAction(type || 'ACTIVITY'), 'fa-solid fa-clock', 'session'];
-            const title = type === 'NETWORK_ACTIVITY'
-                ? formatAction(item.details?.action || 'DASHBOARD ACTIVITY')
-                : type.startsWith('TOOL_')
-                    ? meta[0] + ': ' + (item.toolName || item.toolId || 'Tool')
-                    : meta[0];
-            const detail = type === 'NETWORK_ACTIVITY'
-                ? item.details?.summary || [item.details?.entityType, item.details?.entityId].filter(Boolean).join(' · ')
-                : item.details?.createdByName
-                    ? 'Created by ' + item.details.createdByName
-                    : item.details?.deviceLabel
-                        ? 'Device: ' + item.details.deviceLabel
-                        : item.details?.note || (item.toolId ? item.toolId : '');
-            return '<article class="yd-log-entry"><span class="yd-log-marker ' + meta[2] + '"><i class="yd-fa-icon ' + meta[1] + '"></i></span><div class="yd-log-copy"><div class="yd-log-copy-head"><strong>' + escapeHTML(title) + '</strong><time>' + escapeHTML(formatDate(item.createdAt)) + '</time></div>' + (detail ? '<small>' + escapeHTML(detail) + '</small>' : '') + '</div></article>';
+            const meta = labels[type];
+            if (!meta) return '';
+            const title = type.startsWith('TOOL_') ? meta[0] + ': ' + (item.toolName || 'Tool') : meta[0];
+            return '<article class="yd-log-entry"><span class="yd-log-marker ' + meta[2] + '"><i class="yd-fa-icon ' + meta[1] + '"></i></span><div class="yd-log-copy"><div class="yd-log-copy-head"><strong>' + escapeHTML(title) + '</strong><time>' + escapeHTML(formatDate(item.createdAt)) + '</time></div></div></article>';
         }).join('');
         const totalPages = Math.max(1, Math.ceil(userLogsTotal / USER_LOGS_PAGE_SIZE));
         userLogsPage = Math.min(Math.max(1, userLogsPage), totalPages);
         return '<div class="yd-network-page yd-logs-page">' +
-            '<section class="yd-welcome"><div><h1>Logs</h1><p>Complete account timeline: creation, logins, logouts, and tool activity.</p></div><button type="button" class="yd-secondary" data-action="refresh-user-logs"' + (userLogsLoading ? ' disabled' : '') + '><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button></section>' +
+            '<section class="yd-welcome"><div><h1>Logs</h1><p>Sign-ins and tool activity only.</p></div><button type="button" class="yd-secondary" data-action="refresh-user-logs"' + (userLogsLoading ? ' disabled' : '') + '><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button></section>' +
             '<div class="yd-card yd-logs-toolbar"><div class="yd-logs-select"><label for="yd-logs-user-select">Select User</label><select id="yd-logs-user-select" class="yd-input">' + options + '</select></div><span class="yd-pill">' + userLogsTotal + ' events</span></div>' +
-            '<div class="yd-card yd-log-profile"><div><small>USER</small><strong>' + escapeHTML(formatName(selected.name || selected.id)) + '</strong><span>' + escapeHTML(selected.id) + ' · ' + escapeHTML(selected.role || 'USER') + '</span></div><div><small>ACCOUNT CREATED</small><strong>' + escapeHTML(formatDate(selected.createdAt)) + '</strong><span>' + escapeHTML(selected.status || '—') + '</span></div></div>' +
             (userLogsLoading ? '<div class="yd-card yd-empty"><span class="yd-control-spinner"></span> Loading activity history...</div>' : userLogsError ? '<div class="yd-alert yd-alert-error">' + escapeHTML(userLogsError) + '</div>' : '<div class="yd-card yd-log-timeline">' + (rows || '<div class="yd-empty">No activity recorded for this user yet.</div>') + '</div>') +
             (userLogsTotal > USER_LOGS_PAGE_SIZE ? '<div class="yd-network-pagination">' + renderPagination(userLogsPage, totalPages, 'logs-page') + '</div>' : '') +
         '</div>';
