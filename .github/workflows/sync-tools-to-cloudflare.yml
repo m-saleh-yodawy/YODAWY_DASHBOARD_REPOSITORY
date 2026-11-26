@@ -23,7 +23,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: official-tools-deployment
+  group: yodawy-cloudflare-production
   cancel-in-progress: false
 
 jobs:
