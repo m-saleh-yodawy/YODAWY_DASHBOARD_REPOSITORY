@@ -155,7 +155,6 @@ jobs:
 
             tool.sha256 = crypto.createHash("sha256").update(content, "utf8").digest("hex");
             fs.copyFileSync(sourcePath, path.join(assetsDir, file));
-            fs.copyFileSync(sourcePath, path.join(assetsDir, file.replace(/\.js$/i, "-" + tool.sha256 + ".js")));
             return tool;
           });
 
@@ -177,8 +176,7 @@ jobs:
             if (!activeFiles.has(tool.file)) tool.enabled = false;
           }
 
-          const versionedFiles = active.map(tool => tool.file.replace(/\.js$/i, "-" + tool.sha256 + ".js"));
-          const preservedAssets = new Set([...activeFiles, ...versionedFiles, legacyFile]);
+          const preservedAssets = new Set([...activeFiles, legacyFile]);
           for (const file of fs.readdirSync(assetsDir)) {
             if (file.endsWith(".js") && !preservedAssets.has(file)) fs.unlinkSync(path.join(assetsDir, file));
           }
