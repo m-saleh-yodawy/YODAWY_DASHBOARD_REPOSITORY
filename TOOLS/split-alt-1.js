@@ -1442,7 +1442,7 @@
         id:TOOL_ID,
         path:'TOOLS/split-alt-1.js',
         suspend(){
-            if(lifecycle.busy||lifecycle.destroyed)return false;
+            if(lifecycle.busy||fetchRunning||lifecycle.destroyed)return false;
             observer?.disconnect();
             for(const timer of initTimers)clearTimeout(timer);
             initTimers.clear();
