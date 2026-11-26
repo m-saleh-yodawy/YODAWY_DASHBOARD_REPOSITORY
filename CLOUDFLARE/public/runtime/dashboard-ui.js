@@ -3982,12 +3982,18 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 TOOL_STOPPED: ['Closed tool', 'fa-solid fa-stop', 'tool-close']
             };
             const meta = labels[type] || [formatAction(type || 'ACTIVITY'), 'fa-solid fa-clock', 'session'];
-            const title = type.startsWith('TOOL_') ? meta[0] + ': ' + (item.toolName || item.toolId || 'Tool') : meta[0];
-            const detail = item.details?.createdByName
-                ? 'Created by ' + item.details.createdByName
-                : item.details?.deviceLabel
-                    ? 'Device: ' + item.details.deviceLabel
-                    : item.details?.note || (item.toolId ? item.toolId : '');
+            const title = type === 'NETWORK_ACTIVITY'
+                ? formatAction(item.details?.action || 'DASHBOARD ACTIVITY')
+                : type.startsWith('TOOL_')
+                    ? meta[0] + ': ' + (item.toolName || item.toolId || 'Tool')
+                    : meta[0];
+            const detail = type === 'NETWORK_ACTIVITY'
+                ? item.details?.summary || [item.details?.entityType, item.details?.entityId].filter(Boolean).join(' · ')
+                : item.details?.createdByName
+                    ? 'Created by ' + item.details.createdByName
+                    : item.details?.deviceLabel
+                        ? 'Device: ' + item.details.deviceLabel
+                        : item.details?.note || (item.toolId ? item.toolId : '');
             return '<article class="yd-log-entry"><span class="yd-log-marker ' + meta[2] + '"><i class="yd-fa-icon ' + meta[1] + '"></i></span><div class="yd-log-copy"><div class="yd-log-copy-head"><strong>' + escapeHTML(title) + '</strong><time>' + escapeHTML(formatDate(item.createdAt)) + '</time></div>' + (detail ? '<small>' + escapeHTML(detail) + '</small>' : '') + '</div></article>';
         }).join('');
         const totalPages = Math.max(1, Math.ceil(userLogsTotal / USER_LOGS_PAGE_SIZE));

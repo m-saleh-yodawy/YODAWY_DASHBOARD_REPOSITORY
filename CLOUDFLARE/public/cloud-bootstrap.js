@@ -242,6 +242,7 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
             user,
             userId: user.id,
             userRole: user.role,
+            get users() { return Array.isArray(data.users) ? data.users : []; },
             get userSettings() { return data.userSettings || {}; },
             authenticated: false
         };

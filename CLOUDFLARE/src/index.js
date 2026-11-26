@@ -844,13 +844,17 @@ const dashboardRoutes = async (request, env, path) => {
     const target = await env.DB.prepare("SELECT user_id AS id, name, role, status, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt FROM users WHERE user_id = ?").bind(userId).first();
     if (!target) return respond(request, env, { success: false, error: "USER_NOT_FOUND" }, 404);
     const [count, result] = await Promise.all([
-      env.DB.prepare("SELECT COUNT(*) AS total FROM user_activity_logs WHERE user_id = ?").bind(userId).first(),
-      env.DB.prepare("SELECT id, event_type AS eventType, tool_id AS toolId, tool_name AS toolName, details_json, created_at AS createdAt FROM user_activity_logs WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?").bind(userId, limit, offset).all()
+      env.DB.prepare("SELECT (SELECT COUNT(*) FROM user_activity_logs WHERE user_id = ?) + (SELECT COUNT(*) FROM audit_logs WHERE actor_id = ? AND action NOT IN ('TOOL_STARTED', 'TOOL_STOPPED')) AS total").bind(userId, userId).first(),
+      env.DB.prepare("SELECT id, event_type AS eventType, tool_id AS toolId, tool_name AS toolName, details_json, created_at AS createdAt, NULL AS action, NULL AS entityType, NULL AS entityId, 0 AS sourceOrder FROM user_activity_logs WHERE user_id = ? UNION ALL SELECT -id AS id, 'NETWORK_ACTIVITY' AS eventType, NULL AS toolId, NULL AS toolName, details_json, created_at AS createdAt, action, entity_type AS entityType, entity_id AS entityId, 1 AS sourceOrder FROM audit_logs WHERE actor_id = ? AND action NOT IN ('TOOL_STARTED', 'TOOL_STOPPED') ORDER BY createdAt DESC, sourceOrder ASC, id DESC LIMIT ? OFFSET ?").bind(userId, userId, limit, offset).all()
     ]);
     const logs = (result.results || []).map(item => {
       let details = {};
       try { details = JSON.parse(item.details_json || "{}"); } catch {}
-      const { details_json, ...entry } = item;
+      const { details_json, sourceOrder, ...entry } = item;
+      if (entry.action) details = { ...details, action: entry.action, entityType: entry.entityType, entityId: entry.entityId };
+      delete entry.action;
+      delete entry.entityType;
+      delete entry.entityId;
       return { ...entry, details };
     });
     return respond(request, env, { success: true, user: target, total: Number(count?.total || 0), limit, offset, logs });
