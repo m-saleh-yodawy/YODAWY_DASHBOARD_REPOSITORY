@@ -187,6 +187,13 @@
 
     const isCurrentUI = () => Boolean(context && rootElement?.isConnected && document.getElementById(CONFIG.ID) === rootElement);
 
+    const apiRequest = async (path, options = {}) => {
+        const request = context?.api?.request;
+        if (typeof request !== 'function') throw new Error('Cloudflare API is unavailable.');
+        const response = await request(path, options);
+        return response?.data ?? response;
+    };
+
     const mountLauncher = () => {
         if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') {
             launcherItem?.remove();
@@ -3945,7 +3952,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 limit: String(USER_LOGS_PAGE_SIZE),
                 offset: String((userLogsPage - 1) * USER_LOGS_PAGE_SIZE)
             }).toString();
-            const result = await context.api.request('/api/dashboard/logs?' + query);
+            const result = await apiRequest('/api/dashboard/logs?' + query);
             if (requestId !== userLogsRequestId || targetUserId !== selectedLogUserId) return;
             if (result?.success !== true || !Array.isArray(result.logs)) throw new Error(result?.error || 'Unable to load user activity logs.');
             userLogEntries = result.logs;
@@ -4038,7 +4045,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         siteAccessError = '';
         render();
         try {
-            const result = await context.api.request('/api/dashboard/site-access');
+            const result = await apiRequest('/api/dashboard/site-access');
             if (result?.success !== true || !result.config || !Array.isArray(result.config.sites)) throw new Error('Invalid site access response.');
             siteAccessEnabled = result.config.enabled === true;
             siteAccessSites = result.config.sites;
@@ -4786,7 +4793,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 siteAccessSaving = true;
                 setButtonLoading(button, 'Saving');
                 try {
-                    const result = await context.api.request('/api/dashboard/site-access', { method: 'PUT', body: { enabled, sites } });
+                    const result = await apiRequest('/api/dashboard/site-access', { method: 'PUT', body: { enabled, sites } });
                     if (result?.success !== true || !result.config) throw new Error('Website settings were not saved.');
                     siteAccessEnabled = result.config.enabled === true;
                     siteAccessSites = result.config.sites || [];
@@ -5087,7 +5094,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                         const api = context?.api || page.YODAWY_API_ENGINE;
                         if (typeof api?.request !== 'function') throw new Error('Cloudflare permissions API is unavailable.');
                         const permissionChanges = Object.fromEntries(targets.map(tool => [String(tool.id), { [field]: nextValue }]));
-                        const result = await api.request('/api/dashboard/permissions', { method: 'PUT', body: { permissions: { [userId]: permissionChanges } } });
+                        const result = await apiRequest('/api/dashboard/permissions', { method: 'PUT', body: { permissions: { [userId]: permissionChanges } } });
                         if (result?.success !== true) throw new Error(result?.error || 'Bulk permissions were not saved.');
                         await api.refresh();
                         await Promise.all([context.permissions?.load?.(), engine?.refresh?.()]);
