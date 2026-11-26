@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Alternative Quantity Warning
 // @namespace    https://odoo.yodawy.com/
+// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/web*
 // @run-at       document-idle
@@ -10,6 +11,10 @@
 (async function(){
 'use strict';
 
+const TOOL_ID='TOOL-006';
+const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+if(registry[TOOL_ID])return;
+let destroyed=false;
 const WARNING_CLASS='ms-alt-qty-warning';
 const HIDE_CLASS='ms-alt-qty-hidden';
 const STYLE_ID='ms-alt-qty-style';
@@ -269,6 +274,7 @@ const checkItem=item=>{
 };
 
 const scan=()=>{
+    if(destroyed)return;
     document.querySelectorAll('.yodawy-accordion-item').forEach(checkItem);
 };
 
@@ -304,8 +310,9 @@ const observer=new MutationObserver(mutations=>{
 
 injectStyles();
 
-const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-registry['ALTERNATIVE-QUANTITY-WARNING']={
+const instance={
+    id:TOOL_ID,
+    path:'TOOLS/alternative-quantity-warning.js',
     suspend(){
         observer.disconnect();
         clearTimeout(scanTimer);
@@ -313,8 +320,22 @@ registry['ALTERNATIVE-QUANTITY-WARNING']={
         document.getElementById(STYLE_ID)?.remove();
         return true;
     },
-    resume(){injectStyles();observer.observe(document.body,{childList:true,subtree:true});scan();return true;}
+    resume(){
+        if(destroyed)return false;
+        injectStyles();
+        observer.observe(document.body,{childList:true,subtree:true});
+        scan();
+        return true;
+    },
+    destroy(){
+        if(destroyed)return true;
+        destroyed=true;
+        this.suspend();
+        if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
+        return true;
+    }
 };
+registry[TOOL_ID]=instance;
 
 observer.observe(document.body,{childList:true,subtree:true});
 scan();
