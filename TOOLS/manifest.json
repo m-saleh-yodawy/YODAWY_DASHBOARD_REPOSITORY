@@ -128,6 +128,17 @@
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
+    },
+    {
+      "id": "TOOL-019",
+      "file": "screen.js",
+      "name": "SCREEN",
+      "description": "Capture and copy a clean screenshot with all active tools temporarily suspended.",
+      "enabled": true,
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ],
+      "sha256": "f8db43258a834f90ca4e78173b0f68b7c8b36167e6c7acc5dacc28191a0b24fc"
     }
   ]
 }
