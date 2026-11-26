@@ -585,8 +585,9 @@ const selected=checkboxes
 .filter(x=>x.checked)
 .map(x=>drugs[Number(x.dataset.index)]);
 
-if(!selected.length)return;
+if(!selected.length||lifecycle.busy)return;
 
+lifecycle.busy=true;
 splitButton.disabled=true;
 splitButton.textContent='WRITING LOG...';
 
@@ -602,6 +603,8 @@ closeDialog();
 alert('Could not complete Split\n\n'+error.message);
 splitButton.disabled=false;
 splitButton.textContent='SPLIT';
+}finally{
+lifecycle.busy=false;
 }
 });
 
