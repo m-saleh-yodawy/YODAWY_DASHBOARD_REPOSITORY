@@ -200,7 +200,8 @@ jobs:
           }
 
           for (const tool of active) {
-            statements.push("INSERT OR IGNORE INTO tool_visibility (tool_id, mode, updated_at) VALUES (" + quote(tool.id) + ", 'PRIVATE', CURRENT_TIMESTAMP);");
+            const defaultVisibility = tool.id === "TOOL-004" ? "PUBLIC" : "PRIVATE";
+            statements.push("INSERT OR IGNORE INTO tool_visibility (tool_id, mode, updated_at) VALUES (" + quote(tool.id) + ", " + quote(defaultVisibility) + ", CURRENT_TIMESTAMP);");
           }
 
           fs.writeFileSync(sqlPath, statements.join("\n") + "\n");
