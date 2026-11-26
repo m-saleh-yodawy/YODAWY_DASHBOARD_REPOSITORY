@@ -182,16 +182,15 @@
         const { LOADER } = getDependencies();
 
         try {
-            await registered.destroy();
+            const destroyed = await registered.destroy();
+            if (destroyed === false) return false;
 
             if (registry[toolId] === registered) {
                 delete registry[toolId];
             }
 
             LOADER.clear(instance.path);
-
             loadedTools.delete(toolId);
-
             return true;
         } catch (error) {
             throw createError(`Failed to stop tool ${toolId}: ${error.message}`);
@@ -199,7 +198,9 @@
     };
 
     const start = async tool => {
-        if (loadedTools.has(tool.id)) return true;
+        const existing = loadedTools.get(tool.id);
+        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) return true;
+        if (existing && !await stop(tool.id)) return false;
 
         if (pendingTools.has(tool.id)) {
             return pendingTools.get(tool.id);
@@ -207,7 +208,6 @@
 
         const task = (async () => {
             const dependencies = getDependencies();
-
             if (!canLoad(tool, dependencies)) return false;
 
             const result = await dependencies.LOADER.load(tool.path, {
@@ -215,13 +215,19 @@
                 sha256: tool.sha256
             });
 
+            if (!result.registered || !result.destroyable) {
+                dependencies.LOADER.clear(tool.path, { destroy: true });
+                throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+            }
+
             loadedTools.set(tool.id, {
                 id: tool.id,
                 name: tool.name,
                 path: tool.path,
+                sha256: tool.sha256,
                 loadedAt: result.loadedAt,
-                registered: result.registered,
-                destroyable: result.destroyable
+                registered: true,
+                destroyable: true
             });
 
             return true;
