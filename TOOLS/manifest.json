@@ -50,7 +50,7 @@
       "name": "No Items Automation",
       "description": "Find tickets with no items to check, capture evidence, and add log notes.",
       "enabled": true,
-      "sha256": "ef1ff94c3e792a6d4aeb5e9e4efa4aacc933c1b726a13c2887c018968f426943",
+      "sha256": "c0bccdd5ed564c555f4168269f03c51e108b6b3574fc1b3b6e52396ff5ccb5bc",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]

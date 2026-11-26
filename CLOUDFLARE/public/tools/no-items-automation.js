@@ -1193,7 +1193,7 @@ const instance={
     id:TOOL_ID,
     path:'TOOLS/no-items-automation.js',
     suspend(){
-        if(state.destroyed)return false;
+        if(state.destroyed||state.running)return false;
         state.suspended=true;
         state.paused=false;
         if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
