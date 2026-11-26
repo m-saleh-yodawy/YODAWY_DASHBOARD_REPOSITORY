@@ -1117,7 +1117,22 @@ export default {
     if (url.pathname.startsWith("/api/")) {
       if (request.method === "OPTIONS") {
         const origin = allowedOrigin(request, env);
-        return new Response(null, { status: 204, headers: origin ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS", "access-control-allow-headers": "content-type, authorization, x-setup-secret", "access-control-max-age": "86400", "vary": "Origin" } : {} });
+        return new Response(null, { status: 204, headers: origin ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS", "access-control-allow-headers": "content-type, authorization, x-setup-secret", "access-control-max-age": "86400", "vary": "Origin" } : {} });
+      }
+      if (url.pathname.startsWith("/api/tools/assets/")) {
+        if (!["GET", "HEAD"].includes(request.method)) return respond(request, env, { success: false, error: "METHOD_NOT_ALLOWED" }, 405);
+        let filename = "";
+        try { filename = decodeURIComponent(url.pathname.slice("/api/tools/assets/".length)); } catch {}
+        if (!/^[a-z0-9-]+\.js$/i.test(filename)) return respond(request, env, { success: false, error: "INVALID_TOOL_ASSET" }, 400);
+        const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
+        const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: request.method, cache: "no-store" }));
+        const headers = new Headers(asset.headers);
+        headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
+        headers.set("cdn-cache-control", "no-store");
+        headers.set("access-control-allow-origin", allowedOrigin(request, env) || "*");
+        headers.set("access-control-allow-methods", "GET, HEAD, OPTIONS");
+        headers.set("vary", "Origin");
+        return new Response(request.method === "HEAD" ? null : asset.body, { status: asset.status, statusText: asset.statusText, headers });
       }
       if (url.pathname === "/api/version" && request.method === "GET") return respond(request, env, { success: true, version: env.CF_VERSION_METADATA?.id || "unversioned" });
       if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });

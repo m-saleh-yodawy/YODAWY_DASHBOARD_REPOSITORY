@@ -115,8 +115,9 @@
             const name = clean.split('/').pop();
             if (!/^[a-z0-9-]+\.js$/i.test(name)) throw fail('Invalid tool asset path', 400);
             const hash = String(options.sha256 || '').trim().toLowerCase();
-            const version = /^[a-f0-9]{64}$/.test(hash) ? '?v=' + hash : '';
-            const response = await fetch('https://yodawy-dashboard.m-saleh-yodawy.workers.dev/tools/' + encodeURIComponent(name) + version, { cache: 'no-store', credentials: 'omit' });
+            const version = /^[a-f0-9]{64}$/.test(hash) ? hash : 'latest';
+            const deployment = encodeURIComponent(String(context()?.assetVersion || 'latest'));
+            const response = await fetch('https://yodawy-dashboard.m-saleh-yodawy.workers.dev/api/tools/assets/' + encodeURIComponent(name) + '?v=' + version + '&d=' + deployment, { cache: 'no-store', credentials: 'omit' });
             if (!response.ok) throw fail('Tool asset unavailable: ' + name, response.status);
             return response.text();
         }
