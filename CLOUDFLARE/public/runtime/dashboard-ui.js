@@ -3503,7 +3503,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const renderGroup = group => '<section class="yd-portal-section" id="yd-portal-section-' + sectionIds[group.index] + '"><div class="yd-portal-section-heading"><h2><i class="yd-fa-icon fa-solid ' + group.icon + '"></i> ' + group.title + '</h2><span class="yd-pill">' + group.items.length + '</span></div><div class="yd-tool-accordion-list">' + group.items.map(renderAccount).join('') + '</div></section>';
         const sectionLinks = populatedGroups.map(group => '<a class="yd-portal-section-link" href="#yd-portal-section-' + sectionIds[group.index] + '">' + group.title + '</a>').join('');
         const adminTools = canManage
-            ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-trash"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
+            ? '<section class="yd-portal-admin-tools"><div class="yd-field yd-portal-target-field"><label for="yd-portal-target-user">Manage User</label><select id="yd-portal-target-user" class="yd-input"' + (users.length ? '' : ' disabled') + '>' + users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (user.id === selectedPortalUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name) + ' · ' + user.id) + '</option>').join('') + '</select></div><div class="yd-portal-admin-actions"><button type="button" class="yd-primary" data-action="import-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-solid fa-file-import"></i><span>Import JSON</span></button><button type="button" class="yd-portal-delete-all" data-action="delete-all-portal-accounts"' + (users.length ? '' : ' disabled') + '><i class="yd-fa-icon fa-regular fa-trash-can"></i><span>Delete All</span></button><button type="button" class="yd-portal-refresh" data-action="refresh-portal-accounts"><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button><input id="yd-portal-accounts-import-file" type="file" accept=".json,application/json" hidden></div></section>'
             : '';
         const loading = canManage ? portalManagementAccountsLoading : portalAccountsLoading;
         const error = canManage ? portalManagementAccountsError : '';
@@ -3557,7 +3557,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
     };
 
     const editActionIcon = '<i class="yd-fa-icon fa-solid fa-pen-to-square"></i>';
-    const deleteActionIcon = '<i class="yd-fa-icon fa-solid fa-trash"></i>';
+    const deleteActionIcon = '<i class="yd-fa-icon fa-regular fa-trash-can"></i>';
     const viewPasswordActionIcon = '<i class="yd-fa-icon fa-solid fa-eye"></i>';
 
     const renderUsers = () => {
@@ -4013,7 +4013,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 '<td><input class="yd-input" data-site-field="paths" value="' + escapeHTML((site.paths || ['/*']).join(', ')) + '" placeholder="/*, /web/*" autocomplete="off"></td>' +
                 '<td><select class="yd-input" data-site-field="protocol"><option value="https:"' + (protocol === 'https:' ? ' selected' : '') + '>HTTPS</option><option value="http:"' + (protocol === 'http:' ? ' selected' : '') + '>HTTP</option><option value="both"' + (protocol === 'both' ? ' selected' : '') + '>Both</option></select></td>' +
                 '<td><input type="checkbox" data-site-field="enabled"' + (site.enabled ? ' checked' : '') + ' aria-label="Enable site"></td>' +
-                '<td><button type="button" class="yd-icon-btn danger" data-action="remove-site" data-index="' + index + '" title="Remove website" aria-label="Remove website"><i class="yd-fa-icon fa-solid fa-trash"></i></button></td>' +
+                '<td><button type="button" class="yd-icon-btn danger" data-action="remove-site" data-index="' + index + '" title="Remove website" aria-label="Remove website"><i class="yd-fa-icon fa-regular fa-trash-can"></i></button></td>' +
             '</tr>';
         }).join('');
         return '<div class="yd-sites-page">' +
