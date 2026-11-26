@@ -62,14 +62,20 @@
     const pendingLocalTools = new Map();
     const pendingPermissionBulk = new Set();
     const trackedTransactions = new Set();
-    let networkPage = 1;
+    let selectedLogUserId = '';
+    let userLogEntries = [];
+    let userLogsLoading = false;
+    let userLogsError = '';
+    let userLogsTotal = 0;
+    let userLogsPage = 1;
+    let userLogsRequestId = 0;
     let siteAccessSites = null;
     let siteAccessEnabled = true;
     let siteAccessLoading = false;
     let siteAccessLoaded = false;
     let siteAccessSaving = false;
     let siteAccessError = '';
-    const NETWORK_PAGE_SIZE = 10;
+    const USER_LOGS_PAGE_SIZE = 50;
     let dropdownMenuClickHandler = null;
     let dropdownMenuInputHandler = null;
     let dropdownOutsideClickHandler = null;
@@ -257,7 +263,7 @@
             canManageUserPermissions: false,
             canManageSharedTools: false,
             canManageVisibility: false,
-            canViewNetwork: false
+            canViewLogs: false
         }),
         ADMIN: Object.freeze({
             pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'accounts', 'account']),
@@ -269,10 +275,10 @@
             canManageUserPermissions: true,
             canManageSharedTools: false,
             canManageVisibility: false,
-            canViewNetwork: false
+            canViewLogs: false
         }),
         SUPER_ADMIN: Object.freeze({
-            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'transactions', 'sites', 'accounts', 'account']),
+            pages: Object.freeze(['tools', 'overview', 'announcements', 'users', 'permissions', 'visibility', 'logs', 'sites', 'accounts', 'account']),
             actions: Object.freeze(['refresh-connection', 'save-settings', 'toggle-my-tool', 'change-password', 'add-user', 'edit-user', 'delete-user', 'view-user-password', 'toggle-permission', 'toggle-visibility-bulk', 'toggle-visibility', 'save-allowed-users', 'add-announcement', 'edit-announcement', 'delete-announcement', 'add-site', 'remove-site', 'save-site-access', 'reload-site-access']),
             canManageAnnouncements: true,
             canManageUsers: true,
@@ -281,7 +287,7 @@
             canManageUserPermissions: false,
             canManageSharedTools: true,
             canManageVisibility: true,
-            canViewNetwork: true,
+            canViewLogs: true,
             canManageSites: true
         })
     });
@@ -921,6 +927,32 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     justify-content: space-between;
     width: 100%;
     min-height: 100%;
+}
+#yd-dashboard-root .yd-logs-page { justify-content: flex-start; gap: 14px; }
+#yd-dashboard-root .yd-logs-toolbar { display: grid; grid-template-columns: minmax(250px, 1fr) auto; align-items: end; gap: 12px; }
+#yd-dashboard-root .yd-logs-select { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#yd-dashboard-root .yd-logs-select label, #yd-dashboard-root .yd-log-profile small { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .5px; }
+#yd-dashboard-root .yd-logs-select .yd-input { width: 100%; min-width: 0; min-height: 36px; }
+#yd-dashboard-root .yd-log-profile { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+#yd-dashboard-root .yd-log-profile > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+#yd-dashboard-root .yd-log-profile strong { color: var(--ink); font-size: 12px; }
+#yd-dashboard-root .yd-log-profile span { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+#yd-dashboard-root .yd-log-timeline { display: flex; flex-direction: column; gap: 0; padding: 6px 16px; }
+#yd-dashboard-root .yd-log-entry { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 12px; padding: 13px 2px; border-bottom: 1px solid var(--line); }
+#yd-dashboard-root .yd-log-entry:last-child { border-bottom: 0; }
+#yd-dashboard-root .yd-log-marker { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #f2edf3; color: #68465f; }
+#yd-dashboard-root .yd-log-marker.login, #yd-dashboard-root .yd-log-marker.created { background: #edf7f0; color: #277547; }
+#yd-dashboard-root .yd-log-marker.logout, #yd-dashboard-root .yd-log-marker.tool-close { background: #fff1f0; color: #b42318; }
+#yd-dashboard-root .yd-log-marker.tool-open { background: #edf4fc; color: #245e9b; }
+#yd-dashboard-root .yd-log-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#yd-dashboard-root .yd-log-copy-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+#yd-dashboard-root .yd-log-copy-head strong { color: var(--ink); font-size: 11px; font-weight: 800; }
+#yd-dashboard-root .yd-log-copy-head time { color: var(--muted); font-size: 10px; white-space: nowrap; }
+#yd-dashboard-root .yd-log-copy small { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+    #yd-dashboard-root .yd-log-profile { align-items: flex-start; flex-direction: column; }
+    #yd-dashboard-root .yd-logs-toolbar { grid-template-columns: minmax(0, 1fr); }
+    #yd-dashboard-root .yd-log-copy-head { flex-direction: column; gap: 3px; }
 }
 #yd-dashboard-root .yd-network-page > .yd-welcome {
     flex: 0 0 auto;
@@ -3317,7 +3349,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         if (access.canManageUsers) items.push(['users', 'fa-solid fa-users', 'Users']);
         if (access.canManageUserPermissions || access.canManageSharedTools) items.push(['permissions', 'fa-solid fa-sliders', 'User Permissions']);
         if (access.canManageVisibility) items.push(['visibility', 'fa-solid fa-eye', 'Visibility']);
-        if (access.canViewNetwork) items.push(['transactions', 'fa-solid fa-right-left', 'NETWORK']);
+        if (access.canViewLogs) items.push(['logs', 'fa-solid fa-clock-rotate-left', 'Logs']);
         if (access.canManageSites) items.push(['sites', 'fa-solid fa-globe', 'Website Access']);
         items.push(['account', 'fa-solid fa-gear', 'Settings']);
         return items;
@@ -3357,26 +3389,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         let pages = '';
         for (let page = firstPage; page <= lastPage; page++) pages += link(String(page), page, page === currentPage, false, 'Page ' + page);
         return '<nav role="navigation" aria-label="pagination" data-slot="pagination" class="yd-pagination"><ul data-slot="pagination-content" class="yd-pagination-content">' + pages + '</ul></nav>';
-    };
-
-    const renderTransactionsTable = transactions => {
-        if (!transactions.length) return '<div class="yd-card yd-empty">No NETWORK activity found.</div>';
-        const totalPages = Math.max(1, Math.ceil(transactions.length / NETWORK_PAGE_SIZE));
-        networkPage = Math.min(Math.max(1, networkPage), totalPages);
-        const start = (networkPage - 1) * NETWORK_PAGE_SIZE;
-        const visible = transactions.slice(start, start + NETWORK_PAGE_SIZE);
-        const rows = visible.map(item => {
-            const status = String(item.status || 'SENT').toUpperCase();
-            const pending = isPendingTransaction(item);
-            const actor = getActorName(item);
-            const summary = item.summary || formatAction(item.action || item.requestType);
-            const statusMarkup = pending
-                ? renderPendingBadge(status === 'PROCESSING' ? 'Processing' : status === 'SENT' ? 'Queued' : 'Pending')
-                : '<span class="yd-pill ' + (status === 'COMPLETED' ? 'green' : 'red') + '">' + escapeHTML(status) + '</span>';
-            return '<tr><td><div class="yd-network-activity"><strong>' + escapeHTML(summary) + '</strong><small>By ' + escapeHTML(actor) + '</small></div></td><td>' + statusMarkup + '</td><td>' + escapeHTML(formatDate(item.updatedAt || item.createdAt)) + '</td></tr>';
-        }).join('');
-        return '<div class="yd-table-wrap yd-network-table"><table><thead><tr><th>Activity</th><th style="width:130px">Status</th><th style="width:190px">Date</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-            '<div class="yd-network-pagination">' + renderPagination(networkPage, totalPages, 'network-page') + '</div>';
     };
 
     const renderOverview = () => {
@@ -3907,9 +3919,87 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         });
     };
 
-    const renderTransactions = () =>
-        '<div class="yd-network-page"><section class="yd-welcome"><div><h1>NETWORK Activity</h1><p>Administrative activity and request status.</p></div></section>' +
-        renderTransactionsTable(getTransactions()) + '</div>';
+    const getLogUsers = () => (Array.isArray(context?.users) ? context.users : []).slice().sort((a, b) =>
+        String(a.name || a.id || '').localeCompare(String(b.name || b.id || ''), undefined, { sensitivity: 'base' })
+    );
+
+    const loadUserLogs = async () => {
+        const users = getLogUsers();
+        if (!selectedLogUserId || !users.some(user => String(user.id) === selectedLogUserId)) selectedLogUserId = String(users[0]?.id || '');
+        if (!selectedLogUserId) {
+            userLogEntries = [];
+            userLogsTotal = 0;
+            userLogsLoading = false;
+            userLogsError = '';
+            render();
+            return;
+        }
+        const targetUserId = selectedLogUserId;
+        const requestId = ++userLogsRequestId;
+        userLogsLoading = true;
+        userLogsError = '';
+        render();
+        try {
+            const query = new URLSearchParams({
+                userId: targetUserId,
+                limit: String(USER_LOGS_PAGE_SIZE),
+                offset: String((userLogsPage - 1) * USER_LOGS_PAGE_SIZE)
+            }).toString();
+            const result = await context.request('/api/dashboard/logs?' + query);
+            if (requestId !== userLogsRequestId || targetUserId !== selectedLogUserId) return;
+            if (result?.success !== true || !Array.isArray(result.logs)) throw new Error(result?.error || 'Unable to load user activity logs.');
+            userLogEntries = result.logs;
+            userLogsTotal = Math.max(0, Number(result.total) || 0);
+        } catch (error) {
+            if (requestId === userLogsRequestId) {
+                userLogEntries = [];
+                userLogsTotal = 0;
+                userLogsError = error?.message || 'Unable to load user activity logs.';
+            }
+        } finally {
+            if (requestId === userLogsRequestId) {
+                userLogsLoading = false;
+                render();
+            }
+        }
+    };
+
+    const renderLogs = () => {
+        const users = getLogUsers();
+        if (!users.length) return '<div class="yd-network-page yd-logs-page"><section class="yd-welcome"><div><h1>Logs</h1><p>Review each user account and its activity history.</p></div></section><div class="yd-card yd-empty">No users are available.</div></div>';
+        if (!users.some(user => String(user.id) === selectedLogUserId)) selectedLogUserId = String(users[0].id);
+        const selected = users.find(user => String(user.id) === selectedLogUserId) || users[0];
+        const options = users.map(user => '<option value="' + escapeHTML(user.id) + '"' + (String(user.id) === selectedLogUserId ? ' selected' : '') + '>' + escapeHTML(formatName(user.name || user.id)) + ' · ' + escapeHTML(user.id) + '</option>').join('');
+        const rows = userLogEntries.map(item => {
+            const type = String(item.eventType || '').toUpperCase();
+            const labels = {
+                ACCOUNT_CREATED: ['Account created', 'fa-solid fa-user-plus', 'created'],
+                LOGIN: ['Logged in to Dashboard', 'fa-solid fa-right-to-bracket', 'login'],
+                LOGOUT: ['Logged out of Dashboard', 'fa-solid fa-right-from-bracket', 'logout'],
+                SESSION_STARTED: ['Historical session started', 'fa-solid fa-circle-play', 'session'],
+                SESSION_ENDED: ['Historical session ended', 'fa-solid fa-circle-stop', 'session'],
+                TOOL_STARTED: ['Opened tool', 'fa-solid fa-play', 'tool-open'],
+                TOOL_STOPPED: ['Closed tool', 'fa-solid fa-stop', 'tool-close']
+            };
+            const meta = labels[type] || [formatAction(type || 'ACTIVITY'), 'fa-solid fa-clock', 'session'];
+            const title = type.startsWith('TOOL_') ? meta[0] + ': ' + (item.toolName || item.toolId || 'Tool') : meta[0];
+            const detail = item.details?.createdByName
+                ? 'Created by ' + item.details.createdByName
+                : item.details?.deviceLabel
+                    ? 'Device: ' + item.details.deviceLabel
+                    : item.details?.note || (item.toolId ? item.toolId : '');
+            return '<article class="yd-log-entry"><span class="yd-log-marker ' + meta[2] + '"><i class="yd-fa-icon ' + meta[1] + '"></i></span><div class="yd-log-copy"><div class="yd-log-copy-head"><strong>' + escapeHTML(title) + '</strong><time>' + escapeHTML(formatDate(item.createdAt)) + '</time></div>' + (detail ? '<small>' + escapeHTML(detail) + '</small>' : '') + '</div></article>';
+        }).join('');
+        const totalPages = Math.max(1, Math.ceil(userLogsTotal / USER_LOGS_PAGE_SIZE));
+        userLogsPage = Math.min(Math.max(1, userLogsPage), totalPages);
+        return '<div class="yd-network-page yd-logs-page">' +
+            '<section class="yd-welcome"><div><h1>Logs</h1><p>Complete account timeline: creation, logins, logouts, and tool activity.</p></div><button type="button" class="yd-secondary" data-action="refresh-user-logs"' + (userLogsLoading ? ' disabled' : '') + '><i class="yd-fa-icon fa-solid fa-rotate"></i><span>Refresh</span></button></section>' +
+            '<div class="yd-card yd-logs-toolbar"><div class="yd-logs-select"><label for="yd-logs-user-select">Select User</label><select id="yd-logs-user-select" class="yd-input">' + options + '</select></div><span class="yd-pill">' + userLogsTotal + ' events</span></div>' +
+            '<div class="yd-card yd-log-profile"><div><small>USER</small><strong>' + escapeHTML(formatName(selected.name || selected.id)) + '</strong><span>' + escapeHTML(selected.id) + ' · ' + escapeHTML(selected.role || 'USER') + '</span></div><div><small>ACCOUNT CREATED</small><strong>' + escapeHTML(formatDate(selected.createdAt)) + '</strong><span>' + escapeHTML(selected.status || '—') + '</span></div></div>' +
+            (userLogsLoading ? '<div class="yd-card yd-empty"><span class="yd-control-spinner"></span> Loading activity history...</div>' : userLogsError ? '<div class="yd-alert yd-alert-error">' + escapeHTML(userLogsError) + '</div>' : '<div class="yd-card yd-log-timeline">' + (rows || '<div class="yd-empty">No activity recorded for this user yet.</div>') + '</div>') +
+            (userLogsTotal > USER_LOGS_PAGE_SIZE ? '<div class="yd-network-pagination">' + renderPagination(userLogsPage, totalPages, 'logs-page') + '</div>' : '') +
+        '</div>';
+    };
 
 
     const renderSites = () => {
@@ -3989,7 +4079,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             users: renderUsers,
             permissions: renderPermissions,
             visibility: renderVisibility,
-            transactions: renderTransactions,
+            logs: renderLogs,
             sites: renderSites,
             account: renderAccount
         };
@@ -4182,7 +4272,6 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
 
     const persistTransaction = transaction => {
         localTransactions.set(transaction.requestId, transaction);
-        networkPage = 1;
         persistPendingTransactions();
     };
 
@@ -4327,8 +4416,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const api = context?.api || page.YODAWY_API_ENGINE;
         if (typeof api?.recordActivity !== 'function') throw new Error('Cloudflare activity API is unavailable.');
         const result = await api.recordActivity({ action, toolId, toolName, summary: summary || action });
-        if (result?.success !== true) throw new Error(result?.error || 'NETWORK activity was not confirmed.');
-        networkPage = 1;
+        if (result?.success !== true) throw new Error(result?.error || 'activity log was not confirmed.');
         await api.refresh();
         await getRoleEngine()?.refresh?.();
         return result;
@@ -4748,16 +4836,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                                 action: 'UPDATE_DASHBOARD_SETTINGS',
                                 summary: 'UPDATE DASHBOARD SETTINGS'
                             });
-                            showNotice('Personal settings saved and NETWORK activity recorded.');
+                            showNotice('Personal settings saved and activity log recorded.');
                         } catch (error) {
-                            showMessageDialog('Settings Saved · Activity Not Logged', 'Your personal settings were saved successfully, but NETWORK activity could not be recorded: ' + (error?.message || 'Unknown error.'));
+                            showMessageDialog('Settings Saved · Activity Not Logged', 'Your personal settings were saved successfully, but activity log could not be recorded: ' + (error?.message || 'Unknown error.'));
                         }
                         render();
                     } catch (error) {
                         render();
                         showMessageDialog('Settings Not Saved', error?.message || 'Unable to save personal settings.');
                     }
-                })(), { label: 'Saving Personal Settings', location: 'Settings', stage: 'Saving preferences and recording NETWORK activity' });
+                })(), { label: 'Saving Personal Settings', location: 'Settings', stage: 'Saving preferences and recording activity log' });
             } else if (action === 'change-password') {
                 const currentPassword = document.getElementById('yd-current-password')?.value || '';
                 const newPassword = document.getElementById('yd-new-password')?.value || '';
@@ -4807,11 +4895,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                             });
                             pendingLocalTools.delete(toolId);
                             render();
-                            showNotice('Tool setting saved and NETWORK activity recorded.');
+                            showNotice('Tool setting saved and activity log recorded.');
                         } catch (error) {
                             pendingLocalTools.delete(toolId);
                             render();
-                            showMessageDialog('Tool Updated · Activity Not Logged', 'The tool state was saved successfully, but NETWORK activity could not be recorded: ' + (error?.message || 'Unknown error.'));
+                            showMessageDialog('Tool Updated · Activity Not Logged', 'The tool state was saved successfully, but activity log could not be recorded: ' + (error?.message || 'Unknown error.'));
                         }
                     } catch (error) {
                         pendingLocalTools.delete(toolId);
@@ -4839,7 +4927,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             } else if (action === 'delete-user') {
                 const user = getUsers().find(item => String(item.id).toUpperCase() === String(button.dataset.id).toUpperCase());
                 if (getPendingUser(user)) return;
-                openConfirmDialog('Delete User', 'Delete ' + formatName(user?.name || button.dataset.id) + '? This request will be processed through NETWORK.', 'Delete User', () => {
+                openConfirmDialog('Delete User', 'Delete ' + formatName(user?.name || button.dataset.id) + '? This request will be processed through the dashboard queue.', 'Delete User', () => {
                     const metadata = { action: 'DELETE_USER', targetId: button.dataset.id, targetName: formatName(user?.name || button.dataset.id), summary: 'DELETE USER · ' + formatName(user?.name || button.dataset.id) };
                     return runNetworkOperation('Deleting user', () => getRoleEngine().deleteUser(button.dataset.id), metadata);
                 });
@@ -5246,6 +5334,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
 
     const bindEvents = root => {
         root.addEventListener('change', async event => {
+            if (event.target.id === 'yd-logs-user-select') {
+                selectedLogUserId = String(event.target.value || '').trim().toUpperCase();
+                userLogsPage = 1;
+                userLogEntries = [];
+                userLogsTotal = 0;
+                void loadUserLogs();
+                return;
+            }
             if (event.target.id === 'yd-portal-target-user') {
                 selectedPortalUserId = String(event.target.value || '').trim().toUpperCase();
                 portalManagementAccounts = null;
@@ -5506,10 +5602,15 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 }
                 return;
             }
-            if (actionButton?.dataset.action === 'network-page') {
+            if (actionButton?.dataset.action === 'logs-page') {
                 event.preventDefault();
-                networkPage = Math.max(1, Number(actionButton.dataset.page) || 1);
-                render();
+                userLogsPage = Math.max(1, Number(actionButton.dataset.page) || 1);
+                void loadUserLogs();
+                return;
+            }
+            if (actionButton?.dataset.action === 'refresh-user-logs') {
+                event.preventDefault();
+                void loadUserLogs();
                 return;
             }
             const nav = event.target.closest('[data-page]');
@@ -5530,6 +5631,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 if (activePage !== 'visibility') { visibilityDraft = null; openVisibilityToolId = null; }
                 render();
                 if (activePage === 'sites' && !siteAccessLoaded) void loadSiteAccess();
+                if (activePage === 'logs') void loadUserLogs();
                 return;
             }
             if (actionButton?.dataset.action === 'refresh-connection') { runAction('refresh-connection', actionButton); return; }
@@ -5650,6 +5752,12 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const defaultPage = context.settings?.getSettings?.()?.startPage;
         const requestedPage = String(uiState.activePage || '');
         activePage = navItems().some(item => item[0] === requestedPage) ? requestedPage : defaultPage === 'overview' ? 'overview' : 'tools';
+        selectedLogUserId = String(uiState.selectedLogUserId || context.users?.[0]?.id || '');
+        userLogsPage = Math.max(1, Number(uiState.userLogsPage) || 1);
+        userLogEntries = [];
+        userLogsTotal = 0;
+        userLogsError = '';
+        userLogsLoading = false;
         expandedUsers.clear();
         expandedTools.clear();
         (Array.isArray(uiState.expandedUsers) ? uiState.expandedUsers : []).forEach(id => expandedUsers.add(String(id)));
@@ -5672,6 +5780,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const main = root.querySelector('#yd-main');
         if (main) { main.scrollTop = Number(uiState.scrollTop) || 0; main.scrollLeft = Number(uiState.scrollLeft) || 0; }
         resumePendingTransactions();
+        if (activePage === 'logs') void loadUserLogs();
         refreshTimer = null;
         return true;
     };
@@ -5712,13 +5821,16 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         pendingVisibilitySubmissions.clear();
         pendingLocalTools.clear();
         trackedTransactions.clear();
+        userLogsRequestId++;
+        userLogEntries = [];
+        userLogsLoading = false;
         return true;
     };
 
     const getHotState = () => {
         const root = rootElement;
         const main = root?.querySelector('#yd-main');
-        return { activePage, expandedUsers: [...expandedUsers], expandedTools: [...expandedTools], searches: captureRenderSearchState(root), isOpen, profileOpen, scrollTop: main?.scrollTop || 0, scrollLeft: main?.scrollLeft || 0 };
+        return { activePage, expandedUsers: [...expandedUsers], expandedTools: [...expandedTools], selectedLogUserId, userLogsPage, searches: captureRenderSearchState(root), isOpen, profileOpen, scrollTop: main?.scrollTop || 0, scrollLeft: main?.scrollLeft || 0 };
     };
 
     const dashboardUI = Object.freeze({

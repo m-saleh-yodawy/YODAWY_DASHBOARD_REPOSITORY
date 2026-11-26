@@ -236,6 +236,17 @@
         );
     };
 
+    const recordLifecycle = (API, action, tool) => {
+        if (typeof API?.recordActivity !== 'function') return;
+        const opened = action === 'TOOL_STARTED';
+        Promise.resolve(API.recordActivity({
+            action,
+            toolId: tool.id,
+            toolName: tool.name,
+            summary: (opened ? 'Opened ' : 'Closed ') + tool.name
+        })).catch(() => {});
+    };
+
     const stop = async toolId => {
         const instance = loadedTools.get(toolId);
 
@@ -249,7 +260,7 @@
             return false;
         }
 
-        const { LOADER } = getDependencies();
+        const { API, LOADER } = getDependencies();
 
         try {
             const stopped = await registered.destroy();
@@ -258,6 +269,7 @@
             LOADER.clear(instance.path);
 
             loadedTools.delete(toolId);
+            recordLifecycle(API, 'TOOL_STOPPED', instance);
 
             return true;
         } catch (error) {
@@ -306,6 +318,7 @@
                 registered: result.registered,
                 destroyable: result.destroyable
             });
+            recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
 
             return true;
         })();

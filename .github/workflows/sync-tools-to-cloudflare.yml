@@ -88,7 +88,9 @@ jobs:
             "CORE/tools-manager.js",
             "CORE/module-loader.js",
             "CLOUDFLARE/public/runtime/core-tools-manager.js",
-            "CLOUDFLARE/public/runtime/core-module-loader.js"
+            "CLOUDFLARE/public/runtime/core-module-loader.js",
+            "CLOUDFLARE/public/runtime/dashboard-ui.js",
+            "CLOUDFLARE/src/index.js"
           ]) {
             const syntax = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
             if (syntax.status !== 0) failures.push(file + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());

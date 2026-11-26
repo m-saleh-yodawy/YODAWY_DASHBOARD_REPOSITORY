@@ -133,7 +133,11 @@ const authRoutes = async (request, env, path) => {
       return respond(request, env, { success: false, error: "INVALID_CREDENTIALS" }, 401);
     }
     await env.DB.prepare("UPDATE users SET failed_login_count = 0, locked_until = 0 WHERE user_id = ?").bind(userId).run();
-    return respond(request, env, { success: true, ...(await issueSession(env, user, request)) });
+    const session = await issueSession(env, user, request);
+    try {
+      await env.DB.prepare("INSERT INTO user_activity_logs (user_id, actor_id, event_type, details_json, created_at) VALUES (?, ?, 'LOGIN', ?, ?)").bind(user.user_id, user.user_id, JSON.stringify({ deviceLabel: (request.headers.get("user-agent") || "").slice(0, 160) }), new Date().toISOString()).run();
+    } catch {}
+    return respond(request, env, { success: true, ...session });
   }
   if (path === "/api/auth/refresh" && request.method === "POST") {
     const token = String((await readBody(request)).refreshToken || "");
@@ -164,7 +168,13 @@ const authRoutes = async (request, env, path) => {
   }
   if (path === "/api/auth/logout" && request.method === "POST") {
     const user = await authenticate(request, env);
-    if (user) await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE session_id_hash = ?").bind(Math.floor(Date.now() / 1000), user.session_id_hash).run();
+    if (user) {
+      const timestamp = Math.floor(Date.now() / 1000);
+      try {
+        await env.DB.prepare("INSERT INTO user_activity_logs (user_id, actor_id, event_type, details_json, created_at) VALUES (?, ?, 'LOGOUT', '{}', ?)").bind(user.user_id, user.user_id, new Date(timestamp * 1000).toISOString()).run();
+      } catch {}
+      await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE session_id_hash = ?").bind(timestamp, user.session_id_hash).run();
+    }
     return respond(request, env, { success: true });
   }
   return null;
@@ -780,7 +790,7 @@ const dashboardRoutes = async (request, env, path) => {
   }
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
-      isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
+      isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
       env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
@@ -812,6 +822,27 @@ const dashboardRoutes = async (request, env, path) => {
     });
     return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role, repository: actor.personal_repository || "" }, users: isAdmin ? users.results : [], tools: toolList, permissions: permissionMap, visibility: visibilityMap, userSettings: isSuper ? userSettingsMap : {}, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
   }
+  if (path === "/api/dashboard/logs" && request.method === "GET") {
+    if (!isSuper) return forbidden();
+    const query = new URL(request.url).searchParams;
+    const userId = String(query.get("userId") || "").trim().toUpperCase();
+    const limit = Math.min(100, Math.max(1, Number.parseInt(query.get("limit") || "50", 10) || 50));
+    const offset = Math.min(1000000, Math.max(0, Number.parseInt(query.get("offset") || "0", 10) || 0));
+    if (!/^Q-[0-9]{3,}$/.test(userId)) return respond(request, env, { success: false, error: "INVALID_LOG_USER" }, 400);
+    const target = await env.DB.prepare("SELECT user_id AS id, name, role, status, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt FROM users WHERE user_id = ?").bind(userId).first();
+    if (!target) return respond(request, env, { success: false, error: "USER_NOT_FOUND" }, 404);
+    const [count, result] = await Promise.all([
+      env.DB.prepare("SELECT COUNT(*) AS total FROM user_activity_logs WHERE user_id = ?").bind(userId).first(),
+      env.DB.prepare("SELECT id, event_type AS eventType, tool_id AS toolId, tool_name AS toolName, details_json, created_at AS createdAt FROM user_activity_logs WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?").bind(userId, limit, offset).all()
+    ]);
+    const logs = (result.results || []).map(item => {
+      let details = {};
+      try { details = JSON.parse(item.details_json || "{}"); } catch {}
+      const { details_json, ...entry } = item;
+      return { ...entry, details };
+    });
+    return respond(request, env, { success: true, user: target, total: Number(count?.total || 0), limit, offset, logs });
+  }
   if (path === "/api/dashboard/activity" && request.method === "POST") {
     const action = String(body.action || "").trim().toUpperCase();
     const toolId = String(body.toolId || "").trim();
@@ -820,6 +851,10 @@ const dashboardRoutes = async (request, env, path) => {
     if (!/^[A-Z0-9_-]{2,80}$/.test(action) || toolId.length > 128 || toolName.length > 160 || !summary || summary.length > 500) return respond(request, env, { success: false, error: "INVALID_ACTIVITY" }, 400);
     const entityType = toolId ? "TOOL" : "DASHBOARD";
     const entityId = toolId || null;
+    if (action === "TOOL_STARTED" || action === "TOOL_STOPPED") {
+      if (!toolId || !toolName || !/^[A-Za-z0-9_-]{1,128}$/.test(toolId)) return respond(request, env, { success: false, error: "INVALID_TOOL_ACTIVITY" }, 400);
+      await env.DB.prepare("INSERT INTO user_activity_logs (user_id, actor_id, event_type, tool_id, tool_name, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(actor.user_id, actor.user_id, action, toolId, toolName, JSON.stringify({ summary }), now).run();
+    }
     await env.DB.prepare("INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(actor.user_id, action, entityType, entityId, JSON.stringify({ summary, toolName }), now).run();
     return respond(request, env, { success: true });
   }
@@ -905,7 +940,10 @@ const dashboardRoutes = async (request, env, path) => {
     const passwordHash = await createPasswordHash(password);
     const encrypted = await encryptUserPassword(env, password);
     const passwordChangedAt = Math.floor(Date.now() / 1000);
-    await env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, password_hash, password_ciphertext, password_encryption_iv, password_changed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(userId, name, newRole, status, repository, passwordHash, encrypted.ciphertext, encrypted.iv, passwordChangedAt, now, now).run();
+    await env.DB.batch([
+      env.DB.prepare("INSERT INTO users (user_id, name, role, status, personal_repository, password_hash, password_ciphertext, password_encryption_iv, password_changed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(userId, name, newRole, status, repository, passwordHash, encrypted.ciphertext, encrypted.iv, passwordChangedAt, now, now),
+      env.DB.prepare("INSERT INTO user_activity_logs (user_id, actor_id, event_type, details_json, created_at) VALUES (?, ?, 'ACCOUNT_CREATED', ?, ?)").bind(userId, actor.user_id, JSON.stringify({ createdBy: actor.user_id, createdByName: actor.name }), now)
+    ]);
     return respond(request, env, { success: true, user: { id: userId, name, role: newRole, status, repository } }, 201);
   }
   if (path === "/api/dashboard/users/cleanup" && request.method === "POST") {
@@ -1062,7 +1100,7 @@ export default {
       if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });
       if (url.pathname === "/api/ready" && request.method === "GET") {
         try {
-          const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs", "portal_accounts"];
+          const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs", "user_activity_logs", "portal_accounts"];
           const result = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (" + required.map(() => "?").join(",") + ")").bind(...required).all();
           const existing = new Set((result.results || []).map(item => item.name));
           const missing = required.filter(name => !existing.has(name));

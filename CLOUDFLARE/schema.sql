@@ -120,6 +120,20 @@ CREATE TABLE auth_events (
 
 CREATE INDEX idx_auth_events_user_time ON auth_events(user_id, created_at DESC);
 
+CREATE TABLE user_activity_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  actor_id TEXT,
+  event_type TEXT NOT NULL,
+  tool_id TEXT,
+  tool_name TEXT,
+  details_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_user_activity_logs_user_time ON user_activity_logs(user_id, created_at DESC, id DESC);
+CREATE INDEX idx_user_activity_logs_actor_time ON user_activity_logs(actor_id, id DESC);
+
 
 CREATE TABLE portal_accounts (
   account_id TEXT PRIMARY KEY,
