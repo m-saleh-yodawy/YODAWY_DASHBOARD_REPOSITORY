@@ -629,6 +629,7 @@ const instance={
     },
     resume(){
         if(destroyed)return false;
+        requestController=new AbortController();
         createUI();
         return true;
     },
