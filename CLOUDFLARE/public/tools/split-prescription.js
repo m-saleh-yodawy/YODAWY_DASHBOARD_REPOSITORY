@@ -16,7 +16,6 @@
     const host = location.hostname.toLowerCase();
     const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
     if (registry[TOOL_ID] || host !== 'odoo.yodawy.com') return;
-    if(registry[TOOL_ID])return;
 
     const CONFIG = {
         BUTTON_ID: 'ydDirectSplitButton',

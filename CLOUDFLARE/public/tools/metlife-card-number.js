@@ -171,11 +171,11 @@
 
         policy.addEventListener('paste', () => {
             schedule(() => processCard(policy.value), 50);
-        });
+        },{signal:controller.signal});
 
         certificate.addEventListener('paste', () => {
             schedule(() => processCard(certificate.value), 50);
-        });
+        },{signal:controller.signal});
 
         policy.addEventListener('input', () => {
             processCard(policy.value);

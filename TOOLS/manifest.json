@@ -30,7 +30,7 @@
       "name": "Metlife Card Number",
       "description": "Automate card number handling in the insurance system.",
       "enabled": true,
-      "sha256": "803fffad13d73c9a279cc65c3a0e4bdf928a2eed4f6eb83a98999efa2c74ecba"
+      "sha256": "4370816500bf7b9d2c08cb1d20c60a88c63389fa4b6c2ae33cc9abbda49712e1"
     },
     {
       "id": "TOOL-008",
@@ -38,7 +38,7 @@
       "name": "No Items Automation",
       "description": "Find tickets with no items to check, capture evidence, and add log notes.",
       "enabled": true,
-      "sha256": "15edf36e78992b9068c7c5b4e1c366240a62e21b250730e3e6d10668094af92c"
+      "sha256": "ef1ff94c3e792a6d4aeb5e9e4efa4aacc933c1b726a13c2887c018968f426943"
     },
     {
       "id": "TOOL-010",
@@ -94,7 +94,7 @@
       "name": "Split Prescription",
       "description": "Create split prescriptions with exact Portal matching and live Odoo ticket fields.",
       "enabled": true,
-      "sha256": "5ef182c8c5a4246b0d9a46f22690820df3c8bcbbdded5f00cae60773929a05b5"
+      "sha256": "f274c2609cc882a8b2a9d437d7163c691065e5a3a4804600dca760445cad9116"
     },
     {
       "id": "TOOL-019",
@@ -102,7 +102,7 @@
       "name": "Split Alt 1",
       "description": "Split Alt 1 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "4b6c6e0aa7e028877439f18399aae1eec3eca5351cda6469e2b7a36bad12e900"
+      "sha256": "589efbbd595babb307ec4ccbf9d0f20b21b871b4cad734a14e7c4480f2a19243"
     },
     {
       "id": "TOOL-020",
@@ -110,7 +110,7 @@
       "name": "Split Alt 2",
       "description": "Split Alt 2 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "72e389b9b4e01e40ff28ceb867f07785beb07f3e3509b2225cc99491114536bf"
+      "sha256": "94ebb2ebf7d07c0340c67e732a49724ba7f394c3bea770ffc56912b95edf633d"
     }
   ]
 }
