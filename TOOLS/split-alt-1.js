@@ -3,6 +3,7 @@
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @description  Split Alt 1 legacy Portal Split workflow.
+// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/*
 // @match        https://portal.yodawy.com/*
@@ -12,6 +13,16 @@
 
 (async function () {
     'use strict';
+
+    const TOOL_ID='TOOL-019';
+    const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+    if(registry[TOOL_ID])return;
+    const lifecycle=window.__YD_SPLIT_ALT_1_LIFECYCLE__={busy:false,destroyed:false,cleanups:new Set()};
+    const keyHandlers=new Set();
+    let observer=null;
+    const initTimers=new Set();
+    const addKeyHandler=handler=>{document.addEventListener('keydown',handler);keyHandlers.add(handler);};
+    const removeKeyHandler=handler=>{document.removeEventListener('keydown',handler);keyHandlers.delete(handler);};
 
     const CONFIG = {
         DIALOG_ID: 'tmSplitDrugDialog',
@@ -1097,7 +1108,7 @@
 
         function closeDialog() {
             document.getElementById(CONFIG.DIALOG_ID)?.remove();
-            document.removeEventListener('keydown', keyboardHandler);
+            removeKeyHandler(keyboardHandler);
             stopDOMCleanup();
         }
 
@@ -1134,7 +1145,7 @@
         dialog.querySelector('#tmSplitCancel')
             .addEventListener('click', closeDialog);
 
-        document.addEventListener('keydown', keyboardHandler);
+        addKeyHandler(keyboardHandler);
 
         splitButton.addEventListener('click', async () => {
             const selected = checkboxes
@@ -1212,7 +1223,7 @@
 
         const close = () => {
             overlay.remove();
-            document.removeEventListener('keydown', escape);
+            removeKeyHandler(escape);
         };
 
         const escape = event => {
@@ -1222,7 +1233,7 @@
         overlay.querySelector('#tmSupportOK')
             .addEventListener('click', close);
 
-        document.addEventListener('keydown', escape);
+        addKeyHandler(escape);
     }
 
     function showFetchRequiredModal(message) {
@@ -1327,9 +1338,10 @@
             return;
         }
 
-        if (fetchRunning) return;
+        if (fetchRunning || lifecycle.busy || lifecycle.destroyed) return;
 
         fetchRunning = true;
+        lifecycle.busy = true;
 
         try {
             const drugs = await fetchSplitDrugs();
@@ -1342,6 +1354,7 @@
             );
         } finally {
             fetchRunning = false;
+            lifecycle.busy = false;
         }
     }
 
@@ -1405,7 +1418,7 @@
         createSplitButton();
     }
 
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
         if (!document.getElementById(CONFIG.BUTTON_ID)) {
             init();
         }
@@ -1418,14 +1431,69 @@
         });
     }
 
-    setTimeout(init, 500);
-    setTimeout(init, 1500);
-    setTimeout(init, 3000);
-    setTimeout(init, 5000);
+    const scheduleInit=()=>{
+        for(const timer of initTimers)clearTimeout(timer);
+        initTimers.clear();
+        for(const delay of [500,1500,3000,5000]){
+            const timer=setTimeout(()=>{initTimers.delete(timer);if(!lifecycle.destroyed&&!lifecycle.busy)init();},delay);
+            initTimers.add(timer);
+        }
+    };
+    const instance={
+        id:TOOL_ID,
+        path:'TOOLS/split-alt-1.js',
+        suspend(){
+            if(lifecycle.busy||lifecycle.destroyed)return false;
+            observer?.disconnect();
+            for(const timer of initTimers)clearTimeout(timer);
+            initTimers.clear();
+            stopDOMCleanup();
+            for(const handler of keyHandlers)document.removeEventListener('keydown',handler);
+            keyHandlers.clear();
+            document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            document.getElementById(CONFIG.DIALOG_ID)?.remove();
+            document.getElementById(CONFIG.FETCH_REQUIRED_ID)?.remove();
+            document.getElementById(CONFIG.NOT_SUPPORTED_ID)?.remove();
+            return true;
+        },
+        resume(){
+            if(lifecycle.destroyed)return false;
+            if(observer&&document.body)observer.observe(document.body,{childList:true,subtree:true});
+            init();
+            scheduleInit();
+            return true;
+        },
+        destroy(){
+            if(lifecycle.destroyed)return true;
+            if(lifecycle.busy||fetchRunning)return false;
+            lifecycle.destroyed=true;
+            observer?.disconnect();
+            observer=null;
+            for(const timer of initTimers)clearTimeout(timer);
+            initTimers.clear();
+            stopDOMCleanup();
+            for(const handler of keyHandlers)document.removeEventListener('keydown',handler);
+            keyHandlers.clear();
+            for(const cleanup of lifecycle.cleanups){try{cleanup();}catch{}}
+            lifecycle.cleanups.clear();
+            document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            document.getElementById(CONFIG.DIALOG_ID)?.remove();
+            document.getElementById(CONFIG.FETCH_REQUIRED_ID)?.remove();
+            document.getElementById(CONFIG.NOT_SUPPORTED_ID)?.remove();
+            document.getElementById('tmSplitDialogCSS')?.remove();
+            if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
+            return true;
+        }
+    };
+    registry[TOOL_ID]=instance;
+    scheduleInit();
 })();
 
 (async function(){
     "use strict";
+
+    const lifecycle=window.__YD_SPLIT_ALT_1_LIFECYCLE__;
+    if(!lifecycle||lifecycle.destroyed)return;
 
     const accounts={
         nextcare:{username:"h.salama_Nextcare",password:""},
@@ -1547,7 +1615,7 @@
 
         const originalFetch=window.fetch;
 
-        window.fetch=async function(...args){
+        const wrappedFetch=async function(...args){
             const response=await originalFetch.apply(
                 this,
                 args
@@ -1576,6 +1644,11 @@
 
             return response;
         };
+        window.fetch=wrappedFetch;
+        lifecycle.cleanups.add(()=>{
+            if(window.fetch===wrappedFetch)window.fetch=originalFetch;
+            delete window.__tmAutoSplitFetchInstalled;
+        });
     }
 
     function installXHRInterceptor(){
@@ -1589,7 +1662,7 @@
         const originalSend=
               XMLHttpRequest.prototype.send;
 
-        XMLHttpRequest.prototype.open=function(
+        const wrappedOpen=function(
         method,
          url,
          ...rest
@@ -1605,7 +1678,7 @@
             );
         };
 
-        XMLHttpRequest.prototype.send=function(body){
+        const wrappedSend=function(body){
             if(
                 this.__tmGraphQLUrl?.includes(
                     "chronicapi.yodawy.com/graphql"
@@ -1633,6 +1706,13 @@
                 body
             );
         };
+        XMLHttpRequest.prototype.open=wrappedOpen;
+        XMLHttpRequest.prototype.send=wrappedSend;
+        lifecycle.cleanups.add(()=>{
+            if(XMLHttpRequest.prototype.open===wrappedOpen)XMLHttpRequest.prototype.open=originalOpen;
+            if(XMLHttpRequest.prototype.send===wrappedSend)XMLHttpRequest.prototype.send=originalSend;
+            delete window.__tmAutoSplitXHRInstalled;
+        });
     }
 
     installFetchInterceptor();
@@ -2847,11 +2927,9 @@
         await addSplitTag();
     }
 
+    lifecycle.busy=true;
     main().catch(
-        error=>
-        alert(
-            `Split Automation Failed\n\n${error.message}`
-            )
-    );
+        error=>alert(`Split Automation Failed\n\n${error.message}`)
+    ).finally(()=>{lifecycle.busy=false;});
 
 })();
