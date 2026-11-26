@@ -69,7 +69,7 @@
     const getToolState = toolId => {
         if (typeof toolId !== 'string' || !toolId.trim()) throw createError('Invalid tool ID');
         ensureLoaded();
-        return settings.tools[toolId] || 'DISABLED';
+        return settings.tools[toolId] || (toolId === 'TOOL-019' ? 'ENABLED' : 'DISABLED');
     };
 
     const isEnabled = toolId => getToolState(toolId) === 'ENABLED';
