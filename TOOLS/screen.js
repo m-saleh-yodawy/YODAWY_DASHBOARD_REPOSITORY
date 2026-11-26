@@ -196,7 +196,7 @@ const cleanCapture=async()=>{
     const entries=Object.entries(registry).filter(([,instance])=>instance&&typeof instance==='object');
     for(const [id,instance] of entries){
         if(typeof instance.suspend!=='function'||typeof instance.resume!=='function'){
-            throw new Error('TOOL_LIFECYCLE_UNAVAILABLE: '+id);
+            throw new Error('TOOL_LIFECYCLE_UNAVAILABLE: '+id+' ('+String(instance.path||instance.id||'unknown')+')');
         }
     }
     const targets=entries.reverse();
@@ -273,7 +273,7 @@ const handleClick=()=>{
     showToast('Preparing clean screenshot...');
     runCapture().catch(error=>{
         const message=String(error?.message||'SCREENSHOT_FAILED');
-        const detail=message.startsWith('TOOL_BUSY:')?'A tool is currently running. Stop it and try again.':message.startsWith('TOOL_LIFECYCLE_UNAVAILABLE:')?'A tool cannot be safely suspended. Screenshot cancelled.':message.startsWith('RESTORE_FAILED:')?'Some tools did not resume: '+message.slice(15)+'. Refresh Odoo before continuing.':message;
+        const detail=message.startsWith('TOOL_BUSY:')?'A tool is currently running: '+message.slice(10)+'. Stop it and try again.':message.startsWith('TOOL_LIFECYCLE_UNAVAILABLE:')?'A tool cannot be safely suspended: '+message.slice(27)+'. Screenshot cancelled.':message.startsWith('RESTORE_FAILED:')?'Some tools did not resume: '+message.slice(15)+'. Refresh Odoo before continuing.':message;
         showToast(detail,'error');
     }).finally(()=>{
         state.busy=false;
