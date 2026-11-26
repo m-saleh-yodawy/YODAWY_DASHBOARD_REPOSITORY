@@ -112,6 +112,7 @@
         const { AUTH } = getDependencies();
 
         if (!AUTH.isAuthenticated()) return false;
+        if (toolId === 'TOOL-019') return true;
 
         if (isSuperAdmin()) return true;
 
@@ -133,6 +134,7 @@
     };
 
     const getVisibility = toolId => {
+        if (toolId === 'TOOL-019') return Object.freeze({ visibility: 'PUBLIC', allowedUsers: [] });
         const record = getRecord(toolId);
 
         if (!record) {
