@@ -14,7 +14,11 @@
 
 'use strict';
 
+const TOOL_ID='TOOL-008';
 const state={
+    destroyed:false,
+    suspended:false,
+    controller:new AbortController(),
     running:false,
     paused:false,
     noItems:0,
@@ -30,10 +34,12 @@ const state={
 };
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const ensureActive=()=>{if(state.destroyed)throw new DOMException('Tool stopped','AbortError');};
 
 const waitFor=async(fn,timeout=5000,interval=25)=>{
     const end=Date.now()+timeout;
     while(Date.now()<end){
+        if(state.destroyed)return null;
         if(state.paused){
             await sleep(100);
             continue;
@@ -59,6 +65,7 @@ const getConfirmContext=()=>({
 });
 
 const rpc=async(url,model,method,args,kwargs={})=>{
+    if(state.destroyed)throw new DOMException('Tool stopped','AbortError');
     const response=await fetch(url,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -67,7 +74,8 @@ const rpc=async(url,model,method,args,kwargs={})=>{
             method:'call',
             params:{model,method,args,kwargs},
             id:Date.now()+Math.random()
-        })
+        }),
+        signal:state.controller.signal
     });
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
     return response.json();
@@ -638,6 +646,7 @@ const confirmToggle=panel.querySelector('#noitems-confirm-toggle');
 const confirmText=panel.querySelector('#noitems-confirm-text');
 
 const setStatus=text=>{
+    if(state.destroyed)return;
     if(state.paused){
         state.pausedStatus=text;
         return;
@@ -686,6 +695,7 @@ const updateCounter=()=>{
 };
 
 const updateStats=()=>{
+    if(state.destroyed)return;
     totalElement.textContent=state.total;
     noItemsElement.textContent=state.noItems;
     foundElement.textContent=state.noItems;
@@ -792,12 +802,16 @@ const placeSystrayFirst=()=>{
 
 placeSystrayFirst();
 
-const systrayTimer=setInterval(()=>{
+let systrayTimer=null;
+const startSystrayTimer=()=>{
+    if(systrayTimer||state.destroyed||state.suspended)return;
+    systrayTimer=setInterval(()=>{
     if(!systrayPlaced||!document.body.contains(systray)){
         placeSystrayFirst();
         systrayPlaced=document.body.contains(systray);
     }
 },1500);
+};
 
 confirmToggle.addEventListener('change',()=>{
     if(!state.running){
@@ -1063,14 +1077,18 @@ const captureFailureEvidence=async(ticketId,error)=>{
 };
 
 const processTicket=async(ticketId,index,totalTargets)=>{
+    ensureActive();
     let lastError=null;
     for(let attempt=1;attempt<=2;attempt++){
         try{
+            ensureActive();
             await processTicketAttempt(ticketId,index,totalTargets,attempt);
+            ensureActive();
             state.screenshotProgress++;
             updateStats();
             return;
         }catch(error){
+            if(state.destroyed||error?.name==='AbortError')return;
             lastError=error;
             if(attempt===1){
                 setStatus(`RETRY #${ticketId} • 2/2`);
@@ -1078,6 +1096,7 @@ const processTicket=async(ticketId,index,totalTargets)=>{
             }
         }
     }
+    if(state.destroyed)return;
     const captured=await captureFailureEvidence(ticketId,lastError);
     addReport(ticketId,captured?'ERROR SCREENSHOT + LOG NOTE':'PROCESS FAILED AFTER RETRY');
     state.screenshotProgress++;
@@ -1092,12 +1111,15 @@ const runListAutomation=async tickets=>{
     state.noItemTickets.clear();
     updateStats();
     for(let index=0;index<tickets.length;index++){
-        while(state.paused)await sleep(100);
+        ensureActive();
+        while(state.paused&&!state.destroyed)await sleep(100);
+        ensureActive();
         await processTicket(tickets[index],index+1,tickets.length);
     }
     return state.report.filter(item=>item.action.startsWith('SCREENSHOT')).map(item=>item.ticketId);
 };
 const finish=()=>{
+    if(state.destroyed)return;
     state.running=false;
     state.paused=false;
     state.pausedStatus='';
@@ -1111,7 +1133,7 @@ const finish=()=>{
 };
 
 const run=async()=>{
-    if(state.running)return;
+    if(state.destroyed||state.running)return;
 
     state.running=true;
     state.paused=false;
@@ -1154,6 +1176,7 @@ const run=async()=>{
     setStatus(`FETCHING ${tickets.length} TICKETS`);
 
     const targets=await runListAutomation(tickets);
+    if(state.destroyed)return;
 
     setStatus(
         state.confirm
@@ -1165,6 +1188,42 @@ const run=async()=>{
     finish();
 };
 
+const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+const instance={
+    id:TOOL_ID,
+    path:'TOOLS/no-items-automation.js',
+    suspend(){
+        if(state.destroyed)return false;
+        state.suspended=true;
+        state.paused=false;
+        if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
+        panel.classList.remove('open');
+        systray.remove();
+        return true;
+    },
+    resume(){
+        if(state.destroyed)return false;
+        state.suspended=false;
+        placeSystrayFirst();
+        startSystrayTimer();
+        return true;
+    },
+    destroy(){
+        if(state.destroyed)return true;
+        state.destroyed=true;
+        state.paused=false;
+        state.running=false;
+        state.controller.abort();
+        if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
+        panel.remove();
+        systray.remove();
+        style.remove();
+        if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
+        return true;
+    }
+};
+registry[TOOL_ID]=instance;
+startSystrayTimer();
 updateConfirmUI();
 updateStats();
 
