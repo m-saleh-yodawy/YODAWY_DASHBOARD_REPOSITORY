@@ -166,10 +166,13 @@ jobs:
           const legacyFile = "portal-tool-old.js";
           const legacyPath = path.join(legacyDir, legacyFile);
           let legacySha256 = null;
+          let legacyMatches = [];
 
           if (fs.existsSync(legacyPath)) {
             const legacyContent = fs.readFileSync(legacyPath, "utf8");
             legacySha256 = crypto.createHash("sha256").update(legacyContent, "utf8").digest("hex");
+            legacyMatches = [...legacyContent.matchAll(/^\\s*\\/\\/\\s*@match\\s+(.+)$/gm)].map(match => match[1].trim());
+            if (!legacyMatches.length) throw new Error("PORTAL TOOL OLD must declare at least one @match host pattern.");
             fs.copyFileSync(legacyPath, path.join(assetsDir, legacyFile));
           }
 
@@ -194,7 +197,7 @@ jobs:
             ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, updated_at=CURRENT_TIMESTAMP;"
           );
 
-          if (legacySha256) statements.push("UPDATE tools SET sha256=" + quote(legacySha256) + ", updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote("TOOL-017") + ";");
+          if (legacySha256) statements.push("UPDATE tools SET sha256=" + quote(legacySha256) + ", match_patterns=" + quote(JSON.stringify(legacyMatches)) + ", updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote("TOOL-017") + ";");
 
           for (const tool of tools.filter(item => !item.enabled)) {
             statements.push("UPDATE tools SET enabled=0, updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote(tool.id) + ";");

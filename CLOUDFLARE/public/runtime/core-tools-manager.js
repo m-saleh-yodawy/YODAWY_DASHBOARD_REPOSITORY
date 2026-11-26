@@ -142,9 +142,13 @@
                 ? [...new Set(tool.matches.map(value => String(value || '').trim()).filter(Boolean))]
                 : [];
 
-            if (!id || !name || !matches.length || ids.has(id) || paths.has(path)) {
-                throw createError('Missing or duplicate tool ID, name, or path');
-            }
+            const issues = [];
+            if (!id) issues.push('missing ID');
+            if (!name) issues.push('missing name');
+            if (!matches.length) issues.push('missing match patterns');
+            if (ids.has(id)) issues.push('duplicate ID');
+            if (paths.has(path)) issues.push('duplicate path');
+            if (issues.length) throw createError('Invalid tool manifest entry ' + (id || name || path || 'unknown') + ': ' + issues.join(', '));
 
             ids.add(id);
             paths.add(path);
