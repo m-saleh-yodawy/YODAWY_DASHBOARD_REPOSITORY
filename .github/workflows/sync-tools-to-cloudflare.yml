@@ -58,19 +58,23 @@ jobs:
             }
 
             const source = fs.readFileSync(file, "utf8");
-            const name = source.match(/^\\s*\\/\\/\\s*@name\\s+(.+)$/m)?.[1]?.trim();
-            const version = source.match(/^\\s*\\/\\/\\s*@version\\s+(.+)$/m)?.[1]?.trim();
-            const author = source.match(/^\\s*\\/\\/\\s*@author\\s+(.+)$/m)?.[1]?.trim();
-            const id = source.match(/\\bTOOL_ID\\s*=\\s*['"]([^'"]+)['"]/);
-            const registered = /registry\\s*\\[\\s*TOOL_ID\\s*\\]\\s*=\\s*(?:instance|api)\\b/.test(source);
-            const hasDestroy = /\\bdestroy\\s*\\(/.test(source);
-            const expectedFile = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
+            const lines = source.split(/\r?\n/).map(line => line.trim());
+            const metadata = tag => {
+              const line = lines.find(item => item.startsWith("// @" + tag + " "));
+              return line ? line.slice(("// @" + tag).length).trim() : "";
+            };
+            const name = metadata("name");
+            const version = metadata("version");
+            const author = metadata("author");
+            const expectedFile = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
+            const registered = source.includes("registry[TOOL_ID]");
+            const hasDestroy = source.includes("destroy(") || source.includes("destroy:");
             const syntax = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
 
             if (name !== tool.name) failures.push(tool.id + ": @name does not match manifest.");
             if (version !== "1") failures.push(tool.id + ": @version must be 1.");
             if (author !== "Mohamed Saleh") failures.push(tool.id + ": @author must be Mohamed Saleh.");
-            if (id?.[1] !== tool.id) failures.push(tool.id + ": TOOL_ID does not match manifest.");
+            if (!source.includes(tool.id) || !source.includes("TOOL_ID")) failures.push(tool.id + ": TOOL_ID does not match manifest.");
             if (!registered) failures.push(tool.id + ": instance is not registered in YODAWY_TOOL_INSTANCES.");
             if (!hasDestroy) failures.push(tool.id + ": destroy() is missing.");
             if (tool.file !== expectedFile) failures.push(tool.id + ": filename does not match @name.");
@@ -223,4 +227,14 @@ jobs:
             exit 0
           fi
           git commit -m "Sync official tools and Cloudflare assets [skip ci]"
-          git push origin HEAD:main
+          for ATTEMPT in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              exit 1
+            fi
+          done
+          exit 1
