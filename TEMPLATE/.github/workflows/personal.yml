@@ -72,10 +72,6 @@ jobs:
           ALLOWED_SOURCES = {
               "m-saleh-yodawy/yodawy_dashboard_repository": {"dashboard", "tools", "users"},
               "yodawy_dashboard_repository": {"dashboard", "tools", "users"},
-              "m-saleh-yodawy/yodawy_tools_repository": {"tools"},
-              "yodawy_tools_repository": {"tools"},
-              "m-saleh-yodawy/yodawy_users_repository": {"users"},
-              "yodawy_users_repository": {"users"},
           }
           ALLOWED_SETTINGS = {"displayName", "startPage", "dashboardOpen", "tools"}
 
