@@ -40,6 +40,7 @@ CREATE TABLE tools (
   asset_path TEXT NOT NULL,
   sha256 TEXT NOT NULL,
   enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  match_patterns TEXT NOT NULL DEFAULT '[]',
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
