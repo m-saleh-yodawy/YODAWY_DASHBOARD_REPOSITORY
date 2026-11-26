@@ -39,7 +39,7 @@
       "name": "Metlife Card Number",
       "description": "Automate card number handling in the insurance system.",
       "enabled": true,
-      "sha256": "4370816500bf7b9d2c08cb1d20c60a88c63389fa4b6c2ae33cc9abbda49712e1",
+      "sha256": "10f398c14e0f5c32e5c837fd02163959da692d1ab71bfb64b026709e293750cc",
       "matches": [
         "https://i-care.globemedegypt.com:8034/*"
       ]
