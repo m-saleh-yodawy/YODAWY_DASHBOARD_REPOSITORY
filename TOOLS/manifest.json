@@ -135,7 +135,7 @@
       "name": "Split Alt 1",
       "description": "Split Alt 1 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "589efbbd595babb307ec4ccbf9d0f20b21b871b4cad734a14e7c4480f2a19243",
+      "sha256": "dda83450fb78bb6bbbaf4a08fee4259e412c9d697c9448cd1cab2e442e2bfef1",
       "matches": [
         "https://odoo.yodawy.com/*",
         "https://portal.yodawy.com/*"
