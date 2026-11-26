@@ -137,16 +137,24 @@
 
             const instance = registry[toolId] || null;
 
+            if (!instance || typeof instance !== 'object' || typeof instance.destroy !== 'function') {
+                try {
+                    await instance?.destroy?.();
+                } catch {}
+                if (registry[toolId] === instance) delete registry[toolId];
+                throw createError('Tool ' + toolId + ' must register an instance with destroy().');
+            }
+
             const result = Object.freeze({
                 toolId,
                 path: modulePath,
+                sha256: normalizeHash(options.sha256),
                 loadedAt: Date.now(),
-                registered: Boolean(instance),
-                destroyable: typeof instance?.destroy === 'function'
+                registered: true,
+                destroyable: true
             });
 
             loadedModules.set(modulePath, result);
-
             return result;
         })();
 
