@@ -13,14 +13,18 @@
     'use strict';
 
     const TOOL_ID = 'TOOL-004';
-    const TOOL_PATH = 'TOOLS/limited-drug-table-v2.js';
+    const TOOL_PATH = 'TOOLS/limited-drug-table-v3.js';
     const STYLE_ID = 'tm-limited-drug-accordion-style';
     const PURPLE = '#875A7B';
     const DARK = '#68465f';
     const ALT_CLASS = 'tm-alt-clickable';
     const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
 
-    if (registry[TOOL_ID]) return;
+    const previous = registry[TOOL_ID];
+    if (previous) {
+        try { previous.destroy?.(); } catch {}
+        if (registry[TOOL_ID] === previous) delete registry[TOOL_ID];
+    }
 
     const state = {
         initialized: false,
