@@ -240,15 +240,20 @@
         );
     };
 
-    const recordLifecycle = (API, action, tool) => {
-        if (typeof API?.recordActivity !== 'function') return;
+    const recordLifecycle = async (API, action, tool) => {
+        if (typeof API?.recordActivity !== 'function') return false;
         const opened = action === 'TOOL_STARTED';
-        Promise.resolve(API.recordActivity({
-            action,
-            toolId: tool.id,
-            toolName: tool.name,
-            summary: (opened ? 'Opened ' : 'Closed ') + tool.name
-        })).catch(() => {});
+        try {
+            const result = await API.recordActivity({
+                action,
+                toolId: tool.id,
+                toolName: tool.name,
+                summary: (opened ? 'Opened ' : 'Closed ') + tool.name
+            });
+            return result?.success === true;
+        } catch {
+            return false;
+        }
     };
 
     const stop = async toolId => {
@@ -273,7 +278,7 @@
             LOADER.clear(instance.path);
 
             loadedTools.delete(toolId);
-            recordLifecycle(API, 'TOOL_STOPPED', instance);
+            await recordLifecycle(API, 'TOOL_STOPPED', instance);
 
             return true;
         } catch (error) {
@@ -322,7 +327,7 @@
                 registered: result.registered,
                 destroyable: result.destroyable
             });
-            recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
+            await recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
 
             return true;
         })();
