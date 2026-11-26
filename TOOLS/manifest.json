@@ -78,7 +78,7 @@
       "name": "Open ERX",
       "description": "Open matching Portal prescriptions inside Odoo.",
       "enabled": true,
-      "sha256": "e0283b9accf302d099d1090be62db55d6891746d239082813c697bbb62b94dd1"
+      "sha256": "5324722dcf2735a8bf8c6458c37fed4646089f4d8bc06ae5415ecdf128cfb980"
     },
     {
       "id": "TOOL-016",

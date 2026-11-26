@@ -20,7 +20,7 @@
         'Administrative control Authority (ACA)','Ahly Medical','Ain Shams University','Al-Mohandes for Chemical Trade and Industry','Amiantit FiberGlass Lokma Group','Amis','Apatch Petroleum','ARDISEIS P','AUC','AXA Services Egypt','AXON','Bank Misr','Baraka Bank','Bash Hakeem','Bayer PSP','Bupa','Care Plus','Central Bank of Egypt','Cheiron - Pico petroleum','CIAF','Cinema syndicate','Cinnabon','Coca-Cola','Coca Cola Digital Hub','DES','DMS','EGY-Care','EgyMed','Egyptian Football Association','EL Doha - Direct','El Mashreq','El Mrasem 5th installment ( Mivida)','El Mrasem For Construction','ElTawon','EMC','EMC Pensioners','Eshpetco','GASCO','General Organization for Government Printing Offices','GlobeMed','HDB','Health and Wealth','Housing and Building Research Center','HyperOne','INAYA EGYPT CO.','IQVIA PSP','Journalist Syndicate','Libano-Suisse','Life Healthcare','Limitless Care','Masr El Khier','Medicard','Medicare','MediConsult','MediGold','MedMark','MedMisr','Mednet','Medright','MedRight HPM','MedRight TPA','Medsure','MetLife','Midor','MISR HEALTH CARE','Movenpick - Self Insured','MSD PSP','MY PHARMACY CASH ORDER','Nabd Misr Clinics','NASR MINING','National Authority For Printing &Publishing','Neqabty','Next Care','NextCare 2','NileSat','Omega Care','Oriental Weavers _ 10th Ramadan','Petrojet','Pfizer PSP','Prime Health','Prime Health Insurance','Reliance Healthcare','Roche PSP','Rome Catholic NGO','Sanofi','SEDICO','Seha One','Sheraton','Smart Medical Services','SUEZ CANAL LIFE INSURANCE','Tri-Star','Unicare','Unimed','Veterinaries Syndicate','Wadi El Neel','Yodawy Direct Orders'
     ];
 
-    const state = { destroyed: false, observer: null, handlers: new Map(), modal: null, accounts: [], ticket: null, busy: false };
+    const state = { destroyed: false, suspended: false, observer: null, handlers: new Map(), modal: null, accounts: [], ticket: null, busy: false };
 
     const normalize = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
     const normalizeKey = value => normalize(value).replace(/\s*\(\d+\)\s*$/, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -198,6 +198,7 @@
         }
     };
     const openModal = async data => {
+        if(state.destroyed||state.suspended)return;
         closeModal();
         state.ticket = data;
         const overlay = document.createElement('div');
@@ -227,7 +228,7 @@
         await loadAccounts();
     };
     const setup = () => {
-        if (state.destroyed || !document.body) return;
+        if (state.destroyed || state.suspended || !document.body) return;
         for (const [element, item] of state.handlers) {
             if (!element.isConnected) {
                 element.removeEventListener('click', item.handler);
@@ -250,27 +251,60 @@
                 }
                 openModal(data);
             };
+            const originalTitle=card.getAttribute('title');
+            const originalCursor=card.style.cursor;
             card.title = 'Open ERX';
             card.style.cursor = 'pointer';
             card.addEventListener('click', handler);
-            state.handlers.set(card, { handler });
+            state.handlers.set(card, { handler, originalTitle, originalCursor });
         }
     };
-    const cleanup = () => {
-        state.destroyed = true;
+    const release = () => {
         state.observer?.disconnect();
-        for (const [element, item] of state.handlers) element.removeEventListener('click', item.handler);
+        state.observer = null;
+        for (const [element, item] of state.handlers) {
+            element.removeEventListener('click', item.handler);
+            if(item.originalTitle===null)element.removeAttribute('title');
+            else element.setAttribute('title',item.originalTitle);
+            element.style.cursor=item.originalCursor;
+        }
         state.handlers.clear();
         if (state.modal) {
             state.modal._ydRemoveKeydown?.();
             state.modal.remove();
             state.modal = null;
         }
+        return true;
+    };
+    const cleanup = () => {
+        if(state.destroyed)return true;
+        if(state.busy)return false;
+        state.destroyed = true;
+        release();
         document.getElementById('yd-open-erx-style')?.remove();
         if (registry[TOOL_ID] === instance) delete registry[TOOL_ID];
         return true;
     };
-    const instance = Object.freeze({ id: TOOL_ID, path: 'TOOLS/open-erx.js', destroy: async () => cleanup() });
+    const instance = Object.freeze({
+        id: TOOL_ID,
+        path: 'TOOLS/open-erx.js',
+        suspend: () => {
+            if(state.destroyed||state.busy)return false;
+            state.suspended=true;
+            release();
+            document.getElementById('yd-open-erx-style')?.remove();
+            return true;
+        },
+        resume: () => {
+            if(state.destroyed)return false;
+            state.suspended=false;
+            state.observer=new MutationObserver(setup);
+            state.observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+            setup();
+            return true;
+        },
+        destroy: async () => cleanup()
+    });
     registry[TOOL_ID] = instance;
     state.observer = new MutationObserver(setup);
     state.observer.observe(document.body, { childList: true, subtree: true, characterData: true });
