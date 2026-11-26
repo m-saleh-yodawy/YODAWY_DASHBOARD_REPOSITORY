@@ -83,11 +83,16 @@ jobs:
             if (syntax.status !== 0) failures.push(tool.id + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());
           }
 
+          for (const file of ["CORE/tools-manager.js", "CORE/module-loader.js"]) {
+            const syntax = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
+            if (syntax.status !== 0) failures.push(file + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());
+          }
+
           if (failures.length) {
             for (const failure of failures) console.error("::error::" + failure);
             process.exit(1);
           }
-          console.log("Validated " + active.length + " active tools: syntax, identity, version, author, registry, and destroy().");
+          console.log("Validated " + active.length + " active tools and core lifecycle modules: syntax, identity, host match, version, author, registry, and destroy().");
           NODE
       - name: Build tool manifest, Cloudflare assets, and D1 registry
         run: |
