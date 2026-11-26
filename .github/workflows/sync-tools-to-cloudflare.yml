@@ -120,7 +120,7 @@ jobs:
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
           const tools = Array.isArray(manifest.tools) ? manifest.tools : [];
           const byFile = new Map(tools.map(tool => [tool.file, tool]));
-          const files = fs.readdirSync(sourceDir).filter(file => file.endsWith(".js") && !/^(test-|.*\.(test|spec))/i.test(file) && !/^BACKUP-SPLIT-/i.test(file)).sort();
+          const files = fs.readdirSync(sourceDir).filter(file => file.endsWith(".js") && !/^(test-|.*\.(test|spec))/i.test(file)).sort();
 
           if (!files.length) throw new Error("No official JavaScript tools were found in TOOLS.");
 
