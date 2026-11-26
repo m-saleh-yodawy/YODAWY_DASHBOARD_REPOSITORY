@@ -1,18 +1,13 @@
 name: Deploy Cloudflare Worker
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "CLOUDFLARE/**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-worker-production
+  group: yodawy-cloudflare-production
   cancel-in-progress: false
 
 jobs:
