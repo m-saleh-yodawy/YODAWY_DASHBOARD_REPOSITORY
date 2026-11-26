@@ -66,6 +66,7 @@ jobs:
             const name = metadata("name");
             const version = metadata("version");
             const author = metadata("author");
+            const matches = lines.filter(line => line.startsWith("// @match ")).map(line => line.slice(10).trim());
             const expectedFile = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
             const registered = source.includes("registry[TOOL_ID]");
             const hasDestroy = source.includes("destroy(") || source.includes("destroy:");
@@ -74,6 +75,7 @@ jobs:
             if (name !== tool.name) failures.push(tool.id + ": @name does not match manifest.");
             if (version !== "1") failures.push(tool.id + ": @version must be 1.");
             if (author !== "Mohamed Saleh") failures.push(tool.id + ": @author must be Mohamed Saleh.");
+            if (!matches.length || JSON.stringify(matches) !== JSON.stringify(tool.matches || [])) failures.push(tool.id + ": manifest match patterns do not match @match metadata.");
             if (!source.includes(tool.id) || !source.includes("TOOL_ID")) failures.push(tool.id + ": TOOL_ID does not match manifest.");
             if (!registered) failures.push(tool.id + ": instance is not registered in YODAWY_TOOL_INSTANCES.");
             if (!hasDestroy) failures.push(tool.id + ": destroy() is missing.");
