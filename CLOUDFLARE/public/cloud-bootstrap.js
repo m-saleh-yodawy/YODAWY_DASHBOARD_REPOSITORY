@@ -3,7 +3,7 @@ return (async function (PAGE, STORE) {
     try { PAGE.YODAWY_INPUT_TYPOGRAPHY?.destroy?.(); } catch {}
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261124-global-tool-box-sizing-v1';
+    const ASSET_VERSION = '20261126-destroy-lifecycle-v3';
     const installToolBoxSizing = () => {
         const id = 'yd-tools-box-sizing';
         if (PAGE.document.getElementById(id)) return;
