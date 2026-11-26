@@ -344,6 +344,7 @@ function createUI(){
 
     let searching=false;
     let lookupTimer=null;
+    let blurTimer=null;
     let observer=null;
     let lookupId=0;
     let products=[];
@@ -533,7 +534,10 @@ function createUI(){
         }
     });
 
-    input.addEventListener('blur',()=>setTimeout(closeDropdown,250));
+    input.addEventListener('blur',()=>{
+        clearTimeout(blurTimer);
+        blurTimer=setTimeout(closeDropdown,250);
+    });
 
     dropdown.addEventListener('mousedown',e=>{
         const item=e.target.closest('.ms-stock-product');
@@ -601,7 +605,9 @@ function createUI(){
 
     uiCleanup=()=>{
         clearTimeout(lookupTimer);
+        clearTimeout(blurTimer);
         lookupTimer=null;
+        blurTimer=null;
         lookupId++;
         observer?.disconnect();
         observer=null;
