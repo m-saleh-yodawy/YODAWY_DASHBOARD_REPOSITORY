@@ -1151,8 +1151,9 @@
                 .filter(checkbox => checkbox.checked)
                 .map(checkbox => drugs[Number(checkbox.dataset.index)]);
 
-            if (!selected.length) return;
+            if (!selected.length || lifecycle.busy) return;
 
+            lifecycle.busy = true;
             let popup = null;
 
             try {
@@ -1183,6 +1184,8 @@
 
                 splitButton.disabled = false;
                 splitButton.textContent = 'SPLIT';
+            } finally {
+                lifecycle.busy = false;
             }
         });
 
