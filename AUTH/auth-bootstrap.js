@@ -322,7 +322,7 @@
             personalRepository,
             owner: OWNER,
             dashboardRepository: REPO,
-            usersRepository: 'YODAWY_USERS_REPOSITORY',
+            usersRepository: REPO,
             branch: BRANCH,
             apiBase: API_BASE,
             authConfig,
