@@ -128,30 +128,6 @@
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
-    },
-    {
-      "id": "TOOL-019",
-      "file": "split-alt-1.js",
-      "name": "Split Alt 1",
-      "description": "Split Alt 1 legacy Portal Split workflow.",
-      "enabled": true,
-      "sha256": "e1df08dd6ce18b77a283410e8c03206f3876d10a54681176cf0ddb789bc606fc",
-      "matches": [
-        "https://odoo.yodawy.com/*",
-        "https://portal.yodawy.com/*"
-      ]
-    },
-    {
-      "id": "TOOL-020",
-      "file": "split-alt-2.js",
-      "name": "Split Alt 2",
-      "description": "Split Alt 2 legacy Portal Split workflow.",
-      "enabled": true,
-      "sha256": "4046f312ac456f1284d9ef124223ef26bf73feeab349ac5973c85906de4acf34",
-      "matches": [
-        "https://odoo.yodawy.com/*",
-        "https://portal.yodawy.com/*"
-      ]
     }
   ]
 }
