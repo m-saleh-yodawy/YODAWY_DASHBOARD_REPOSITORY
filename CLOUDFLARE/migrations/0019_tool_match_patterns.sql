@@ -1,0 +1,1 @@
+ALTER TABLE tools ADD COLUMN match_patterns TEXT NOT NULL DEFAULT '[]';
