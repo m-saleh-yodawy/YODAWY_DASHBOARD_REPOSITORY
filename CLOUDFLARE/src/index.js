@@ -1124,9 +1124,14 @@ export default {
         let filename = "";
         try { filename = decodeURIComponent(url.pathname.slice("/api/tools/assets/".length)); } catch {}
         if (!/^[a-z0-9-]+\.js$/i.test(filename)) return respond(request, env, { success: false, error: "INVALID_TOOL_ASSET" }, 400);
-        const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
-        assetUrl.search = url.search;
-        const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: request.method, cache: "no-store" }));
+        const version = String(url.searchParams.get("v") || "").toLowerCase();
+        const versionedFilename = /^[a-f0-9]{64}$/.test(version) ? filename.replace(/\.js$/i, "-" + version + ".js") : filename;
+        const fetchAsset = name => {
+          const assetUrl = new URL("/tools/" + encodeURIComponent(name), request.url);
+          return env.ASSETS.fetch(new Request(assetUrl, { method: request.method, cache: "no-store" }));
+        };
+        let asset = await fetchAsset(versionedFilename);
+        if (!asset.ok && versionedFilename !== filename) asset = await fetchAsset(filename);
         const headers = new Headers(asset.headers);
         headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
         headers.set("cdn-cache-control", "no-store");
