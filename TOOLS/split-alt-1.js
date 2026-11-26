@@ -3,7 +3,6 @@
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @description  Split Alt 1 legacy Portal Split workflow.
-// @version      1
 // @author       Mohamed Saleh
 // @match        https://odoo.yodawy.com/*
 // @match        https://portal.yodawy.com/*
@@ -1414,7 +1413,7 @@
     }
 
     function init() {
-        if (!isHelpdeskTicket()) return;
+        if (lifecycle.destroyed || lifecycle.busy || !isHelpdeskTicket()) return;
         createSplitButton();
     }
 
