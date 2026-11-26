@@ -75,13 +75,21 @@ const readSiteAccessConfig = async (request, env) => {
   if (stored?.payload_json) {
     try {
       const value = JSON.parse(stored.payload_json);
-      if (typeof value.enabled === "boolean" && Array.isArray(value.sites)) return { version: 1, enabled: value.enabled, sites: value.sites };
+      if (typeof value.enabled === "boolean" && Array.isArray(value.sites)) return {
+        version: 1,
+        enabled: value.enabled,
+        sites: value.sites.map(site => ({ ...site, enabled: site.enabled === true || site.enabled === 1 }))
+      };
     } catch {}
   }
   try {
     const asset = await env.ASSETS.fetch(new Request(new URL("/site-access.json", request.url), { method: "GET", cache: "no-store" }));
     const value = await asset.json();
-    return { version: 1, enabled: value?.enabled === true, sites: Array.isArray(value?.sites) ? value.sites : [] };
+    return {
+      version: 1,
+      enabled: value?.enabled === true,
+      sites: Array.isArray(value?.sites) ? value.sites.map(site => ({ ...site, enabled: site.enabled === true || site.enabled === 1 })) : []
+    };
   } catch { return { version: 1, enabled: false, sites: [] }; }
 };
 const issueSession = async (env, user, request) => {
