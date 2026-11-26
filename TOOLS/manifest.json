@@ -13,7 +13,7 @@
     },
     {
       "id": "TOOL-004",
-      "file": "limited-drug-table.js",
+      "file": "limited-drug-table-v2.js",
       "name": "Limited Drug Table",
       "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
       "enabled": true,

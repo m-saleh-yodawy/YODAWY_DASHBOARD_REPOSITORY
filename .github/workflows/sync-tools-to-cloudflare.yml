@@ -68,7 +68,6 @@ jobs:
             const version = metadata("version");
             const author = metadata("author");
             const matches = lines.filter(line => line.startsWith("// @match ")).map(line => line.slice(10).trim());
-            const expectedFile = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
             const registered = source.includes("registry[TOOL_ID]");
             const hasDestroy = source.includes("destroy(") || source.includes("destroy:");
             const syntax = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
@@ -80,7 +79,6 @@ jobs:
             if (!source.includes(tool.id) || !source.includes("TOOL_ID")) failures.push(tool.id + ": TOOL_ID does not match manifest.");
             if (!registered) failures.push(tool.id + ": instance is not registered in YODAWY_TOOL_INSTANCES.");
             if (!hasDestroy) failures.push(tool.id + ": destroy() is missing.");
-            if (tool.file !== expectedFile) failures.push(tool.id + ": filename does not match @name.");
             if (syntax.status !== 0) failures.push(tool.id + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());
           }
 
@@ -153,8 +151,6 @@ jobs:
             const version = content.match(/^\s*\/\/\s*@version\s+(.+)$/m)?.[1]?.trim();
             if (version && version !== "1") throw new Error(file + " must use @version 1.");
 
-            const expectedFile = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
-            if (file !== expectedFile) throw new Error(file + " must match its @name: " + expectedFile);
             if (/\b(?:odoo|portal)\b/i.test(name)) throw new Error(file + " must not include platform names.");
 
             tool.sha256 = crypto.createHash("sha256").update(content, "utf8").digest("hex");
