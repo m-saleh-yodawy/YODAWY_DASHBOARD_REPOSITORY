@@ -13,7 +13,7 @@
     'use strict';
 
     const TOOL_ID = 'TOOL-004';
-    const TOOL_PATH = 'TOOLS/limited-drug-table.js';
+    const TOOL_PATH = 'TOOLS/limited-drug-table-v2.js';
     const STYLE_ID = 'tm-limited-drug-accordion-style';
     const PURPLE = '#875A7B';
     const DARK = '#68465f';
