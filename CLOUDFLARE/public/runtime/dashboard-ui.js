@@ -3945,7 +3945,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 limit: String(USER_LOGS_PAGE_SIZE),
                 offset: String((userLogsPage - 1) * USER_LOGS_PAGE_SIZE)
             }).toString();
-            const result = await context.request('/api/dashboard/logs?' + query);
+            const result = await context.api.request('/api/dashboard/logs?' + query);
             if (requestId !== userLogsRequestId || targetUserId !== selectedLogUserId) return;
             if (result?.success !== true || !Array.isArray(result.logs)) throw new Error(result?.error || 'Unable to load user activity logs.');
             userLogEntries = result.logs;
@@ -4038,7 +4038,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         siteAccessError = '';
         render();
         try {
-            const result = await context.request('/api/dashboard/site-access');
+            const result = await context.api.request('/api/dashboard/site-access');
             if (result?.success !== true || !result.config || !Array.isArray(result.config.sites)) throw new Error('Invalid site access response.');
             siteAccessEnabled = result.config.enabled === true;
             siteAccessSites = result.config.sites;
@@ -4786,7 +4786,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
                 siteAccessSaving = true;
                 setButtonLoading(button, 'Saving');
                 try {
-                    const result = await context.request('/api/dashboard/site-access', { method: 'PUT', body: { enabled, sites } });
+                    const result = await context.api.request('/api/dashboard/site-access', { method: 'PUT', body: { enabled, sites } });
                     if (result?.success !== true || !result.config) throw new Error('Website settings were not saved.');
                     siteAccessEnabled = result.config.enabled === true;
                     siteAccessSites = result.config.sites || [];
