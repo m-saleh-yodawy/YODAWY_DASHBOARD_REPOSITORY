@@ -47,9 +47,6 @@ jobs:
           mkdir -p "$WORK_DIR"
 
           EXCLUDED_REPOSITORIES=(
-            "YODAWY_TEMPLATE_REPOSITORY"
-            "YODAWY_USERS_REPOSITORY"
-            "YODAWY_TOOLS_REPOSITORY"
             "YODAWY_DASHBOARD_REPOSITORY"
           )
 
