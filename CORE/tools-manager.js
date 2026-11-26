@@ -148,6 +148,7 @@
     };
 
     const canLoad = (tool, dependencies) => {
+        if (tool.enabled === false) return false;
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
 
