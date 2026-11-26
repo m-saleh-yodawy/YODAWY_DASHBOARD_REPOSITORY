@@ -89,7 +89,12 @@ jobs:
             if (syntax.status !== 0) failures.push(tool.id + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());
           }
 
-          for (const file of ["CORE/tools-manager.js", "CORE/module-loader.js"]) {
+          for (const file of [
+            "CORE/tools-manager.js",
+            "CORE/module-loader.js",
+            "CLOUDFLARE/public/runtime/core-tools-manager.js",
+            "CLOUDFLARE/public/runtime/core-module-loader.js"
+          ]) {
             const syntax = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
             if (syntax.status !== 0) failures.push(file + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());
           }
