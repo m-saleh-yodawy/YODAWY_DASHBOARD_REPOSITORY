@@ -1125,6 +1125,7 @@ export default {
         try { filename = decodeURIComponent(url.pathname.slice("/api/tools/assets/".length)); } catch {}
         if (!/^[a-z0-9-]+\.js$/i.test(filename)) return respond(request, env, { success: false, error: "INVALID_TOOL_ASSET" }, 400);
         const assetUrl = new URL("/tools/" + encodeURIComponent(filename), request.url);
+        assetUrl.search = url.search;
         const asset = await env.ASSETS.fetch(new Request(assetUrl, { method: request.method, cache: "no-store" }));
         const headers = new Headers(asset.headers);
         headers.set("cache-control", "no-store, no-cache, must-revalidate, max-age=0");
