@@ -244,13 +244,7 @@
         const registry = getRegistry();
         const registered = registry?.[toolId];
 
-        const shutdown = typeof registered?.suspend === 'function'
-            ? registered.suspend
-            : typeof registered?.destroy === 'function'
-                ? registered.destroy
-                : null;
-
-        if (!shutdown) {
+        if (typeof registered?.destroy !== 'function') {
             instance.destroyable = false;
             return false;
         }
@@ -258,7 +252,7 @@
         const { LOADER } = getDependencies();
 
         try {
-            const stopped = await shutdown.call(registered);
+            const stopped = await registered.destroy();
             if (stopped === false) return false;
             if (registry?.[toolId] === registered) delete registry[toolId];
             LOADER.clear(instance.path);
@@ -293,6 +287,15 @@
                 toolId: tool.id,
                 sha256: tool.sha256
             });
+
+            if (!result.registered || !result.destroyable) {
+                const registry = getRegistry();
+                const registered = registry?.[tool.id];
+                try { await registered?.destroy?.(); } catch {}
+                if (registry?.[tool.id] === registered) delete registry[tool.id];
+                dependencies.LOADER.clear(tool.path, { destroy: true });
+                throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+            }
 
             loadedTools.set(tool.id, {
                 id: tool.id,
