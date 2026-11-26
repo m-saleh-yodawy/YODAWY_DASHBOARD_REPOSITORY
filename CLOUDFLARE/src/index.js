@@ -742,7 +742,7 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/tools/manifest" && request.method === "GET") {
     if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
     try {
-      const result = await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
+      const result = await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
       const resolved = await Promise.all((result.results || []).map(async tool => {
         try {
           const filename = String(tool.path || "").split("/").pop();
@@ -753,7 +753,12 @@ const dashboardRoutes = async (request, env, path) => {
           if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) return { unavailable: { id: tool.id, name: tool.name, path: tool.path, reason: "TOOL_ASSET_UNAVAILABLE" } };
           const source = await asset.arrayBuffer();
           const sha256 = hex(await crypto.subtle.digest("SHA-256", source));
-          return { tool: { ...tool, sha256 } };
+          let matches = [];
+          try {
+            const parsed = JSON.parse(tool.match_patterns || "[]");
+            if (Array.isArray(parsed)) matches = parsed.filter(value => typeof value === "string" && value.trim());
+          } catch {}
+          return { tool: { ...tool, matches, sha256 } };
         } catch {
           return { unavailable: { id: tool.id, name: tool.name, path: tool.path, reason: "TOOL_ASSET_CHECK_FAILED" } };
         }
@@ -768,7 +773,7 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
       isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
-      env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
+      env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
       isAdmin ? env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all() : env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE v.user_id = ? AND u.role = 'USER'").bind(actor.user_id).all(),
@@ -788,7 +793,16 @@ const dashboardRoutes = async (request, env, path) => {
     const visibilityMap = {};
     for (const item of visibility.results || []) visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
     for (const item of visibleUsers.results || []) (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
-    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role, repository: actor.personal_repository || "" }, users: isAdmin ? users.results : [], tools: tools.results, permissions: permissionMap, visibility: visibilityMap, userSettings: isSuper ? userSettingsMap : {}, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
+    const toolList = (tools.results || []).map(item => {
+      let matches = [];
+      try {
+        const parsed = JSON.parse(item.match_patterns || "[]");
+        if (Array.isArray(parsed)) matches = parsed.filter(value => typeof value === "string" && value.trim());
+      } catch {}
+      const { match_patterns, ...tool } = item;
+      return { ...tool, matches };
+    });
+    return respond(request, env, { success: true, user: { id: actor.user_id, name: actor.name, role, repository: actor.personal_repository || "" }, users: isAdmin ? users.results : [], tools: toolList, permissions: permissionMap, visibility: visibilityMap, userSettings: isSuper ? userSettingsMap : {}, settings: settings ? JSON.parse(settings.settings_json) : { userId: actor.user_id, tools: {}, startPage: "tools" }, announcements: announcements.results || [], transactions: (transactions.results || []).map(item => ({ ...item, payload: JSON.parse(item.payload_json || "{}"), result: JSON.parse(item.result_json || "{}") })), auditLogs: (activity.results || []).map(item => ({ ...item, details: JSON.parse(item.details_json || "{}") })) });
   }
   if (path === "/api/dashboard/activity" && request.method === "POST") {
     const action = String(body.action || "").trim().toUpperCase();
