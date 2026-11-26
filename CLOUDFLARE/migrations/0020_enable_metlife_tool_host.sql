@@ -7,7 +7,7 @@ SET payload_json = json_set(
     '$[#]',
     json_object(
       'host', 'i-care.globemedegypt.com',
-      'enabled', true,
+      'enabled', json('true'),
       'protocols', json('["https:"]'),
       'paths', json('["/*"]')
     )
