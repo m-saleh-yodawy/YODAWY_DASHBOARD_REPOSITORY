@@ -138,8 +138,11 @@
             const name = String(tool.name || '').trim();
             const path = normalizePath(tool.path || tool.file);
             const sha256 = normalizeHash(tool.sha256);
+            const matches = Array.isArray(tool.matches)
+                ? [...new Set(tool.matches.map(value => String(value || '').trim()).filter(Boolean))]
+                : [];
 
-            if (!id || !name || ids.has(id) || paths.has(path)) {
+            if (!id || !name || !matches.length || ids.has(id) || paths.has(path)) {
                 throw createError('Missing or duplicate tool ID, name, or path');
             }
 
@@ -151,7 +154,8 @@
                 id,
                 name,
                 path,
-                sha256
+                sha256,
+                matches: Object.freeze(matches)
             });
         });
     };
@@ -194,8 +198,234 @@
             : null;
     };
 
+    const matchesPage = tool => {
+        const href = String(page.location?.href || '');
+        if (!href || !Array.isArray(tool.matches)) return false;
+        const escapePattern = value => [...value].map(character =>
+            '\\^$+.()|{}[]'.includes(character) ? '\\' + character : character
+        ).join('');
+        return tool.matches.some(pattern => {
+            const value = String(pattern || '').trim();
+            if (!value) return false;
+            const escaped = value.split('*').map(escapePattern).join('.*');
+            try {
+                return new RegExp('^' + escaped + '
+        const userId = AUTH.getUserId();
+
+        if (tool.enabled === false) return false;
+        if (!AUTH.isAuthenticated() || !userId) return false;
+        if (!SETTINGS.isLoaded() || !VISIBILITY.isLoaded()) return false;
+        if (!PERMISSIONS.isLoaded()) return false;
+
+        const permitted = AUTH.getRole() === 'SUPER_ADMIN'
+            ? true
+            : PERMISSIONS.canUse(userId, tool.id);
+
+        return (
+            permitted &&
+            SETTINGS.isEnabled(tool.id) &&
+            VISIBILITY.isVisible(tool.id, tool) === true
+        );
+    };
+
+    const stop = async toolId => {
+        const instance = loadedTools.get(toolId);
+
+        if (!instance) return false;
+
+        const registry = getRegistry();
+        const registered = registry?.[toolId];
+
+        if (typeof registered?.destroy !== 'function') {
+            instance.destroyable = false;
+            return false;
+        }
+
+        const { LOADER } = getDependencies();
+
+        try {
+            const stopped = await registered.destroy();
+            if (stopped === false) return false;
+            if (registry?.[toolId] === registered) delete registry[toolId];
+            LOADER.clear(instance.path);
+
+            loadedTools.delete(toolId);
+
+            return true;
+        } catch (error) {
+            throw createError(`Failed to stop tool ${toolId}: ${error.message}`);
+        }
+    };
+
+    const start = async tool => {
+        const dependencies = getDependencies();
+        if (!canLoad(tool, dependencies)) {
+            return loadedTools.has(tool.id) ? stop(tool.id) : false;
+        }
+        const existing = loadedTools.get(tool.id);
+        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) return true;
+        if (existing && !await stop(tool.id)) throw createError('Tool ' + tool.id + ' cannot be safely replaced because it has no destroy method');
+
+        if (pendingTools.has(tool.id)) {
+            return pendingTools.get(tool.id);
+        }
+
+        const task = (async () => {
+            const dependencies = getDependencies();
+
+            if (!canLoad(tool, dependencies)) return false;
+
+            const result = await dependencies.LOADER.load(tool.path, {
+                toolId: tool.id,
+                sha256: tool.sha256
+            });
+
+            if (!result.registered || !result.destroyable) {
+                const registered = getRegistry()?.[tool.id];
+                try { await registered?.destroy?.(); } catch {}
+                if (getRegistry()?.[tool.id] === registered) delete getRegistry()[tool.id];
+                dependencies.LOADER.clear(tool.path, { destroy: true });
+                throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+            }
+
+            loadedTools.set(tool.id, {
+                id: tool.id,
+                name: tool.name,
+                path: tool.path,
+                sha256: tool.sha256,
+                loadedAt: result.loadedAt,
+                registered: result.registered,
+                destroyable: result.destroyable
+            });
+
+            return true;
+        })();
+
+        pendingTools.set(tool.id, task);
+
+        try {
+            return await task;
+        } finally {
+            pendingTools.delete(tool.id);
+        }
+    };
+
+    const syncTool = async toolId => {
+        const tool = getTool(toolId);
+        const dependencies = getDependencies();
+
+        if (canLoad(tool, dependencies)) {
+            return start(tool);
+        }
+
+        return stop(toolId);
+    };
+
+    let syncFailures = [];
+
+    const sync = async () => {
+        ensureInitialized();
+
+        if (syncing) {
+            throw createError('Tools synchronization is already running');
+        }
+
+        syncing = true;
+        syncFailures = [];
+
+        try {
+            const dependencies = getDependencies();
+            const activeIds = new Set([...manifest.map(tool => tool.id), ...unavailableTools.map(tool => tool.id)]);
+            for (const id of [...loadedTools.keys()]) {
+                if (!activeIds.has(id)) {
+                    try {
+                        if (!await stop(id)) throw createError('Tool ' + id + ' cannot be safely removed');
+                    } catch (error) {
+                        syncFailures.push({ id, name: id, message: error?.message || 'Tool removal failed' });
+                    }
+                }
+            }
+
+            for (const tool of manifest) {
+                try {
+                    if (canLoad(tool, dependencies)) await start(tool);
+                    else await stop(tool.id);
+                } catch (error) {
+                    syncFailures.push({ id: tool.id, name: tool.name, message: error?.message || 'Tool synchronization failed' });
+                }
+            }
+
+            return getLoadedTools();
+        } finally {
+            syncing = false;
+            if (routeSyncPending) {
+                routeSyncPending = false;
+                scheduleRouteSync();
+            }
+        }
+    };
+
+    const stopAll = async () => {
+        const ids = [...loadedTools.keys()];
+        const results = await Promise.allSettled(ids.map(stop));
+
+        return results.every(result =>
+            result.status === 'fulfilled' && result.value === true
+        );
+    };
+
+    const getManifest = () => {
+        ensureInitialized();
+        return manifest.map(tool => ({ ...tool }));
+    };
+
+    const getLoadedTools = () =>
+        [...loadedTools.values()].map(tool => ({ ...tool }));
+
+    const isLoaded = toolId =>
+        loadedTools.has(toolId);
+
+    const getStatus = toolId => {
+        const tool = getTool(toolId);
+        const loaded = loadedTools.get(toolId);
+
+        return Object.freeze({
+            id: tool.id,
+            name: tool.name,
+            loaded: Boolean(loaded),
+            registered: loaded?.registered || false,
+            destroyable: loaded?.destroyable || false,
+            path: tool.path
+        });
+    };
+
+    global.YODAWY_TOOLS_MANAGER = Object.freeze({
+        version: 3,
+        loadManifest,
+        sync,
+        syncTool,
+        start: async toolId => start(getTool(toolId)),
+        stop,
+        stopAll,
+        getManifest,
+        getLoadedTools,
+        getSyncFailures: () => syncFailures.map(item => ({ ...item })),
+        getUnavailableTools: () => unavailableTools.map(item => ({ ...item })),
+        getStatus,
+        isLoaded,
+        isInitialized: () => initialized
+    });
+
+})(window);
+, 'i').test(href);
+            } catch {
+                return false;
+            }
+        });
+    };
+
     const canLoad = (tool, dependencies) => {
-        if (isOdooHome()) return false;
+        if (isOdooHome() || !matchesPage(tool)) return false;
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
 
