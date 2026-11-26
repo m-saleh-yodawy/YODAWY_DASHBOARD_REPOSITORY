@@ -94,7 +94,7 @@
       "name": "Stock Checker",
       "description": "Search product stock across Abu Rawash and Engy warehouses.",
       "enabled": true,
-      "sha256": "d9d0eee89f6017ff5056701595288b2db34c519b0fc7840c5d1c6ab0a6bbaa8c",
+      "sha256": "ec579544dd72dde91416d8259ffc1dc6f651b022e0b4608bc4b90dcf88ab2058",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
