@@ -10,9 +10,15 @@
 (async function(){
 'use strict';
 
+const TOOL_ID='TOOL-014';
+const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+if(registry[TOOL_ID])return;
 const LOCATIONS={Gold:'GW/Stock',Silver:'SIW/Stock',Platinum:'AR-PP/Stock'};
 const ID='ms-stock-hzb-checker';
 let locationsCache=null;
+let destroyed=false;
+let requestController=new AbortController();
+let uiCleanup=null;
 
 async function rpc(model,method,kwargs){
     const r=await fetch(`/web/dataset/call_kw/${model}/${method}`,{
@@ -24,7 +30,8 @@ async function rpc(model,method,kwargs){
             method:'call',
             params:{model,method,args:[],kwargs},
             id:Date.now()+Math.random()
-        })
+        }),
+        signal:requestController.signal
     });
     const d=await r.json();
     if(d.error)throw Error(d.error.data?.message||d.error.message||'RPC Error');
@@ -232,7 +239,8 @@ function priceHTML(product){
 }
 
 function createUI(){
-    if(document.getElementById(ID))return;
+    if(destroyed||uiCleanup)return;
+    if(requestController.signal.aborted)requestController=new AbortController();
 
     const host=document.createElement('div');
     host.id=ID;
@@ -336,6 +344,7 @@ function createUI(){
 
     let searching=false;
     let lookupTimer=null;
+    let observer=null;
     let lookupId=0;
     let products=[];
     let selectedProduct=null;
@@ -417,6 +426,7 @@ function createUI(){
 
         try{
             const data=await stocksForProduct(selectedProduct.id);
+            if(destroyed)return;
             const rows=[['Platinum',data.Platinum],['Gold',data.Gold],['Silver',data.Silver]];
 
             result.innerHTML=`
@@ -468,10 +478,10 @@ function createUI(){
 
         try{
             const list=await searchStockProducts(value);
-            if(id!==lookupId)return;
+            if(destroyed||id!==lookupId)return;
             renderProducts(list);
         }catch{
-            if(id!==lookupId)return;
+            if(destroyed||id!==lookupId)return;
             dropdown.innerHTML='<div class="ms-stock-dropdown-status">Search error</div>';
             dropdown.classList.add('open');
             input.setAttribute('aria-expanded','true');
@@ -580,17 +590,51 @@ function createUI(){
     };
 
     if(!insertSystray()){
-        const observer=new MutationObserver(()=>{
-            if(insertSystray())observer.disconnect();
+        observer=new MutationObserver(()=>{
+            if(insertSystray()){
+                observer.disconnect();
+                observer=null;
+            }
         });
         observer.observe(document.body,{childList:true,subtree:true});
     }
-    const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
-    registry['STOCK-HZB-CHECKER']={
-        suspend(){clearTimeout(lookupTimer);lookupId++;panel.remove();systrayItem.remove();return true;},
-        resume(){if(!document.getElementById(ID))createUI();return true;}
+
+    uiCleanup=()=>{
+        clearTimeout(lookupTimer);
+        lookupTimer=null;
+        lookupId++;
+        observer?.disconnect();
+        observer=null;
+        requestController.abort();
+        panel.classList.remove('open');
+        host.remove();
+        systrayItem.remove();
+        uiCleanup=null;
+        return true;
     };
 }
 
+const instance={
+    id:TOOL_ID,
+    path:'TOOLS/stock-checker.js',
+    suspend(){
+        if(uiCleanup)uiCleanup();
+        return true;
+    },
+    resume(){
+        if(destroyed)return false;
+        createUI();
+        return true;
+    },
+    destroy(){
+        if(destroyed)return true;
+        destroyed=true;
+        if(uiCleanup)uiCleanup();
+        requestController.abort();
+        if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
+        return true;
+    }
+};
+registry[TOOL_ID]=instance;
 createUI();
 })();
