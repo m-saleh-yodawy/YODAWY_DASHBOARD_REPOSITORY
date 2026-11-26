@@ -5,7 +5,7 @@ Single source repository for the YODAWY Dashboard, Cloudflare Worker, D1 migrati
 ## Repository layout
 
 - `CLOUDFLARE/`: Worker source, D1 migrations, static runtime, and deployed tool assets.
-- `TOOLS/`: canonical source for active tools, backups, and the tool manifest.
+- `TOOLS/`: canonical source for active tools and the tool manifest.
 - `LEGACY/`: retained legacy tools that are still referenced by the runtime.
 - `TEMPLATE/`: baseline files and workflow distributed to personal repositories.
 - `ARCHIVE/`: retained legacy repository configuration and historical workflows. Archived files are not loaded by the Worker.
@@ -24,4 +24,3 @@ Single source repository for the YODAWY Dashboard, Cloudflare Worker, D1 migrati
 
 Never store API tokens, passwords, or personal portal credentials in repository files. Portal credentials belong in the encrypted Cloudflare D1 account store.
 
-Historical Portal split backups that contained hard-coded credentials are retained only as redacted archival copies under `ARCHIVE/TOOLS_REPOSITORY/`.
