@@ -35,6 +35,54 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --global wrangler@4
+      - name: Validate tool syntax and lifecycle contracts
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const { spawnSync } = require("node:child_process");
+
+          const root = path.resolve("TOOLS");
+          const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
+          const active = manifest.tools.filter(tool => tool.enabled !== false);
+          const failures = [];
+
+          if (!active.length) throw new Error("No enabled tools were found in TOOLS/manifest.json.");
+
+          for (const tool of active) {
+            const file = path.join(root, tool.file);
+            if (!fs.existsSync(file)) {
+              failures.push(tool.id + ": source file is missing: " + tool.file);
+              continue;
+            }
+
+            const source = fs.readFileSync(file, "utf8");
+            const name = source.match(/^\\s*\\/\\/\\s*@name\\s+(.+)$/m)?.[1]?.trim();
+            const version = source.match(/^\\s*\\/\\/\\s*@version\\s+(.+)$/m)?.[1]?.trim();
+            const author = source.match(/^\\s*\\/\\/\\s*@author\\s+(.+)$/m)?.[1]?.trim();
+            const id = source.match(/\\bTOOL_ID\\s*=\\s*['"]([^'"]+)['"]/);
+            const registered = /registry\\s*\\[\\s*TOOL_ID\\s*\\]\\s*=\\s*(?:instance|api)\\b/.test(source);
+            const hasDestroy = /\\bdestroy\\s*\\(/.test(source);
+            const expectedFile = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".js";
+            const syntax = spawnSync(process.execPath, ["--check", file], { encoding: "utf8" });
+
+            if (name !== tool.name) failures.push(tool.id + ": @name does not match manifest.");
+            if (version !== "1") failures.push(tool.id + ": @version must be 1.");
+            if (author !== "Mohamed Saleh") failures.push(tool.id + ": @author must be Mohamed Saleh.");
+            if (id?.[1] !== tool.id) failures.push(tool.id + ": TOOL_ID does not match manifest.");
+            if (!registered) failures.push(tool.id + ": instance is not registered in YODAWY_TOOL_INSTANCES.");
+            if (!hasDestroy) failures.push(tool.id + ": destroy() is missing.");
+            if (tool.file !== expectedFile) failures.push(tool.id + ": filename does not match @name.");
+            if (syntax.status !== 0) failures.push(tool.id + ": JavaScript syntax check failed: " + (syntax.stderr || syntax.stdout).trim());
+          }
+
+          if (failures.length) {
+            for (const failure of failures) console.error("::error::" + failure);
+            process.exit(1);
+          }
+          console.log("Validated " + active.length + " active tools: syntax, identity, version, author, registry, and destroy().");
+          NODE
       - name: Build tool manifest, Cloudflare assets, and D1 registry
         run: |
           set -euo pipefail
