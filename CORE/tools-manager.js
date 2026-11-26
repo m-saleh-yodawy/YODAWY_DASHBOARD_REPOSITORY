@@ -152,23 +152,22 @@
     };
 
     const matchesPage = tool => {
-        const href = String(page.location?.href || '');
+        const href = String(page.location?.href || '').toLowerCase();
         if (!href || !Array.isArray(tool.matches)) return false;
-        const escapePattern = value => [...value].map(character =>
-            '\\^$+.()|{}[]'.includes(character) ? '\\' + character : character
-        ).join('');
         return tool.matches.some(pattern => {
-            const value = String(pattern || '').trim();
+            const value = String(pattern || '').trim().toLowerCase();
             if (!value) return false;
-            const escaped = value.split('*').map(escapePattern).join('.*');
-            try {
-                return new RegExp('^' + escaped + '$', 'i').test(href);
-            } catch {
-                return false;
+            const parts = value.split('*');
+            let position = 0;
+            for (let index = 0; index < parts.length; index++) {
+                const part = parts[index];
+                const found = href.indexOf(part, position);
+                if (found < 0 || (!index && found !== 0)) return false;
+                position = found + part.length;
             }
+            return value.endsWith('*') || position === href.length;
         });
     };
-
     const canLoad = (tool, dependencies) => {
         if (tool.enabled === false || !matchesPage(tool)) return false;
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
