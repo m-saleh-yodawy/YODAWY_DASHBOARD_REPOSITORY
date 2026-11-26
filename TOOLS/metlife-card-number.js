@@ -15,13 +15,15 @@
     const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
     if(registry[TOOL_ID])return;
     let destroyed=false;
+    let suspended=false;
+    let workflowActive=false;
     let observer=null;
     let controller=new AbortController();
     const timers=new Set();
-    const boundFields=new Set();
+    const boundFields=new Map();
     const schedule=(callback,delay)=>{
-        if(destroyed)return 0;
-        const timer=window.setTimeout(()=>{timers.delete(timer);if(!destroyed)callback();},delay);
+        if(destroyed||suspended)return 0;
+        const timer=window.setTimeout(()=>{timers.delete(timer);if(!destroyed&&!suspended)callback();},delay);
         timers.add(timer);
         return timer;
     };
@@ -48,6 +50,7 @@
         }
 
         submit.click();
+        workflowActive=false;
     }
 
     function clickYes() {
@@ -81,6 +84,7 @@
         if (!member) {
             memberIndex = null;
             processing = false;
+            workflowActive = false;
             return;
         }
 
@@ -144,6 +148,8 @@
 
         processing = true;
 
+        processing = true;
+        workflowActive = true;
         memberIndex = parseInt(parts[3], 10);
 
         policy.value = parts[0] + parts[1];
@@ -164,10 +170,10 @@
         if (!policy || !certificate) return;
         if (policy.dataset.metlifeReady === '1') return;
 
+        boundFields.set(policy, policy.getAttribute('data-metlife-ready'));
+        boundFields.set(certificate, certificate.getAttribute('data-metlife-ready'));
         policy.dataset.metlifeReady = '1';
         certificate.dataset.metlifeReady = '1';
-        boundFields.add(policy);
-        boundFields.add(certificate);
 
         policy.addEventListener('paste', () => {
             schedule(() => processCard(policy.value), 50);
@@ -188,31 +194,60 @@
 
     setup();
 
-    observer=new MutationObserver(() => {
-        if(destroyed)return;
-        setup();
-        if (memberIndex !== null) chooseMember();
-    });
-    observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true
-    });
+    const observe=()=>{
+        if(destroyed||suspended||!document.documentElement)return;
+        if(!observer)observer=new MutationObserver(()=>{
+            if(destroyed||suspended)return;
+            setup();
+            if(memberIndex!==null)chooseMember();
+        });
+        observer.observe(document.documentElement,{childList:true,subtree:true});
+    };
+
+    const restoreFields=()=>{
+        for(const [field,value] of boundFields){
+            if(value===null)field.removeAttribute('data-metlife-ready');
+            else field.setAttribute('data-metlife-ready',value);
+        }
+        boundFields.clear();
+    };
+
+    observe();
 
     const instance={
         id:TOOL_ID,
         path:'TOOLS/metlife-card-number.js',
+        suspend(){
+            if(destroyed)return true;
+            if(workflowActive||processing||memberIndex!==null)return false;
+            suspended=true;
+            observer?.disconnect();
+            controller.abort();
+            for(const timer of timers)clearTimeout(timer);
+            timers.clear();
+            restoreFields();
+            return true;
+        },
+        resume(){
+            if(destroyed)return false;
+            if(!suspended)return true;
+            suspended=false;
+            controller=new AbortController();
+            setup();
+            observe();
+            return true;
+        },
         destroy(){
             if(destroyed)return true;
+            if(workflowActive||processing||memberIndex!==null)return false;
             destroyed=true;
+            suspended=true;
             observer?.disconnect();
             observer=null;
             controller.abort();
             for(const timer of timers)clearTimeout(timer);
             timers.clear();
-            for(const field of boundFields)delete field.dataset.metlifeReady;
-            boundFields.clear();
-            memberIndex=null;
-            processing=false;
+            restoreFields();
             if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
             return true;
         }
