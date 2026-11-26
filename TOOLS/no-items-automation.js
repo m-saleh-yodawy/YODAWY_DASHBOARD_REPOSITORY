@@ -1210,6 +1210,7 @@ const instance={
     },
     destroy(){
         if(state.destroyed)return true;
+        if(state.running)return false;
         state.destroyed=true;
         state.paused=false;
         state.running=false;
