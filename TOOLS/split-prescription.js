@@ -16,7 +16,7 @@
     const host = location.hostname.toLowerCase();
     const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
     if (registry[TOOL_ID] || host !== 'odoo.yodawy.com') return;
-    registry[TOOL_ID] = true;
+    if(registry[TOOL_ID])return;
 
     const CONFIG = {
         BUTTON_ID: 'ydDirectSplitButton',
@@ -33,6 +33,8 @@
     };
 
     const state = {
+        destroyed: false,
+        suspended: false,
         busy: false,
         dialog: null,
         observer: null,
@@ -1720,7 +1722,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function createButton() {
-        if (document.getElementById(CONFIG.BUTTON_ID)) return;
+        if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID)) return;
         injectStyles();
         const container = [...document.querySelectorAll('.oe_button_box')].find(isVisible);
         if (!container) return;
@@ -1746,14 +1748,73 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function init() {
+        if (state.destroyed || state.suspended) return;
         if (isTicketForm()) { createButton(); cleanupCycleStorageOnTicket(); }
     }
 
-    state.observer = new MutationObserver(() => {
-        if (!document.getElementById(CONFIG.BUTTON_ID)) init();
-    });
-    if (document.body) state.observer.observe(document.body, { childList: true, subtree: true });
+    const initTimers = new Set();
+    const observe = () => {
+        if (state.destroyed || state.suspended || !document.body) return;
+        if (!state.observer) {
+            state.observer = new MutationObserver(() => {
+                if (!state.destroyed && !state.suspended && !document.getElementById(CONFIG.BUTTON_ID)) init();
+            });
+        }
+        state.observer.observe(document.body, { childList: true, subtree: true });
+    };
+    const scheduleInit = () => {
+        for (const timer of initTimers) clearTimeout(timer);
+        initTimers.clear();
+        for (const delay of [700, 1800]) {
+            const timer = setTimeout(() => {
+                initTimers.delete(timer);
+                init();
+            }, delay);
+            initTimers.add(timer);
+        }
+    };
+    const instance = {
+        id: TOOL_ID,
+        path: 'TOOLS/split-prescription.js',
+        suspend() {
+            if (state.busy || state.fetchRunning) return false;
+            state.suspended = true;
+            state.observer?.disconnect();
+            for (const timer of initTimers) clearTimeout(timer);
+            initTimers.clear();
+            closeDialog(true);
+            revealDeferredChatterMessages();
+            document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            document.getElementById('ydDirectSplitStyles')?.remove();
+            return true;
+        },
+        resume() {
+            if (state.destroyed) return false;
+            state.suspended = false;
+            observe();
+            init();
+            scheduleInit();
+            return true;
+        },
+        destroy() {
+            if (state.destroyed) return true;
+            if (state.busy || state.fetchRunning) return false;
+            state.destroyed = true;
+            state.suspended = false;
+            state.observer?.disconnect();
+            state.observer = null;
+            for (const timer of initTimers) clearTimeout(timer);
+            initTimers.clear();
+            closeDialog(true);
+            revealDeferredChatterMessages();
+            document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            document.getElementById('ydDirectSplitStyles')?.remove();
+            if (registry[TOOL_ID] === instance) delete registry[TOOL_ID];
+            return true;
+        }
+    };
+    registry[TOOL_ID] = instance;
+    observe();
     init();
-    setTimeout(init, 700);
-    setTimeout(init, 1800);
+    scheduleInit();
 })();
