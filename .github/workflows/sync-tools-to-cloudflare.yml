@@ -171,7 +171,7 @@ jobs:
           if (fs.existsSync(legacyPath)) {
             const legacyContent = fs.readFileSync(legacyPath, "utf8");
             legacySha256 = crypto.createHash("sha256").update(legacyContent, "utf8").digest("hex");
-            legacyMatches = [...legacyContent.matchAll(/^\\s*\\/\\/\\s*@match\\s+(.+)$/gm)].map(match => match[1].trim());
+            legacyMatches = legacyContent.split(/\\r?\\n/).map(line => line.trim()).filter(line => line.startsWith("// @match ")).map(line => line.slice(10).trim());
             if (!legacyMatches.length) throw new Error("PORTAL TOOL OLD must declare at least one @match host pattern.");
             fs.copyFileSync(legacyPath, path.join(assetsDir, legacyFile));
           }
