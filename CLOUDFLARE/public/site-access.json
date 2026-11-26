@@ -21,6 +21,16 @@
       "paths": [
         "/*"
       ]
+    },
+    {
+      "host": "i-care.globemedegypt.com",
+      "enabled": true,
+      "protocols": [
+        "https:"
+      ],
+      "paths": [
+        "/*"
+      ]
     }
   ]
 }
