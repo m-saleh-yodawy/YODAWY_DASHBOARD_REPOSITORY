@@ -12,11 +12,12 @@
 (function () {
     'use strict';
 
+    const TOOL_ID = 'TOOL-012';
     const INSTANCE_KEY = '__MS_ORDERED_BY_WH__';
+    const registry = window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
 
-    if (window[INSTANCE_KEY]?.destroy) {
-        window[INSTANCE_KEY].destroy();
-    }
+    if (registry[TOOL_ID]?.destroy?.() === false || window[INSTANCE_KEY]?.destroy?.() === false) return;
+    if (registry[TOOL_ID]) delete registry[TOOL_ID];
 
     const ORDERED_STAGE_ID = 458;
     const PREVIOUS_STATE_ID = 467;
@@ -27,6 +28,7 @@
     let paused = false;
     let processing = false;
     let destroyed = false;
+    let domController = new AbortController();
 
     let total = 0;
     let completed = 0;
@@ -1952,13 +1954,13 @@ function startAutomation() {
 }
 
 function destroy() {
-    if (destroyed) {
-        return;
-    }
+    if (destroyed) return true;
+    if (running || processing) return false;
 
     destroyed = true;
     running = false;
     paused = false;
+    domController.abort();
 
     if (systrayTimer) {
         clearInterval(
@@ -1986,22 +1988,21 @@ function destroy() {
     )
         ?.remove();
 
-    if (
-        window[INSTANCE_KEY] === api
-    ) {
-        delete window[
-            INSTANCE_KEY
-        ];
-    }
+    if (window[INSTANCE_KEY] === api) delete window[INSTANCE_KEY];
+    if (registry[TOOL_ID] === api) delete registry[TOOL_ID];
+    return true;
 }
 
 const api = {
     destroy,
     async suspend() {
         if (destroyed) return true;
-        destroy();
+        if (running || processing) return false;
+        if (destroy() === false) return false;
         destroyed = false;
+        domController = new AbortController();
         window[INSTANCE_KEY] = api;
+        registry[TOOL_ID] = api;
         return true;
     },
     async resume() {
@@ -2011,8 +2012,8 @@ const api = {
     }
 };
 
-window[INSTANCE_KEY] =
-    api;
+window[INSTANCE_KEY] = api;
+registry[TOOL_ID] = api;
 
 function init() {
     if (destroyed) {
@@ -2027,13 +2028,7 @@ if (
     document.readyState ===
     'loading'
 ) {
-    document.addEventListener(
-        'DOMContentLoaded',
-        init,
-        {
-            once: true
-        }
-    );
+    document.addEventListener('DOMContentLoaded', init, { once: true, signal: domController.signal });
 } else {
     init();
 }

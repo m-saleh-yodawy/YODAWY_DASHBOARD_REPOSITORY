@@ -22,7 +22,7 @@
       "name": "Alternative Quantity Warning",
       "description": "Warn when alternative quantities exceed the allowed pack-size difference.",
       "enabled": true,
-      "sha256": "04e029fed4743c45776e0bb400fef982ea79f6b50ca7c9159edd25a00c45e479"
+      "sha256": "70d5cd76d56ef51213d6f31f377711a5a8a4308bf6d79799db1dc46b165f0900"
     },
     {
       "id": "TOOL-007",
@@ -30,7 +30,7 @@
       "name": "Metlife Card Number",
       "description": "Automate card number handling in the insurance system.",
       "enabled": true,
-      "sha256": "a9e5a41ec07b79e8351d903d34ed9322c7734c2089347db03b9845701eb3626e"
+      "sha256": "803fffad13d73c9a279cc65c3a0e4bdf928a2eed4f6eb83a98999efa2c74ecba"
     },
     {
       "id": "TOOL-008",
@@ -38,7 +38,7 @@
       "name": "No Items Automation",
       "description": "Find tickets with no items to check, capture evidence, and add log notes.",
       "enabled": true,
-      "sha256": "3d95813fb17165b1d414d164d984ed053f97c925ebcaf0770730044ddaf2a146"
+      "sha256": "15edf36e78992b9068c7c5b4e1c366240a62e21b250730e3e6d10668094af92c"
     },
     {
       "id": "TOOL-010",
@@ -46,7 +46,7 @@
       "name": "Log Note Tools",
       "description": "Add Edit & Delete buttons to Odoo Log Notes",
       "enabled": true,
-      "sha256": "7e49bcb5dc9adba45f3ab33bc3916cdbf2afe3240a1a1153ca9f35f3d1041c4b"
+      "sha256": "f72b89f4903f63fa0796b7e326c5b5daf31e694bc5612559b72c26f824aa0eae"
     },
     {
       "id": "TOOL-011",
@@ -62,7 +62,7 @@
       "name": "Ordered By Warehouse",
       "description": "Automate ordered-by-warehouse workflows.",
       "enabled": true,
-      "sha256": "5f102d4cdeb0758c2a080259d4c3c59e175c58bd6da5de9844a91628a7cf524b"
+      "sha256": "480bca32b8f7ca0902ad1b3e06a6ed82532ee51ede62285b7a073c1aaeaac4a4"
     },
     {
       "id": "TOOL-014",
@@ -70,7 +70,7 @@
       "name": "Stock Checker",
       "description": "Search product stock across Abu Rawash and Engy warehouses.",
       "enabled": true,
-      "sha256": "7a5a22ba018b41782abaa5c5f4558e74e6aac4825da930b1cb7dfc33aad5069b"
+      "sha256": "d9d0eee89f6017ff5056701595288b2db34c519b0fc7840c5d1c6ab0a6bbaa8c"
     },
     {
       "id": "TOOL-015",
@@ -94,7 +94,7 @@
       "name": "Split Prescription",
       "description": "Create split prescriptions with exact Portal matching and live Odoo ticket fields.",
       "enabled": true,
-      "sha256": "35505809584e79e34817a10f083e49392c08fb0ff548f2ddd139eab39d296b8d"
+      "sha256": "5ef182c8c5a4246b0d9a46f22690820df3c8bcbbdded5f00cae60773929a05b5"
     },
     {
       "id": "TOOL-019",
@@ -102,7 +102,7 @@
       "name": "Split Alt 1",
       "description": "Split Alt 1 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "0b7cb9c9b60c7b6d7bd64b75d4aaf36ba8996d893f140dd317091b397bbe4fd7"
+      "sha256": "4b6c6e0aa7e028877439f18399aae1eec3eca5351cda6469e2b7a36bad12e900"
     },
     {
       "id": "TOOL-020",
@@ -110,7 +110,7 @@
       "name": "Split Alt 2",
       "description": "Split Alt 2 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "cbee97e33c2d974994818f34568e539d389d2d763a0f1a5d6e0b0a25a9695afe"
+      "sha256": "72e389b9b4e01e40ff28ceb867f07785beb07f3e3509b2225cc99491114536bf"
     }
   ]
 }

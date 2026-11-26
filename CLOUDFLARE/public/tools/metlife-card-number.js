@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Metlife Card Number
 // @namespace    https://i-care.globemedegypt.com/
+// @version      1
 // @author       Mohamed Saleh
 // @match        https://i-care.globemedegypt.com:8034/*
 // @grant        none
@@ -9,6 +10,21 @@
 
 (function () {
     'use strict';
+
+    const TOOL_ID='TOOL-007';
+    const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+    if(registry[TOOL_ID])return;
+    let destroyed=false;
+    let observer=null;
+    let controller=new AbortController();
+    const timers=new Set();
+    const boundFields=new Set();
+    const schedule=(callback,delay)=>{
+        if(destroyed)return 0;
+        const timer=window.setTimeout(()=>{timers.delete(timer);if(!destroyed)callback();},delay);
+        timers.add(timer);
+        return timer;
+    };
 
     let memberIndex = null;
     let processing = false;
@@ -21,12 +37,13 @@
     }
 
     function clickSubmit() {
+        if(destroyed)return;
         const submit = [...document.querySelectorAll('a[onclick]')].find(a =>
             (a.getAttribute('onclick') || '').includes("ColdFusion.navigate('../chronic/med_check0.cfm'")
         );
 
         if (!submit) {
-            setTimeout(clickSubmit, 100);
+            schedule(clickSubmit, 100);
             return;
         }
 
@@ -34,18 +51,20 @@
     }
 
     function clickYes() {
+        if(destroyed)return;
         const yesButton = document.querySelector('#jqi_state0_buttonYes');
 
         if (!yesButton) {
-            setTimeout(clickYes, 100);
+            schedule(clickYes, 100);
             return;
         }
 
         yesButton.click();
-        setTimeout(clickSubmit, 500);
+        schedule(clickSubmit, 500);
     }
 
     function chooseMember() {
+        if(destroyed)return;
         if (memberIndex === null) return;
 
         const items = document.querySelectorAll(
@@ -53,7 +72,7 @@
         );
 
         if (!items.length) {
-            setTimeout(chooseMember, 100);
+            schedule(chooseMember, 100);
             return;
         }
 
@@ -68,7 +87,7 @@
         const onclick = member.getAttribute('onclick');
 
         if (!onclick) {
-            setTimeout(chooseMember, 100);
+            schedule(chooseMember, 100);
             return;
         }
 
@@ -80,12 +99,12 @@
             member.click();
         }
 
-        setTimeout(clickYes, 500);
+        schedule(clickYes, 500);
         processing = false;
     }
 
     function triggerEligibility(certificate) {
-        setTimeout(() => {
+        schedule(() => {
             if (typeof certificate.onkeypress === 'function') {
                 certificate.onkeypress.call(certificate, {
                     keyCode: 13,
@@ -102,11 +121,12 @@
                 );
             }
 
-            setTimeout(chooseMember, 300);
+            schedule(chooseMember, 300);
         }, 100);
     }
 
     function processCard(value) {
+        if(destroyed)return;
         if (processing) return;
 
         const parts = value.trim().split('-').map(x => x.trim());
@@ -138,6 +158,7 @@
     }
 
     function setup() {
+        if(destroyed)return;
         const { policy, certificate } = getFields();
 
         if (!policy || !certificate) return;
@@ -145,34 +166,56 @@
 
         policy.dataset.metlifeReady = '1';
         certificate.dataset.metlifeReady = '1';
+        boundFields.add(policy);
+        boundFields.add(certificate);
 
         policy.addEventListener('paste', () => {
-            setTimeout(() => processCard(policy.value), 50);
+            schedule(() => processCard(policy.value), 50);
         });
 
         certificate.addEventListener('paste', () => {
-            setTimeout(() => processCard(certificate.value), 50);
+            schedule(() => processCard(certificate.value), 50);
         });
 
         policy.addEventListener('input', () => {
             processCard(policy.value);
-        });
+        },{signal:controller.signal});
 
         certificate.addEventListener('input', () => {
             processCard(certificate.value);
-        });
+        },{signal:controller.signal});
     }
 
     setup();
 
-    new MutationObserver(() => {
+    observer=new MutationObserver(() => {
+        if(destroyed)return;
         setup();
-
-        if (memberIndex !== null) {
-            chooseMember();
-        }
-    }).observe(document.documentElement, {
+        if (memberIndex !== null) chooseMember();
+    });
+    observer.observe(document.documentElement, {
         childList: true,
         subtree: true
     });
+
+    const instance={
+        id:TOOL_ID,
+        path:'TOOLS/metlife-card-number.js',
+        destroy(){
+            if(destroyed)return true;
+            destroyed=true;
+            observer?.disconnect();
+            observer=null;
+            controller.abort();
+            for(const timer of timers)clearTimeout(timer);
+            timers.clear();
+            for(const field of boundFields)delete field.dataset.metlifeReady;
+            boundFields.clear();
+            memberIndex=null;
+            processing=false;
+            if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
+            return true;
+        }
+    };
+    registry[TOOL_ID]=instance;
 })();
