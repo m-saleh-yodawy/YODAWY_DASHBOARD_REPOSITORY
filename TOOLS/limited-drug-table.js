@@ -42,18 +42,17 @@
 .o_Message_prettyBody{flex:1 1 auto!important;align-self:stretch!important;overflow:hidden!important}
 .yodawy-limited-accordion{display:block!important;position:relative!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;margin:6px 0 8px!important;overflow:hidden!important}
 .yodawy-copy-all{display:flex!important;align-items:center!important;justify-content:space-between!important;width:100%!important;box-sizing:border-box!important;background:#8595a2!important;color:#000!important;border-radius:5px!important;padding:4px 8px!important;margin:0 0 30px!important;font-size:13px!important;font-weight:500!important;line-height:1.2!important;min-height:32px!important;user-select:none!important}
-.yodawy-copy-all-title{display:flex;align-items:center;gap:5px;min-width:0;flex:1 1 auto;line-height:1.2}
-.yodawy-copy-all-title span{line-height:1.2}
-.yodawy-copy-all-button{flex-shrink:0!important;background:#fff!important;color:#000!important;border:1px solid #fff!important;border-radius:4px!important;padding:6px!important;font-size:14px!important;font-weight:bold!important;line-height:1!important;cursor:pointer!important;transition:transform .12s ease}
+.yodawy-copy-all-title{display:flex!important;align-items:center!important;gap:6px!important;min-width:0!important;flex:1 1 auto!important;box-sizing:border-box!important;border-radius:3px!important;padding:2px 6px 0!important;font-size:16px!important;line-height:1!important}
+.yodawy-copy-all-title span{display:inline-flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;border-radius:3px!important;padding:2px 6px 0!important;font-size:16px!important;line-height:1!important}
+.yodawy-copy-all-button{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex-shrink:0!important;box-sizing:border-box!important;background:#fff!important;color:#000!important;border:1px solid #fff!important;border-radius:3px!important;padding:2px 6px 0!important;margin:0!important;font-size:16px!important;font-weight:bold!important;line-height:1!important;cursor:pointer!important;transition:transform .12s ease}
+.yodawy-copy-all-button .yd-fa-icon{display:block!important;width:16px!important;height:16px!important;margin:0!important;padding:0!important;font-size:16px!important;line-height:16px!important}
 .yodawy-copy-all-button:active{transform:scale(.96)}
-.yodawy-accordion-item{display:block!important;width:100%!important;box-sizing:border-box!important;border-radius:5px!important;overflow:hidden!important;margin-bottom:40px!important;background:#fff!important;box-shadow:0 1px 3px rgba(104,70,95,.1)}
+.yodawy-accordion-item{display:block!important;width:100%!important;box-sizing:border-box!important;border-radius:3px!important;overflow:hidden!important;margin-bottom:40px!important;background:#fff!important;box-shadow:0 1px 3px rgba(104,70,95,.1)}
 .yodawy-accordion-header,.yodawy-accordion-header:hover,.yodawy-accordion-header.open,.yodawy-accordion-header.open:hover{display:flex!important;align-items:center!important;width:100%!important;box-sizing:border-box!important;overflow:hidden;padding:4px!important;margin:0!important;background:#c5c5c5!important;color:#000!important;cursor:pointer!important;user-select:none!important}
-.yodawy-arrow{overflow:hidden;width:30px!important;min-width:10px!important;max-width:10px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:10px!important;line-height:1!important;color:#000!important;transition:transform .14s ease}
-.yodawy-accordion-header.open .yodawy-arrow{transform:rotate(90deg)}
 .yodawy-drug-title{flex:1 1 auto!important;min-width:0!important;padding:4px!important;margin:0!important;font-size:13px!important;font-weight:500!important;line-height:1.2!important;word-break:break-word!important;overflow-wrap:anywhere!important;color:#000!important;letter-spacing:1px}
-.yodawy-header-actions{display:flex!important;align-items:center!important;justify-content:center!important;gap:16px!important;flex:0 0 auto!important;align-self:center!important;margin-right:5px!important;height:auto!important}
-.yodawy-without-alt,.yodawy-copy-one{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 28px!important;width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important;max-height:28px!important;box-sizing:border-box!important;padding:0!important;margin:0!important;vertical-align:middle!important;text-align:center!important;background:#fff!important;color:#000!important;border:1px solid #fff!important;border-radius:4px!important;font-size:14px!important;line-height:0!important;font-weight:bold!important;cursor:pointer!important;pointer-events:auto!important;transition:transform .12s ease}
-.yodawy-without-alt .yd-fa-icon,.yodawy-copy-one .yd-fa-icon{display:block!important;width:14px!important;height:14px!important;margin:0!important;padding:0!important;font-size:14px!important;line-height:14px!important;flex:0 0 14px!important}
+.yodawy-header-actions{display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;flex:0 0 auto!important;align-self:center!important;height:auto!important}
+.yodawy-without-alt,.yodawy-copy-one{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex-shrink:0!important;box-sizing:border-box!important;padding:2px 6px 0!important;margin:0!important;vertical-align:middle!important;text-align:center!important;background:#fff!important;color:#000!important;border:1px solid #fff!important;border-radius:3px!important;font-size:16px!important;line-height:1!important;font-weight:bold!important;cursor:pointer!important;pointer-events:auto!important;transition:transform .12s ease}
+.yodawy-without-alt .yd-fa-icon,.yodawy-copy-one .yd-fa-icon{display:block!important;width:16px!important;height:16px!important;margin:0!important;padding:0!important;font-size:16px!important;line-height:16px!important;flex:0 0 16px!important}
 .yodawy-without-alt .yd-fa-icon{color:#b42318!important}
 .yodawy-without-alt:active,.yodawy-copy-one:active{transform:scale(.94)}
 .yodawy-accordion-body{display:block!important;width:100%!important;box-sizing:border-box!important;background:#fff!important;overflow:hidden!important;max-height:0!important;opacity:0!important;transform:translateY(-5px)!important;transition:max-height .16s ease,opacity .12s ease,transform .16s ease!important}
@@ -664,10 +663,6 @@ function build(body){
         const header=document.createElement('div');
         header.className='yodawy-accordion-header';
 
-        const arrow=document.createElement('span');
-        arrow.className='yodawy-arrow';
-        arrow.textContent='▶';
-
         const drugTitle=document.createElement('span');
         drugTitle.className='yodawy-drug-title';
         drugTitle.textContent=x.title;
@@ -716,7 +711,7 @@ function build(body){
         };
 
         actions.append(wout,copyOne);
-        header.append(arrow,drugTitle,actions);
+        header.append(drugTitle,actions);
 
         const bodyBox=document.createElement('div');
         bodyBox.className='yodawy-accordion-body';
