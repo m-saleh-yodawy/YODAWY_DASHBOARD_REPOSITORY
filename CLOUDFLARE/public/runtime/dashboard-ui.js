@@ -319,8 +319,12 @@
     const getVisibilityUsers = () => getUsers().filter(user => String(user.role || 'USER').trim().toUpperCase() !== 'SUPER_ADMIN');
 
     const getTools = () => {
-        try { return context.tools?.getManifest?.() || []; }
-        catch { return []; }
+        try {
+            const tools = context.tools?.getManifest?.() || [];
+            return context.userRole === 'ADMIN'
+                ? context.visibility?.getVisibleTools?.(tools) || []
+                : tools;
+        } catch { return []; }
     };
 
     const getLoadedTools = () => {

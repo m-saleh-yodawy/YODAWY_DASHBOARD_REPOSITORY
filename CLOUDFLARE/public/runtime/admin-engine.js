@@ -147,12 +147,12 @@
 
     const getTools = () => {
         const tools = YODAWY.tools?.getManifest?.();
+        const visibility = YODAWY.visibility;
 
-        if (!Array.isArray(tools)) {
-            throw createError('Tools manifest is unavailable');
-        }
+        if (!Array.isArray(tools)) throw createError('Tools manifest is unavailable');
+        if (typeof visibility?.getVisibleTools !== 'function') throw createError('Tool visibility is unavailable');
 
-        return clone(tools);
+        return clone(visibility.getVisibleTools(tools));
     };
 
     const createRequest = async (action, payload) => {

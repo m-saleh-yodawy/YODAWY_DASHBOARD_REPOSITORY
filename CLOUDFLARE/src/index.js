@@ -760,7 +760,9 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/tools/manifest" && request.method === "GET") {
     if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
     try {
-      const result = await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
+      const result = role === "ADMIN"
+        ? await env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.match_patterns, t.enabled FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
+        : await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
       const seenIds = new Set();
       const seenPaths = new Set();
       const resolved = await Promise.all((result.results || []).map(async tool => {
@@ -803,7 +805,9 @@ const dashboardRoutes = async (request, env, path) => {
   if (path === "/api/dashboard/bootstrap" && request.method === "GET") {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
       isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
-      env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
+      role === "ADMIN"
+        ? env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.sha256, t.match_patterns, t.enabled FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
+        : env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
       isAdmin ? env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all() : env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE v.user_id = ? AND u.role = 'USER'").bind(actor.user_id).all(),
@@ -814,15 +818,23 @@ const dashboardRoutes = async (request, env, path) => {
       isAdmin ? env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id ORDER BY a.id DESC LIMIT 500").all() : env.DB.prepare("SELECT a.id, a.actor_id, u.name AS actor_name, a.action, a.entity_type, a.entity_id, a.details_json, a.created_at FROM audit_logs a LEFT JOIN users u ON u.user_id = a.actor_id WHERE a.actor_id = ? ORDER BY a.id DESC LIMIT 200").bind(actor.user_id).all()
     ]);
     const permissionMap = {};
+    const visibleToolIds = new Set((tools.results || []).map(item => item.id));
     for (const item of permissions.results || []) {
+      if (role === "ADMIN" && !visibleToolIds.has(item.tool_id)) continue;
       const key = item.user_id;
       (permissionMap[key] ||= {})[item.tool_id] = { enabled: Boolean(item.can_use), forced: Boolean(item.forced_state), type: item.permission_type };
     }
     const userSettingsMap = {};
     if (isSuper) for (const item of userSettings.results || []) { try { userSettingsMap[item.user_id] = JSON.parse(item.settings_json || "{}").tools || {}; } catch { userSettingsMap[item.user_id] = {}; } }
     const visibilityMap = {};
-    for (const item of visibility.results || []) visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
-    for (const item of visibleUsers.results || []) (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
+    for (const item of visibility.results || []) {
+      if (role === "ADMIN" && !visibleToolIds.has(item.tool_id)) continue;
+      visibilityMap[item.tool_id] = { visibility: item.mode, allowedUsers: [] };
+    }
+    for (const item of visibleUsers.results || []) {
+      if (role === "ADMIN" && !visibleToolIds.has(item.tool_id)) continue;
+      (visibilityMap[item.tool_id] ||= { visibility: "PRIVATE", allowedUsers: [] }).allowedUsers.push(item.user_id);
+    }
     const toolList = (tools.results || []).map(item => {
       let matches = [];
       try {
@@ -884,6 +896,9 @@ const dashboardRoutes = async (request, env, path) => {
   }
   if (path === "/api/dashboard/permissions" && request.method === "PUT") {
     if (!isAdmin || !body.permissions || typeof body.permissions !== "object" || Array.isArray(body.permissions)) return forbidden();
+    const adminVisibleToolIds = role === "ADMIN"
+      ? new Set((await env.DB.prepare("SELECT DISTINCT t.tool_id FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL))").bind(actor.user_id).all()).results.map(item => item.tool_id))
+      : null;
     const statements = [];
     for (const [rawUserId, tools] of Object.entries(body.permissions)) {
       const userId = String(rawUserId).trim().toUpperCase();
@@ -892,6 +907,7 @@ const dashboardRoutes = async (request, env, path) => {
       if (!target || !["USER", "ADMIN"].includes(target.role) || (role === "ADMIN" && target.role !== "USER")) return forbidden();
       for (const [toolId, state] of Object.entries(tools)) {
         if (!/^[A-Za-z0-9_-]{1,128}$/.test(toolId)) return respond(request, env, { success: false, error: "INVALID_TOOL_ID" }, 400);
+        if (role === "ADMIN" && !adminVisibleToolIds.has(toolId)) return forbidden();
         const objectState = state !== null && typeof state === "object" && !Array.isArray(state);
         if (state !== null && typeof state === "object" && !objectState) return respond(request, env, { success: false, error: "INVALID_PERMISSION_STATE" }, 400);
         const current = await env.DB.prepare("SELECT can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ? AND tool_id = ?").bind(userId, toolId).first();
