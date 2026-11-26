@@ -6,7 +6,10 @@
       "name": "Confirmation Type",
       "description": "Add confirmation type controls to tickets.",
       "enabled": true,
-      "sha256": "afa61b1ca9515d9343943885cbb40b828cd510ddc5b8730706d3aececd6ed337"
+      "sha256": "afa61b1ca9515d9343943885cbb40b828cd510ddc5b8730706d3aececd6ed337",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-004",
@@ -14,7 +17,10 @@
       "name": "Limited Drug Table",
       "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
       "enabled": true,
-      "sha256": "ed6a694134d45466362b4ac3b52d8e3bd2e4bbd22aa55f6ac7afd851ec7db71c"
+      "sha256": "ed6a694134d45466362b4ac3b52d8e3bd2e4bbd22aa55f6ac7afd851ec7db71c",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-006",
@@ -22,7 +28,10 @@
       "name": "Alternative Quantity Warning",
       "description": "Warn when alternative quantities exceed the allowed pack-size difference.",
       "enabled": true,
-      "sha256": "70d5cd76d56ef51213d6f31f377711a5a8a4308bf6d79799db1dc46b165f0900"
+      "sha256": "70d5cd76d56ef51213d6f31f377711a5a8a4308bf6d79799db1dc46b165f0900",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-007",
@@ -30,7 +39,10 @@
       "name": "Metlife Card Number",
       "description": "Automate card number handling in the insurance system.",
       "enabled": true,
-      "sha256": "4370816500bf7b9d2c08cb1d20c60a88c63389fa4b6c2ae33cc9abbda49712e1"
+      "sha256": "4370816500bf7b9d2c08cb1d20c60a88c63389fa4b6c2ae33cc9abbda49712e1",
+      "matches": [
+        "https://i-care.globemedegypt.com:8034/*"
+      ]
     },
     {
       "id": "TOOL-008",
@@ -38,7 +50,10 @@
       "name": "No Items Automation",
       "description": "Find tickets with no items to check, capture evidence, and add log notes.",
       "enabled": true,
-      "sha256": "ef1ff94c3e792a6d4aeb5e9e4efa4aacc933c1b726a13c2887c018968f426943"
+      "sha256": "ef1ff94c3e792a6d4aeb5e9e4efa4aacc933c1b726a13c2887c018968f426943",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-010",
@@ -46,7 +61,10 @@
       "name": "Log Note Tools",
       "description": "Add Edit & Delete buttons to Odoo Log Notes",
       "enabled": true,
-      "sha256": "f72b89f4903f63fa0796b7e326c5b5daf31e694bc5612559b72c26f824aa0eae"
+      "sha256": "f72b89f4903f63fa0796b7e326c5b5daf31e694bc5612559b72c26f824aa0eae",
+      "matches": [
+        "https://odoo.yodawy.com/*"
+      ]
     },
     {
       "id": "TOOL-011",
@@ -54,7 +72,10 @@
       "name": "Move Communication",
       "description": "Move the Communication section above Reference with aligned fields and phone copy.",
       "enabled": true,
-      "sha256": "560183f58dbad104d9f92db3710369fa18d2f79a89683da166a8e685e7395df2"
+      "sha256": "560183f58dbad104d9f92db3710369fa18d2f79a89683da166a8e685e7395df2",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-012",
@@ -62,7 +83,10 @@
       "name": "Ordered By Warehouse",
       "description": "Automate ordered-by-warehouse workflows.",
       "enabled": true,
-      "sha256": "480bca32b8f7ca0902ad1b3e06a6ed82532ee51ede62285b7a073c1aaeaac4a4"
+      "sha256": "480bca32b8f7ca0902ad1b3e06a6ed82532ee51ede62285b7a073c1aaeaac4a4",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-014",
@@ -70,7 +94,10 @@
       "name": "Stock Checker",
       "description": "Search product stock across Abu Rawash and Engy warehouses.",
       "enabled": true,
-      "sha256": "d9d0eee89f6017ff5056701595288b2db34c519b0fc7840c5d1c6ab0a6bbaa8c"
+      "sha256": "d9d0eee89f6017ff5056701595288b2db34c519b0fc7840c5d1c6ab0a6bbaa8c",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-015",
@@ -78,7 +105,10 @@
       "name": "Open ERX",
       "description": "Open matching Portal prescriptions inside Odoo.",
       "enabled": true,
-      "sha256": "5324722dcf2735a8bf8c6458c37fed4646089f4d8bc06ae5415ecdf128cfb980"
+      "sha256": "5324722dcf2735a8bf8c6458c37fed4646089f4d8bc06ae5415ecdf128cfb980",
+      "matches": [
+        "https://odoo.yodawy.com/*"
+      ]
     },
     {
       "id": "TOOL-016",
@@ -94,7 +124,10 @@
       "name": "Split Prescription",
       "description": "Create split prescriptions with exact Portal matching and live Odoo ticket fields.",
       "enabled": true,
-      "sha256": "f274c2609cc882a8b2a9d437d7163c691065e5a3a4804600dca760445cad9116"
+      "sha256": "f274c2609cc882a8b2a9d437d7163c691065e5a3a4804600dca760445cad9116",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     },
     {
       "id": "TOOL-019",
@@ -102,7 +135,11 @@
       "name": "Split Alt 1",
       "description": "Split Alt 1 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "589efbbd595babb307ec4ccbf9d0f20b21b871b4cad734a14e7c4480f2a19243"
+      "sha256": "589efbbd595babb307ec4ccbf9d0f20b21b871b4cad734a14e7c4480f2a19243",
+      "matches": [
+        "https://odoo.yodawy.com/*",
+        "https://portal.yodawy.com/*"
+      ]
     },
     {
       "id": "TOOL-020",
@@ -110,7 +147,11 @@
       "name": "Split Alt 2",
       "description": "Split Alt 2 legacy Portal Split workflow.",
       "enabled": true,
-      "sha256": "94ebb2ebf7d07c0340c67e732a49724ba7f394c3bea770ffc56912b95edf633d"
+      "sha256": "94ebb2ebf7d07c0340c67e732a49724ba7f394c3bea770ffc56912b95edf633d",
+      "matches": [
+        "https://odoo.yodawy.com/*",
+        "https://portal.yodawy.com/*"
+      ]
     }
   ]
 }
