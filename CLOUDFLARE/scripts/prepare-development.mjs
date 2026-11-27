@@ -172,7 +172,7 @@ await fs.writeFile(path.join(publicRoot, "yodawy-dev-loader.user.js"), devLoader
 
 const template = await fs.readFile(path.join(cloudflareRoot, "wrangler.development.template.jsonc"), "utf8");
 if (!template.includes("__DEV_D1_DATABASE_ID__")) throw new Error("Development Wrangler template is missing the D1 placeholder.");
-const generatedConfig = template.replace("__DEV_D1_DATABASE_ID__", databaseId);
+const generatedConfig = template.replace("__DEV_D1_DATABASE_ID__", databaseId).replace("__DEV_ALLOWED_ORIGINS__", parsedWorkerUrl.origin);
 await fs.writeFile(path.join(cloudflareRoot, "wrangler.development.generated.jsonc"), generatedConfig);
 
 process.stdout.write("Prepared isolated DEV Worker assets and configuration.\n");
