@@ -455,7 +455,6 @@ const takeScreenshot=async()=>{
             requesterToolId:TOOL_ID,
             scale:1,
             quality:0.9,
-            expandOdooContainers:true,
             renderer:typeof html2canvas==='function'?html2canvas:undefined
         });
     }
@@ -466,12 +465,12 @@ const takeScreenshot=async()=>{
     // Viewport-only dimensions: capture strictly visible webpage viewport inside the active tab
     const viewportWidth=Math.max(1,Math.round(window.visualViewport?.width||window.innerWidth||root.clientWidth||0));
     const viewportHeight=Math.max(1,Math.round(window.visualViewport?.height||window.innerHeight||root.clientHeight||0));
-    const scrollX=window.scrollX??window.pageXOffset??root.scrollLeft??0;
-    const scrollY=window.scrollY??window.pageYOffset??root.scrollTop??0;
-    const scale=window.devicePixelRatio||1;
+    const scrollX=Math.round(window.scrollX??window.pageXOffset??root.scrollLeft??0);
+    const scrollY=Math.round(window.scrollY??window.pageYOffset??root.scrollTop??0);
+    const scale=1;
 
     try{
-        const canvas=await html2canvas(root,{
+        const rawCanvas=await html2canvas(root,{
             backgroundColor:'#fff',
             scale,
             useCORS:true,
@@ -500,10 +499,32 @@ const takeScreenshot=async()=>{
             ignoreElements:element=>
                 element.id==='noitems-panel'||
                 element.id==='noitems-systray-item'||
+                element.id==='yd-screen-overlay'||
+                element.id==='yd-tools-systray-item'||
+                element.id==='yd-tools-systray-dropdown'||
                 element.matches?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')||
                 element.closest?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')
         });
-        return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.9));
+
+        const targetPixelWidth=Math.max(1,Math.round(viewportWidth*scale));
+        const targetPixelHeight=Math.max(1,Math.round(viewportHeight*scale));
+        let finalCanvas=rawCanvas;
+        if(rawCanvas&&(rawCanvas.width!==targetPixelWidth||rawCanvas.height!==targetPixelHeight)){
+            const normalizedCanvas=document.createElement('canvas');
+            normalizedCanvas.width=targetPixelWidth;
+            normalizedCanvas.height=targetPixelHeight;
+            const ctx=normalizedCanvas.getContext('2d');
+            if(ctx){
+                ctx.imageSmoothingEnabled=true;
+                ctx.imageSmoothingQuality='high';
+                const sourceWidth=Math.min(rawCanvas.width,targetPixelWidth);
+                const sourceHeight=Math.min(rawCanvas.height,targetPixelHeight);
+                ctx.drawImage(rawCanvas,0,0,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
+                finalCanvas=normalizedCanvas;
+            }
+        }
+
+        return await new Promise(resolve=>finalCanvas.toBlob(resolve,'image/png',0.9));
     }finally{
         markers.forEach(({element})=>element.removeAttribute('data-noitems-capture'));
     }

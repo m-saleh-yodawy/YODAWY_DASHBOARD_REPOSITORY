@@ -178,14 +178,14 @@ const captureCanvas=async()=>{
     // Viewport-only dimensions: capture strictly visible webpage viewport inside the active tab
     const viewportWidth=Math.max(1,Math.round(window.visualViewport?.width||window.innerWidth||root.clientWidth||0));
     const viewportHeight=Math.max(1,Math.round(window.visualViewport?.height||window.innerHeight||root.clientHeight||0));
-    const scrollX=window.scrollX??window.pageXOffset??root.scrollLeft??0;
-    const scrollY=window.scrollY??window.pageYOffset??root.scrollTop??0;
+    const scrollX=Math.round(window.scrollX??window.pageXOffset??root.scrollLeft??0);
+    const scrollY=Math.round(window.scrollY??window.pageYOffset??root.scrollTop??0);
     const scale=window.devicePixelRatio||1;
 
     try{
         try{await document.fonts?.ready;}catch{}
         await waitFrame();
-        const canvas=await window.html2canvas(root,{
+        const rawCanvas=await window.html2canvas(root,{
             backgroundColor:'#fff',
             scale,
             useCORS:true,
@@ -215,12 +215,31 @@ const captureCanvas=async()=>{
                 });
             },
             ignoreElements:element=>{
-                const selector='#yd-screen-toast,#noitems-panel,#noitems-systray-item,#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#ydDirectSplitButton,#ydDirectSplitDialog,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button';
+                const selector='#yd-screen-toast,#yd-screen-overlay,#yd-tools-systray-item,#yd-tools-systray-dropdown,#noitems-panel,#noitems-systray-item,#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#ydDirectSplitButton,#ydDirectSplitDialog,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button';
                 return element.id===ITEM_ID||element.matches?.(selector)||element.closest?.(selector);
             }
         });
+
+        const targetPixelWidth=Math.max(1,Math.round(viewportWidth*scale));
+        const targetPixelHeight=Math.max(1,Math.round(viewportHeight*scale));
+        let finalCanvas=rawCanvas;
+        if(rawCanvas&&(rawCanvas.width!==targetPixelWidth||rawCanvas.height!==targetPixelHeight)){
+            const normalizedCanvas=document.createElement('canvas');
+            normalizedCanvas.width=targetPixelWidth;
+            normalizedCanvas.height=targetPixelHeight;
+            const ctx=normalizedCanvas.getContext('2d');
+            if(ctx){
+                ctx.imageSmoothingEnabled=true;
+                ctx.imageSmoothingQuality='high';
+                const sourceWidth=Math.min(rawCanvas.width,targetPixelWidth);
+                const sourceHeight=Math.min(rawCanvas.height,targetPixelHeight);
+                ctx.drawImage(rawCanvas,0,0,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
+                finalCanvas=normalizedCanvas;
+            }
+        }
+
         return await new Promise((resolve,reject)=>{
-            canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('SCREENSHOT_IMAGE_CREATION_FAILED')),'image/png');
+            finalCanvas.toBlob(blob=>blob?resolve(blob):reject(new Error('SCREENSHOT_IMAGE_CREATION_FAILED')),'image/png');
         });
     }finally{
         fixed.forEach(({element,previous})=>{

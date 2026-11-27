@@ -842,14 +842,14 @@
                 // Viewport-only dimensions: capture strictly the visible webpage viewport inside the active Browser Tab
                 const viewportWidth = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth || root.clientWidth || 0));
                 const viewportHeight = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight || root.clientHeight || 0));
-                const scrollX = window.scrollX ?? window.pageXOffset ?? root.scrollLeft ?? 0;
-                const scrollY = window.scrollY ?? window.pageYOffset ?? root.scrollTop ?? 0;
+                const scrollX = Math.round(window.scrollX ?? window.pageXOffset ?? root.scrollLeft ?? 0);
+                const scrollY = Math.round(window.scrollY ?? window.pageYOffset ?? root.scrollTop ?? 0);
 
                 const scale = Number.isFinite(options.scale)
                     ? options.scale
                     : (window.devicePixelRatio || 1);
 
-                const canvas = await html2canvasLib(root, {
+                const rawCanvas = await html2canvasLib(root, {
                     backgroundColor: '#fff',
                     scale,
                     useCORS: true,
@@ -881,9 +881,41 @@
                     ignoreElements: element => isScreenshotExcludedElement(element)
                 });
 
+                // Guarantee exact viewport pixel dimensions:
+                // If html2canvas rendered a larger canvas (e.g. document full height), slice strictly the visible viewport area
+                const targetPixelWidth = Math.max(1, Math.round(viewportWidth * scale));
+                const targetPixelHeight = Math.max(1, Math.round(viewportHeight * scale));
+
+                let finalCanvas = rawCanvas;
+                if (rawCanvas && (rawCanvas.width !== targetPixelWidth || rawCanvas.height !== targetPixelHeight)) {
+                    const normalizedCanvas = document.createElement('canvas');
+                    normalizedCanvas.width = targetPixelWidth;
+                    normalizedCanvas.height = targetPixelHeight;
+                    const ctx = normalizedCanvas.getContext('2d');
+                    if (ctx) {
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        // Draw strictly the visible viewport rectangle
+                        const sourceWidth = Math.min(rawCanvas.width, targetPixelWidth);
+                        const sourceHeight = Math.min(rawCanvas.height, targetPixelHeight);
+                        ctx.drawImage(
+                            rawCanvas,
+                            0,
+                            0,
+                            sourceWidth,
+                            sourceHeight,
+                            0,
+                            0,
+                            sourceWidth,
+                            sourceHeight
+                        );
+                        finalCanvas = normalizedCanvas;
+                    }
+                }
+
                 blob = await new Promise((resolve, reject) => {
                     try {
-                        canvas.toBlob(
+                        finalCanvas.toBlob(
                             result => result && result.size > 0 ? resolve(result) : reject(createError('SCREENSHOT_IMAGE_CREATION_FAILED')),
                             'image/png',
                             options.quality
