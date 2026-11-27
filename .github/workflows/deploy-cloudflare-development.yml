@@ -62,8 +62,8 @@ jobs:
           CLOUDFLARE_DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
         run: |
           set -euo pipefail
-          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing development environment secret CLOUDFLARE_API_TOKEN."; exit 1; }
-          test -n "$CLOUDFLARE_D1_API_TOKEN" || { echo "::error::Missing development environment secret CLOUDFLARE_D1_API_TOKEN."; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing development environment secret CLOUDFLARE_DEV_API_TOKEN."; exit 1; }
+          test -n "$CLOUDFLARE_D1_API_TOKEN" || { echo "::error::Missing development environment secret CLOUDFLARE_DEV_D1_API_TOKEN."; exit 1; }
           test "${#CLOUDFLARE_DEV_AUTH_SECRET}" -ge 32 || { echo "::error::CLOUDFLARE_DEV_AUTH_SECRET must contain at least 32 characters."; exit 1; }
           [[ "$CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY" =~ ^[A-Za-z0-9_-]{43}$ ]] || { echo "::error::CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY must be a 32-byte base64url key."; exit 1; }
           test "${#CLOUDFLARE_DEV_SETUP_SECRET}" -ge 32 || { echo "::error::CLOUDFLARE_DEV_SETUP_SECRET must contain at least 32 characters."; exit 1; }
