@@ -8,8 +8,11 @@ on:
       - "TOOLS/**/*.js"
       - "TOOLS/*.js"
       - "TOOLS/manifest.json"
-      - "CLOUDFLARE/**"
-      - ".github/workflows/sync-tools-to-cloudflare.yml"
+      - "CLOUDFLARE/src/**"
+      - "CLOUDFLARE/public/**"
+      - "CLOUDFLARE/migrations/**"
+      - "CLOUDFLARE/wrangler.jsonc"
+      - "CLOUDFLARE/schema.sql"
       - "LEGACY/**/*.js"
       - "LEGACY/*.js"
   workflow_dispatch:
