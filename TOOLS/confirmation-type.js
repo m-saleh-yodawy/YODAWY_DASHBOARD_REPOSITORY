@@ -287,8 +287,8 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #${C.I}{display:flex;align-items:center;justify-content:flex-start;flex:0 0 auto;gap:0;margin-right:auto}
-                .tm-confirm-btn{width:auto;min-width:55px;height:30px;margin:8px 4px;padding:0 8px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:11px;font-weight:700;cursor:pointer;line-height:30px;text-align:center;transition:opacity .15s,transform .1s,box-shadow .15s}
+                #${C.I}{display:flex;align-items:center;justify-content:center;flex:1 1 0;min-width:max-content;width:auto;gap:0;margin:0;white-space:nowrap}
+                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
                 .tm-confirm-btn.tm-active{box-shadow:0 0 0 2px #fff inset,0 0 0 3px ${C.COLOR}}
