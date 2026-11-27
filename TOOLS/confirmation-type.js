@@ -287,8 +287,8 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #${C.I}{display:flex;align-items:center;justify-content:center;flex:1 1 0;min-width:max-content;width:auto;gap:0;margin:0;white-space:nowrap}
-                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
+                #${C.I}{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;flex-wrap:nowrap!important;width:max-content!important;max-width:100%!important;min-width:0!important;gap:0!important;margin:0 4px!important;padding:0!important;float:none!important;vertical-align:middle!important;white-space:nowrap!important}
+                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
                 .tm-confirm-btn.tm-active{box-shadow:0 0 0 2px #fff inset,0 0 0 3px ${C.COLOR}}
