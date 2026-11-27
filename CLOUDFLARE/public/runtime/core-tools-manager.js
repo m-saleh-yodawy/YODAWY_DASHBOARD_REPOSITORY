@@ -1096,6 +1096,33 @@
                     color: #fff !important;
                 }
 
+                #${BUTTON_ID}:focus,
+                #${BUTTON_ID}:focus-visible,
+                #${BUTTON_ID}:active,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus-visible,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:active {
+                    outline: none !important;
+                    border: 0 !important;
+                    border-color: transparent !important;
+                    box-shadow: none !important;
+                    -webkit-tap-highlight-color: transparent !important;
+                }
+
+                #${BUTTON_ID}:focus,
+                #${BUTTON_ID}:focus-visible,
+                #${BUTTON_ID}:active {
+                    background: rgba(255, 255, 255, 0.12) !important;
+                    color: #fff !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus-visible,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:active {
+                    background: var(--yd-dropdown-hover) !important;
+                    color: var(--yd-dropdown-hover-text) !important;
+                }
+
                 #${BUTTON_ID} i.yd-fa-icon {
                     display: inline-block !important;
                     font-family: "YD Font Awesome 6 Free" !important;
