@@ -43,28 +43,79 @@ const companyMap={
 'medicard':'yodawy'
 };
 
-const state={destroyed:false,observer:null,handlers:new Map(),style:null};
+const state={destroyed:false,suspended:false,observer:null,handlers:new Map(),originals:new Map(),style:null};
 const normalize=value=>String(value??'').normalize('NFKC').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const visible=selector=>[...document.querySelectorAll(selector)].filter(element=>element.offsetParent!==null);
 const waitFor=async(fn,timeout=30000)=>{const start=Date.now();while(Date.now()-start<timeout){if(state.destroyed)throw new Error('Portal Tool Old was stopped.');const result=fn();if(result)return result;await delay(250)}throw new Error('The required Portal page element was not found in time.')};
 const setValue=(input,value)=>{input.setAttribute('autocomplete','off');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}))};
 
-const cleanup=async()=>{
-state.destroyed=true;
+const restoreCard=element=>{
+const original=state.originals.get(element);
+if(!original)return;
+const handler=state.handlers.get(element);
+if(handler)element.removeEventListener('click',handler);
+state.handlers.delete(element);
+if(original.marker===null)element.removeAttribute('data-portal-tool-old');
+else element.setAttribute('data-portal-tool-old',original.marker);
+if(original.title===null)element.removeAttribute('title');
+else element.setAttribute('title',original.title);
+if(original.cursor)element.style.setProperty('cursor',original.cursor,original.cursorPriority);
+else element.style.removeProperty('cursor');
+state.originals.delete(element);
+};
+const restoreOdoo=()=>{
 state.observer?.disconnect();
-for(const [element,handler] of state.handlers)element.removeEventListener('click',handler);
-state.handlers.clear();
+state.observer=null;
+for(const element of [...state.handlers.keys()])restoreCard(element);
 state.style?.remove();
+state.style=null;
+};
+const startOdoo=()=>{
+if(state.destroyed||state.suspended||location.hostname!=='odoo.yodawy.com')return;
+if(!state.style){
+state.style=document.createElement('style');
+state.style.textContent='span[name="user_ref"][data-portal-tool-old="true"]{cursor:pointer!important}span[name="user_ref"][data-portal-tool-old="true"]:hover{text-decoration:underline!important}';
+document.head.append(state.style);
+}
+if(!state.observer){
+state.observer=new MutationObserver(setupOdoo);
+state.observer.observe(document.body,{childList:true,subtree:true});
+}
+setupOdoo();
+};
+const cleanup=async()=>{
+if(state.destroyed)return true;
+state.destroyed=true;
+state.suspended=true;
+restoreOdoo();
 if(registry[TOOL_ID]===instance)delete registry[TOOL_ID];
 return true;
 };
-const instance=Object.freeze({id:TOOL_ID,path:'TOOLS/portal-tool-old.js',destroy:cleanup});
+const instance=Object.freeze({
+id:TOOL_ID,
+path:'TOOLS/portal-tool-old.js',
+suspend(){
+if(state.destroyed)return true;
+if(state.suspended)return true;
+state.suspended=true;
+restoreOdoo();
+return true;
+},
+resume(){
+if(state.destroyed)return false;
+if(!state.suspended)return true;
+state.suspended=false;
+startOdoo();
+return true;
+},
+destroy:cleanup
+});
 registry[TOOL_ID]=instance;
 
 function setupOdoo(){
-if(state.destroyed)return;
-for(const [element,handler] of state.handlers)if(!element.isConnected){element.removeEventListener('click',handler);state.handlers.delete(element)}
+if(state.destroyed||state.suspended)return;
+for(const element of [...state.handlers.keys()])if(!element.isConnected)restoreCard(element)
 for(const card of document.querySelectorAll('span[name="user_ref"]')){
 if(state.handlers.has(card))continue;
 const handler=event=>{
@@ -79,9 +130,10 @@ if(!cardNumber)return alert('Card Number is missing from Reference.');
 const url=`https://portal.yodawy.com/?tm=1&mode=openPortal&company=${encodeURIComponent(company)}&card=${encodeURIComponent(cardNumber)}&fn=${encodeURIComponent(formNumber)}`;
 window.open(url,'_blank');
 };
+state.originals.set(card,{marker:card.getAttribute('data-portal-tool-old'),title:card.getAttribute('title'),cursor:card.style.getPropertyValue('cursor'),cursorPriority:card.style.getPropertyPriority('cursor')});
 card.dataset.portalToolOld='true';
 card.title='Open ERX';
-card.style.cursor='pointer';
+card.style.setProperty('cursor','pointer');
 card.addEventListener('click',handler);
 state.handlers.set(card,handler);
 }
@@ -182,12 +234,7 @@ if(formNumber)await selectPrescription(formNumber);
 }
 
 if(location.hostname==='odoo.yodawy.com'){
-state.style=document.createElement('style');
-state.style.textContent='span[name="user_ref"][data-portal-tool-old="true"]{cursor:pointer!important}span[name="user_ref"][data-portal-tool-old="true"]:hover{text-decoration:underline!important}';
-document.head.append(state.style);
-state.observer=new MutationObserver(setupOdoo);
-state.observer.observe(document.body,{childList:true,subtree:true});
-setupOdoo();
+startOdoo();
 }else if(location.hostname==='portal.yodawy.com'){
 runPortal().catch(error=>{if(!state.destroyed)alert(`PORTAL TOOL OLD FAILED\n\n${error.message||'Unexpected error.'}`)});
 }
