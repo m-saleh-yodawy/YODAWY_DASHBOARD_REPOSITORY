@@ -1423,6 +1423,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.dialog?.remove();
         const overlay = document.createElement('div');
         overlay.id = CONFIG.DIALOG_ID;
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
         const drugs = journal.selectedDrugs || [];
         const completed = Boolean(journal.completed);
         const needsPortalCheck = !journal.portalCreated && ['portal_creation_started', 'portal_creation_uncertain'].includes(journal.phase);
@@ -1470,6 +1471,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.dialog?.remove();
         const overlay = document.createElement('div');
         overlay.id = CONFIG.DIALOG_ID;
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
         const cycleLabel = state.cycle?.label || 'Unknown';
         const expiryLabel = state.expiryInfo?.displayDate || 'Unknown';
         const accountOptions = state.portalAccounts.map(account => `<option value="${escapeHTML(account.id)}">${escapeHTML((account.accountType === 'PERSONAL' ? 'Personal' : 'Non-Personal') + ' · ' + (account.username || account.label || account.id))}</option>`).join('');
@@ -1727,6 +1729,8 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         if (!container) return;
         const button = document.createElement('button');
         button.id = CONFIG.BUTTON_ID;
+        button.setAttribute('data-yd-screenshot-exclude', 'true');
+        window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(button, { toolId: TOOL_ID });
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
@@ -1775,24 +1779,31 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     const instance = {
         id: TOOL_ID,
         path: 'TOOLS/split-prescription.js',
-        suspend() {
-            if (state.busy || state.fetchRunning) return false;
+        screenshotBehavior: 'hide-only',
+        supportsPause: true,
+        pause() {
+            if (state.destroyed) return true;
             state.suspended = true;
-            state.observer?.disconnect();
-            for (const timer of initTimers) clearTimeout(timer);
-            initTimers.clear();
-            closeDialog(true);
-            revealDeferredChatterMessages();
-            document.getElementById(CONFIG.BUTTON_ID)?.remove();
-            document.getElementById('ydDirectSplitStyles')?.remove();
+            document.getElementById(CONFIG.BUTTON_ID)?.style.setProperty('display', 'none', 'important');
+            document.getElementById(CONFIG.DIALOG_ID)?.style.setProperty('display', 'none', 'important');
             return true;
+        },
+        suspend() {
+            return this.pause();
         },
         resume() {
             if (state.destroyed) return false;
             state.suspended = false;
+            document.getElementById(CONFIG.BUTTON_ID)?.style.removeProperty('display');
+            document.getElementById(CONFIG.DIALOG_ID)?.style.removeProperty('display');
             observe();
             init();
             scheduleInit();
+            return true;
+        },
+        refresh() {
+            if (state.destroyed || state.suspended) return false;
+            init();
             return true;
         },
         destroy() {

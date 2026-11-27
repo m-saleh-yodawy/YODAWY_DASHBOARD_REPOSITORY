@@ -217,6 +217,11 @@
     const instance={
         id:TOOL_ID,
         path:'TOOLS/metlife-card-number.js',
+        screenshotBehavior:'hide-only',
+        supportsPause:true,
+        pause(){
+            return this.suspend();
+        },
         suspend(){
             if(destroyed)return true;
             if(workflowActive||processing||memberIndex!==null)return false;
@@ -235,6 +240,11 @@
             controller=new AbortController();
             setup();
             observe();
+            return true;
+        },
+        refresh(){
+            if(destroyed||suspended)return false;
+            setup();
             return true;
         },
         destroy(){

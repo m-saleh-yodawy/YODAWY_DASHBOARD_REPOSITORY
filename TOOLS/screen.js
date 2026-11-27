@@ -49,6 +49,7 @@ const showToast=(message,type='success')=>{
     if(state.destroyed||state.suspended)return;
     const toast=document.createElement('div');
     toast.id='yd-screen-toast';
+    toast.setAttribute('data-yd-screenshot-exclude','true');
     toast.dataset.type=type;
     toast.textContent=message;
     document.body.appendChild(toast);
@@ -193,33 +194,56 @@ const captureCanvas=async()=>{
 };
 
 const cleanCapture=async()=>{
-    const entries=Object.entries(registry).filter(([,instance])=>instance&&typeof instance==='object');
-    for(const [id,instance] of entries){
-        if(typeof instance.suspend!=='function'||typeof instance.resume!=='function'){
-            throw new Error('TOOL_LIFECYCLE_UNAVAILABLE: '+id+' ('+String(instance.path||instance.id||'unknown')+')');
-        }
+    const coordinator=window.YODAWY_SCREENSHOT_COORDINATOR;
+    if(coordinator&&typeof coordinator.capture==='function'){
+        removeToast();
+        return coordinator.capture({
+            requesterToolId:TOOL_ID,
+            scale:Math.min(2,Math.max(1,window.devicePixelRatio||1)),
+            renderer:typeof window.html2canvas==='function'?window.html2canvas:undefined
+        });
     }
-    const targets=entries.reverse();
-    const suspended=[];
+    const excludedSelectors=[
+        '#yd-dashboard-menu-item','#yd-launcher','#yd-dashboard-root','.yd-select-portal-menu',
+        '#yodawy-dev-mode-banner','#yd-cloud-error','#yd-screen-systray-item','#yd-screen-toast',
+        '#noitems-panel','#noitems-systray-item','#ordered-panel','#ordered-systray-item',
+        '#ms-stock-hzb-checker','#ms-stock-hzb-systray-item','#ydDirectSplitButton','#ydDirectSplitDialog',
+        '#tm-confirmation-buttons','#tm-alt-call-popup','.yodawy-copy-success','.yd-open-erx-backdrop',
+        '[data-yd-log-note-tool]','.ms-alt-qty-warning','.yd-mc-layer','[data-yd-screenshot-exclude="true"]','.yd-screenshot-exclude'
+    ].join(',');
+    const entries=Object.entries(registry).filter(([id,instance])=>id!==TOOL_ID&&instance&&typeof instance==='object'&&instance.screenshotBehavior==='pause-required');
+    const paused=[];
+    const hidden=[];
     let blob=null;
     let captureError=null;
     const restoreErrors=[];
     try{
         await ensureLibrary();
-        for(const [id,instance] of targets){
-            const result=await instance.suspend();
+        for(const [id,instance] of entries){
+            const pauseFn=typeof instance.pause==='function'?instance.pause.bind(instance):typeof instance.suspend==='function'?instance.suspend.bind(instance):null;
+            if(!pauseFn)continue;
+            const result=await pauseFn();
             if(result===false)throw new Error('TOOL_BUSY: '+id);
-            suspended.push({id,instance});
+            paused.push({id,instance});
         }
         removeToast();
+        document.querySelectorAll(excludedSelectors).forEach(el=>{
+            hidden.push({el,d:el.style.getPropertyValue('display'),dp:el.style.getPropertyPriority('display'),v:el.style.getPropertyValue('visibility'),vp:el.style.getPropertyPriority('visibility')});
+            el.style.setProperty('display','none','important');
+            el.style.setProperty('visibility','hidden','important');
+        });
         await waitFrame();
         blob=await captureCanvas();
     }catch(error){
         captureError=error;
     }finally{
-        for(const item of suspended.reverse()){
+        for(const s of hidden.reverse()){
+            if(s.d)s.el.style.setProperty('display',s.d,s.dp);else s.el.style.removeProperty('display');
+            if(s.v)s.el.style.setProperty('visibility',s.v,s.vp);else s.el.style.removeProperty('visibility');
+        }
+        for(const item of paused.reverse()){
             try{
-                const result=await item.instance.resume();
+                const result=await item.instance.resume?.();
                 if(result===false)restoreErrors.push(item.id);
             }catch{
                 restoreErrors.push(item.id);
@@ -273,7 +297,7 @@ const handleClick=()=>{
     showToast('Preparing clean screenshot...');
     runCapture().catch(error=>{
         const message=String(error?.message||'SCREENSHOT_FAILED');
-        const detail=message.startsWith('TOOL_BUSY:')?'A tool is currently running: '+message.slice(10)+'. Stop it and try again.':message.startsWith('TOOL_LIFECYCLE_UNAVAILABLE:')?'A tool cannot be safely suspended: '+message.slice(27)+'. Screenshot cancelled.':message.startsWith('RESTORE_FAILED:')?'Some tools did not resume: '+message.slice(15)+'. Refresh Odoo before continuing.':message;
+        const detail=message==='SCREENSHOT_CAPTURE_IN_PROGRESS'?'A screenshot capture is already in progress.':message.startsWith('TOOL_BUSY:')?'A tool is currently running: '+message.slice(10)+'. Stop it and try again.':message.startsWith('RESTORE_FAILED:')?'Some tools did not resume: '+message.slice(15)+'. Refresh Odoo before continuing.':message;
         showToast(detail,'error');
     }).finally(()=>{
         state.busy=false;
@@ -286,31 +310,40 @@ const handleClick=()=>{
 
 const item=document.createElement('li');
 item.id=ITEM_ID;
+item.setAttribute('data-yd-screenshot-exclude','true');
 item.setAttribute('role','menuitem');
-item.innerHTML='<button id="'+BUTTON_ID+'" type="button" title="Clean Screenshot" aria-label="Clean Screenshot"><i class="yd-custom-icon fa fa-camera" aria-hidden="true"></i></button>';
+item.innerHTML='<button id="'+BUTTON_ID+'" type="button" title="Clean Screenshot" aria-label="Clean Screenshot"><i class="yd-custom-icon yd-fa-icon fa-solid fa-camera" aria-hidden="true"></i></button>';
 state.item=item;
 state.button=item.querySelector('button');
 state.button.addEventListener('click',handleClick,{signal:state.controller.signal});
+const unregisterExclusion=window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(item,{toolId:TOOL_ID});
 
 const instance={
     id:TOOL_ID,
     path:'TOOLS/screen.js',
+    icon:'fa-solid fa-camera',
+    screenshotBehavior:'hide-only',
+    supportsPause:false,
     suspend(){
         if(state.destroyed)return true;
         state.suspended=true;
-        state.observer?.disconnect();
-        state.observer=null;
         removeToast();
-        state.item.remove();
-        state.style?.remove();
+        state.item.style.setProperty('display','none','important');
         return true;
     },
     resume(){
         if(state.destroyed)return false;
         state.suspended=false;
+        state.item.style.removeProperty('display');
         addStyle();
         watchNavbar();
         state.button.disabled=state.busy;
+        return true;
+    },
+    refresh(){
+        if(state.destroyed)return false;
+        addStyle();
+        placeButton();
         return true;
     },
     destroy(){
@@ -318,6 +351,7 @@ const instance={
         if(state.busy)return false;
         state.destroyed=true;
         state.suspended=true;
+        try{unregisterExclusion?.();}catch{}
         state.controller.abort();
         state.observer?.disconnect();
         state.observer=null;

@@ -768,14 +768,16 @@ const dashboardRoutes = async (request, env, path) => {
     if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
     try {
       const result = role === "ADMIN"
-        ? await env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.match_patterns, t.enabled FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
-        : await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
+        ? await env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.match_patterns, t.enabled, t.icon FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
+        : await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled, icon FROM tools WHERE enabled = 1 ORDER BY name").all();
+      const TOOL_ICON_FALLBACKS = { "TOOL-019": "fa-solid fa-camera" };
       const seenIds = new Set();
       const seenPaths = new Set();
       const resolved = await Promise.all((result.results || []).map(async tool => {
         const id = String(tool.id || "").trim();
         const name = String(tool.name || "").trim();
         const path = String(tool.path || "").trim();
+        const icon = String(tool.icon || TOOL_ICON_FALLBACKS[id] || "").trim();
         const filename = path.split("/").pop();
         const unavailable = reason => ({ unavailable: { id: id || tool.id, name: name || tool.name, path: path || tool.path, reason } });
         try {
@@ -797,7 +799,7 @@ const dashboardRoutes = async (request, env, path) => {
           if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) return unavailable("TOOL_ASSET_UNAVAILABLE");
           const source = await asset.arrayBuffer();
           const sha256 = hex(await crypto.subtle.digest("SHA-256", source));
-          return { tool: { ...tool, id, name, path, matches, sha256 } };
+          return { tool: { ...tool, id, name, path, icon, matches, sha256 } };
         } catch {
           return unavailable("TOOL_ASSET_CHECK_FAILED");
         }
@@ -813,8 +815,8 @@ const dashboardRoutes = async (request, env, path) => {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
       isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
       role === "ADMIN"
-        ? env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.sha256, t.match_patterns, t.enabled FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
-        : env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
+        ? env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.sha256, t.match_patterns, t.enabled, t.icon FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
+        : env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled, icon FROM tools WHERE enabled = 1 ORDER BY name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
       isAdmin ? env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all() : env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE v.user_id = ? AND u.role = 'USER'").bind(actor.user_id).all(),

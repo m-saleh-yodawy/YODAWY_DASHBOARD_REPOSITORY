@@ -137,6 +137,7 @@
             const id = String(tool.id || '').trim();
             const name = String(tool.name || '').trim();
             const path = normalizePath(tool.path || tool.file);
+            const icon = typeof tool.icon === 'string' ? tool.icon.trim() : '';
             const sha256 = normalizeHash(tool.sha256);
             const matches = Array.isArray(tool.matches)
                 ? [...new Set(tool.matches.map(value => String(value || '').trim()).filter(Boolean))]
@@ -158,6 +159,7 @@
                 id,
                 name,
                 path,
+                icon,
                 sha256,
                 matches: Object.freeze(matches)
             });
@@ -256,31 +258,226 @@
         }
     };
 
+    const LIFECYCLE_STATES = Object.freeze({
+        UNINITIALIZED: 'UNINITIALIZED',
+        INITIALIZING: 'INITIALIZING',
+        ACTIVE: 'ACTIVE',
+        PAUSING: 'PAUSING',
+        PAUSED: 'PAUSED',
+        RESUMING: 'RESUMING',
+        REFRESHING: 'REFRESHING',
+        DESTROYING: 'DESTROYING',
+        DESTROYED: 'DESTROYED',
+        ERROR: 'ERROR'
+    });
+
+    const VALID_TRANSITIONS = Object.freeze({
+        UNINITIALIZED: new Set(['INITIALIZING', 'ACTIVE', 'DESTROYING', 'DESTROYED', 'ERROR']),
+        INITIALIZING: new Set(['ACTIVE', 'DESTROYING', 'DESTROYED', 'ERROR']),
+        ACTIVE: new Set(['PAUSING', 'REFRESHING', 'DESTROYING', 'ERROR']),
+        PAUSING: new Set(['PAUSED', 'ACTIVE', 'DESTROYING', 'ERROR']),
+        PAUSED: new Set(['RESUMING', 'DESTROYING', 'ERROR']),
+        RESUMING: new Set(['ACTIVE', 'PAUSED', 'DESTROYING', 'ERROR']),
+        REFRESHING: new Set(['ACTIVE', 'DESTROYING', 'ERROR']),
+        DESTROYING: new Set(['DESTROYED', 'ERROR']),
+        DESTROYED: new Set(['INITIALIZING', 'ACTIVE']),
+        ERROR: new Set(['INITIALIZING', 'DESTROYING', 'DESTROYED', 'ACTIVE'])
+    });
+
+    const lifecycleRecords = new Map();
+    const lifecycleLocks = new Map();
+
+    const withTimeout = (promise, ms = 10000, label = 'LIFECYCLE_TIMEOUT') => {
+        let timer = null;
+        return Promise.race([
+            Promise.resolve(promise),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(createError(label)), ms);
+            })
+        ]).finally(() => {
+            if (timer) clearTimeout(timer);
+        });
+    };
+
+    const withToolLock = async (toolId, task) => {
+        const previous = lifecycleLocks.get(toolId) || Promise.resolve();
+        let release;
+        const next = new Promise(resolve => { release = resolve; });
+        const chained = previous.catch(() => {}).then(() => next);
+        lifecycleLocks.set(toolId, chained);
+        await previous.catch(() => {});
+        try {
+            return await task();
+        } finally {
+            release();
+            if (lifecycleLocks.get(toolId) === chained) lifecycleLocks.delete(toolId);
+        }
+    };
+
+    const getLifecycleRecord = toolId => {
+        const id = String(toolId || '').trim();
+        if (!id) return null;
+        let rec = lifecycleRecords.get(id);
+        if (!rec) {
+            rec = {
+                id,
+                state: LIFECYCLE_STATES.UNINITIALIZED,
+                lastError: null,
+                updatedAt: Date.now()
+            };
+            lifecycleRecords.set(id, rec);
+        }
+        return rec;
+    };
+
+    const transitionState = (toolId, nextState, error = null) => {
+        const rec = getLifecycleRecord(toolId);
+        if (!rec) return null;
+        const allowed = VALID_TRANSITIONS[rec.state];
+        if (rec.state !== nextState && allowed && !allowed.has(nextState)) {
+            throw createError(`Invalid lifecycle transition for ${toolId}: ${rec.state} -> ${nextState}`);
+        }
+        rec.state = nextState;
+        rec.lastError = error ? String(error?.message || error) : null;
+        rec.updatedAt = Date.now();
+        return rec.state;
+    };
+
+    const getToolInstance = toolId => {
+        const registry = getRegistry();
+        return registry?.[toolId] || null;
+    };
+
+    const destroyTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        const loaded = loadedTools.get(toolId);
+        if (rec.state === LIFECYCLE_STATES.DESTROYED && !registered && !loaded) return true;
+        if (!registered && !loaded) {
+            if (rec.state !== LIFECYCLE_STATES.DESTROYED) transitionState(toolId, LIFECYCLE_STATES.DESTROYED);
+            return true;
+        }
+        transitionState(toolId, LIFECYCLE_STATES.DESTROYING);
+        try {
+            const { API, LOADER } = getDependencies();
+            if (typeof registered?.destroy === 'function') {
+                const stopped = await withTimeout(registered.destroy(), 8000, `Destroy timeout for ${toolId}`);
+                if (stopped === false) {
+                    transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+                    return false;
+                }
+            }
+            const registry = getRegistry();
+            if (registry && registry[toolId] === registered) delete registry[toolId];
+            if (loaded?.path) {
+                try { LOADER.clear(loaded.path, { destroy: true }); } catch {}
+                loadedTools.delete(toolId);
+                await recordLifecycle(API, 'TOOL_STOPPED', loaded);
+            }
+            transitionState(toolId, LIFECYCLE_STATES.DESTROYED);
+            return true;
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const pauseTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        if (!registered) return { paused: false, skipped: true, reason: 'NOT_LOADED' };
+        if (rec.state === LIFECYCLE_STATES.PAUSED) return { paused: true, alreadyPaused: true };
+        if (rec.state === LIFECYCLE_STATES.DESTROYED) return { paused: false, skipped: true, reason: 'DESTROYED' };
+        const pauseFn = typeof registered.pause === 'function'
+            ? registered.pause.bind(registered)
+            : typeof registered.suspend === 'function'
+                ? registered.suspend.bind(registered)
+                : null;
+        if (!pauseFn || registered.supportsPause === false) {
+            return { paused: false, skipped: true, reason: 'PAUSE_NOT_SUPPORTED' };
+        }
+        if (rec.state === LIFECYCLE_STATES.UNINITIALIZED) rec.state = LIFECYCLE_STATES.ACTIVE;
+        transitionState(toolId, LIFECYCLE_STATES.PAUSING);
+        try {
+            const ok = await withTimeout(pauseFn(), 8000, `Pause timeout for ${toolId}`);
+            if (ok === false) {
+                transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+                return { paused: false, busy: true };
+            }
+            transitionState(toolId, LIFECYCLE_STATES.PAUSED);
+            return { paused: true };
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const resumeTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        if (!registered || rec.state === LIFECYCLE_STATES.DESTROYED) return false;
+        if (rec.state !== LIFECYCLE_STATES.PAUSED) return true;
+        if (typeof registered.resume !== 'function') {
+            transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+            return true;
+        }
+        transitionState(toolId, LIFECYCLE_STATES.RESUMING);
+        try {
+            const ok = await withTimeout(registered.resume(), 8000, `Resume timeout for ${toolId}`);
+            if (ok === false) {
+                transitionState(toolId, LIFECYCLE_STATES.PAUSED);
+                return false;
+            }
+            transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+            return true;
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const refreshTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        if (!registered || rec.state === LIFECYCLE_STATES.DESTROYED) return false;
+        if (registered.refreshRequiresRebuild === true) {
+            return null; // Caller delegates to rebuildTool outside lock
+        }
+        if (typeof registered.refresh !== 'function') return true;
+        if (rec.state === LIFECYCLE_STATES.UNINITIALIZED) rec.state = LIFECYCLE_STATES.ACTIVE;
+        if (rec.state !== LIFECYCLE_STATES.ACTIVE) return false;
+        transitionState(toolId, LIFECYCLE_STATES.REFRESHING);
+        try {
+            const ok = await withTimeout(registered.refresh(), 8000, `Refresh timeout for ${toolId}`);
+            transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+            return ok !== false;
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const rebuildTool = async toolId => {
+        const tool = getTool(toolId);
+        await destroyTool(toolId);
+        return start(tool);
+    };
+
     const stop = async toolId => {
         const instance = loadedTools.get(toolId);
 
-        if (!instance) return false;
+        if (!instance && !getToolInstance(toolId)) return false;
 
         const registry = getRegistry();
         const registered = registry?.[toolId];
 
         if (typeof registered?.destroy !== 'function') {
-            instance.destroyable = false;
+            if (instance) instance.destroyable = false;
             return false;
         }
 
-        const { API, LOADER } = getDependencies();
-
         try {
-            const stopped = await registered.destroy();
-            if (stopped === false) return false;
-            if (registry?.[toolId] === registered) delete registry[toolId];
-            LOADER.clear(instance.path);
-
-            loadedTools.delete(toolId);
-            await recordLifecycle(API, 'TOOL_STOPPED', instance);
-
-            return true;
+            return await destroyTool(toolId);
         } catch (error) {
             throw createError(`Failed to stop tool ${toolId}: ${error.message}`);
         }
@@ -292,7 +489,11 @@
             return loadedTools.has(tool.id) ? stop(tool.id) : false;
         }
         const existing = loadedTools.get(tool.id);
-        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) return true;
+        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) {
+            const rec = getLifecycleRecord(tool.id);
+            if (rec && rec.state === LIFECYCLE_STATES.UNINITIALIZED) rec.state = LIFECYCLE_STATES.ACTIVE;
+            return true;
+        }
         if (existing && !await stop(tool.id)) throw createError('Tool ' + tool.id + ' cannot be safely replaced because it has no destroy method');
 
         if (pendingTools.has(tool.id)) {
@@ -304,32 +505,40 @@
 
             if (!canLoad(tool, dependencies)) return false;
 
-            const result = await dependencies.LOADER.load(tool.path, {
-                toolId: tool.id,
-                sha256: tool.sha256
-            });
+            transitionState(tool.id, LIFECYCLE_STATES.INITIALIZING);
 
-            if (!result.registered || !result.destroyable) {
-                const registry = getRegistry();
-                const registered = registry?.[tool.id];
-                try { await registered?.destroy?.(); } catch {}
-                if (registry?.[tool.id] === registered) delete registry[tool.id];
-                dependencies.LOADER.clear(tool.path, { destroy: true });
-                throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+            try {
+                const result = await dependencies.LOADER.load(tool.path, {
+                    toolId: tool.id,
+                    sha256: tool.sha256
+                });
+
+                if (!result.registered || !result.destroyable) {
+                    const registry = getRegistry();
+                    const registered = registry?.[tool.id];
+                    try { await registered?.destroy?.(); } catch {}
+                    if (registry?.[tool.id] === registered) delete registry[tool.id];
+                    dependencies.LOADER.clear(tool.path, { destroy: true });
+                    throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+                }
+
+                loadedTools.set(tool.id, {
+                    id: tool.id,
+                    name: tool.name,
+                    path: tool.path,
+                    sha256: tool.sha256,
+                    loadedAt: result.loadedAt,
+                    registered: result.registered,
+                    destroyable: result.destroyable
+                });
+                transitionState(tool.id, LIFECYCLE_STATES.ACTIVE);
+                await recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
+
+                return true;
+            } catch (error) {
+                transitionState(tool.id, LIFECYCLE_STATES.ERROR, error);
+                throw error;
             }
-
-            loadedTools.set(tool.id, {
-                id: tool.id,
-                name: tool.name,
-                path: tool.path,
-                sha256: tool.sha256,
-                loadedAt: result.loadedAt,
-                registered: result.registered,
-                destroyable: result.destroyable
-            });
-            await recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
-
-            return true;
         })();
 
         pendingTools.set(tool.id, task);
@@ -430,8 +639,380 @@
         });
     };
 
+    const EXCLUDE_ATTR = 'data-yd-screenshot-exclude';
+    const EXCLUDE_CLASS = 'yd-screenshot-exclude';
+    const DEFAULT_EXCLUDED_SELECTORS = [
+        '#yd-dashboard-menu-item',
+        '#yd-launcher',
+        '#yd-dashboard-root',
+        '.yd-select-portal-menu',
+        '#yodawy-dev-mode-banner',
+        '#yd-cloud-error',
+        '#yd-screen-systray-item',
+        '#yd-screen-toast',
+        '#noitems-panel',
+        '#noitems-systray-item',
+        '#ordered-panel',
+        '#ordered-systray-item',
+        '#ms-stock-hzb-checker',
+        '#ms-stock-hzb-systray-item',
+        '#ydDirectSplitButton',
+        '#ydDirectSplitDialog',
+        '#tm-confirmation-buttons',
+        '#tm-alt-call-popup',
+        '.yodawy-copy-success',
+        '.yd-open-erx-backdrop',
+        '[data-yd-log-note-tool]',
+        '.ms-alt-qty-warning',
+        '.yd-mc-layer',
+        '.yd-mc-copy-btn'
+    ];
+    const registeredExclusions = new Set();
+    let captureSequence = 0;
+    let activeCapturePromise = null;
+    let libraryPromise = null;
+    const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+
+    const registerExcludedElement = (target, meta = {}) => {
+        if (!target) return () => {};
+        const entry = { target, meta };
+        registeredExclusions.add(entry);
+        if (target instanceof Element) {
+            target.setAttribute(EXCLUDE_ATTR, 'true');
+        }
+        return () => {
+            registeredExclusions.delete(entry);
+        };
+    };
+
+    const resolveExcludedElements = () => {
+        const nodes = new Set();
+        const addNode = node => {
+            if (node instanceof Element && node.isConnected) nodes.add(node);
+        };
+        document.querySelectorAll(`[${EXCLUDE_ATTR}="true"], .${EXCLUDE_CLASS}`).forEach(addNode);
+        for (const selector of DEFAULT_EXCLUDED_SELECTORS) {
+            try {
+                document.querySelectorAll(selector).forEach(addNode);
+            } catch {}
+        }
+        for (const entry of registeredExclusions) {
+            try {
+                const resolved = typeof entry.target === 'function' ? entry.target() : entry.target;
+                if (!resolved) continue;
+                if (typeof resolved === 'string') {
+                    document.querySelectorAll(resolved).forEach(addNode);
+                } else if (Array.isArray(resolved) || resolved instanceof NodeList) {
+                    for (const el of resolved) addNode(el);
+                } else {
+                    addNode(resolved);
+                }
+            } catch {}
+        }
+        return [...nodes];
+    };
+
+    const isScreenshotExcludedElement = element => {
+        if (!(element instanceof Element)) return false;
+        if (element.getAttribute(EXCLUDE_ATTR) === 'true' || element.classList?.contains(EXCLUDE_CLASS)) return true;
+        const combined = `[${EXCLUDE_ATTR}="true"], .${EXCLUDE_CLASS}, ${DEFAULT_EXCLUDED_SELECTORS.join(',')}`;
+        try {
+            if (element.matches?.(combined) || element.closest?.(combined)) return true;
+        } catch {}
+        for (const entry of registeredExclusions) {
+            try {
+                const resolved = typeof entry.target === 'function' ? entry.target() : entry.target;
+                if (!resolved) continue;
+                if (typeof resolved === 'string') {
+                    if (element.matches?.(resolved) || element.closest?.(resolved)) return true;
+                } else if (resolved instanceof Element) {
+                    if (element === resolved || resolved.contains(element)) return true;
+                }
+            } catch {}
+        }
+        return false;
+    };
+
+    const waitCaptureFrames = () => new Promise(resolve => {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        } else {
+            setTimeout(resolve, 32);
+        }
+    });
+
+    const ensureHtml2Canvas = async () => {
+        if (typeof page.html2canvas === 'function') return page.html2canvas;
+        if (typeof window.html2canvas === 'function') return window.html2canvas;
+        if (!libraryPromise) {
+            libraryPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                let timer = setTimeout(() => {
+                    script.remove();
+                    reject(createError('SCREENSHOT_LIBRARY_TIMEOUT'));
+                }, 15000);
+                script.src = HTML2CANVAS_URL;
+                script.async = true;
+                script.crossOrigin = 'anonymous';
+                script.onload = () => {
+                    clearTimeout(timer);
+                    timer = null;
+                    const lib = page.html2canvas || window.html2canvas;
+                    if (typeof lib === 'function') resolve(lib);
+                    else reject(createError('SCREENSHOT_LIBRARY_UNAVAILABLE'));
+                };
+                script.onerror = () => {
+                    if (timer) clearTimeout(timer);
+                    script.remove();
+                    reject(createError('SCREENSHOT_LIBRARY_LOAD_FAILED'));
+                };
+                (document.head || document.documentElement).appendChild(script);
+            }).catch(error => {
+                libraryPromise = null;
+                throw error;
+            });
+        }
+        return libraryPromise;
+    };
+
+    const captureCleanScreenshot = async (options = {}) => {
+        if (activeCapturePromise) {
+            if (!options.queue) throw createError('SCREENSHOT_CAPTURE_IN_PROGRESS');
+            await activeCapturePromise.catch(() => {});
+        }
+
+        const runCaptureTask = async () => {
+            const captureId = ++captureSequence;
+            const hideToken = 'yd-hidden-' + captureId;
+            const requesterToolId = String(options.requesterToolId || '').trim();
+            const MARKER = 'data-yd-screen-fixed-marker';
+            const root = document.documentElement;
+            const body = document.body;
+
+            const hiddenSnapshots = [];
+            const pausedTools = [];
+            const fixedSnapshots = [];
+            const restoreErrors = [];
+            let captureError = null;
+            let blob = null;
+
+            const html2canvasLib = typeof options.renderer === 'function'
+                ? options.renderer
+                : await ensureHtml2Canvas();
+
+            try {
+                // 1. Pause ONLY tools whose screenshotBehavior === 'pause-required'
+                const registry = getRegistry() || {};
+                const entries = Object.entries(registry).filter(([id, inst]) =>
+                    inst && typeof inst === 'object' && id !== requesterToolId && inst.screenshotBehavior === 'pause-required'
+                );
+
+                for (const [id, inst] of entries) {
+                    const rec = getLifecycleRecord(id);
+                    if (rec && rec.state === LIFECYCLE_STATES.PAUSED) continue;
+                    const res = await pauseTool(id);
+                    if (res.busy) throw createError('TOOL_BUSY: ' + id);
+                    if (res.paused) pausedTools.push(id);
+                }
+
+                // 2. Activate global screenshot clean mode and hide all YODAWY UI elements
+                root.setAttribute('data-yd-screenshot-clean', 'true');
+                const excluded = resolveExcludedElements();
+                for (const element of excluded) {
+                    hiddenSnapshots.push({
+                        element,
+                        prevAttr: element.getAttribute('data-yd-screenshot-hidden'),
+                        prevDisplay: element.style.getPropertyValue('display'),
+                        prevDisplayPriority: element.style.getPropertyPriority('display'),
+                        prevVisibility: element.style.getPropertyValue('visibility'),
+                        prevVisibilityPriority: element.style.getPropertyPriority('visibility')
+                    });
+                    element.setAttribute('data-yd-screenshot-hidden', hideToken);
+                    element.style.setProperty('display', 'none', 'important');
+                    element.style.setProperty('visibility', 'hidden', 'important');
+                }
+
+                try { await document.fonts?.ready; } catch {}
+                await waitCaptureFrames();
+
+                // 3. Measure full document dimensions & snapshot fixed/sticky nodes
+                const scrollables = [...document.querySelectorAll('body *')].filter(element => {
+                    const style = getComputedStyle(element);
+                    return element.scrollHeight > element.clientHeight + 20 && ['auto', 'scroll'].includes(style.overflowY);
+                });
+                const width = Math.max(
+                    root.scrollWidth,
+                    body.scrollWidth,
+                    window.innerWidth,
+                    ...scrollables.map(element => element.scrollWidth + Math.max(0, element.getBoundingClientRect().left + window.scrollX))
+                );
+                const height = Math.max(
+                    root.scrollHeight,
+                    body.scrollHeight,
+                    window.innerHeight,
+                    ...scrollables.map(element => element.scrollHeight + Math.max(0, element.getBoundingClientRect().top + window.scrollY))
+                );
+
+                for (const element of document.querySelectorAll('body *')) {
+                    if (isScreenshotExcludedElement(element)) continue;
+                    const style = getComputedStyle(element);
+                    if (style.position !== 'fixed' && style.position !== 'sticky') continue;
+                    const rect = element.getBoundingClientRect();
+                    if (!rect.width || !rect.height) continue;
+                    const marker = 'ydscreen-' + captureId + '-' + fixedSnapshots.length;
+                    fixedSnapshots.push({
+                        element,
+                        marker,
+                        previous: element.getAttribute(MARKER),
+                        left: rect.left + window.scrollX,
+                        top: rect.top + window.scrollY
+                    });
+                    element.setAttribute(MARKER, marker);
+                }
+
+                const scale = Number.isFinite(options.scale)
+                    ? options.scale
+                    : Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+
+                const canvas = await html2canvasLib(root, {
+                    backgroundColor: '#fff',
+                    scale,
+                    useCORS: true,
+                    allowTaint: false,
+                    logging: false,
+                    imageTimeout: 0,
+                    x: 0,
+                    y: 0,
+                    width,
+                    height,
+                    windowWidth: width,
+                    windowHeight: window.innerHeight,
+                    scrollX: 0,
+                    scrollY: 0,
+                    onclone: clonedDocument => {
+                        if (options.expandOdooContainers) {
+                            const selectors = '.o_web_client,.o_action_manager,.o_content,.o_form_view,.o_form_sheet_bg,.o_chatter,.o-mail-ChatterContainer';
+                            clonedDocument.querySelectorAll(selectors).forEach(element => {
+                                element.style.setProperty('height', 'auto', 'important');
+                                element.style.setProperty('max-height', 'none', 'important');
+                                element.style.setProperty('overflow', 'visible', 'important');
+                            });
+                        }
+                        clonedDocument.querySelectorAll('[' + MARKER + ']').forEach(element => {
+                            const marker = element.getAttribute(MARKER);
+                            const item = fixedSnapshots.find(entry => entry.marker === marker);
+                            if (!item) return;
+                            element.style.setProperty('position', 'absolute', 'important');
+                            element.style.setProperty('left', item.left + 'px', 'important');
+                            element.style.setProperty('top', item.top + 'px', 'important');
+                            element.style.setProperty('right', 'auto', 'important');
+                            element.style.setProperty('bottom', 'auto', 'important');
+                            element.style.setProperty('transform', 'none', 'important');
+                        });
+                    },
+                    ignoreElements: element => isScreenshotExcludedElement(element)
+                });
+
+                blob = await new Promise((resolve, reject) => {
+                    try {
+                        canvas.toBlob(
+                            result => result && result.size > 0 ? resolve(result) : reject(createError('SCREENSHOT_IMAGE_CREATION_FAILED')),
+                            'image/png',
+                            options.quality
+                        );
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            } catch (error) {
+                captureError = error;
+            } finally {
+                fixedSnapshots.forEach(({ element, previous }) => {
+                    if (previous === null) element.removeAttribute(MARKER);
+                    else element.setAttribute(MARKER, previous);
+                });
+
+                for (const snap of hiddenSnapshots.reverse()) {
+                    const el = snap.element;
+                    if (el.getAttribute('data-yd-screenshot-hidden') === hideToken) {
+                        if (snap.prevAttr === null) el.removeAttribute('data-yd-screenshot-hidden');
+                        else el.setAttribute('data-yd-screenshot-hidden', snap.prevAttr);
+
+                        if (el.style.getPropertyValue('display') === 'none') {
+                            if (snap.prevDisplay) el.style.setProperty('display', snap.prevDisplay, snap.prevDisplayPriority);
+                            else el.style.removeProperty('display');
+                        }
+                        if (el.style.getPropertyValue('visibility') === 'hidden') {
+                            if (snap.prevVisibility) el.style.setProperty('visibility', snap.prevVisibility, snap.prevVisibilityPriority);
+                            else el.style.removeProperty('visibility');
+                        }
+                    }
+                }
+
+                root.removeAttribute('data-yd-screenshot-clean');
+
+                for (const id of pausedTools.reverse()) {
+                    try {
+                        const resumed = await resumeTool(id);
+                        if (resumed === false) restoreErrors.push(id);
+                    } catch {
+                        restoreErrors.push(id);
+                    }
+                }
+                await waitCaptureFrames();
+            }
+
+            if (restoreErrors.length) throw createError('RESTORE_FAILED: ' + restoreErrors.join(', '));
+            if (captureError) throw captureError;
+            if (!blob) throw createError('SCREENSHOT_EMPTY');
+            return blob;
+        };
+
+        const task = runCaptureTask();
+        activeCapturePromise = task;
+        try {
+            return await task;
+        } finally {
+            if (activeCapturePromise === task) activeCapturePromise = null;
+        }
+    };
+
+    const lifecycleApi = Object.freeze({
+        STATES: LIFECYCLE_STATES,
+        getState: toolId => getLifecycleRecord(toolId)?.state || LIFECYCLE_STATES.UNINITIALIZED,
+        getAllStates: () => {
+            const out = {};
+            for (const [id, rec] of lifecycleRecords) out[id] = { ...rec };
+            return out;
+        },
+        destroy: destroyTool,
+        rebuild: rebuildTool,
+        pause: pauseTool,
+        resume: resumeTool,
+        refresh: async toolId => {
+            const res = await refreshTool(toolId);
+            if (res === null) return rebuildTool(toolId);
+            return res;
+        }
+    });
+
+    const screenshotCoordinatorApi = Object.freeze({
+        EXCLUDE_ATTR,
+        EXCLUDE_CLASS,
+        registerElement: registerExcludedElement,
+        getExcludedElements: resolveExcludedElements,
+        isExcluded: isScreenshotExcludedElement,
+        isCapturing: () => Boolean(activeCapturePromise),
+        capture: captureCleanScreenshot
+    });
+
+    global.YODAWY_TOOL_LIFECYCLE = lifecycleApi;
+    global.YODAWY_SCREENSHOT_COORDINATOR = screenshotCoordinatorApi;
+
     global.YODAWY_TOOLS_MANAGER = Object.freeze({
-        version: 3,
+        version: 4,
+        lifecycle: lifecycleApi,
+        screenshot: screenshotCoordinatorApi,
         loadManifest,
         sync,
         syncTool,

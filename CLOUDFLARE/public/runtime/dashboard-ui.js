@@ -83,6 +83,13 @@
     let dropdownScrollHandler = null;
     let dropdownResizeHandler = null;
 
+    const globalExclusionRegister = element => {
+        try {
+            if (element instanceof Element) element.setAttribute('data-yd-screenshot-exclude', 'true');
+            page.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(element, { toolId: 'DASHBOARD_UI' });
+        } catch {}
+    };
+
     const mountModalOverlay = overlay => {
         const root = document.getElementById(CONFIG.ID);
         if (!root || !document.body) throw new Error('Dashboard modal host is unavailable.');
@@ -109,6 +116,8 @@
             trigger.setAttribute('aria-expanded', 'true');
             openDropdownMenu(dropdown);
         }, true);
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
     };
 
@@ -227,6 +236,7 @@
                 render();
             }, true);
             item.append(link);
+            globalExclusionRegister(item);
             launcherItem = item;
         }
         const items = [...menu.children].filter(item => item !== launcherItem);
@@ -2014,7 +2024,8 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     font-weight: 700 !important;
 }
 #yd-dashboard-root .yd-tool-accordion-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-#yd-dashboard-root .yd-tool-accordion-copy strong { overflow: hidden; color: var(--ink); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-tool-accordion-copy strong { display: inline-flex; align-items: center; gap: 7px; overflow: hidden; color: var(--ink); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-tool-inline-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; background: var(--brand-soft); color: var(--brand); font-size: 11px; flex: 0 0 20px; }
 #yd-dashboard-root .yd-tool-accordion-copy small { color: var(--muted); font-size: 9.5px; }
 #yd-dashboard-root .yd-tool-accordion-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 #yd-dashboard-root .yd-tool-settings-placeholder {
@@ -3545,8 +3556,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             const enabled = pending ? pending.enabled === true : storedEnabled;
             const expanded = expandedTools.has(id) ? ' open' : '';
             const status = '<span class="yd-pill ' + (enabled ? 'green' : 'red') + '">' + (enabled ? 'ON' : 'OFF') + '</span>';
+            const toolIcon = String(tool.icon || (id === 'TOOL-019' ? 'fa-solid fa-camera' : '')).trim();
+            const iconMarkup = toolIcon ? '<span class="yd-tool-inline-icon" aria-hidden="true"><i class="yd-fa-icon ' + escapeHTML(toolIcon) + '"></i></span>' : '';
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
-                '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + '</small></span></span>' +
+                '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + iconMarkup + '<span>' + escapeHTML(tool.name) + '</span></strong><small>' + escapeHTML(id) + '</small></span></span>' +
                 '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
                 '<div class="yd-tool-accordion-body">' + (id === 'TOOL-003' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="yd-fa-icon fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + '</div></details>';
         }).join('');
@@ -4610,6 +4623,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="yd-fa-icon fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
         overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-fa-icon'));
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
         activeMessageDialog = overlay;
         const closeButton = overlay.querySelector('[data-message-close]');
@@ -4644,6 +4659,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const danger = options.danger === true;
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-dashboard-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="yd-dashboard-confirm-title"><div class="yd-message-icon ' + (danger ? 'error' : 'success') + '"><i class="yd-fa-icon fa-solid ' + (danger ? 'fa-triangle-exclamation' : 'fa-circle-question') + '"></i></div><h3 id="yd-dashboard-confirm-title">' + escapeHTML(options.title || 'Confirm Action') + '</h3><p>' + escapeHTML(options.message || 'Are you sure you want to continue?') + '</p>' + (rows ? '<ul class="yd-dashboard-confirm-details">' + rows + '</ul>' : '') + '<div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>' + escapeHTML(options.cancelLabel || 'Cancel') + '</button><button type="button" class="yd-primary' + (danger ? ' yd-confirm-danger' : '') + '" data-confirm-accept>' + escapeHTML(options.confirmLabel || 'Confirm') + '</button></div></section>';
         overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far').forEach(icon => icon.classList.add('yd-fa-icon'));
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
         activeDashboardConfirmDialog = overlay;
         const finish = value => {
@@ -4679,6 +4696,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         overlay.className = 'yd-modal-backdrop';
         if (computed) [...computed].filter(name => name.startsWith('--')).forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-portal-delete-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-delete-title"><h3 id="yd-portal-delete-title">Delete All Portal Accounts</h3><p>All portal accounts assigned to <strong>' + escapeHTML(formatName(target.name)) + ' (' + escapeHTML(targetUserId) + ')</strong> will be permanently deleted.</p><form id="yd-portal-delete-form"><div class="yd-field"><label for="yd-portal-delete-password">SUPER ADMIN Password</label><input class="yd-input" id="yd-portal-delete-password" type="password" autocomplete="new-password" required></div><div class="yd-field"><label for="yd-portal-delete-password-confirm">Confirm SUPER ADMIN Password</label><input class="yd-input" id="yd-portal-delete-password-confirm" type="password" autocomplete="new-password" required></div><p id="yd-portal-delete-error" role="alert" style="min-height:18px;color:#b42318;font-size:12px;margin:8px 0 0"></p><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-delete-cancel>Cancel</button><button type="submit" class="yd-primary" style="background:#b42318;border-color:#b42318">Delete All</button></div></form></section>';
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
         activePortalDeleteDialog = overlay;
         syncInputSurfaceBackgrounds(overlay);
@@ -5772,6 +5791,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
         root.id = CONFIG.ID;
+        globalExclusionRegister(root);
         rootElement = root;
         document.body.appendChild(root);
         render();

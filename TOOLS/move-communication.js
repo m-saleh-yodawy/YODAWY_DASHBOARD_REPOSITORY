@@ -361,8 +361,16 @@
     const instance=Object.freeze({
         id:TOOL_ID,
         path:'TOOLS/move-communication.js',
+        screenshotBehavior:'pause-required',
+        supportsPause:true,
+        pause:suspend,
         suspend,
         resume,
+        refresh(){
+            if(state.destroyed||state.suspended)return false;
+            run();
+            return true;
+        },
         destroy(){
             suspend();
             state.destroyed=true;

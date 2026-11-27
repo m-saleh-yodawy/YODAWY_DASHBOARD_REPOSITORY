@@ -1299,6 +1299,8 @@
 
         panel.id =
             'ordered-panel';
+        panel.setAttribute('data-yd-screenshot-exclude', 'true');
+        window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(panel, { toolId: TOOL_ID });
 
         panel.innerHTML = `
             <div id="ordered-header">
@@ -1612,6 +1614,8 @@
 
             item.id =
                 'ordered-systray-item';
+            item.setAttribute('data-yd-screenshot-exclude', 'true');
+            window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(item, { toolId: TOOL_ID });
 
             item.className =
                 'o_ordered_systray_item';
@@ -1994,20 +1998,43 @@ function destroy() {
 }
 
 const api = {
+    id: TOOL_ID,
+    path: 'TOOLS/ordered-by-warehouse.js',
+    screenshotBehavior: 'hide-only',
+    supportsPause: true,
     destroy,
-    async suspend() {
+    async pause() {
         if (destroyed) return true;
-        if (running || processing) return false;
-        if (destroy() === false) return false;
-        destroyed = false;
-        domController = new AbortController();
-        window[INSTANCE_KEY] = api;
-        registry[TOOL_ID] = api;
+        if (running) {
+            paused = true;
+            updateControls();
+            updateStatus('PAUSED');
+        }
+        document.getElementById('ordered-panel')?.style.setProperty('display', 'none', 'important');
+        document.getElementById('ordered-systray-item')?.style.setProperty('display', 'none', 'important');
         return true;
+    },
+    async suspend() {
+        return this.pause();
     },
     async resume() {
         if (destroyed) return false;
+        if (running && paused) {
+            paused = false;
+            updateControls();
+            updateStatus('RUNNING');
+        }
+        document.getElementById('ordered-panel')?.style.removeProperty('display');
+        document.getElementById('ordered-systray-item')?.style.removeProperty('display');
         if (!document.getElementById('ordered-panel')) init();
+        return true;
+    },
+    async refresh() {
+        if (destroyed) return false;
+        if (!document.getElementById('ordered-panel')) init();
+        updateStats();
+        updateProgress();
+        updateControls();
         return true;
     }
 };

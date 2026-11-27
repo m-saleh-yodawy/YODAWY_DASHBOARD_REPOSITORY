@@ -133,6 +133,7 @@
       "id": "TOOL-019",
       "file": "screen.js",
       "name": "SCREEN",
+      "icon": "fa-solid fa-camera",
       "description": "Capture and copy a clean screenshot with all active tools temporarily suspended.",
       "enabled": true,
       "matches": [

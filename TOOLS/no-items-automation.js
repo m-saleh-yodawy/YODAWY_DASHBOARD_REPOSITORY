@@ -449,6 +449,16 @@ const saveScreenshotManual=async(blob,message='No items need to check')=>{
 };
 
 const takeScreenshot=async()=>{
+    const coordinator=window.YODAWY_SCREENSHOT_COORDINATOR;
+    if(coordinator&&typeof coordinator.capture==='function'){
+        return coordinator.capture({
+            requesterToolId:TOOL_ID,
+            scale:1,
+            quality:0.9,
+            expandOdooContainers:true,
+            renderer:typeof html2canvas==='function'?html2canvas:undefined
+        });
+    }
     const root=document.documentElement;
     const body=document.body;
     const fixed=[];
@@ -554,6 +564,7 @@ const downloadExcelReport=()=>{
 const panel=document.createElement('div');
 
 panel.id='noitems-panel';
+panel.setAttribute('data-yd-screenshot-exclude','true');
 
 panel.innerHTML=`
 <div id="noitems-header">
@@ -778,6 +789,7 @@ document.head.appendChild(style);
 const systray=document.createElement('li');
 
 systray.id='noitems-systray-item';
+systray.setAttribute('data-yd-screenshot-exclude','true');
 systray.setAttribute('role','menuitem');
 
 systray.innerHTML=`
@@ -981,13 +993,11 @@ const processCurrentTicket=async()=>{
 const suspendTools=async()=>{
     const registry=window.YODAWY_TOOL_INSTANCES||{};
     const suspended=[];
-    for(const instance of Object.values(registry)){
-        if(typeof instance?.suspend!=='function')continue;
-        try{if(await instance.suspend()!==false)suspended.push(instance);}catch{}
-    }
-    const ordered=window.__MS_ORDERED_BY_WH__;
-    if(typeof ordered?.suspend==='function'){
-        try{if(await ordered.suspend()!==false)suspended.push(ordered);}catch{}
+    for(const [id,instance] of Object.entries(registry)){
+        if(id===TOOL_ID||instance?.screenshotBehavior!=='pause-required')continue;
+        const fn=typeof instance?.pause==='function'?instance.pause.bind(instance):typeof instance?.suspend==='function'?instance.suspend.bind(instance):null;
+        if(!fn)continue;
+        try{if(await fn()!==false)suspended.push(instance);}catch{}
     }
     return suspended;
 };
@@ -1002,7 +1012,6 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
     let opened=false;
     let popup=null;
     let popupClosed=false;
-    let suspended=[];
     let baseline=null;
     try{
         setStatus(`FETCHING #${ticketId} • ${index}/${totalTargets}`);
@@ -1024,7 +1033,6 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
         }
         opened=await openTicket(ticketId);
         if(!opened||getCurrentTicketId()!==ticketId)throw new Error('OPEN NO-ITEM TICKET FAILED');
-        suspended=await suspendTools();
         setStatus(`CAPTURING • NO ITEM #${ticketId}`);
         if(!await clickFetch())throw new Error('NO-ITEM FETCH DISPLAY FAILED');
         popup=await waitForPopup();
@@ -1052,18 +1060,15 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
                 updateStats();
             }
         }
-        await resumeTools(suspended);
         if(opened)await backToList();
     }
 };
 
 const captureFailureEvidence=async(ticketId,error)=>{
     let opened=false;
-    let suspended=[];
     try{
         opened=await openTicket(ticketId);
         if(!opened)return false;
-        suspended=await suspendTools();
         const blob=await takeScreenshot();
         if(!blob)return false;
         const message=`Automation error after retry: ${String(error?.message||error||'Unknown error').slice(0,500)}`;
@@ -1071,7 +1076,6 @@ const captureFailureEvidence=async(ticketId,error)=>{
     }catch{
         return false;
     }finally{
-        await resumeTools(suspended);
         if(opened)await backToList();
     }
 };
@@ -1189,23 +1193,45 @@ const run=async()=>{
 };
 
 const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+const unregisterNoItemsPanel=window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(panel,{toolId:TOOL_ID});
+const unregisterNoItemsSystray=window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(systray,{toolId:TOOL_ID});
 const instance={
     id:TOOL_ID,
     path:'TOOLS/no-items-automation.js',
-    suspend(){
-        if(state.destroyed||state.running)return false;
+    screenshotBehavior:'hide-only',
+    supportsPause:true,
+    pause(){
+        if(state.destroyed)return true;
+        if(state.running){
+            state.paused=true;
+            updatePauseUI();
+            return true;
+        }
         state.suspended=true;
-        state.paused=false;
-        if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
         panel.classList.remove('open');
-        systray.remove();
+        systray.style.setProperty('display','none','important');
         return true;
+    },
+    suspend(){
+        return this.pause();
     },
     resume(){
         if(state.destroyed)return false;
         state.suspended=false;
+        if(state.running){
+            state.paused=false;
+            updatePauseUI();
+        }
+        systray.style.removeProperty('display');
         placeSystrayFirst();
         startSystrayTimer();
+        return true;
+    },
+    refresh(){
+        if(state.destroyed)return false;
+        placeSystrayFirst();
+        updateConfirmUI();
+        updateStats();
         return true;
     },
     destroy(){
@@ -1214,6 +1240,8 @@ const instance={
         state.destroyed=true;
         state.paused=false;
         state.running=false;
+        try{unregisterNoItemsPanel?.();}catch{}
+        try{unregisterNoItemsSystray?.();}catch{}
         state.controller.abort();
         if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
         panel.remove();

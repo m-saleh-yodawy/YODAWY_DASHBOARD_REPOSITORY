@@ -95,6 +95,11 @@ return true;
 const instance=Object.freeze({
 id:TOOL_ID,
 path:'TOOLS/portal-tool-old.js',
+screenshotBehavior:'hide-only',
+supportsPause:true,
+pause(){
+return this.suspend();
+},
 suspend(){
 if(state.destroyed)return true;
 if(state.suspended)return true;
@@ -107,6 +112,11 @@ if(state.destroyed)return false;
 if(!state.suspended)return true;
 state.suspended=false;
 startOdoo();
+return true;
+},
+refresh(){
+if(state.destroyed||state.suspended)return false;
+if(location.hostname==='odoo.yodawy.com')setupOdoo();
 return true;
 },
 destroy:cleanup

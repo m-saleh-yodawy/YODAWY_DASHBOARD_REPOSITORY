@@ -208,6 +208,7 @@ const showResult=(cell,original,altUnit,required,currentQty)=>{
 
     const el=document.createElement('span');
     el.className=WARNING_CLASS;
+    el.setAttribute('data-yd-screenshot-exclude','true');
     el.dataset.required=String(required?.qty||'');
     el.dataset.current=String(currentQty);
 
@@ -313,6 +314,11 @@ injectStyles();
 const instance={
     id:TOOL_ID,
     path:'TOOLS/alternative-quantity-warning.js',
+    screenshotBehavior:'hide-only',
+    supportsPause:true,
+    pause(){
+        return this.suspend();
+    },
     suspend(){
         observer.disconnect();
         clearTimeout(scanTimer);
@@ -324,6 +330,11 @@ const instance={
         if(destroyed)return false;
         injectStyles();
         observer.observe(document.body,{childList:true,subtree:true});
+        scan();
+        return true;
+    },
+    refresh(){
+        if(destroyed)return false;
         scan();
         return true;
     },

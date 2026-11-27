@@ -135,6 +135,7 @@ function success(message) {
 
     const popup = document.createElement('div');
     popup.className = 'yodawy-copy-success';
+    popup.setAttribute('data-yd-screenshot-exclude', 'true');
     popup.textContent = `✓ ${message}`;
     document.body.appendChild(popup);
 
@@ -451,6 +452,7 @@ function askCallStatus() {
 
         const overlay = document.createElement('div');
         overlay.id = 'tm-alt-call-popup';
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
 
         const box = document.createElement('div');
         box.className = 'tm-alt-call-box';
@@ -812,17 +814,43 @@ const instance = {
         return true;
     },
 
-    async suspend() {
-        if (!state.initialized) return true;
-        await this.destroy();
-        state.destroyed = false;
+    screenshotBehavior: 'pause-required',
+    supportsPause: true,
+    async pause() {
+        if (!state.initialized || state.destroyed) return true;
+        state.observer?.disconnect();
+        state.observer = null;
+        clearSchedule(state.scanTimer);
+        state.scanTimer = null;
+        for (const close of [...state.dialogs]) close(null);
+        state.dialogs.clear();
+        for (const [body, original] of state.originals) {
+            if (!body.isConnected) continue;
+            body.innerHTML = original.html;
+            if (original.done === undefined) delete body.dataset.yodawyAccordionDone;
+            else body.dataset.yodawyAccordionDone = original.done;
+            if (original.drugs === undefined) delete body._yodawyLimitedDrugs;
+            else body._yodawyLimitedDrugs = original.drugs;
+        }
+        state.originals.clear();
+        document.querySelectorAll('.yodawy-copy-success, #tm-alt-call-popup').forEach(item => item.remove());
+        state.initialized = false;
         return true;
+    },
+    async suspend() {
+        return this.pause();
     },
 
     async resume() {
+        if (state.destroyed) return false;
         if (state.initialized) return true;
-        state.destroyed = false;
         return this.init();
+    },
+
+    async refresh() {
+        if (state.destroyed || !state.initialized) return false;
+        scan();
+        return true;
     },
 
     async destroy() {

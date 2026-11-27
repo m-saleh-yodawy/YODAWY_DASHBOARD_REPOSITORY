@@ -101,9 +101,9 @@ await fs.writeFile(path.join(buildRoot, "manifest.json"), JSON.stringify(manifes
 
 const quote = value => "'" + String(value ?? "").replace(/'/g, "''") + "'";
 const statements = activeTools.map(tool =>
-  "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled, match_patterns) VALUES (" +
-  [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1, JSON.stringify(tool.matches)].map(quote).join(", ") +
-  ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, updated_at=CURRENT_TIMESTAMP;"
+  "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled, match_patterns, icon) VALUES (" +
+  [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1, JSON.stringify(tool.matches), tool.icon || ""].map(quote).join(", ") +
+  ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, icon=excluded.icon, updated_at=CURRENT_TIMESTAMP;"
 );
 
 if (legacySha) statements.push("UPDATE tools SET sha256=" + quote(legacySha) + ", match_patterns=" + quote(JSON.stringify(legacyMatches)) + ", updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote("TOOL-017") + ";");
@@ -148,7 +148,7 @@ if (!runtimeConfig.includes("VERSION: 1")) throw new Error("Could not mark the D
 runtimeConfig = runtimeConfig.replace("VERSION: 1", "ENVIRONMENT: 'DEVELOPMENT',\n        VERSION: 1");
 await fs.writeFile(runtimeConfigPath, runtimeConfig);
 
-const banner = '<div id="yodawy-dev-mode-banner" style="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005">YODAWY DEVELOPMENT — TEST ENVIRONMENT</div>';
+const banner = '<div id="yodawy-dev-mode-banner" data-yd-screenshot-exclude="true" style="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005">YODAWY DEVELOPMENT — TEST ENVIRONMENT</div>';
 const indexPath = path.join(publicRoot, "index.html");
 let html = await fs.readFile(indexPath, "utf8");
 if (!html.includes("yodawy-dev-mode-banner")) {
@@ -159,7 +159,7 @@ await fs.writeFile(indexPath, html);
 
 const bootstrapPath = path.join(publicRoot, "cloud-bootstrap.js");
 let bootstrap = await fs.readFile(bootstrapPath, "utf8");
-const pageBanner = '(()=>{try{const d=PAGE?.document;if(!d?.body||d.getElementById("yodawy-dev-mode-banner"))return;const e=d.createElement("div");e.id="yodawy-dev-mode-banner";e.textContent="YODAWY DEVELOPMENT — TEST ENVIRONMENT";e.style.cssText="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005";d.body.append(e)}catch{}})();\n';
+const pageBanner = '(()=>{try{const d=PAGE?.document;if(!d?.body||d.getElementById("yodawy-dev-mode-banner"))return;const e=d.createElement("div");e.id="yodawy-dev-mode-banner";e.setAttribute("data-yd-screenshot-exclude","true");e.textContent="YODAWY DEVELOPMENT — TEST ENVIRONMENT";e.style.cssText="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005";d.body.append(e)}catch{}})();\n';
 await fs.writeFile(bootstrapPath, pageBanner + bootstrap);
 
 const loaderSource = await fs.readFile(path.join(cloudflareRoot, "tampermonkey-loader.js"), "utf8");

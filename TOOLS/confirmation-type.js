@@ -332,6 +332,8 @@
             if (!box) return;
 
             const container = this.createContainer();
+            container.setAttribute('data-yd-screenshot-exclude', 'true');
+            window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(container, { toolId: TOOL_ID });
             const split = box.querySelector('#tmLetsSplit');
 
             box.prepend(container);
@@ -499,6 +501,8 @@
             return true;
         },
 
+        screenshotBehavior: 'hide-only',
+        supportsPause: false,
         async suspend() {
             if (!state.initialized) return true;
             state.controller.abort();
@@ -516,6 +520,12 @@
             if (state.destroyed || state.initialized) return true;
             state.controller = new AbortController();
             return this.init();
+        },
+
+        async refresh() {
+            if (state.destroyed) return false;
+            ui.render();
+            return true;
         },
 
         async destroy() {

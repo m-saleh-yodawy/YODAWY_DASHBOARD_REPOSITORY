@@ -192,9 +192,9 @@ jobs:
 
           const quote = value => "'" + String(value ?? "").replace(/'/g, "''") + "'";
           const statements = active.map(tool =>
-            "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled, match_patterns) VALUES (" +
-            [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1, JSON.stringify(tool.matches)].map(quote).join(", ") +
-            ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, updated_at=CURRENT_TIMESTAMP;"
+            "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled, match_patterns, icon) VALUES (" +
+            [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1, JSON.stringify(tool.matches), tool.icon || ""].map(quote).join(", ") +
+            ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, icon=excluded.icon, updated_at=CURRENT_TIMESTAMP;"
           );
 
           if (legacySha256) statements.push("UPDATE tools SET sha256=" + quote(legacySha256) + ", match_patterns=" + quote(JSON.stringify(legacyMatches)) + ", updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote("TOOL-017") + ";");

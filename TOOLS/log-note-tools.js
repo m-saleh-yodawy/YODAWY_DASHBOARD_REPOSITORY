@@ -44,6 +44,7 @@
                 const btn=document.createElement('span');
                 btn.textContent=text;
                 btn.dataset.ydLogNoteTool=text.toLowerCase();
+                btn.setAttribute('data-yd-screenshot-exclude','true');
                 btn.style.cssText=BUTTON_STYLE+`margin-left:${marginLeft}px;`;
                 btn.onmouseenter=()=>btn.style.textDecoration='underline';
                 btn.onmouseleave=()=>btn.style.textDecoration='none';
@@ -92,11 +93,19 @@
             const instance={
                 id:TOOL_ID,
                 path:'TOOLS/log-note-tools.js',
+                screenshotBehavior:'hide-only',
+                supportsPause:true,
+                pause(){clean();return true;},
                 suspend(){clean();return true;},
                 resume(){
                     if(destroyed)return false;
                     addButtons();
                     observer.observe(document.body,{childList:true,subtree:true});
+                    return true;
+                },
+                refresh(){
+                    if(destroyed)return false;
+                    addButtons();
                     return true;
                 },
                 destroy(){
