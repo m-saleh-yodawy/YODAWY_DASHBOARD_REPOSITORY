@@ -1,0 +1,56 @@
+name: Initialize DEV Admin Account
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  initialize:
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Initialize Q-999 on DEV Worker
+        env:
+          DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
+          SETUP_SECRET: ${{ secrets.CLOUDFLARE_DEV_SETUP_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$DEV_WORKER_URL" || { echo "::error::Missing CLOUDFLARE_DEV_WORKER_URL."; exit 1; }
+          test -n "$SETUP_SECRET" || { echo "::error::Missing CLOUDFLARE_DEV_SETUP_SECRET."; exit 1; }
+
+          echo "Calling /api/auth/setup-password for Q-999 against $DEV_WORKER_URL..."
+          RESPONSE=$(curl --silent --show-error --write-out "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$DEV_WORKER_URL/api/auth/setup-password" \
+            -H "Content-Type: application/json" \
+            -H "x-setup-secret: $SETUP_SECRET" \
+            -d '{"username":"Q-999","password":"DEV1122334455"}')
+
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          STATUS=$(echo "$RESPONSE" | tail -n 1 | cut -d':' -f2)
+
+          if [ "$STATUS" -eq 200 ]; then
+            echo "Account Q-999 password initialized successfully."
+          elif [ "$STATUS" -eq 409 ]; then
+            echo "Account Q-999 already initialized."
+          else
+            echo "::error::Setup failed with HTTP $STATUS: $BODY"
+            exit 1
+          fi
+
+          echo "Verifying Q-999 authentication..."
+          LOGIN_RES=$(curl --silent --show-error --write-out "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$DEV_WORKER_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"Q-999","password":"DEV1122334455"}')
+
+          LOGIN_STATUS=$(echo "$LOGIN_RES" | tail -n 1 | cut -d':' -f2)
+          LOGIN_BODY=$(echo "$LOGIN_RES" | sed '$d')
+
+          if [ "$LOGIN_STATUS" -eq 200 ]; then
+            echo "Login successfully verified for Q-999."
+          else
+            echo "::error::Login verification failed with HTTP $LOGIN_STATUS: $LOGIN_BODY"
+            exit 1
+          fi
