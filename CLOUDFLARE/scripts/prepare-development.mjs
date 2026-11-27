@@ -15,7 +15,7 @@ const workerUrl = String(process.env.CLOUDFLARE_DEV_WORKER_URL || "").trim().rep
 if (!/^[0-9a-f-]{36}$/i.test(databaseId)) throw new Error("CLOUDFLARE_DEV_D1_DATABASE_ID must contain the DEV D1 database UUID.");
 if (!workerUrl) throw new Error("CLOUDFLARE_DEV_WORKER_URL is required.");
 const parsedWorkerUrl = new URL(workerUrl);
-if (parsedWorkerUrl.protocol !== "https:" || !parsedWorkerUrl.hostname.endsWith(".workers.dev") || workerUrl === productionUrl) {
+if (parsedWorkerUrl.protocol !== "https:" || !parsedWorkerUrl.hostname.startsWith("yodawy-dashboard-dev.") || !parsedWorkerUrl.hostname.endsWith(".workers.dev") || workerUrl === productionUrl) {
   throw new Error("CLOUDFLARE_DEV_WORKER_URL must be the isolated HTTPS DEV workers.dev URL, not Production.");
 }
 
