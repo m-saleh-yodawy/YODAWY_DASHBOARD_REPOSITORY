@@ -11,7 +11,8 @@
     "enabled": true
   },
   "vars": {
-    "YODAWY_ENVIRONMENT": "DEVELOPMENT"
+    "YODAWY_ENVIRONMENT": "DEVELOPMENT",
+    "ALLOWED_ORIGINS": "__DEV_ALLOWED_ORIGINS__"
   },
   "assets": {
     "directory": "./.dev-build/public",
