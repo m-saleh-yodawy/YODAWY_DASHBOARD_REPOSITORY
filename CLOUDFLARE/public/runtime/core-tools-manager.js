@@ -895,13 +895,20 @@
                     if (ctx) {
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
-                        // Draw strictly the visible viewport rectangle
-                        const sourceWidth = Math.min(rawCanvas.width, targetPixelWidth);
-                        const sourceHeight = Math.min(rawCanvas.height, targetPixelHeight);
+                        // Draw strictly the visible viewport rectangle.
+                        // Only apply scroll offset if rawCanvas is larger than targetPixelWidth/Height (i.e. full-document canvas).
+                        const sourceX = rawCanvas.width > targetPixelWidth
+                            ? Math.min(Math.max(0, Math.round(scrollX * scale)), rawCanvas.width - targetPixelWidth)
+                            : 0;
+                        const sourceY = rawCanvas.height > targetPixelHeight
+                            ? Math.min(Math.max(0, Math.round(scrollY * scale)), rawCanvas.height - targetPixelHeight)
+                            : 0;
+                        const sourceWidth = Math.min(rawCanvas.width - sourceX, targetPixelWidth);
+                        const sourceHeight = Math.min(rawCanvas.height - sourceY, targetPixelHeight);
                         ctx.drawImage(
                             rawCanvas,
-                            0,
-                            0,
+                            sourceX,
+                            sourceY,
                             sourceWidth,
                             sourceHeight,
                             0,
@@ -979,18 +986,57 @@
 
     // Unified Systray Burger Menu implementation
     // Groups ORDERED (1st), NO ITEMS (2nd), and SCREENSHOT (3rd) into a single dropdown
+    const registeredLaunchers = new Map();
+    const ACTION_TO_TOOL_ID = Object.freeze({
+        ordered: 'TOOL-012',
+        noitems: 'TOOL-008',
+        screen: 'TOOL-019'
+    });
+    let updateSystrayBadgesFn = () => {};
+
+    const ensureFontAwesomeLoaded = () => {
+        try {
+            if (typeof document === 'undefined' || !document.fonts?.check) return;
+            if (document.fonts.check('900 16px "YD Font Awesome 6 Free"')) return;
+            const styleEl = document.getElementById('yd-fa-icons-style');
+            if (!styleEl?.href) return;
+            const fontUrl = new URL('./webfonts/6.7.2/fa-solid-900.woff2', styleEl.href).toString();
+            if (typeof page.FontFace !== 'function' || typeof page.fetch !== 'function') return;
+            page.fetch(fontUrl, { mode: 'cors', credentials: 'omit' })
+                .then(res => res.ok ? res.arrayBuffer() : null)
+                .then(buf => {
+                    if (!buf) return null;
+                    const face = new page.FontFace('YD Font Awesome 6 Free', buf, { weight: '900', style: 'normal' });
+                    return face.load();
+                })
+                .then(loaded => {
+                    if (loaded && loaded.status === 'loaded') {
+                        document.fonts.add(loaded);
+                        return document.fonts.load('900 16px "YD Font Awesome 6 Free"');
+                    }
+                    return null;
+                })
+                .catch(() => {});
+        } catch {}
+    };
+
     const initSystrayBurgerMenu = () => {
         const MENU_ITEM_ID = 'yd-tools-systray-item';
         const BUTTON_ID = 'yd-tools-systray-button';
         const DROPDOWN_ID = 'yd-tools-systray-dropdown';
         const STYLE_ID = 'yd-tools-systray-style';
 
+        ensureFontAwesomeLoaded();
+
         const ensureStyles = () => {
             if (document.getElementById(STYLE_ID)) return;
             const style = document.createElement('style');
             style.id = STYLE_ID;
             style.textContent = `
-                /* Hide direct standalone buttons for items grouped in the dropdown */
+                /* Hide legacy standalone buttons if ever present */
+                ul.o_menu_systray > li#ordered-systray-item,
+                ul.o_menu_systray > li#noitems-systray-item,
+                ul.o_menu_systray > li#yd-screen-systray-item,
                 #ordered-systray-item,
                 #noitems-systray-item,
                 #yd-screen-systray-item {
@@ -1033,9 +1079,20 @@
                     color: #fff !important;
                 }
 
-                #${BUTTON_ID} i {
+                #${BUTTON_ID} i.yd-fa-icon {
+                    display: inline-block !important;
+                    font-family: "YD Font Awesome 6 Free" !important;
+                    font-weight: 900 !important;
+                    font-style: normal !important;
+                    font-variant: normal !important;
                     font-size: 19px !important;
                     line-height: 1 !important;
+                    width: 20px !important;
+                    height: 20px !important;
+                    text-align: center !important;
+                    color: inherit !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
                 }
 
                 #${DROPDOWN_ID} {
@@ -1058,7 +1115,7 @@
                     display: block !important;
                 }
 
-                .yd-tools-dropdown-item {
+                #${DROPDOWN_ID} .yd-tools-dropdown-item {
                     display: flex !important;
                     align-items: center !important;
                     gap: 12px !important;
@@ -1074,24 +1131,33 @@
                     transition: background 0.15s, color 0.15s !important;
                 }
 
-                .yd-tools-dropdown-item:hover {
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:hover {
                     background: rgba(255, 255, 255, 0.09) !important;
                     color: #fff !important;
                 }
 
-                .yd-tools-dropdown-item i.yd-fa-icon {
+                #${DROPDOWN_ID} .yd-tools-dropdown-item i.yd-fa-icon {
+                    display: inline-block !important;
+                    font-family: "YD Font Awesome 6 Free" !important;
+                    font-weight: 900 !important;
+                    font-style: normal !important;
+                    font-variant: normal !important;
                     width: 20px !important;
+                    height: 16px !important;
                     font-size: 15px !important;
+                    line-height: 1 !important;
                     text-align: center !important;
                     color: #e5b3d7 !important;
                     flex: 0 0 20px !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
                 }
 
-                .yd-tools-dropdown-item span.yd-tools-item-name {
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-name {
                     flex: 1 1 auto !important;
                 }
 
-                .yd-tools-dropdown-item span.yd-tools-item-badge {
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-badge {
                     display: inline-flex !important;
                     align-items: center !important;
                     justify-content: center !important;
@@ -1105,8 +1171,8 @@
                     font-weight: 700 !important;
                 }
 
-                .yd-tools-dropdown-item span.yd-tools-item-badge:empty,
-                .yd-tools-dropdown-item span.yd-tools-item-badge[data-count="0"] {
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-badge:empty,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-badge[data-count="0"] {
                     display: none !important;
                 }
             `;
@@ -1123,21 +1189,21 @@
                 item.setAttribute('role', 'menuitem');
                 item.innerHTML = `
                     <button id="${BUTTON_ID}" type="button" title="Tools Menu" aria-label="Tools Menu" aria-expanded="false" aria-haspopup="true">
-                        <i class="yd-fa-icon fa-solid fa-bars" aria-hidden="true"></i>
+                        <i class="yd-fa-icon fa-solid fa-bars"></i>
                     </button>
                     <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshot-exclude="true" class="yd-screenshot-exclude">
-                        <button type="button" class="yd-tools-dropdown-item" data-action="ordered" role="menuitem">
-                            <i class="yd-fa-icon fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                        <button type="button" class="yd-tools-dropdown-item" data-action="ordered" role="menuitem" aria-label="ORDERED BY WH">
+                            <i class="yd-fa-icon fa-solid fa-cart-shopping"></i>
                             <span class="yd-tools-item-name">ORDERED BY WH</span>
                             <span class="yd-tools-item-badge" id="yd-badge-ordered" data-count="0"></span>
                         </button>
-                        <button type="button" class="yd-tools-dropdown-item" data-action="noitems" role="menuitem">
-                            <i class="yd-fa-icon fa-solid fa-clipboard-check" aria-hidden="true"></i>
+                        <button type="button" class="yd-tools-dropdown-item" data-action="noitems" role="menuitem" aria-label="NO ITEM NEED TO CHECK">
+                            <i class="yd-fa-icon fa-solid fa-clipboard-check"></i>
                             <span class="yd-tools-item-name">NO ITEM NEED TO CHECK</span>
                             <span class="yd-tools-item-badge" id="yd-badge-noitems" data-count="0"></span>
                         </button>
-                        <button type="button" class="yd-tools-dropdown-item" data-action="screen" role="menuitem">
-                            <i class="yd-fa-icon fa-solid fa-camera" aria-hidden="true"></i>
+                        <button type="button" class="yd-tools-dropdown-item" data-action="screen" role="menuitem" aria-label="SCREENSHOT">
+                            <i class="yd-fa-icon fa-solid fa-camera"></i>
                             <span class="yd-tools-item-name">SCREENSHOT</span>
                         </button>
                     </div>
@@ -1171,6 +1237,13 @@
                     btn.setAttribute('aria-expanded', 'false');
 
                     const action = actionBtn.getAttribute('data-action');
+                    const toolId = ACTION_TO_TOOL_ID[action];
+                    const registered = toolId ? registeredLaunchers.get(toolId) : null;
+                    if (registered && typeof registered.launch === 'function') {
+                        registered.launch();
+                        return;
+                    }
+
                     if (action === 'ordered') {
                         const target = document.getElementById('ordered-systray-button') || document.querySelector('#ordered-systray-item a, #ordered-systray-item button');
                         if (target) target.click();
@@ -1195,22 +1268,30 @@
         };
 
         const updateBadges = () => {
-            const orderedCounter = document.getElementById('ordered-counter')?.innerText?.trim();
+            const orderedRegistered = registeredLaunchers.get('TOOL-012');
+            const orderedCountRaw = typeof orderedRegistered?.getCount === 'function'
+                ? orderedRegistered.getCount()
+                : document.getElementById('ordered-counter')?.innerText?.trim();
             const badgeOrdered = document.getElementById('yd-badge-ordered');
             if (badgeOrdered) {
-                const count = orderedCounter || '0';
+                const count = String(orderedCountRaw ?? '0').trim() || '0';
                 badgeOrdered.innerText = count === '0' ? '' : count;
                 badgeOrdered.setAttribute('data-count', count);
             }
 
-            const noitemsCounter = document.getElementById('noitems-counter')?.innerText?.trim();
+            const noitemsRegistered = registeredLaunchers.get('TOOL-008');
+            const noitemsCountRaw = typeof noitemsRegistered?.getCount === 'function'
+                ? noitemsRegistered.getCount()
+                : document.getElementById('noitems-counter')?.innerText?.trim();
             const badgeNoitems = document.getElementById('yd-badge-noitems');
             if (badgeNoitems) {
-                const count = noitemsCounter || '0';
+                const count = String(noitemsCountRaw ?? '0').trim() || '0';
                 badgeNoitems.innerText = count === '0' ? '' : count;
                 badgeNoitems.setAttribute('data-count', count);
             }
         };
+
+        updateSystrayBadgesFn = updateBadges;
 
         const placeMenu = () => {
             if (!document.body) return false;
@@ -1240,8 +1321,27 @@
             placeMenu();
         });
         observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
-        setInterval(updateBadges, 2000);
     };
+
+    const systrayMenuApi = Object.freeze({
+        isActive: true,
+        register: (toolId, config = {}) => {
+            if (!toolId || typeof config !== 'object') return () => {};
+            registeredLaunchers.set(toolId, config);
+            updateSystrayBadgesFn();
+            return () => {
+                if (registeredLaunchers.get(toolId) === config) {
+                    registeredLaunchers.delete(toolId);
+                    updateSystrayBadgesFn();
+                }
+            };
+        },
+        unregister: toolId => {
+            registeredLaunchers.delete(toolId);
+            updateSystrayBadgesFn();
+        },
+        updateBadges: () => updateSystrayBadgesFn()
+    });
 
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         if (document.readyState === 'loading') {
@@ -1287,6 +1387,7 @@
         version: 4,
         lifecycle: lifecycleApi,
         screenshot: screenshotCoordinatorApi,
+        systrayMenu: systrayMenuApi,
         loadManifest,
         sync,
         syncTool,

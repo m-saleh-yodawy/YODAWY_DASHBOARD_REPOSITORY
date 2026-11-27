@@ -517,9 +517,11 @@ const takeScreenshot=async()=>{
             if(ctx){
                 ctx.imageSmoothingEnabled=true;
                 ctx.imageSmoothingQuality='high';
-                const sourceWidth=Math.min(rawCanvas.width,targetPixelWidth);
-                const sourceHeight=Math.min(rawCanvas.height,targetPixelHeight);
-                ctx.drawImage(rawCanvas,0,0,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
+                const sourceX=rawCanvas.width>targetPixelWidth?Math.min(Math.max(0,Math.round(scrollX*scale)),rawCanvas.width-targetPixelWidth):0;
+                const sourceY=rawCanvas.height>targetPixelHeight?Math.min(Math.max(0,Math.round(scrollY*scale)),rawCanvas.height-targetPixelHeight):0;
+                const sourceWidth=Math.min(rawCanvas.width-sourceX,targetPixelWidth);
+                const sourceHeight=Math.min(rawCanvas.height-sourceY,targetPixelHeight);
+                ctx.drawImage(rawCanvas,sourceX,sourceY,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
                 finalCanvas=normalizedCanvas;
             }
         }
@@ -706,9 +708,21 @@ const updateConfirmUI=()=>{
         :'OFF • SCREENSHOT + LOG NOTE ONLY';
 };
 
+const hasCentralSystray=()=>Boolean(window.YODAWY_TOOLS_MANAGER?.systrayMenu?.isActive);
+
+const registerCentralLauncher=()=>{
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.register?.(TOOL_ID,{
+        launch:()=>{
+            if(!state.destroyed&&!state.suspended)panel.classList.toggle('open');
+        },
+        getCount:()=>String(state.noItems||0)
+    });
+};
+
 const updateCounter=()=>{
     const counter=document.querySelector('#noitems-counter');
     if(counter)counter.textContent=state.noItems;
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.updateBadges?.();
 };
 
 const updateStats=()=>{
@@ -808,6 +822,12 @@ systray.innerHTML=`
 let systrayPlaced=false;
 
 const placeSystrayFirst=()=>{
+    if(hasCentralSystray()){
+        systray.remove();
+        registerCentralLauncher();
+        systrayPlaced=true;
+        return;
+    }
     const ul=document.querySelector('ul.o_menu_systray[role="menu"],ul.o_menu_systray');
     if(!ul)return;
 
@@ -822,8 +842,15 @@ placeSystrayFirst();
 
 let systrayTimer=null;
 const startSystrayTimer=()=>{
-    if(systrayTimer||state.destroyed||state.suspended)return;
+    if(hasCentralSystray()||systrayTimer||state.destroyed||state.suspended)return;
     systrayTimer=setInterval(()=>{
+    if(hasCentralSystray()){
+        clearInterval(systrayTimer);
+        systrayTimer=null;
+        systray.remove();
+        registerCentralLauncher();
+        return;
+    }
     if(!systrayPlaced||!document.body.contains(systray)){
         placeSystrayFirst();
         systrayPlaced=document.body.contains(systray);
@@ -1248,6 +1275,7 @@ const instance={
         state.running=false;
         try{unregisterNoItemsPanel?.();}catch{}
         try{unregisterNoItemsSystray?.();}catch{}
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.unregister?.(TOOL_ID);
         state.controller.abort();
         if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
         panel.remove();

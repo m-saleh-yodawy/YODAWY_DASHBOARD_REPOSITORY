@@ -121,8 +121,21 @@ const addStyle=()=>{
     state.style=style;
 };
 
+const hasCentralSystray=()=>Boolean(window.YODAWY_TOOLS_MANAGER?.systrayMenu?.isActive);
+
+const registerCentralLauncher=()=>{
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.register?.(TOOL_ID,{
+        launch:()=>handleClick()
+    });
+};
+
 const placeButton=()=>{
     if(state.destroyed||state.suspended||!document.body)return false;
+    if(hasCentralSystray()){
+        state.item?.remove();
+        registerCentralLauncher();
+        return true;
+    }
     const nav=document.querySelector('ul.o_menu_systray[role="menu"],ul.o_menu_systray');
     if(!nav)return false;
     if(state.item.parentElement!==nav)nav.insertBefore(state.item,nav.firstElementChild);
@@ -130,6 +143,11 @@ const placeButton=()=>{
 };
 
 const watchNavbar=()=>{
+    if(hasCentralSystray()){
+        state.item?.remove();
+        registerCentralLauncher();
+        return;
+    }
     if(state.observer||state.destroyed||state.suspended||!document.body)return;
     state.observer=new MutationObserver(()=>{
         if(!state.suspended&&!state.destroyed&&!state.item.isConnected)placeButton();
@@ -231,9 +249,11 @@ const captureCanvas=async()=>{
             if(ctx){
                 ctx.imageSmoothingEnabled=true;
                 ctx.imageSmoothingQuality='high';
-                const sourceWidth=Math.min(rawCanvas.width,targetPixelWidth);
-                const sourceHeight=Math.min(rawCanvas.height,targetPixelHeight);
-                ctx.drawImage(rawCanvas,0,0,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
+                const sourceX=rawCanvas.width>targetPixelWidth?Math.min(Math.max(0,Math.round(scrollX*scale)),rawCanvas.width-targetPixelWidth):0;
+                const sourceY=rawCanvas.height>targetPixelHeight?Math.min(Math.max(0,Math.round(scrollY*scale)),rawCanvas.height-targetPixelHeight):0;
+                const sourceWidth=Math.min(rawCanvas.width-sourceX,targetPixelWidth);
+                const sourceHeight=Math.min(rawCanvas.height-sourceY,targetPixelHeight);
+                ctx.drawImage(rawCanvas,sourceX,sourceY,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
                 finalCanvas=normalizedCanvas;
             }
         }
@@ -360,8 +380,10 @@ const runCapture=async(signal)=>{
 const handleClick=()=>{
     if(state.destroyed||state.suspended||state.busy)return;
     state.busy=true;
-    state.button.disabled=true;
-    state.button.classList.add('yd-screen-working');
+    if(state.button){
+        state.button.disabled=true;
+        state.button.classList.add('yd-screen-working');
+    }
     removeToast();
 
     const abortController=new AbortController();
@@ -435,6 +457,7 @@ const instance={
         state.destroyed=true;
         state.suspended=true;
         try{unregisterExclusion?.();}catch{}
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.unregister?.(TOOL_ID);
         state.controller.abort();
         state.captureAbortController?.abort();
         removeOverlay();

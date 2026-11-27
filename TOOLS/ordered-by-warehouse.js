@@ -728,6 +728,18 @@
             !running;
     }
 
+    const hasCentralSystray = () => Boolean(window.YODAWY_TOOLS_MANAGER?.systrayMenu?.isActive);
+
+    function registerCentralLauncher() {
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.register?.(TOOL_ID, {
+            launch: () => {
+                const panel = document.getElementById('ordered-panel');
+                if (panel && !destroyed) panel.classList.toggle('open');
+            },
+            getCount: () => orderedFound > 99 ? '99+' : String(orderedFound)
+        });
+    }
+
     function updateCounter() {
         const counter =
               document.getElementById(
@@ -740,6 +752,7 @@
                 ? '99+'
             : orderedFound;
         }
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.updateBadges?.();
     }
 
     async function loadExcel(file) {
@@ -1584,6 +1597,13 @@
             return false;
         }
 
+        if (hasCentralSystray()) {
+            document.getElementById('ordered-systray-item')?.remove();
+            registerCentralLauncher();
+            updateCounter();
+            return true;
+        }
+
         const systray =
               document.querySelector(
                   'ul.o_menu_systray'
@@ -1992,6 +2012,7 @@ function destroy() {
     )
         ?.remove();
 
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.unregister?.(TOOL_ID);
     if (window[INSTANCE_KEY] === api) delete window[INSTANCE_KEY];
     if (registry[TOOL_ID] === api) delete registry[TOOL_ID];
     return true;
