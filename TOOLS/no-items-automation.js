@@ -463,44 +463,29 @@ const takeScreenshot=async()=>{
     const body=document.body;
     const fixed=[];
     const markers=[];
-    const scrollables=[...document.querySelectorAll('body *')].filter(element=>{
-        const style=getComputedStyle(element);
-        return element.scrollHeight>element.clientHeight+20&&['auto','scroll'].includes(style.overflowY);
-    });
-    const width=Math.max(root.scrollWidth,body.scrollWidth,window.innerWidth,...scrollables.map(element=>element.scrollWidth+Math.max(0,element.getBoundingClientRect().left+window.scrollX)));
-    const height=Math.max(root.scrollHeight,body.scrollHeight,window.innerHeight,...scrollables.map(element=>element.scrollHeight+Math.max(0,element.getBoundingClientRect().top+window.scrollY)));
-    for(const element of document.querySelectorAll('body *')){
-        const style=getComputedStyle(element);
-        if(style.position!=='fixed'&&style.position!=='sticky')continue;
-        const rect=element.getBoundingClientRect();
-        if(!rect.width||!rect.height)continue;
-        const marker=`noitems-${markers.length}`;
-        element.setAttribute('data-noitems-capture',marker);
-        markers.push({element,marker});
-        fixed.push({marker,left:rect.left+window.scrollX,top:rect.top+window.scrollY});
-    }
+    // Viewport-only dimensions: capture strictly visible webpage viewport inside the active tab
+    const viewportWidth=Math.max(1,Math.round(window.visualViewport?.width||window.innerWidth||root.clientWidth||0));
+    const viewportHeight=Math.max(1,Math.round(window.visualViewport?.height||window.innerHeight||root.clientHeight||0));
+    const scrollX=window.scrollX??window.pageXOffset??root.scrollLeft??0;
+    const scrollY=window.scrollY??window.pageYOffset??root.scrollTop??0;
+    const scale=window.devicePixelRatio||1;
+
     try{
         const canvas=await html2canvas(root,{
             backgroundColor:'#fff',
-            scale:1,
+            scale,
             useCORS:true,
             logging:false,
             imageTimeout:0,
-            x:0,
-            y:0,
-            width,
-            height,
-            windowWidth:width,
-            windowHeight:window.innerHeight,
+            x:scrollX,
+            y:scrollY,
+            width:viewportWidth,
+            height:viewportHeight,
+            windowWidth:window.innerWidth||viewportWidth,
+            windowHeight:window.innerHeight||viewportHeight,
             scrollX:0,
             scrollY:0,
             onclone:clonedDocument=>{
-                const selectors='.o_web_client,.o_action_manager,.o_content,.o_form_view,.o_form_sheet_bg,.o_chatter,.o-mail-ChatterContainer';
-                clonedDocument.querySelectorAll(selectors).forEach(element=>{
-                    element.style.setProperty('height','auto','important');
-                    element.style.setProperty('max-height','none','important');
-                    element.style.setProperty('overflow','visible','important');
-                });
                 clonedDocument.querySelectorAll('[data-noitems-capture]').forEach(element=>{
                     const item=fixed.find(entry=>entry.marker===element.getAttribute('data-noitems-capture'));
                     if(!item)return;

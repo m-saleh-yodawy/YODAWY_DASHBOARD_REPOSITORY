@@ -130,37 +130,29 @@ const captureCanvas=async()=>{
     const root=document.documentElement;
     const body=document.body;
     const fixed=[];
-    const scrollables=[...document.querySelectorAll('body *')].filter(element=>{
-        const style=getComputedStyle(element);
-        return element.scrollHeight>element.clientHeight+20&&['auto','scroll'].includes(style.overflowY);
-    });
-    const width=Math.max(root.scrollWidth,body.scrollWidth,window.innerWidth,...scrollables.map(element=>element.scrollWidth+Math.max(0,element.getBoundingClientRect().left+window.scrollX)));
-    const height=Math.max(root.scrollHeight,body.scrollHeight,window.innerHeight,...scrollables.map(element=>element.scrollHeight+Math.max(0,element.getBoundingClientRect().top+window.scrollY)));
-    for(const element of document.querySelectorAll('body *')){
-        const style=getComputedStyle(element);
-        if(style.position!=='fixed'&&style.position!=='sticky')continue;
-        const rect=element.getBoundingClientRect();
-        if(!rect.width||!rect.height)continue;
-        const marker='ydscreen-'+fixed.length;
-        fixed.push({element,marker,previous:element.getAttribute(MARKER),left:rect.left+window.scrollX,top:rect.top+window.scrollY});
-        element.setAttribute(MARKER,marker);
-    }
+    // Viewport-only dimensions: capture strictly visible webpage viewport inside the active tab
+    const viewportWidth=Math.max(1,Math.round(window.visualViewport?.width||window.innerWidth||root.clientWidth||0));
+    const viewportHeight=Math.max(1,Math.round(window.visualViewport?.height||window.innerHeight||root.clientHeight||0));
+    const scrollX=window.scrollX??window.pageXOffset??root.scrollLeft??0;
+    const scrollY=window.scrollY??window.pageYOffset??root.scrollTop??0;
+    const scale=window.devicePixelRatio||1;
+
     try{
         try{await document.fonts?.ready;}catch{}
         await waitFrame();
         const canvas=await window.html2canvas(root,{
             backgroundColor:'#fff',
-            scale:Math.min(2,Math.max(1,window.devicePixelRatio||1)),
+            scale,
             useCORS:true,
             allowTaint:false,
             logging:false,
             imageTimeout:0,
-            x:0,
-            y:0,
-            width,
-            height,
-            windowWidth:width,
-            windowHeight:window.innerHeight,
+            x:scrollX,
+            y:scrollY,
+            width:viewportWidth,
+            height:viewportHeight,
+            windowWidth:window.innerWidth||viewportWidth,
+            windowHeight:window.innerHeight||viewportHeight,
             scrollX:0,
             scrollY:0,
             onclone:clonedDocument=>{
