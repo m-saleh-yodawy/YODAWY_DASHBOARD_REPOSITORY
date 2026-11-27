@@ -39,7 +39,7 @@ This repository controls two separate live environments. These rules are mandato
 - Never point a DEV Wrangler config, generated asset, loader, or workflow at the Production Worker URL or Production D1 ID.
 - Never point a Production config or loader at DEV.
 - Do not execute Production D1 writes during development. Production access for a DEV data refresh is strictly read-only.
-- DEV deployment secrets must be scoped to the GitHub `development` Environment and must be separate from Production secrets. Do not fall back to repository-level Cloudflare tokens for DEV deployment. Use least-privilege DEV tokens.
+- DEV deployment secrets must be scoped to the GitHub `development` Environment and must be separate from Production secrets. The DEV workflow must use the dedicated secret names `CLOUDFLARE_DEV_API_TOKEN` and `CLOUDFLARE_DEV_D1_API_TOKEN`; never use the Production/repository-level `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_D1_API_TOKEN` as a fallback. Use least-privilege DEV tokens.
 - Production deployment secrets must be scoped to the `production` Environment.
 - Never hard-code passwords, setup secrets, API tokens, encryption keys, session tokens, or database credentials in source, workflow YAML, tests, or logs. Never echo secrets.
 - Never commit generated DEV configs, exports, SQL data dumps, D1 backups, or credential material.
