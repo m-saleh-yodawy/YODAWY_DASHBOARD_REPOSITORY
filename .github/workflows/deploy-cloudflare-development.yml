@@ -122,3 +122,36 @@ jobs:
           curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/api/ready" | grep -q '"success":true'
           curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/yodawy-dev-loader.user.js" | grep -q 'YODAWY DEVELOPMENT CLOUD LOADER'
           echo "DEV Worker, D1 readiness, and isolated DEV Loader verified."
+
+      - name: Initialize DEV admin account Q-999
+        env:
+          CLOUDFLARE_DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
+          SETUP_SECRET: ${{ secrets.CLOUDFLARE_DEV_SETUP_SECRET }}
+        run: |
+          set -euo pipefail
+          echo "Setting up DEV admin account Q-999..."
+          RES=$(curl --silent --show-error --write-out "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$CLOUDFLARE_DEV_WORKER_URL/api/auth/setup-password" \
+            -H "Content-Type: application/json" \
+            -H "x-setup-secret: $SETUP_SECRET" \
+            -d '{"username":"Q-999","password":"DEV1122334455"}')
+          STATUS=$(echo "$RES" | tail -n 1 | cut -d':' -f2)
+          if [ "$STATUS" -eq 200 ] || [ "$STATUS" -eq 409 ]; then
+            echo "Q-999 password setup status: $STATUS"
+          else
+            echo "::error::Failed to setup Q-999: HTTP $STATUS"
+            exit 1
+          fi
+
+          echo "Verifying Q-999 login..."
+          LOGIN_RES=$(curl --silent --show-error --write-out "\nHTTP_STATUS:%{http_code}" \
+            -X POST "$CLOUDFLARE_DEV_WORKER_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"username":"Q-999","password":"DEV1122334455"}')
+          LOGIN_STATUS=$(echo "$LOGIN_RES" | tail -n 1 | cut -d':' -f2)
+          if [ "$LOGIN_STATUS" -eq 200 ]; then
+            echo "Q-999 login successfully verified."
+          else
+            echo "::error::Q-999 login failed: HTTP $LOGIN_STATUS"
+            exit 1
+          fi
