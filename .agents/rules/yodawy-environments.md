@@ -47,39 +47,38 @@ This repository controls two separate live environments. These rules are mandato
 
 ## Production-to-Development demo-data refresh
 
-Mohamed has authorized a one-way refresh of DEV test data from the current Production users and tool configuration. This is NOT authorization to copy raw Production data.
+Mohamed has authorized a one-way refresh of DEV data from the current Production users and tool configuration. Actual Production user identity and approved configuration data may be copied to Development. Authentication credentials, sessions, secrets, and sensitive operational records must never be copied.
 
 Before any refresh:
 
 1. Confirm both exact D1 names and IDs. Read Production only; write only to the DEV D1.
 2. Create/confirm a recoverable DEV D1 backup before replacing existing DEV demo data. Preserve the existing `Q-999` DEV administrator and its independent DEV-only authentication.
-3. Read the current schema and all relevant foreign keys/migrations. Use a temporary secure transfer method; never store a raw Production export in GitHub, the repository, workflow logs, or persistent artifacts. Delete temporary raw exports after import and verification.
-4. Import only the minimum sanitized data required to exercise the dashboard's Users, Roles, Tools, Permissions, and Visibility interfaces.
+3. Read the current schema and all relevant foreign keys/migrations.
+4. Import actual Production user identities, roles, statuses, personal repositories, permissions, tool visibility, and approved user settings.
 
-Allowed sanitized data:
-- User role and status values, where needed for realistic permission behavior.
-- A deterministic mapping from each Production user to a synthetic DEV-only `Q-###` user ID, excluding/reserving `Q-999`.
-- Generic names such as `DEV USER 001`, and synthetic personal repository labels such as `DEV_USER_001`; never copy real names or personal repository identifiers.
-- Tool registry metadata and enabled/disabled state, using the current canonical tool source and manifest in GitHub. Preserve tool IDs only where they match the canonical tool catalog.
-- User-to-tool permission assignments and tool visibility modes, after remapping user IDs to synthetic DEV IDs.
+Allowed data:
+- Actual Production user IDs (`user_id`).
+- Actual employee names (`name`).
+- Actual personal repository names (`personal_repository`).
+- User role (`role`) and status (`status`) values.
+- Tool registry metadata and enabled/disabled state, using the current canonical tool source and manifest in GitHub.
+- Actual user-to-tool permission assignments (`tool_permissions`) and tool visibility modes (`tool_visibility`, `tool_visibility_users`) matching the Production user IDs.
 - In `user_settings`, copy only validated `tools` enabled/disabled preferences and an allowed `startPage` value (`overview` or `tools`). Drop all other preference values unless individually reviewed and proven non-sensitive.
 
 Never copy:
-- `password_hash`, `password_ciphertext`, `password_encryption_iv`, passwords, password reset material, MFA material, failed-login counters, lock state, or any authentication material.
+- `password_hash`, `password_ciphertext`, `password_encryption_iv`, passwords, password reset material, MFA material, failed-login counters, lock state, or any authentication material. All imported users must have password fields set to NULL.
 - Any rows from `sessions`.
 - Any rows from `portal_accounts`; they contain real Portal usernames, Odoo keys, and encrypted passwords. Do not copy them even though the DEV encryption key is different.
 - Production API tokens, GitHub credentials, Cloudflare secrets, encryption keys, cookies, JWTs, refresh tokens, or browser storage.
 - Raw `network_transactions`, `audit_logs`, `auth_events`, or `user_activity_logs` because payloads/details can contain personal or operational data.
 - Real announcements or message bodies unless separately reviewed and replaced with synthetic text.
 
-Sanitization requirements:
-- Preserve the relationship mapping between synthetic users and their permissions/visibility rows.
-- Ensure every imported DEV user has a synthetic identifier and generic name; no original identity mapping may remain in DEV.
-- Ensure synthetic users cannot authenticate until a separate DEV-only password is explicitly established. Keep `Q-999` as the only known DEV administrator login unless Mohamed explicitly requests otherwise.
-- Do not copy Production user passwords or allow DEV credentials to work in Production.
+Requirements:
+- Preserve all original user IDs, relationships, and foreign keys across users, permissions, visibility, and settings.
+- Preserve the existing `Q-999` DEV administrator (`YODAWY DEV ADMIN`, `SUPER_ADMIN`) and its independent DEV authentication. Ensure no conflict with Production user IDs (Production users use `Q-001` through `Q-017`; `Q-999` is reserved for DEV admin).
+- Ensure imported users cannot authenticate until a separate DEV-only password is established. Keep `Q-999` as the established DEV administrator login.
 - Verify counts, role distribution, permission mapping, tool counts, and foreign-key integrity.
-- Scan DEV data for original user names, real user IDs, personal repository labels, secrets, credential-like values, and Production-only identifiers before declaring completion.
-- Report source row counts, imported sanitized row counts, skipped tables, sanitization rules, backup reference, and verification results without exposing source PII or secrets.
+- Report source row counts, imported row counts, skipped tables, backup reference, and verification results without exposing secrets.
 
 ## Tool source of truth
 
