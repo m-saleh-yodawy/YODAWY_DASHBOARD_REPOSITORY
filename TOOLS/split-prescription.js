@@ -1741,9 +1741,9 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (button.disabled || button.dataset.loading === '1') return;
             startSplit();
         });
-        const anchor = container.querySelector('#tm-confirmation-buttons');
-        if (anchor) container.insertBefore(button, anchor.nextSibling);
-        else container.prepend(button);
+        const confirmation = container.querySelector('#tm-confirmation-buttons');
+        if (confirmation) container.insertBefore(button, confirmation);
+        else container.append(button);
     }
 
     function isTicketForm() {
