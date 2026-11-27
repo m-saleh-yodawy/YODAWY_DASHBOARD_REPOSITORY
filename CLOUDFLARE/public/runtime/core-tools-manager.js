@@ -1033,6 +1033,23 @@
             const style = document.createElement('style');
             style.id = STYLE_ID;
             style.textContent = `
+                :root {
+                    --yd-dropdown-surface: #fff;
+                    --yd-dropdown-text: #18181b;
+                    --yd-dropdown-muted: #71717a;
+                    --yd-dropdown-border: #d9d9de;
+                    --yd-dropdown-radius: 8px;
+                    --yd-dropdown-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+                    --yd-dropdown-hover: #e9dfea;
+                    --yd-dropdown-hover-text: #68465f;
+                    --yd-dropdown-selected: #f8f5f7;
+                    --yd-dropdown-selected-text: #714b67;
+                    --yd-dropdown-icon-bg: #f4eff2;
+                    --yd-dropdown-icon: #875a7b;
+                    --yd-dropdown-font: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+                    --yd-dropdown-item-radius: 6px;
+                }
+
                 /* Hide legacy standalone buttons if ever present */
                 ul.o_menu_systray > li#ordered-systray-item,
                 ul.o_menu_systray > li#noitems-systray-item,
@@ -1101,12 +1118,20 @@
                     top: 100% !important;
                     right: 0 !important;
                     min-width: 260px !important;
+                    max-width: min(340px, calc(100vw - 24px)) !important;
+                    max-height: min(320px, calc(100vh - 24px)) !important;
                     margin: 4px 0 0 !important;
-                    padding: 6px 0 !important;
-                    border-radius: 10px !important;
-                    background: #211b24 !important;
-                    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-                    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.36) !important;
+                    padding: 10px !important;
+                    overflow-x: hidden !important;
+                    overflow-y: auto !important;
+                    border-radius: var(--yd-dropdown-radius) !important;
+                    background: var(--yd-dropdown-surface) !important;
+                    border: 1px solid var(--yd-dropdown-border) !important;
+                    color: var(--yd-dropdown-text) !important;
+                    box-shadow: var(--yd-dropdown-shadow) !important;
+                    font-family: var(--yd-dropdown-font) !important;
+                    transform-origin: top right !important;
+                    animation: yd-tools-dropdown-enter .2s cubic-bezier(.16, 1, .3, 1) both !important;
                     z-index: 2147483645 !important;
                     user-select: none !important;
                 }
@@ -1118,22 +1143,24 @@
                 #${DROPDOWN_ID} .yd-tools-dropdown-item {
                     display: flex !important;
                     align-items: center !important;
-                    gap: 12px !important;
+                    gap: 8px !important;
                     width: 100% !important;
+                    min-height: 31px !important;
                     box-sizing: border-box !important;
-                    padding: 10px 16px !important;
+                    padding: 8px 10px !important;
                     border: 0 !important;
+                    border-radius: var(--yd-dropdown-item-radius) !important;
                     background: transparent !important;
-                    color: #f0eaf0 !important;
-                    font: 600 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+                    color: var(--yd-dropdown-text) !important;
+                    font: 500 12.5px/1.35 var(--yd-dropdown-font) !important;
                     text-align: left !important;
                     cursor: pointer !important;
-                    transition: background 0.15s, color 0.15s !important;
+                    transition: background-color .12s, color .12s !important;
                 }
 
                 #${DROPDOWN_ID} .yd-tools-dropdown-item:hover {
-                    background: rgba(255, 255, 255, 0.09) !important;
-                    color: #fff !important;
+                    background: var(--yd-dropdown-hover) !important;
+                    color: var(--yd-dropdown-hover-text) !important;
                 }
 
                 #${DROPDOWN_ID} .yd-tools-dropdown-item i.yd-fa-icon {
@@ -1142,15 +1169,26 @@
                     font-weight: 900 !important;
                     font-style: normal !important;
                     font-variant: normal !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
                     width: 20px !important;
-                    height: 16px !important;
-                    font-size: 15px !important;
+                    min-width: 20px !important;
+                    height: 20px !important;
+                    font-size: 13px !important;
                     line-height: 1 !important;
                     text-align: center !important;
-                    color: #e5b3d7 !important;
+                    border-radius: 6px !important;
+                    background: var(--yd-dropdown-icon-bg) !important;
+                    color: var(--yd-dropdown-icon) !important;
                     flex: 0 0 20px !important;
                     visibility: visible !important;
                     opacity: 1 !important;
+                }
+
+                @keyframes yd-tools-dropdown-enter {
+                    from { opacity: 0; transform: translateY(-8px) scale(.98); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
                 }
 
                 #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-name {
