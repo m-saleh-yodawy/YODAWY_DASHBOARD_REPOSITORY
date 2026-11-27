@@ -277,6 +277,9 @@ const portalAccountRoutes = async (request, env, path) => {
       };
     }
     if (operationName === "addNewChronicPrescription") {
+      if (env.YODAWY_ENVIRONMENT === "DEVELOPMENT" && env.DEV_ALLOW_EXTERNAL_MUTATIONS !== "true") {
+        return respond(request, env, { success: false, status: 403, error: "DEV_EXTERNAL_MUTATION_DISABLED", message: "External Portal mutations are disabled by default in DEVELOPMENT." }, 403);
+      }
       variables.input = {
         ...variables.input,
         insuranceCompanyId: String(login.insuranceAgencyId),
@@ -363,6 +366,10 @@ const portalAccountRoutes = async (request, env, path) => {
         return respond(request, env, { success: true, validation: result.CheckEditMatchingPrescription || null });
       }
       if (action === "save") {
+        if (env.YODAWY_ENVIRONMENT === "DEVELOPMENT" && env.DEV_ALLOW_EXTERNAL_MUTATIONS !== "true") {
+          login.token = "";
+          return respond(request, env, { success: false, error: "DEV_EXTERNAL_MUTATION_DISABLED", message: "External Portal mutations are disabled by default in DEVELOPMENT." }, 403);
+        }
         const query = "mutation example ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
         const medications = (Array.isArray(body.medications) ? body.medications : []).map((item, index) => ({
           DrugId: String(item.DrugId || ""),
@@ -1135,8 +1142,8 @@ export default {
         headers.set("vary", "Origin");
         return new Response(request.method === "HEAD" ? null : asset.body, { status: asset.status, statusText: asset.statusText, headers });
       }
-      if (url.pathname === "/api/version" && request.method === "GET") return respond(request, env, { success: true, version: env.CF_VERSION_METADATA?.id || "unversioned" });
-      if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });
+      if (url.pathname === "/api/version" && request.method === "GET") return respond(request, env, { success: true, version: env.CF_VERSION_METADATA?.id || "unversioned", environment: env.YODAWY_ENVIRONMENT || "PRODUCTION" });
+      if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2", environment: env.YODAWY_ENVIRONMENT || "PRODUCTION" });
       if (url.pathname === "/api/ready" && request.method === "GET") {
         try {
           const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs", "user_activity_logs", "portal_accounts"];

@@ -148,7 +148,7 @@ if (!runtimeConfig.includes("VERSION: 1")) throw new Error("Could not mark the D
 runtimeConfig = runtimeConfig.replace("VERSION: 1", "ENVIRONMENT: 'DEVELOPMENT',\n        VERSION: 1");
 await fs.writeFile(runtimeConfigPath, runtimeConfig);
 
-const banner = '<div id="yodawy-dev-mode-banner" style="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#7c2d12;color:#fff;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005">YODAWY DEVELOPMENT · TEST ENVIRONMENT</div>';
+const banner = '<div id="yodawy-dev-mode-banner" style="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005">YODAWY DEVELOPMENT — TEST ENVIRONMENT</div>';
 const indexPath = path.join(publicRoot, "index.html");
 let html = await fs.readFile(indexPath, "utf8");
 if (!html.includes("yodawy-dev-mode-banner")) {
@@ -159,16 +159,33 @@ await fs.writeFile(indexPath, html);
 
 const bootstrapPath = path.join(publicRoot, "cloud-bootstrap.js");
 let bootstrap = await fs.readFile(bootstrapPath, "utf8");
-const pageBanner = '(()=>{try{const d=PAGE?.document;if(!d?.body||d.getElementById("yodawy-dev-mode-banner"))return;const e=d.createElement("div");e.id="yodawy-dev-mode-banner";e.textContent="YODAWY DEVELOPMENT · TEST ENVIRONMENT";e.style.cssText="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#7c2d12;color:#fff;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005";d.body.append(e)}catch{}})();\n';
+const pageBanner = '(()=>{try{const d=PAGE?.document;if(!d?.body||d.getElementById("yodawy-dev-mode-banner"))return;const e=d.createElement("div");e.id="yodawy-dev-mode-banner";e.textContent="YODAWY DEVELOPMENT — TEST ENVIRONMENT";e.style.cssText="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005";d.body.append(e)}catch{}})();\n';
 await fs.writeFile(bootstrapPath, pageBanner + bootstrap);
 
 const loaderSource = await fs.readFile(path.join(cloudflareRoot, "tampermonkey-loader.js"), "utf8");
 let devLoader = loaderSource
   .replace(/\/\/ @name\s+YODAWY CLOUD LOADER/, "// @name         YODAWY DEVELOPMENT CLOUD LOADER")
   .replace(/\/\/ @connect\s+yodawy-dashboard\.m-saleh-yodawy\.workers\.dev/, "// @connect      " + parsedWorkerUrl.hostname)
+  .replace("'__YD_CLOUD_LOADER__'", "'__YD_DEV_CLOUD_LOADER__'")
   .split(productionUrl).join(workerUrl);
 if (devLoader.includes(productionUrl) || !devLoader.includes(workerUrl)) throw new Error("Failed to isolate the DEV Tampermonkey loader.");
 await fs.writeFile(path.join(publicRoot, "yodawy-dev-loader.user.js"), devLoader);
+
+const verifyIsolation = async directory => {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await verifyIsolation(target);
+      continue;
+    }
+    if (!/\.(js|html|json|css)$/i.test(entry.name)) continue;
+    const content = await fs.readFile(target, "utf8");
+    if (content.includes(productionUrl) || content.includes("7a4fd7ce-fdef-4f99-8927-97bdeb8c5083")) {
+      throw new Error("Isolation violation: Production reference found in " + path.relative(publicRoot, target));
+    }
+  }
+};
+await verifyIsolation(publicRoot);
 
 const template = await fs.readFile(path.join(cloudflareRoot, "wrangler.development.template.jsonc"), "utf8");
 if (!template.includes("__DEV_D1_DATABASE_ID__")) throw new Error("Development Wrangler template is missing the D1 placeholder.");
