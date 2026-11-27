@@ -546,6 +546,20 @@
     --danger: #dc2626;
     --danger-bg: #fee2e2;
     --danger-border: #f0d7d9;
+    --yd-dropdown-surface: #fff;
+    --yd-dropdown-text: #18181b;
+    --yd-dropdown-muted: #71717a;
+    --yd-dropdown-border: #d9d9de;
+    --yd-dropdown-radius: 8px;
+    --yd-dropdown-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    --yd-dropdown-hover: #e9dfea;
+    --yd-dropdown-hover-text: #68465f;
+    --yd-dropdown-selected: #f8f5f7;
+    --yd-dropdown-selected-text: #714b67;
+    --yd-dropdown-icon-bg: #f4eff2;
+    --yd-dropdown-icon: #875a7b;
+    --yd-dropdown-font: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+    --yd-dropdown-item-radius: 6px;
     color: var(--ink);
     font: 400 12px/1.45 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
     font-synthesis: none;
@@ -681,11 +695,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     z-index: 2147483005;
     width: 304px;
     padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
-    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    border: 1px solid var(--yd-dropdown-border);
+    border-radius: var(--yd-dropdown-radius);
+    background: var(--yd-dropdown-surface);
+    color: var(--yd-dropdown-text);
+    box-shadow: var(--yd-dropdown-shadow);
     animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .yd-profile-menu[hidden] { display: none !important; }
@@ -738,9 +752,9 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     margin-top: 0;
     padding: 6px 8px;
     border: 0;
-    border-radius: 7px;
-    background: #e1e1e1;
-    color: var(--text);
+    border-radius: var(--yd-dropdown-item-radius);
+    background: transparent;
+    color: var(--yd-dropdown-text);
     font-size: 11px;
     cursor: pointer;
     text-align: left;
@@ -748,8 +762,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-dropdown-action:hover,
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible {
-    background: #e1e1e1 !important;
-    color: #68465f !important;
+    background: var(--yd-dropdown-hover) !important;
+    color: var(--yd-dropdown-hover-text) !important;
     outline: none !important;
 }
 #yd-dashboard-root .yd-profile-menu .yd-refresh-action,
@@ -2280,11 +2294,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     overflow-x: hidden;
     overflow-y: auto;
     padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: #18181b;
-    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    border: 1px solid var(--yd-dropdown-border);
+    border-radius: var(--yd-dropdown-radius);
+    background: var(--yd-dropdown-surface);
+    color: var(--yd-dropdown-text);
+    box-shadow: var(--yd-dropdown-shadow);
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top center;
@@ -2330,9 +2344,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     min-height: 31px;
     padding: 8px 30px 8px 10px;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--yd-dropdown-item-radius);
     background: transparent;
-    color: #18181b;
+    color: var(--yd-dropdown-text);
     font-size: 12.5px;
     font-weight: 500 !important;
     text-align: left;
@@ -2350,14 +2364,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:focus-visible {
-    background-color: #e9dfea !important;
-    color: #68465f !important;
+    background-color: var(--yd-dropdown-hover) !important;
+    color: var(--yd-dropdown-hover-text) !important;
     outline: none !important;
 }
 :is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item[data-selected="true"],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item[data-selected="true"] {
-    background: #f8f5f7;
-    color: #714b67;
+    background: var(--yd-dropdown-selected);
+    color: var(--yd-dropdown-selected-text);
     font-weight: 700 !important;
 }
 :is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item[data-selected="true"]::after,
