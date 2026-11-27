@@ -65,6 +65,7 @@ for (const file of toolFiles) {
   if (description) tool.description = description;
   tool.matches = matches;
   tool.enabled = true;
+  if (byFile.get(file)?.icon) tool.icon = byFile.get(file).icon;
   tool.sha256 = crypto.createHash("sha256").update(source, "utf8").digest("hex");
   delete tool.version;
   await fs.copyFile(sourcePath, path.join(assetsRoot, file));

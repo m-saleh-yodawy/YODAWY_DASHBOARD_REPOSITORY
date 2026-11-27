@@ -650,6 +650,9 @@
         '#yd-cloud-error',
         '#yd-screen-systray-item',
         '#yd-screen-toast',
+        '#yd-screen-overlay',
+        '#yd-tools-systray-item',
+        '#yd-tools-menu-item',
         '#noitems-panel',
         '#noitems-systray-item',
         '#ordered-panel',
@@ -941,6 +944,280 @@
             if (activeCapturePromise === task) activeCapturePromise = null;
         }
     };
+
+    // Unified Systray Burger Menu implementation
+    // Groups ORDERED (1st), NO ITEMS (2nd), and SCREENSHOT (3rd) into a single dropdown
+    const initSystrayBurgerMenu = () => {
+        const MENU_ITEM_ID = 'yd-tools-systray-item';
+        const BUTTON_ID = 'yd-tools-systray-button';
+        const DROPDOWN_ID = 'yd-tools-systray-dropdown';
+        const STYLE_ID = 'yd-tools-systray-style';
+
+        const ensureStyles = () => {
+            if (document.getElementById(STYLE_ID)) return;
+            const style = document.createElement('style');
+            style.id = STYLE_ID;
+            style.textContent = `
+                /* Hide direct standalone buttons for items grouped in the dropdown */
+                #ordered-systray-item,
+                #noitems-systray-item,
+                #yd-screen-systray-item {
+                    display: none !important;
+                }
+
+                #${MENU_ITEM_ID} {
+                    position: relative !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 42px !important;
+                    height: 46px !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    flex: 0 0 42px !important;
+                    order: -990 !important;
+                }
+
+                #${BUTTON_ID} {
+                    position: relative !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 42px !important;
+                    height: 46px !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    border: 0 !important;
+                    border-radius: 0 !important;
+                    background: transparent !important;
+                    color: rgba(255, 255, 255, 0.9) !important;
+                    cursor: pointer !important;
+                    transition: background 0.15s, color 0.15s !important;
+                }
+
+                #${BUTTON_ID}:hover,
+                #${MENU_ITEM_ID}.open #${BUTTON_ID} {
+                    background: rgba(255, 255, 255, 0.12) !important;
+                    color: #fff !important;
+                }
+
+                #${BUTTON_ID} i {
+                    font-size: 19px !important;
+                    line-height: 1 !important;
+                }
+
+                #${DROPDOWN_ID} {
+                    display: none;
+                    position: absolute !important;
+                    top: 100% !important;
+                    right: 0 !important;
+                    min-width: 260px !important;
+                    margin: 4px 0 0 !important;
+                    padding: 6px 0 !important;
+                    border-radius: 10px !important;
+                    background: #211b24 !important;
+                    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+                    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.36) !important;
+                    z-index: 2147483645 !important;
+                    user-select: none !important;
+                }
+
+                #${MENU_ITEM_ID}.open #${DROPDOWN_ID} {
+                    display: block !important;
+                }
+
+                .yd-tools-dropdown-item {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 12px !important;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                    padding: 10px 16px !important;
+                    border: 0 !important;
+                    background: transparent !important;
+                    color: #f0eaf0 !important;
+                    font: 600 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+                    text-align: left !important;
+                    cursor: pointer !important;
+                    transition: background 0.15s, color 0.15s !important;
+                }
+
+                .yd-tools-dropdown-item:hover {
+                    background: rgba(255, 255, 255, 0.09) !important;
+                    color: #fff !important;
+                }
+
+                .yd-tools-dropdown-item i.yd-fa-icon {
+                    width: 20px !important;
+                    font-size: 15px !important;
+                    text-align: center !important;
+                    color: #e5b3d7 !important;
+                    flex: 0 0 20px !important;
+                }
+
+                .yd-tools-dropdown-item span.yd-tools-item-name {
+                    flex: 1 1 auto !important;
+                }
+
+                .yd-tools-dropdown-item span.yd-tools-item-badge {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 18px !important;
+                    height: 18px !important;
+                    padding: 0 6px !important;
+                    border-radius: 9px !important;
+                    background: #875a7b !important;
+                    color: #fff !important;
+                    font-size: 10px !important;
+                    font-weight: 700 !important;
+                }
+
+                .yd-tools-dropdown-item span.yd-tools-item-badge:empty,
+                .yd-tools-dropdown-item span.yd-tools-item-badge[data-count="0"] {
+                    display: none !important;
+                }
+            `;
+            (document.head || document.documentElement).appendChild(style);
+        };
+
+        const buildMenuElement = () => {
+            let item = document.getElementById(MENU_ITEM_ID);
+            if (!item) {
+                item = document.createElement('li');
+                item.id = MENU_ITEM_ID;
+                item.setAttribute('data-yd-screenshot-exclude', 'true');
+                item.className = 'yd-screenshot-exclude';
+                item.setAttribute('role', 'menuitem');
+                item.innerHTML = `
+                    <button id="${BUTTON_ID}" type="button" title="Tools Menu" aria-label="Tools Menu" aria-expanded="false" aria-haspopup="true">
+                        <i class="yd-fa-icon fa-solid fa-bars" aria-hidden="true"></i>
+                    </button>
+                    <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshot-exclude="true" class="yd-screenshot-exclude">
+                        <button type="button" class="yd-tools-dropdown-item" data-action="ordered" role="menuitem">
+                            <i class="yd-fa-icon fa-solid fa-cart-shopping" aria-hidden="true"></i>
+                            <span class="yd-tools-item-name">ORDERED BY WH</span>
+                            <span class="yd-tools-item-badge" id="yd-badge-ordered" data-count="0"></span>
+                        </button>
+                        <button type="button" class="yd-tools-dropdown-item" data-action="noitems" role="menuitem">
+                            <i class="yd-fa-icon fa-solid fa-clipboard-check" aria-hidden="true"></i>
+                            <span class="yd-tools-item-name">NO ITEM NEED TO CHECK</span>
+                            <span class="yd-tools-item-badge" id="yd-badge-noitems" data-count="0"></span>
+                        </button>
+                        <button type="button" class="yd-tools-dropdown-item" data-action="screen" role="menuitem">
+                            <i class="yd-fa-icon fa-solid fa-camera" aria-hidden="true"></i>
+                            <span class="yd-tools-item-name">SCREENSHOT</span>
+                        </button>
+                    </div>
+                `;
+
+                // Handle toggle
+                const btn = item.querySelector('#' + BUTTON_ID);
+                btn.addEventListener('click', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const open = item.classList.toggle('open');
+                    btn.setAttribute('aria-expanded', String(open));
+                    updateBadges();
+                });
+
+                // Close on outer click
+                document.addEventListener('click', e => {
+                    if (!item.contains(e.target)) {
+                        item.classList.remove('open');
+                        btn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                // Action dispatcher
+                item.addEventListener('click', e => {
+                    const actionBtn = e.target.closest('.yd-tools-dropdown-item');
+                    if (!actionBtn) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    item.classList.remove('open');
+                    btn.setAttribute('aria-expanded', 'false');
+
+                    const action = actionBtn.getAttribute('data-action');
+                    if (action === 'ordered') {
+                        const target = document.getElementById('ordered-systray-button') || document.querySelector('#ordered-systray-item a, #ordered-systray-item button');
+                        if (target) target.click();
+                        else {
+                            const panel = document.getElementById('ordered-panel');
+                            if (panel) panel.classList.toggle('open');
+                        }
+                    } else if (action === 'noitems') {
+                        const target = document.getElementById('noitems-systray-button') || document.querySelector('#noitems-systray-item button');
+                        if (target) target.click();
+                        else {
+                            const panel = document.getElementById('noitems-panel');
+                            if (panel) panel.classList.toggle('open');
+                        }
+                    } else if (action === 'screen') {
+                        const target = document.getElementById('yd-screen-button') || document.querySelector('#yd-screen-systray-item button');
+                        if (target) target.click();
+                    }
+                });
+            }
+            return item;
+        };
+
+        const updateBadges = () => {
+            const orderedCounter = document.getElementById('ordered-counter')?.innerText?.trim();
+            const badgeOrdered = document.getElementById('yd-badge-ordered');
+            if (badgeOrdered) {
+                const count = orderedCounter || '0';
+                badgeOrdered.innerText = count === '0' ? '' : count;
+                badgeOrdered.setAttribute('data-count', count);
+            }
+
+            const noitemsCounter = document.getElementById('noitems-counter')?.innerText?.trim();
+            const badgeNoitems = document.getElementById('yd-badge-noitems');
+            if (badgeNoitems) {
+                const count = noitemsCounter || '0';
+                badgeNoitems.innerText = count === '0' ? '' : count;
+                badgeNoitems.setAttribute('data-count', count);
+            }
+        };
+
+        const placeMenu = () => {
+            if (!document.body) return false;
+            ensureStyles();
+            const nav = document.querySelector('ul.o_menu_systray[role="menu"], ul.o_menu_systray');
+            if (!nav) return false;
+
+            const item = buildMenuElement();
+            // Place right next to stock checker or at the beginning of custom tools
+            const stockItem = document.getElementById('ms-stock-hzb-systray-item');
+            if (stockItem && stockItem.parentElement === nav) {
+                if (stockItem.nextElementSibling !== item) {
+                    nav.insertBefore(item, stockItem.nextSibling);
+                }
+            } else if (nav.firstElementChild !== item) {
+                nav.insertBefore(item, nav.firstElementChild);
+            }
+            updateBadges();
+            return true;
+        };
+
+        ensureStyles();
+        placeMenu();
+
+        // Observe navbar changes to keep menu firmly placed and badges updated
+        const observer = new MutationObserver(() => {
+            placeMenu();
+        });
+        observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+        setInterval(updateBadges, 2000);
+    };
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSystrayBurgerMenu, { once: true });
+        } else {
+            initSystrayBurgerMenu();
+        }
+    }
 
     const lifecycleApi = Object.freeze({
         STATES: LIFECYCLE_STATES,

@@ -770,7 +770,12 @@ const dashboardRoutes = async (request, env, path) => {
       const result = role === "ADMIN"
         ? await env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.match_patterns, t.enabled, t.icon FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
         : await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled, icon FROM tools WHERE enabled = 1 ORDER BY name").all();
-      const TOOL_ICON_FALLBACKS = { "TOOL-019": "fa-solid fa-camera" };
+      const TOOL_ICON_FALLBACKS = {
+        "TOOL-019": "fa-solid fa-camera",
+        "TOOL-008": "fa-solid fa-clipboard-check",
+        "TOOL-012": "fa-solid fa-cart-shopping",
+        "TOOL-014": "fa-solid fa-cubes"
+      };
       const seenIds = new Set();
       const seenPaths = new Set();
       const resolved = await Promise.all((result.results || []).map(async tool => {

@@ -15,6 +15,7 @@
 const TOOL_ID='TOOL-019';
 const ITEM_ID='yd-screen-systray-item';
 const BUTTON_ID='yd-screen-button';
+const OVERLAY_ID='yd-screen-overlay';
 const STYLE_ID='yd-screen-style';
 const MARKER='data-yd-screen-marker';
 const LIBRARY_URL='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -30,12 +31,48 @@ const state={
     style:null,
     observer:null,
     controller:new AbortController(),
+    captureAbortController:null,
     libraryPromise:null,
     toast:null,
-    toastTimer:null
+    toastTimer:null,
+    overlay:null
 };
 
 const waitFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+
+const removeOverlay=()=>{
+    if(state.overlay){
+        state.overlay.remove();
+        state.overlay=null;
+    }
+};
+
+const showOverlay=onCancel=>{
+    removeOverlay();
+    if(state.destroyed||state.suspended)return;
+    const overlay=document.createElement('div');
+    overlay.id=OVERLAY_ID;
+    overlay.setAttribute('data-yd-screenshot-exclude','true');
+    overlay.className='yd-screenshot-exclude';
+    overlay.innerHTML=`
+        <button id="yd-screen-overlay-cancel" type="button" title="Cancel Screenshot" aria-label="Cancel Screenshot">
+            <i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <div id="yd-screen-overlay-content">
+            <div id="yd-screen-spinner">
+                <i class="yd-fa-icon fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+            </div>
+            <div id="yd-screen-overlay-text">Taking screenshot...</div>
+        </div>
+    `;
+    overlay.querySelector('#yd-screen-overlay-cancel')?.addEventListener('click',e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        onCancel?.();
+    });
+    document.body.appendChild(overlay);
+    state.overlay=overlay;
+};
 
 const removeToast=()=>{
     if(state.toastTimer)clearTimeout(state.toastTimer);
@@ -50,6 +87,7 @@ const showToast=(message,type='success')=>{
     const toast=document.createElement('div');
     toast.id='yd-screen-toast';
     toast.setAttribute('data-yd-screenshot-exclude','true');
+    toast.className='yd-screenshot-exclude';
     toast.dataset.type=type;
     toast.textContent=message;
     document.body.appendChild(toast);
@@ -69,6 +107,13 @@ const addStyle=()=>{
         '#'+BUTTON_ID+' i{font-size:18px!important}\n'+
         '#'+BUTTON_ID+'.yd-screen-working i{animation:yd-screen-pulse .8s ease-in-out infinite alternate}\n'+
         '@keyframes yd-screen-pulse{from{opacity:.45;transform:scale(.9)}to{opacity:1;transform:scale(1.08)}}\n'+
+        '#'+OVERLAY_ID+'{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;background:rgba(0,0,0,.68)!important;backdrop-filter:blur(2px)!important;-webkit-backdrop-filter:blur(2px)!important;z-index:2147483646!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;pointer-events:all!important;user-select:none!important}\n'+
+        '#yd-screen-overlay-cancel{position:absolute!important;top:18px!important;right:22px!important;width:38px!important;height:38px!important;border:0!important;border-radius:50%!important;background:rgba(255,255,255,.18)!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;transition:background .2s,transform .15s!important;z-index:2147483647!important}\n'+
+        '#yd-screen-overlay-cancel:hover{background:rgba(255,255,255,.32)!important;transform:scale(1.08)!important}\n'+
+        '#yd-screen-overlay-cancel i{font-size:18px!important;line-height:1!important}\n'+
+        '#yd-screen-overlay-content{display:flex!important;flex-direction:column!important;align-items:center!important;gap:14px!important;color:#fff!important;text-align:center!important}\n'+
+        '#yd-screen-spinner{font-size:42px!important;color:#fff!important;line-height:1!important}\n'+
+        '#yd-screen-overlay-text{font:600 15px/1.4 Arial,sans-serif!important;letter-spacing:.3px!important;color:#f0eaf0!important}\n'+
         '#yd-screen-toast{position:fixed!important;right:22px!important;bottom:22px!important;z-index:2147483647!important;max-width:min(420px,calc(100vw - 44px))!important;padding:11px 15px!important;border:1px solid #ddd2dc!important;border-radius:9px!important;background:#fff!important;color:#302631!important;box-shadow:0 8px 28px #24162726!important;font:600 13px/1.5 Arial,sans-serif!important;pointer-events:none!important}\n'+
         '#yd-screen-toast[data-type="error"]{border-color:#e8b6bd!important;color:#a21d2d!important}\n'+
         '#yd-screen-toast[data-type="warning"]{border-color:#ead7a8!important;color:#7a5814!important}';
@@ -185,10 +230,9 @@ const captureCanvas=async()=>{
     }
 };
 
-const cleanCapture=async()=>{
+const cleanCapture=async(signal)=>{
     const coordinator=window.YODAWY_SCREENSHOT_COORDINATOR;
     if(coordinator&&typeof coordinator.capture==='function'){
-        removeToast();
         return coordinator.capture({
             requesterToolId:TOOL_ID,
             scale:Math.min(2,Math.max(1,window.devicePixelRatio||1)),
@@ -198,6 +242,7 @@ const cleanCapture=async()=>{
     const excludedSelectors=[
         '#yd-dashboard-menu-item','#yd-launcher','#yd-dashboard-root','.yd-select-portal-menu',
         '#yodawy-dev-mode-banner','#yd-cloud-error','#yd-screen-systray-item','#yd-screen-toast',
+        '#yd-screen-overlay','#yd-tools-systray-item','#yd-tools-menu-item',
         '#noitems-panel','#noitems-systray-item','#ordered-panel','#ordered-systray-item',
         '#ms-stock-hzb-checker','#ms-stock-hzb-systray-item','#ydDirectSplitButton','#ydDirectSplitDialog',
         '#tm-confirmation-buttons','#tm-alt-call-popup','.yodawy-copy-success','.yd-open-erx-backdrop',
@@ -210,7 +255,9 @@ const cleanCapture=async()=>{
     let captureError=null;
     const restoreErrors=[];
     try{
+        if(signal?.aborted)throw new DOMException('Screenshot cancelled','AbortError');
         await ensureLibrary();
+        if(signal?.aborted)throw new DOMException('Screenshot cancelled','AbortError');
         for(const [id,instance] of entries){
             const pauseFn=typeof instance.pause==='function'?instance.pause.bind(instance):typeof instance.suspend==='function'?instance.suspend.bind(instance):null;
             if(!pauseFn)continue;
@@ -218,13 +265,13 @@ const cleanCapture=async()=>{
             if(result===false)throw new Error('TOOL_BUSY: '+id);
             paused.push({id,instance});
         }
-        removeToast();
         document.querySelectorAll(excludedSelectors).forEach(el=>{
             hidden.push({el,d:el.style.getPropertyValue('display'),dp:el.style.getPropertyPriority('display'),v:el.style.getPropertyValue('visibility'),vp:el.style.getPropertyPriority('visibility')});
             el.style.setProperty('display','none','important');
             el.style.setProperty('visibility','hidden','important');
         });
         await waitFrame();
+        if(signal?.aborted)throw new DOMException('Screenshot cancelled','AbortError');
         blob=await captureCanvas();
     }catch(error){
         captureError=error;
@@ -261,22 +308,32 @@ const downloadBlob=blob=>{
     setTimeout(()=>URL.revokeObjectURL(url),2000);
 };
 
-const runCapture=async()=>{
-    const capturePromise=cleanCapture();
+const runCapture=async(signal)=>{
+    const capturePromise=cleanCapture(signal);
     let copied=false;
     if(navigator.clipboard?.write&&typeof ClipboardItem==='function'){
         try{
+            // Rapid clipboard write with direct Promise resolving
             const item=new ClipboardItem({'image/png':capturePromise});
             await navigator.clipboard.write([item]);
-            await capturePromise;
             copied=true;
-        }catch{}
+        }catch{
+            // Fallback: wait for blob and write
+            try{
+                const blob=await capturePromise;
+                if(signal?.aborted)throw new DOMException('Screenshot cancelled','AbortError');
+                const item=new ClipboardItem({'image/png':blob});
+                await navigator.clipboard.write([item]);
+                copied=true;
+            }catch{}
+        }
     }
+    if(signal?.aborted)throw new DOMException('Screenshot cancelled','AbortError');
+    const blob=await capturePromise;
     if(copied){
         showToast('Clean screenshot copied to clipboard');
         return;
     }
-    const blob=await capturePromise;
     downloadBlob(blob);
     showToast('Clipboard unavailable — clean screenshot downloaded','warning');
 };
@@ -286,13 +343,26 @@ const handleClick=()=>{
     state.busy=true;
     state.button.disabled=true;
     state.button.classList.add('yd-screen-working');
-    showToast('Preparing clean screenshot...');
-    runCapture().catch(error=>{
+    removeToast();
+
+    const abortController=new AbortController();
+    state.captureAbortController=abortController;
+
+    showOverlay(()=>{
+        abortController.abort();
+        removeOverlay();
+        showToast('Screenshot cancelled','warning');
+    });
+
+    runCapture(abortController.signal).catch(error=>{
+        if(abortController.signal.aborted||error?.name==='AbortError')return;
         const message=String(error?.message||'SCREENSHOT_FAILED');
         const detail=message==='SCREENSHOT_CAPTURE_IN_PROGRESS'?'A screenshot capture is already in progress.':message.startsWith('TOOL_BUSY:')?'A tool is currently running: '+message.slice(10)+'. Stop it and try again.':message.startsWith('RESTORE_FAILED:')?'Some tools did not resume: '+message.slice(15)+'. Refresh Odoo before continuing.':message;
         showToast(detail,'error');
     }).finally(()=>{
         state.busy=false;
+        state.captureAbortController=null;
+        removeOverlay();
         if(state.button){
             state.button.disabled=false;
             state.button.classList.remove('yd-screen-working');
@@ -319,6 +389,8 @@ const instance={
     suspend(){
         if(state.destroyed)return true;
         state.suspended=true;
+        state.captureAbortController?.abort();
+        removeOverlay();
         removeToast();
         state.item.style.setProperty('display','none','important');
         return true;
@@ -345,6 +417,8 @@ const instance={
         state.suspended=true;
         try{unregisterExclusion?.();}catch{}
         state.controller.abort();
+        state.captureAbortController?.abort();
+        removeOverlay();
         state.observer?.disconnect();
         state.observer=null;
         removeToast();
