@@ -287,7 +287,7 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                .oe_button_box>#${C.I}{display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 0!important;flex-wrap:nowrap!important;width:0!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important;gap:0!important;margin:0 4px!important;padding:0!important;float:none!important;vertical-align:middle!important;white-space:nowrap!important;overflow:visible!important}
+                .oe_button_box>#${C.I}{display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 0!important;flex-basis:0!important;flex-wrap:nowrap!important;order:999!important;width:0!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important;gap:0!important;margin:0 4px!important;padding:0!important;float:none!important;vertical-align:middle!important;white-space:nowrap!important;overflow:visible!important}
                 .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
@@ -323,24 +323,17 @@
                 return;
             }
 
-            if (document.getElementById(C.I)) {
-                if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
-                return;
-            }
-
             const box = document.querySelector('.oe_button_box');
             if (!box) return;
 
-            const container = this.createContainer();
-            container.setAttribute('data-yd-screenshot-exclude', 'true');
-            window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(container, { toolId: TOOL_ID });
-            const split = box.querySelector('#tmLetsSplit');
-
-            box.prepend(container);
-
-            if (split) {
-                box.insertBefore(split, container.nextSibling);
+            let container = document.getElementById(C.I);
+            if (!container) {
+                container = this.createContainer();
+                container.setAttribute('data-yd-screenshot-exclude', 'true');
+                window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(container, { toolId: TOOL_ID });
             }
+
+            if (container.parentElement !== box || container !== box.lastElementChild) box.append(container);
             if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
         },
 
