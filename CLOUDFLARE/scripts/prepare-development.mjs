@@ -148,7 +148,7 @@ if (!runtimeConfig.includes("VERSION: 1")) throw new Error("Could not mark the D
 runtimeConfig = runtimeConfig.replace("VERSION: 1", "ENVIRONMENT: 'DEVELOPMENT',\n        VERSION: 1");
 await fs.writeFile(runtimeConfigPath, runtimeConfig);
 
-const banner = '<div id="yodawy-dev-mode-banner" data-yd-screenshot-exclude="true" style="position:fixed;z-index:2147483647;top:8px;right:8px;padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005">YODAWY DEVELOPMENT — TEST ENVIRONMENT</div>';
+const banner = '<div id="yodawy-dev-mode-banner" data-yd-screenshot-exclude="true" style="position:fixed;z-index:2147483647;top:14px;left:50%;transform:translateX(-50%);padding:7px 12px;border-radius:7px;background:#d97706;color:#111827;border:2px solid #fef08a;font:700 12px Arial,sans-serif;letter-spacing:.3px;box-shadow:0 2px 8px #0005;pointer-events:none">YODAWY DEVELOPMENT — TEST ENVIRONMENT</div>';
 const indexPath = path.join(publicRoot, "index.html");
 let html = await fs.readFile(indexPath, "utf8");
 if (!html.includes("yodawy-dev-mode-banner")) {
