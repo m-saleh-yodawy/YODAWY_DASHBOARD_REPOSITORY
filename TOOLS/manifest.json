@@ -17,7 +17,7 @@
       "name": "Limited Drug Table",
       "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
       "enabled": true,
-      "sha256": "9116527d102b14b39fffeb0a486a42feec78b8d77f3da20183ef3e7e112df6ca",
+      "sha256": "b86200fce78ff14f47515eceecd0813994bcfec3be4662d011d04190031daa5f",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
