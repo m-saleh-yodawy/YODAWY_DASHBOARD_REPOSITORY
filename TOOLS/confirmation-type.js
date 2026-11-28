@@ -43,8 +43,6 @@
         observer: null,
         request: null,
         toastTimers: new Set(),
-        layout: null,
-        layoutFrame: 0,
         controller: new AbortController()
     };
 
@@ -284,17 +282,11 @@
 
     const ui = {
         addStyle() {
-            if (document.getElementById(C.STYLE)) return;
-
+            document.getElementById(C.STYLE)?.remove();
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #yd-ticket-action-bar{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:stretch!important;direction:ltr!important;gap:4px!important;width:100%!important;min-width:0!important;max-width:100%!important;flex:0 0 100%!important;box-sizing:border-box!important;overflow:visible!important}
-                #tm-confirmation-buttons{position:relative!important;display:flex!important;align-items:center!important;justify-content:center!important;flex:1 1 0%!important;flex-basis:0!important;width:auto!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important;gap:0!important;margin:0!important;padding:0!important;float:none!important;white-space:nowrap!important;overflow:visible!important;direction:ltr!important}
-                #yd-split-button-group.o_not_full.oe_button_box,#yd-native-buttons.o_not_full.oe_button_box{position:relative!important;display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:stretch!important;justify-content:flex-start!important;direction:rtl!important;flex:0 0 max-content!important;width:max-content!important;min-width:max-content!important;max-width:none!important;gap:0!important;overflow:visible!important}
-                #yd-split-button-group.o_not_full.oe_button_box{direction:ltr!important}
-                #ydDirectSplitButton[data-yd-split-original-width]{flex:0 0 var(--yd-split-original-width)!important;width:var(--yd-split-original-width)!important;min-width:var(--yd-split-original-width)!important;max-width:none!important;box-sizing:border-box!important}
-                #yd-native-buttons>button[data-yd-native-original-width]{flex:0 0 var(--yd-native-original-width)!important;width:var(--yd-native-original-width)!important;min-width:var(--yd-native-original-width)!important;max-width:none!important;box-sizing:border-box!important}
+                #tm-confirmation-buttons{display:flex;flex:1 1 0%;align-items:center;justify-content:center;min-width:0;gap:0;white-space:nowrap}
                 .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
@@ -324,94 +316,60 @@
             return container;
         },
 
-        syncLayout(box, container) {
-            if (state.layout && state.layout.box !== box) this.restoreLayout();
-            if (!state.layout) {
-                const bar = utils.element('div', { id: 'yd-ticket-action-bar' });
-                const splitGroup = utils.element('div', { id: 'yd-split-button-group', className: 'o_not_full oe_button_box' });
-                const native = utils.element('div', { id: 'yd-native-buttons', className: 'o_not_full oe_button_box' });
-                state.layout = { box, bar, splitGroup, native };
+        normalizeLegacyLayout(box, container) {
+            for (const bar of [...box.querySelectorAll(':scope > #yd-ticket-action-bar')]) {
+                const oldConfirmation = bar.querySelector('#' + C.I);
+                const oldSplit = bar.querySelector('#ydDirectSplitButton');
+                const oldNative = bar.querySelector('#yd-native-buttons');
+                if (oldConfirmation) box.insertBefore(oldConfirmation, bar);
+                if (oldSplit) box.insertBefore(oldSplit, bar);
+                for (const button of [...(oldNative?.children || [])]) box.insertBefore(button, bar);
+                bar.remove();
             }
-            const layout = state.layout;
-            const nativeButtons = [...box.children].filter(element =>
-                element.matches?.('button.oe_stat_button') && element.id !== 'ydDirectSplitButton'
-            );
-            for (const button of nativeButtons) {
-                if (!button.hasAttribute('data-yd-native-original-width')) {
-                    const width = button.getBoundingClientRect().width;
-                    if (width > 0) {
-                        button.setAttribute('data-yd-native-original-width', '1');
-                        button.style.setProperty('--yd-native-original-width', Math.ceil(width * 100) / 100 + 'px');
-                    }
-                }
-                if (button.parentElement !== layout.native) layout.native.appendChild(button);
+            for (const button of box.querySelectorAll(':scope > button[data-yd-native-original-width]')) {
+                button.removeAttribute('data-yd-native-original-width');
+                button.style.removeProperty('--yd-native-original-width');
             }
-            const split = document.getElementById('ydDirectSplitButton');
-            if (split) {
-                if (!split.hasAttribute('data-yd-split-original-width')) {
-                    const width = split.getBoundingClientRect().width;
-                    if (width > 0) {
-                        split.setAttribute('data-yd-split-original-width', '1');
-                        split.style.setProperty('--yd-split-original-width', Math.ceil(width * 100) / 100 + 'px');
-                    }
-                }
-                if (split.parentElement !== layout.splitGroup) layout.splitGroup.appendChild(split);
-                if (layout.splitGroup.parentElement !== layout.bar) layout.bar.appendChild(layout.splitGroup);
-            } else {
-                layout.splitGroup.remove();
-            }
-            if (container && (container.parentElement !== layout.bar || layout.bar.firstElementChild !== container)) {
-                layout.bar.insertBefore(container, layout.bar.firstElementChild);
-            }
-            if (layout.native.parentElement !== layout.bar || layout.bar.lastElementChild !== layout.native) {
-                layout.bar.appendChild(layout.native);
-            }
-            if (layout.bar.parentElement !== box || box.lastElementChild !== layout.bar) box.appendChild(layout.bar);
-            return true;
-        },
-
-        restoreLayout() {
-            const layout = state.layout;
-            if (!layout) return true;
-            const { box, bar, native, splitGroup } = layout;
-            const split = splitGroup.querySelector('#ydDirectSplitButton');
-            const container = bar.querySelector('#' + C.I);
+            const split = box.querySelector(':scope > #ydDirectSplitButton');
             if (split) {
                 split.removeAttribute('data-yd-split-original-width');
                 split.style.removeProperty('--yd-split-original-width');
-                box.insertBefore(split, bar);
             }
-            if (container) box.insertBefore(container, bar);
-            for (const button of [...native.children]) {
-                button.removeAttribute('data-yd-native-original-width');
-                button.style.removeProperty('--yd-native-original-width');
-                box.insertBefore(button, bar);
+            const rtl = getComputedStyle(box).direction === 'rtl';
+            const nativeButtons = [...box.children].filter(element =>
+                element.matches?.('button.oe_stat_button') && element.id !== 'ydDirectSplitButton'
+            );
+            if (rtl) {
+                const lastNative = nativeButtons[nativeButtons.length - 1];
+                if (split) box.insertBefore(split, lastNative?.nextSibling || null);
+                box.insertBefore(container, split?.nextSibling || null);
+            } else {
+                box.insertBefore(container, box.firstElementChild);
+                if (split) box.insertBefore(split, container.nextSibling);
             }
-            bar.remove();
-            state.layout = null;
             return true;
         },
+
         render() {
             if (state.destroyed || !utils.isTicket()) {
                 this.removeButtons();
                 return;
             }
-            const box = [...document.querySelectorAll('.oe_button_box')].find(element => element.isConnected);
-            if (!box) {
-                this.restoreLayout();
-                return;
+            const box = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(element => element.isConnected);
+            if (!box) return;
+            let container = box.querySelector(':scope > #' + C.I);
+            if (!container) {
+                container = this.createContainer();
+                container.setAttribute('data-yd-screenshot-exclude', 'true');
+                window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(container, { toolId: TOOL_ID });
             }
-            let container = document.getElementById(C.I);
-            if (!container) container = this.createContainer();
-            this.syncLayout(box, container);
+            this.normalizeLegacyLayout(box, container);
             if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
         },
 
         removeButtons() {
-            this.restoreLayout();
             document.getElementById(C.I)?.remove();
         },
-
         loading(value) {
             state.loading = value;
 
@@ -467,14 +425,11 @@
             this.removeButtons();
             document.querySelectorAll('.tm-confirm-toast').forEach(toast => toast.remove());
             document.getElementById(C.STYLE)?.remove();
-            if (window.YODAWY_TICKET_ACTION_BAR === actionBarApi) delete window.YODAWY_TICKET_ACTION_BAR;
 
             state.toastTimers.forEach(clearTimeout);
             state.toastTimers.clear();
         }
     };
-
-    const actionBarApi = Object.freeze({ sync: () => state.initialized && !state.destroyed ? ui.render() : false });
 
     const events = {
         async click(event) {
@@ -536,7 +491,6 @@
             state.initialized = true;
 
             ui.addStyle();
-            window.YODAWY_TICKET_ACTION_BAR = actionBarApi;
 
             document.addEventListener('click', events.click, {
                 signal: state.controller.signal
@@ -551,18 +505,12 @@
             });
 
             state.observer = new MutationObserver(records => {
-                if (state.destroyed || !state.initialized || !utils.isTicket()) return;
-                const changed = records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
+                if (state.destroyed || !state.initialized || !utils.isTicket() || document.getElementById(C.I)) return;
+                const boxAdded = records.some(record => [...record.addedNodes].some(node =>
                     node.nodeType === Node.ELEMENT_NODE &&
-                    (node.matches('.oe_button_box, .oe_stat_button, #ydDirectSplitButton, #' + C.I) ||
-                    node.querySelector('.oe_button_box, .oe_stat_button, #ydDirectSplitButton, #' + C.I))
+                    (node.matches('.oe_button_box') || node.querySelector('.oe_button_box'))
                 ));
-                if (changed && !state.layoutFrame) {
-                    state.layoutFrame = requestAnimationFrame(() => {
-                        state.layoutFrame = 0;
-                        if (!state.destroyed && state.initialized) ui.render();
-                    });
-                }
+                if (boxAdded) ui.render();
             });
 
             state.observer.observe(document.body, {
@@ -585,8 +533,6 @@
             state.request = null;
             state.observer?.disconnect();
             state.observer = null;
-            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
-            state.layoutFrame = 0;
             state.initialized = false;
             ui.destroy();
             return true;
@@ -615,8 +561,6 @@
 
             state.observer?.disconnect();
             state.observer = null;
-            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
-            state.layoutFrame = 0;
             ui.destroy();
 
             return true;

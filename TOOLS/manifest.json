@@ -6,7 +6,7 @@
       "name": "Confirmation Type",
       "description": "Add confirmation type controls to tickets.",
       "enabled": true,
-      "sha256": "080aaa6ff561d30bc02e73db88886c7c7fbdf9da57cf907f37f50340a1d7e233",
+      "sha256": "1b56b05a006b316e75db130f7d07292f0eeef5cc45f30d2fd840f06cd8d3a3bc",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
@@ -127,7 +127,7 @@
       "name": "Split Prescription",
       "description": "Create split prescriptions with exact Portal matching and live Odoo ticket fields.",
       "enabled": true,
-      "sha256": "4d61f37219d3ef744b26119547499bb7904681ca37db9ce752577923906cb12a",
+      "sha256": "92a28b9b8e660256a0cb9ae808d2b0077e27c0b772cdf5a2145621cf25eb1079",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]

@@ -1264,7 +1264,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
 #${CONFIG.DIALOG_ID} .yds-buttons{width:100%}
 #${CONFIG.DIALOG_ID} .yds-button{flex:1}
 }
-@media(prefers-reduced-motion:reduce){#${CONFIG.DIALOG_ID} *,#ydDirectSplitButton{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){#${CONFIG.DIALOG_ID} *{animation:none!important;transition:none!important}}
         `;
         document.head.appendChild(style);
     }
@@ -1725,7 +1725,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     function createButton() {
         if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID)) return;
         injectStyles();
-        const container = [...document.querySelectorAll('.oe_button_box')].find(isVisible);
+        const container = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(isVisible);
         if (!container) return;
         const button = document.createElement('button');
         button.id = CONFIG.BUTTON_ID;
@@ -1741,10 +1741,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (button.disabled || button.dataset.loading === '1') return;
             startSplit();
         });
-        const confirmation = container.querySelector('#tm-confirmation-buttons');
-        if (confirmation) container.insertBefore(button, confirmation);
-        else container.append(button);
-        window.YODAWY_TICKET_ACTION_BAR?.sync?.();
+        const confirmation = container.querySelector(':scope > #tm-confirmation-buttons');
+        const rtl = getComputedStyle(container).direction === 'rtl';
+        if (confirmation) container.insertBefore(button, rtl ? confirmation : confirmation.nextSibling);
+        else {
+            const nativeButtons = [...container.children].filter(element => element.matches?.('button.oe_stat_button') && element.id !== CONFIG.BUTTON_ID);
+            const target = rtl ? nativeButtons[nativeButtons.length - 1]?.nextSibling || null : nativeButtons[0] || null;
+            container.insertBefore(button, target);
+        }
     }
 
     function isTicketForm() {
@@ -1819,7 +1823,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             closeDialog(true);
             revealDeferredChatterMessages();
             document.getElementById(CONFIG.BUTTON_ID)?.remove();
-            window.YODAWY_TICKET_ACTION_BAR?.sync?.();
             document.getElementById('ydDirectSplitStyles')?.remove();
             if (registry[TOOL_ID] === instance) delete registry[TOOL_ID];
             return true;
