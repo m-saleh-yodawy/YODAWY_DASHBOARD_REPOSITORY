@@ -286,7 +286,7 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #tm-confirmation-buttons{display:flex;flex:1 1 0%;align-items:center;justify-content:center;min-width:0;gap:0;white-space:nowrap}
+                #tm-confirmation-buttons{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;width:max-content;max-width:100%;vertical-align:middle;gap:0;white-space:nowrap;box-sizing:border-box}
                 .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
