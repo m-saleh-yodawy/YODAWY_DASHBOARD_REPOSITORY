@@ -143,6 +143,17 @@
         "https://odoo.yodawy.com/web*"
       ],
       "sha256": "3086304d88a1f67529549a59c317154c0ff9b4b73d4fd580236f1b25cd3f76ff"
+    },
+    {
+      "id": "TOOL-020",
+      "file": "create-chronic-om.js",
+      "name": "Create Chronic OM",
+      "description": "Open Chronic Order Management ticket creation inside a modal from Quotation Station.",
+      "enabled": true,
+      "sha256": "abfdf8663ac19636dbbb3d58b50d8e59e69565a062fe397348aade433459aa30",
+      "matches": [
+        "https://odoo.yodawy.com/web*"
+      ]
     }
   ]
 }
