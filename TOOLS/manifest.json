@@ -6,7 +6,7 @@
       "name": "Confirmation Type",
       "description": "Add confirmation type controls to tickets.",
       "enabled": true,
-      "sha256": "5eae0a854514c53940352b576e29626950ef755ce593445cb7b0c8d719c1c8d2",
+      "sha256": "20aa4ab4bd4682378f85496afb1cd43ab00415d31dd7dfa6cfe8ecac476489aa",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
@@ -17,7 +17,7 @@
       "name": "Limited Drug Table",
       "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
       "enabled": true,
-      "sha256": "b71bfbe1106a7f45fa2e73780f48d376a5f85319a9b353a6b2f8397c1f914d23",
+      "sha256": "9116527d102b14b39fffeb0a486a42feec78b8d77f3da20183ef3e7e112df6ca",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
