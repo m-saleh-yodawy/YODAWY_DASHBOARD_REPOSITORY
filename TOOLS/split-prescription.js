@@ -1744,6 +1744,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         const confirmation = container.querySelector('#tm-confirmation-buttons');
         if (confirmation) container.insertBefore(button, confirmation);
         else container.append(button);
+        window.YODAWY_TICKET_ACTION_BAR?.sync?.();
     }
 
     function isTicketForm() {
@@ -1818,6 +1819,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             closeDialog(true);
             revealDeferredChatterMessages();
             document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            window.YODAWY_TICKET_ACTION_BAR?.sync?.();
             document.getElementById('ydDirectSplitStyles')?.remove();
             if (registry[TOOL_ID] === instance) delete registry[TOOL_ID];
             return true;
