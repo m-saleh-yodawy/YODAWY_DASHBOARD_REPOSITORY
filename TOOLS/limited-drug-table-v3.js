@@ -31,7 +31,6 @@
         destroyed: false,
         observer: null,
         controller: null,
-        scanTimer: null,
         timers: new Set(),
         waiters: new Map(),
         dialogs: new Set(),
@@ -414,8 +413,12 @@ function prepareTable(table,drug){
     return clone;
 }
 
-function processTables(){
-    document.querySelectorAll('.yodawy-accordion-body table').forEach(table=>{
+function processTables(root=document){
+    const tables=root.matches?.('.yodawy-accordion-body table')
+        ?[root]
+        :root.querySelectorAll('.yodawy-accordion-body table');
+
+    tables.forEach(table=>{
         const drug=table
             .closest('.yodawy-accordion-item')
             ?.querySelector('.yodawy-drug-title')
@@ -744,14 +747,20 @@ function build(body){
 
     body.insertBefore(accordion,body.firstChild);
     hideOriginal(body,data);
-    processTables();
 }
 
-function scan(){
+function scan(root=document){
     if(state.destroyed)return;
 
-    document.querySelectorAll('.o_Message_prettyBody').forEach(build);
-    processTables();
+    const bodies=root.matches?.('.o_Message_prettyBody')
+        ?[root]
+        :root.querySelectorAll('.o_Message_prettyBody');
+
+    bodies.forEach(body=>{
+        if(!body.isConnected)return;
+        build(body);
+        processTables(body);
+    });
 }
 
 
@@ -794,14 +803,32 @@ const instance = {
             signal: state.controller.signal
         });
 
-        state.observer = new MutationObserver(() => {
-            if (state.destroyed) return;
+        state.observer = new MutationObserver(records => {
+            if(state.destroyed)return;
 
-            clearSchedule(state.scanTimer);
-            state.scanTimer = schedule(() => {
-                state.scanTimer = null;
-                scan();
-            }, 150);
+            const bodies=new Set();
+            const collect=node=>{
+                const element=node?.nodeType===Node.ELEMENT_NODE?node:node?.parentElement;
+                if(!element)return;
+
+                const body=element.matches?.('.o_Message_prettyBody')
+                    ?element
+                    :element.closest?.('.o_Message_prettyBody');
+
+                if(body)bodies.add(body);
+                element.querySelectorAll?.('.o_Message_prettyBody').forEach(item=>bodies.add(item));
+            };
+
+            for(const record of records){
+                collect(record.target);
+                record.addedNodes.forEach(collect);
+            }
+
+            bodies.forEach(body=>{
+                if(!body.isConnected||state.destroyed)return;
+                build(body);
+                processTables(body);
+            });
         });
 
         state.observer.observe(document.body, {
@@ -820,8 +847,6 @@ const instance = {
         if (!state.initialized || state.destroyed) return true;
         state.observer?.disconnect();
         state.observer = null;
-        clearSchedule(state.scanTimer);
-        state.scanTimer = null;
         for (const close of [...state.dialogs]) close(null);
         state.dialogs.clear();
         for (const [body, original] of state.originals) {
@@ -895,7 +920,6 @@ const instance = {
         document.querySelectorAll('.yodawy-copy-success, #tm-alt-call-popup').forEach(item => item.remove());
         document.getElementById(STYLE_ID)?.remove();
 
-        state.scanTimer = null;
         state.initialized = false;
 
         return true;
