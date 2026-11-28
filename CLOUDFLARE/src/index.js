@@ -277,6 +277,9 @@ const portalAccountRoutes = async (request, env, path) => {
       };
     }
     if (operationName === "addNewChronicPrescription") {
+      if (env.YODAWY_ENVIRONMENT === "DEVELOPMENT" && env.DEV_ALLOW_EXTERNAL_MUTATIONS !== "true") {
+        return respond(request, env, { success: false, status: 403, error: "DEV_EXTERNAL_MUTATION_DISABLED", message: "External Portal mutations are disabled by default in DEVELOPMENT." }, 403);
+      }
       variables.input = {
         ...variables.input,
         insuranceCompanyId: String(login.insuranceAgencyId),
@@ -363,6 +366,10 @@ const portalAccountRoutes = async (request, env, path) => {
         return respond(request, env, { success: true, validation: result.CheckEditMatchingPrescription || null });
       }
       if (action === "save") {
+        if (env.YODAWY_ENVIRONMENT === "DEVELOPMENT" && env.DEV_ALLOW_EXTERNAL_MUTATIONS !== "true") {
+          login.token = "";
+          return respond(request, env, { success: false, error: "DEV_EXTERNAL_MUTATION_DISABLED", message: "External Portal mutations are disabled by default in DEVELOPMENT." }, 403);
+        }
         const query = "mutation example ($input:PrescriptionEditInput!) { UpdatePrescriptionMedicationsQuantities(input:$input) { isSuccess message } }";
         const medications = (Array.isArray(body.medications) ? body.medications : []).map((item, index) => ({
           DrugId: String(item.DrugId || ""),
@@ -761,14 +768,21 @@ const dashboardRoutes = async (request, env, path) => {
     if (!env.ASSETS?.fetch) return respond(request, env, { success: false, error: "TOOL_ASSETS_UNAVAILABLE" }, 503);
     try {
       const result = role === "ADMIN"
-        ? await env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.match_patterns, t.enabled FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
-        : await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all();
+        ? await env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.match_patterns, t.enabled, t.icon FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY CASE t.tool_id WHEN 'TOOL-004' THEN 0 WHEN 'TOOL-018' THEN 1 WHEN 'TOOL-001' THEN 2 ELSE 3 END, t.name").bind(actor.user_id).all()
+        : await env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, match_patterns, enabled, icon FROM tools WHERE enabled = 1 ORDER BY CASE tool_id WHEN 'TOOL-004' THEN 0 WHEN 'TOOL-018' THEN 1 WHEN 'TOOL-001' THEN 2 ELSE 3 END, name").all();
+      const TOOL_ICON_FALLBACKS = {
+        "TOOL-019": "fa-solid fa-camera",
+        "TOOL-008": "fa-solid fa-clipboard-check",
+        "TOOL-012": "fa-solid fa-cart-shopping",
+        "TOOL-014": "fa-solid fa-cubes"
+      };
       const seenIds = new Set();
       const seenPaths = new Set();
       const resolved = await Promise.all((result.results || []).map(async tool => {
         const id = String(tool.id || "").trim();
         const name = String(tool.name || "").trim();
         const path = String(tool.path || "").trim();
+        const icon = String(tool.icon || TOOL_ICON_FALLBACKS[id] || "").trim();
         const filename = path.split("/").pop();
         const unavailable = reason => ({ unavailable: { id: id || tool.id, name: name || tool.name, path: path || tool.path, reason } });
         try {
@@ -790,7 +804,7 @@ const dashboardRoutes = async (request, env, path) => {
           if (!asset.ok || !/javascript|ecmascript/i.test(asset.headers.get("content-type") || "")) return unavailable("TOOL_ASSET_UNAVAILABLE");
           const source = await asset.arrayBuffer();
           const sha256 = hex(await crypto.subtle.digest("SHA-256", source));
-          return { tool: { ...tool, id, name, path, matches, sha256 } };
+          return { tool: { ...tool, id, name, path, icon, matches, sha256 } };
         } catch {
           return unavailable("TOOL_ASSET_CHECK_FAILED");
         }
@@ -806,8 +820,8 @@ const dashboardRoutes = async (request, env, path) => {
     const [users, tools, permissions, visibility, visibleUsers, settings, userSettings, announcements, transactions, activity] = await Promise.all([
       isAdmin ? env.DB.prepare("SELECT user_id AS id, name, role, status, personal_repository AS repository, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) AS createdAt FROM users ORDER BY user_id").all() : Promise.resolve({ results: [] }),
       role === "ADMIN"
-        ? env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.sha256, t.match_patterns, t.enabled FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY t.name").bind(actor.user_id).all()
-        : env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled FROM tools WHERE enabled = 1 ORDER BY name").all(),
+        ? env.DB.prepare("SELECT DISTINCT t.tool_id AS id, t.name, t.description, t.version, t.asset_path AS path, t.sha256, t.match_patterns, t.enabled, t.icon FROM tools t INNER JOIN tool_visibility v ON v.tool_id = t.tool_id LEFT JOIN tool_visibility_users vu ON vu.tool_id = t.tool_id AND vu.user_id = ? WHERE t.enabled = 1 AND (v.mode = 'PUBLIC' OR (v.mode = 'SELECTED_USERS' AND vu.user_id IS NOT NULL)) ORDER BY CASE t.tool_id WHEN 'TOOL-004' THEN 0 WHEN 'TOOL-018' THEN 1 WHEN 'TOOL-001' THEN 2 ELSE 3 END, t.name").bind(actor.user_id).all()
+        : env.DB.prepare("SELECT tool_id AS id, name, description, version, asset_path AS path, sha256, match_patterns, enabled, icon FROM tools WHERE enabled = 1 ORDER BY CASE tool_id WHEN 'TOOL-004' THEN 0 WHEN 'TOOL-018' THEN 1 WHEN 'TOOL-001' THEN 2 ELSE 3 END, name").all(),
       isAdmin ? env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions").all() : env.DB.prepare("SELECT user_id, tool_id, can_use, forced_state, permission_type FROM tool_permissions WHERE user_id = ?").bind(actor.user_id).all(),
       env.DB.prepare("SELECT tool_id, mode FROM tool_visibility").all(),
       isAdmin ? env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE u.role IN ('USER', 'ADMIN')").all() : env.DB.prepare("SELECT v.tool_id, v.user_id FROM tool_visibility_users v INNER JOIN users u ON u.user_id = v.user_id WHERE v.user_id = ? AND u.role = 'USER'").bind(actor.user_id).all(),
@@ -1135,8 +1149,8 @@ export default {
         headers.set("vary", "Origin");
         return new Response(request.method === "HEAD" ? null : asset.body, { status: asset.status, statusText: asset.statusText, headers });
       }
-      if (url.pathname === "/api/version" && request.method === "GET") return respond(request, env, { success: true, version: env.CF_VERSION_METADATA?.id || "unversioned" });
-      if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2" });
+      if (url.pathname === "/api/version" && request.method === "GET") return respond(request, env, { success: true, version: env.CF_VERSION_METADATA?.id || "unversioned", environment: env.YODAWY_ENVIRONMENT || "PRODUCTION" });
+      if (url.pathname === "/api/health" && request.method === "GET") return respond(request, env, { success: true, service: "YODAWY Dashboard API", status: "online", version: "2", environment: env.YODAWY_ENVIRONMENT || "PRODUCTION" });
       if (url.pathname === "/api/ready" && request.method === "GET") {
         try {
           const required = ["users", "sessions", "tools", "tool_permissions", "tool_visibility", "tool_visibility_users", "user_settings", "announcements", "network_transactions", "audit_logs", "user_activity_logs", "portal_accounts"];

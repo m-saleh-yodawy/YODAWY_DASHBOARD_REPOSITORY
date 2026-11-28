@@ -8,8 +8,11 @@ on:
       - "TOOLS/**/*.js"
       - "TOOLS/*.js"
       - "TOOLS/manifest.json"
-      - "CLOUDFLARE/**"
-      - ".github/workflows/sync-tools-to-cloudflare.yml"
+      - "CLOUDFLARE/src/**"
+      - "CLOUDFLARE/public/**"
+      - "CLOUDFLARE/migrations/**"
+      - "CLOUDFLARE/wrangler.jsonc"
+      - "CLOUDFLARE/schema.sql"
       - "LEGACY/**/*.js"
       - "LEGACY/*.js"
   workflow_dispatch:
@@ -23,8 +26,9 @@ concurrency:
 
 jobs:
   sync-and-deploy:
-    if: github.actor != 'github-actions[bot]'
+    if: github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    environment: production
     env:
       CLOUDFLARE_D1_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
@@ -188,9 +192,9 @@ jobs:
 
           const quote = value => "'" + String(value ?? "").replace(/'/g, "''") + "'";
           const statements = active.map(tool =>
-            "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled, match_patterns) VALUES (" +
-            [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1, JSON.stringify(tool.matches)].map(quote).join(", ") +
-            ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, updated_at=CURRENT_TIMESTAMP;"
+            "INSERT INTO tools (tool_id, name, description, version, asset_path, sha256, enabled, match_patterns, icon) VALUES (" +
+            [tool.id, tool.name, tool.description, "1", "TOOLS/" + tool.file, tool.sha256, 1, JSON.stringify(tool.matches), tool.icon || ""].map(quote).join(", ") +
+            ") ON CONFLICT(tool_id) DO UPDATE SET name=excluded.name, description=excluded.description, version=excluded.version, asset_path=excluded.asset_path, sha256=excluded.sha256, enabled=1, match_patterns=excluded.match_patterns, icon=excluded.icon, updated_at=CURRENT_TIMESTAMP;"
           );
 
           if (legacySha256) statements.push("UPDATE tools SET sha256=" + quote(legacySha256) + ", match_patterns=" + quote(JSON.stringify(legacyMatches)) + ", updated_at=CURRENT_TIMESTAMP WHERE tool_id=" + quote("TOOL-017") + ";");
@@ -202,7 +206,6 @@ jobs:
           for (const tool of active) {
             const defaultVisibility = ["TOOL-004", "TOOL-019"].includes(tool.id) ? "PUBLIC" : "PRIVATE";
             statements.push("INSERT OR IGNORE INTO tool_visibility (tool_id, mode, updated_at) VALUES (" + quote(tool.id) + ", " + quote(defaultVisibility) + ", CURRENT_TIMESTAMP);");
-            if (tool.id === "TOOL-019") statements.push("UPDATE tool_visibility SET mode='PUBLIC', updated_at=CURRENT_TIMESTAMP WHERE tool_id='TOOL-019';");
           }
 
           fs.writeFileSync(sqlPath, statements.join("\n") + "\n");

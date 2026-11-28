@@ -244,6 +244,8 @@ function createUI(){
 
     const host=document.createElement('div');
     host.id=ID;
+    host.setAttribute('data-yd-screenshot-exclude','true');
+    window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(host,{toolId:TOOL_ID});
     host.style.cssText='all:initial!important;position:fixed!important;right:20px!important;bottom:20px!important;width:860px!important;z-index:2147483647!important;pointer-events:auto!important;display:block!important;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif!important';
     document.body.appendChild(host);
 
@@ -297,7 +299,7 @@ function createUI(){
 #ms-stock-hzb-systray-item{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;flex:0 0 42px!important}
 #ms-stock-hzb-systray-button{display:flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:46px!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;color:rgba(255,255,255,.8)!important;cursor:pointer!important;outline:0!important}
 #ms-stock-hzb-systray-button:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
-#ms-stock-hzb-systray-button i{font-family:FontAwesome!important;font-size:18px!important;color:inherit!important}
+#ms-stock-hzb-systray-button i{font-size:18px!important;color:inherit!important}
 </style>
 
 <div id="ms-stock-panel">
@@ -569,10 +571,12 @@ function createUI(){
 
     const systrayItem=document.createElement('li');
     systrayItem.id='ms-stock-hzb-systray-item';
+    systrayItem.setAttribute('data-yd-screenshot-exclude','true');
+    window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(systrayItem,{toolId:TOOL_ID});
     systrayItem.setAttribute('role','menuitem');
     systrayItem.innerHTML=`
         <button id="ms-stock-hzb-systray-button" type="button" title="Stock HZB" aria-label="Stock HZB">
-            <i class="yd-custom-icon fa fa-cubes" role="img" aria-label="Stock HZB"></i>
+            <i class="yd-custom-icon yd-fa-icon fa-solid fa-cubes" role="img" aria-label="Stock HZB"></i>
         </button>`;
 
     const systrayButton=systrayItem.firstElementChild;
@@ -623,14 +627,30 @@ function createUI(){
 const instance={
     id:TOOL_ID,
     path:'TOOLS/stock-checker.js',
-    suspend(){
-        if(uiCleanup)uiCleanup();
+    screenshotBehavior:'hide-only',
+    supportsPause:true,
+    pause(){
+        if(destroyed)return true;
+        document.getElementById(ID)?.style.setProperty('display','none','important');
+        document.getElementById('ms-stock-hzb-systray-item')?.style.setProperty('display','none','important');
         return true;
+    },
+    suspend(){
+        return this.pause();
     },
     resume(){
         if(destroyed)return false;
-        requestController=new AbortController();
-        createUI();
+        document.getElementById(ID)?.style.removeProperty('display');
+        document.getElementById('ms-stock-hzb-systray-item')?.style.removeProperty('display');
+        if(!document.getElementById(ID)){
+            requestController=new AbortController();
+            createUI();
+        }
+        return true;
+    },
+    refresh(){
+        if(destroyed)return false;
+        if(!document.getElementById(ID))createUI();
         return true;
     },
     destroy(){

@@ -1,0 +1,124 @@
+name: Deploy Cloudflare Development
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "CLOUDFLARE/**"
+      - "CORE/**"
+      - "ENGINES/**"
+      - "TOOLS/**"
+      - "LEGACY/**"
+      - ".github/workflows/deploy-cloudflare-development.yml"
+      - ".github/workflows/development-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yodawy-cloudflare-development
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Check DEV environment configuration
+        env:
+          DEV_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_DEV_D1_DATABASE_ID }}
+          DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DEV_D1_DATABASE_ID" ]; then
+            echo "::error::Missing development environment variable CLOUDFLARE_DEV_D1_DATABASE_ID."
+            exit 1
+          fi
+          if [ -z "$DEV_WORKER_URL" ]; then
+            echo "::error::Missing development environment variable CLOUDFLARE_DEV_WORKER_URL."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Validate credentials and DEV target
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_API_TOKEN }}
+          CLOUDFLARE_D1_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_D1_API_TOKEN }}
+          CLOUDFLARE_DEV_AUTH_SECRET: ${{ secrets.CLOUDFLARE_DEV_AUTH_SECRET }}
+          CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY: ${{ secrets.CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY }}
+          CLOUDFLARE_DEV_SETUP_SECRET: ${{ secrets.CLOUDFLARE_DEV_SETUP_SECRET }}
+          CLOUDFLARE_DEV_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_DEV_D1_DATABASE_ID }}
+          CLOUDFLARE_DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "::error::Missing development environment secret CLOUDFLARE_DEV_API_TOKEN."; exit 1; }
+          test -n "$CLOUDFLARE_D1_API_TOKEN" || { echo "::error::Missing development environment secret CLOUDFLARE_DEV_D1_API_TOKEN."; exit 1; }
+          test "${#CLOUDFLARE_DEV_AUTH_SECRET}" -ge 32 || { echo "::error::CLOUDFLARE_DEV_AUTH_SECRET must contain at least 32 characters."; exit 1; }
+          [[ "$CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY" =~ ^[A-Za-z0-9_-]{43}$ ]] || { echo "::error::CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY must be a 32-byte base64url key."; exit 1; }
+          test "${#CLOUDFLARE_DEV_SETUP_SECRET}" -ge 32 || { echo "::error::CLOUDFLARE_DEV_SETUP_SECRET must contain at least 32 characters."; exit 1; }
+          node -e "const u=new URL(process.env.CLOUDFLARE_DEV_WORKER_URL);if(u.protocol!=='https:'||!u.hostname.startsWith('yodawy-dashboard-dev.')||!u.hostname.endsWith('.workers.dev')||u.hostname==='yodawy-dashboard.m-saleh-yodawy.workers.dev')process.exit(1)"
+          echo "Development Worker target validated."
+
+      - name: Prepare isolated DEV assets and configuration
+        env:
+          CLOUDFLARE_DEV_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_DEV_D1_DATABASE_ID }}
+          CLOUDFLARE_DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
+        run: node CLOUDFLARE/scripts/prepare-development.mjs
+
+      - name: Apply DEV D1 migrations
+        working-directory: CLOUDFLARE
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_D1_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
+        run: wrangler d1 migrations apply yodawy-dashboard-dev --remote --config wrangler.development.generated.jsonc
+
+      - name: Synchronize DEV tool registry
+        working-directory: CLOUDFLARE
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_D1_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
+        run: wrangler d1 execute yodawy-dashboard-dev --remote --file=.dev-build/sync-tools.sql --config wrangler.development.generated.jsonc
+
+      - name: Deploy DEV Worker and assets
+        working-directory: CLOUDFLARE
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
+        run: wrangler deploy --config wrangler.development.generated.jsonc
+
+      - name: Configure isolated DEV runtime secrets
+        working-directory: CLOUDFLARE
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: e6a8f372ece7ccf9867091d9181934ea
+          AUTH_SECRET: ${{ secrets.CLOUDFLARE_DEV_AUTH_SECRET }}
+          PORTALS_ENCRYPTION_KEY: ${{ secrets.CLOUDFLARE_DEV_PORTALS_ENCRYPTION_KEY }}
+          SETUP_SECRET: ${{ secrets.CLOUDFLARE_DEV_SETUP_SECRET }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$AUTH_SECRET" | wrangler secret put AUTH_SECRET --config wrangler.development.generated.jsonc
+          printf '%s' "$PORTALS_ENCRYPTION_KEY" | wrangler secret put PORTALS_ENCRYPTION_KEY --config wrangler.development.generated.jsonc
+          printf '%s' "$SETUP_SECRET" | wrangler secret put SETUP_SECRET --config wrangler.development.generated.jsonc
+
+      - name: Verify DEV deployment
+        env:
+          CLOUDFLARE_DEV_WORKER_URL: ${{ vars.CLOUDFLARE_DEV_WORKER_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/" -o /dev/null
+          curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/site-access.json" -o /dev/null
+          curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/api/health" | grep -q '"environment":"DEVELOPMENT"'
+          curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/api/ready" | grep -q '"success":true'
+          curl --fail --silent --show-error "$CLOUDFLARE_DEV_WORKER_URL/yodawy-dev-loader.user.js" | grep -q 'YODAWY DEVELOPMENT CLOUD LOADER'
+          echo "DEV Worker, D1 readiness, and isolated DEV Loader verified."

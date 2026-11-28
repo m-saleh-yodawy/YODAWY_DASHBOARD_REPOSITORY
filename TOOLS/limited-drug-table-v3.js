@@ -31,7 +31,6 @@
         destroyed: false,
         observer: null,
         controller: null,
-        scanTimer: null,
         timers: new Set(),
         waiters: new Map(),
         dialogs: new Set(),
@@ -135,6 +134,7 @@ function success(message) {
 
     const popup = document.createElement('div');
     popup.className = 'yodawy-copy-success';
+    popup.setAttribute('data-yd-screenshot-exclude', 'true');
     popup.textContent = `✓ ${message}`;
     document.body.appendChild(popup);
 
@@ -413,8 +413,12 @@ function prepareTable(table,drug){
     return clone;
 }
 
-function processTables(){
-    document.querySelectorAll('.yodawy-accordion-body table').forEach(table=>{
+function processTables(root=document){
+    const tables=root.matches?.('.yodawy-accordion-body table')
+        ?[root]
+        :root.querySelectorAll('.yodawy-accordion-body table');
+
+    tables.forEach(table=>{
         const drug=table
             .closest('.yodawy-accordion-item')
             ?.querySelector('.yodawy-drug-title')
@@ -451,6 +455,7 @@ function askCallStatus() {
 
         const overlay = document.createElement('div');
         overlay.id = 'tm-alt-call-popup';
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
 
         const box = document.createElement('div');
         box.className = 'tm-alt-call-box';
@@ -742,14 +747,20 @@ function build(body){
 
     body.insertBefore(accordion,body.firstChild);
     hideOriginal(body,data);
-    processTables();
 }
 
-function scan(){
+function scan(root=document){
     if(state.destroyed)return;
 
-    document.querySelectorAll('.o_Message_prettyBody').forEach(build);
-    processTables();
+    const bodies=root.matches?.('.o_Message_prettyBody')
+        ?[root]
+        :root.querySelectorAll('.o_Message_prettyBody');
+
+    bodies.forEach(body=>{
+        if(!body.isConnected)return;
+        build(body);
+        processTables(body);
+    });
 }
 
 
@@ -792,14 +803,32 @@ const instance = {
             signal: state.controller.signal
         });
 
-        state.observer = new MutationObserver(() => {
-            if (state.destroyed) return;
+        state.observer = new MutationObserver(records => {
+            if(state.destroyed)return;
 
-            clearSchedule(state.scanTimer);
-            state.scanTimer = schedule(() => {
-                state.scanTimer = null;
-                scan();
-            }, 150);
+            const bodies=new Set();
+            const collect=node=>{
+                const element=node?.nodeType===Node.ELEMENT_NODE?node:node?.parentElement;
+                if(!element)return;
+
+                const body=element.matches?.('.o_Message_prettyBody')
+                    ?element
+                    :element.closest?.('.o_Message_prettyBody');
+
+                if(body)bodies.add(body);
+                element.querySelectorAll?.('.o_Message_prettyBody').forEach(item=>bodies.add(item));
+            };
+
+            for(const record of records){
+                collect(record.target);
+                record.addedNodes.forEach(collect);
+            }
+
+            bodies.forEach(body=>{
+                if(!body.isConnected||state.destroyed)return;
+                build(body);
+                processTables(body);
+            });
         });
 
         state.observer.observe(document.body, {
@@ -812,17 +841,41 @@ const instance = {
         return true;
     },
 
-    async suspend() {
-        if (!state.initialized) return true;
-        await this.destroy();
-        state.destroyed = false;
+    screenshotBehavior: 'pause-required',
+    supportsPause: true,
+    async pause() {
+        if (!state.initialized || state.destroyed) return true;
+        state.observer?.disconnect();
+        state.observer = null;
+        for (const close of [...state.dialogs]) close(null);
+        state.dialogs.clear();
+        for (const [body, original] of state.originals) {
+            if (!body.isConnected) continue;
+            body.innerHTML = original.html;
+            if (original.done === undefined) delete body.dataset.yodawyAccordionDone;
+            else body.dataset.yodawyAccordionDone = original.done;
+            if (original.drugs === undefined) delete body._yodawyLimitedDrugs;
+            else body._yodawyLimitedDrugs = original.drugs;
+        }
+        state.originals.clear();
+        document.querySelectorAll('.yodawy-copy-success, #tm-alt-call-popup').forEach(item => item.remove());
+        state.initialized = false;
         return true;
+    },
+    async suspend() {
+        return this.pause();
     },
 
     async resume() {
+        if (state.destroyed) return false;
         if (state.initialized) return true;
-        state.destroyed = false;
         return this.init();
+    },
+
+    async refresh() {
+        if (state.destroyed || !state.initialized) return false;
+        scan();
+        return true;
     },
 
     async destroy() {
@@ -867,7 +920,6 @@ const instance = {
         document.querySelectorAll('.yodawy-copy-success, #tm-alt-call-popup').forEach(item => item.remove());
         document.getElementById(STYLE_ID)?.remove();
 
-        state.scanTimer = null;
         state.initialized = false;
 
         return true;

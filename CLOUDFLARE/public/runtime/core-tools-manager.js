@@ -19,10 +19,31 @@
     let routeSyncPending = false;
     let routeSyncScheduled = false;
 
+    const QUOTATION_STATION_TOOL_IDS = new Set([
+        'TOOL-011',
+        'TOOL-004',
+        'TOOL-018',
+        'TOOL-012',
+        'TOOL-008',
+        'TOOL-001'
+    ]);
+
+    const getOdooHashParams = () => new URLSearchParams(String(page.location?.hash || '').replace(/^#/, ''));
+
     const isOdooHome = () => {
         if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') return false;
-        const params = new URLSearchParams(String(page.location.hash || '').replace(/^#/, ''));
+        const params = getOdooHashParams();
         return params.has('home') || (!params.has('action') && !params.has('model') && !params.has('view_type'));
+    };
+
+    const isQuotationStation = () => {
+        if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') return false;
+        const params = getOdooHashParams();
+        return params.get('active_id') === '69' &&
+            params.get('action') === '548' &&
+            params.get('menu_id') === '366' &&
+            params.get('model') === 'helpdesk.ticket' &&
+            params.get('view_type') === 'form';
     };
 
     const syncHomeToolVisibility = () => {
@@ -137,6 +158,7 @@
             const id = String(tool.id || '').trim();
             const name = String(tool.name || '').trim();
             const path = normalizePath(tool.path || tool.file);
+            const icon = typeof tool.icon === 'string' ? tool.icon.trim() : '';
             const sha256 = normalizeHash(tool.sha256);
             const matches = Array.isArray(tool.matches)
                 ? [...new Set(tool.matches.map(value => String(value || '').trim()).filter(Boolean))]
@@ -158,6 +180,7 @@
                 id,
                 name,
                 path,
+                icon,
                 sha256,
                 matches: Object.freeze(matches)
             });
@@ -221,6 +244,7 @@
     };
     const canLoad = (tool, dependencies) => {
         if (isOdooHome() || !matchesPage(tool)) return false;
+        if (QUOTATION_STATION_TOOL_IDS.has(tool.id) && !isQuotationStation()) return false;
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
 
@@ -256,31 +280,226 @@
         }
     };
 
+    const LIFECYCLE_STATES = Object.freeze({
+        UNINITIALIZED: 'UNINITIALIZED',
+        INITIALIZING: 'INITIALIZING',
+        ACTIVE: 'ACTIVE',
+        PAUSING: 'PAUSING',
+        PAUSED: 'PAUSED',
+        RESUMING: 'RESUMING',
+        REFRESHING: 'REFRESHING',
+        DESTROYING: 'DESTROYING',
+        DESTROYED: 'DESTROYED',
+        ERROR: 'ERROR'
+    });
+
+    const VALID_TRANSITIONS = Object.freeze({
+        UNINITIALIZED: new Set(['INITIALIZING', 'ACTIVE', 'DESTROYING', 'DESTROYED', 'ERROR']),
+        INITIALIZING: new Set(['ACTIVE', 'DESTROYING', 'DESTROYED', 'ERROR']),
+        ACTIVE: new Set(['PAUSING', 'REFRESHING', 'DESTROYING', 'ERROR']),
+        PAUSING: new Set(['PAUSED', 'ACTIVE', 'DESTROYING', 'ERROR']),
+        PAUSED: new Set(['RESUMING', 'DESTROYING', 'ERROR']),
+        RESUMING: new Set(['ACTIVE', 'PAUSED', 'DESTROYING', 'ERROR']),
+        REFRESHING: new Set(['ACTIVE', 'DESTROYING', 'ERROR']),
+        DESTROYING: new Set(['DESTROYED', 'ERROR']),
+        DESTROYED: new Set(['INITIALIZING', 'ACTIVE']),
+        ERROR: new Set(['INITIALIZING', 'DESTROYING', 'DESTROYED', 'ACTIVE'])
+    });
+
+    const lifecycleRecords = new Map();
+    const lifecycleLocks = new Map();
+
+    const withTimeout = (promise, ms = 10000, label = 'LIFECYCLE_TIMEOUT') => {
+        let timer = null;
+        return Promise.race([
+            Promise.resolve(promise),
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(createError(label)), ms);
+            })
+        ]).finally(() => {
+            if (timer) clearTimeout(timer);
+        });
+    };
+
+    const withToolLock = async (toolId, task) => {
+        const previous = lifecycleLocks.get(toolId) || Promise.resolve();
+        let release;
+        const next = new Promise(resolve => { release = resolve; });
+        const chained = previous.catch(() => {}).then(() => next);
+        lifecycleLocks.set(toolId, chained);
+        await previous.catch(() => {});
+        try {
+            return await task();
+        } finally {
+            release();
+            if (lifecycleLocks.get(toolId) === chained) lifecycleLocks.delete(toolId);
+        }
+    };
+
+    const getLifecycleRecord = toolId => {
+        const id = String(toolId || '').trim();
+        if (!id) return null;
+        let rec = lifecycleRecords.get(id);
+        if (!rec) {
+            rec = {
+                id,
+                state: LIFECYCLE_STATES.UNINITIALIZED,
+                lastError: null,
+                updatedAt: Date.now()
+            };
+            lifecycleRecords.set(id, rec);
+        }
+        return rec;
+    };
+
+    const transitionState = (toolId, nextState, error = null) => {
+        const rec = getLifecycleRecord(toolId);
+        if (!rec) return null;
+        const allowed = VALID_TRANSITIONS[rec.state];
+        if (rec.state !== nextState && allowed && !allowed.has(nextState)) {
+            throw createError(`Invalid lifecycle transition for ${toolId}: ${rec.state} -> ${nextState}`);
+        }
+        rec.state = nextState;
+        rec.lastError = error ? String(error?.message || error) : null;
+        rec.updatedAt = Date.now();
+        return rec.state;
+    };
+
+    const getToolInstance = toolId => {
+        const registry = getRegistry();
+        return registry?.[toolId] || null;
+    };
+
+    const destroyTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        const loaded = loadedTools.get(toolId);
+        if (rec.state === LIFECYCLE_STATES.DESTROYED && !registered && !loaded) return true;
+        if (!registered && !loaded) {
+            if (rec.state !== LIFECYCLE_STATES.DESTROYED) transitionState(toolId, LIFECYCLE_STATES.DESTROYED);
+            return true;
+        }
+        transitionState(toolId, LIFECYCLE_STATES.DESTROYING);
+        try {
+            const { API, LOADER } = getDependencies();
+            if (typeof registered?.destroy === 'function') {
+                const stopped = await withTimeout(registered.destroy(), 8000, `Destroy timeout for ${toolId}`);
+                if (stopped === false) {
+                    transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+                    return false;
+                }
+            }
+            const registry = getRegistry();
+            if (registry && registry[toolId] === registered) delete registry[toolId];
+            if (loaded?.path) {
+                try { LOADER.clear(loaded.path, { destroy: true }); } catch {}
+                loadedTools.delete(toolId);
+                await recordLifecycle(API, 'TOOL_STOPPED', loaded);
+            }
+            transitionState(toolId, LIFECYCLE_STATES.DESTROYED);
+            return true;
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const pauseTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        if (!registered) return { paused: false, skipped: true, reason: 'NOT_LOADED' };
+        if (rec.state === LIFECYCLE_STATES.PAUSED) return { paused: true, alreadyPaused: true };
+        if (rec.state === LIFECYCLE_STATES.DESTROYED) return { paused: false, skipped: true, reason: 'DESTROYED' };
+        const pauseFn = typeof registered.pause === 'function'
+            ? registered.pause.bind(registered)
+            : typeof registered.suspend === 'function'
+                ? registered.suspend.bind(registered)
+                : null;
+        if (!pauseFn || registered.supportsPause === false) {
+            return { paused: false, skipped: true, reason: 'PAUSE_NOT_SUPPORTED' };
+        }
+        if (rec.state === LIFECYCLE_STATES.UNINITIALIZED) rec.state = LIFECYCLE_STATES.ACTIVE;
+        transitionState(toolId, LIFECYCLE_STATES.PAUSING);
+        try {
+            const ok = await withTimeout(pauseFn(), 8000, `Pause timeout for ${toolId}`);
+            if (ok === false) {
+                transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+                return { paused: false, busy: true };
+            }
+            transitionState(toolId, LIFECYCLE_STATES.PAUSED);
+            return { paused: true };
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const resumeTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        if (!registered || rec.state === LIFECYCLE_STATES.DESTROYED) return false;
+        if (rec.state !== LIFECYCLE_STATES.PAUSED) return true;
+        if (typeof registered.resume !== 'function') {
+            transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+            return true;
+        }
+        transitionState(toolId, LIFECYCLE_STATES.RESUMING);
+        try {
+            const ok = await withTimeout(registered.resume(), 8000, `Resume timeout for ${toolId}`);
+            if (ok === false) {
+                transitionState(toolId, LIFECYCLE_STATES.PAUSED);
+                return false;
+            }
+            transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+            return true;
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const refreshTool = async toolId => withToolLock(toolId, async () => {
+        const rec = getLifecycleRecord(toolId);
+        const registered = getToolInstance(toolId);
+        if (!registered || rec.state === LIFECYCLE_STATES.DESTROYED) return false;
+        if (registered.refreshRequiresRebuild === true) {
+            return null; // Caller delegates to rebuildTool outside lock
+        }
+        if (typeof registered.refresh !== 'function') return true;
+        if (rec.state === LIFECYCLE_STATES.UNINITIALIZED) rec.state = LIFECYCLE_STATES.ACTIVE;
+        if (rec.state !== LIFECYCLE_STATES.ACTIVE) return false;
+        transitionState(toolId, LIFECYCLE_STATES.REFRESHING);
+        try {
+            const ok = await withTimeout(registered.refresh(), 8000, `Refresh timeout for ${toolId}`);
+            transitionState(toolId, LIFECYCLE_STATES.ACTIVE);
+            return ok !== false;
+        } catch (error) {
+            transitionState(toolId, LIFECYCLE_STATES.ERROR, error);
+            throw error;
+        }
+    });
+
+    const rebuildTool = async toolId => {
+        const tool = getTool(toolId);
+        await destroyTool(toolId);
+        return start(tool);
+    };
+
     const stop = async toolId => {
         const instance = loadedTools.get(toolId);
 
-        if (!instance) return false;
+        if (!instance && !getToolInstance(toolId)) return false;
 
         const registry = getRegistry();
         const registered = registry?.[toolId];
 
         if (typeof registered?.destroy !== 'function') {
-            instance.destroyable = false;
+            if (instance) instance.destroyable = false;
             return false;
         }
 
-        const { API, LOADER } = getDependencies();
-
         try {
-            const stopped = await registered.destroy();
-            if (stopped === false) return false;
-            if (registry?.[toolId] === registered) delete registry[toolId];
-            LOADER.clear(instance.path);
-
-            loadedTools.delete(toolId);
-            await recordLifecycle(API, 'TOOL_STOPPED', instance);
-
-            return true;
+            return await destroyTool(toolId);
         } catch (error) {
             throw createError(`Failed to stop tool ${toolId}: ${error.message}`);
         }
@@ -292,7 +511,11 @@
             return loadedTools.has(tool.id) ? stop(tool.id) : false;
         }
         const existing = loadedTools.get(tool.id);
-        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) return true;
+        if (existing && existing.path === tool.path && existing.sha256 === tool.sha256) {
+            const rec = getLifecycleRecord(tool.id);
+            if (rec && rec.state === LIFECYCLE_STATES.UNINITIALIZED) rec.state = LIFECYCLE_STATES.ACTIVE;
+            return true;
+        }
         if (existing && !await stop(tool.id)) throw createError('Tool ' + tool.id + ' cannot be safely replaced because it has no destroy method');
 
         if (pendingTools.has(tool.id)) {
@@ -304,32 +527,40 @@
 
             if (!canLoad(tool, dependencies)) return false;
 
-            const result = await dependencies.LOADER.load(tool.path, {
-                toolId: tool.id,
-                sha256: tool.sha256
-            });
+            transitionState(tool.id, LIFECYCLE_STATES.INITIALIZING);
 
-            if (!result.registered || !result.destroyable) {
-                const registry = getRegistry();
-                const registered = registry?.[tool.id];
-                try { await registered?.destroy?.(); } catch {}
-                if (registry?.[tool.id] === registered) delete registry[tool.id];
-                dependencies.LOADER.clear(tool.path, { destroy: true });
-                throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+            try {
+                const result = await dependencies.LOADER.load(tool.path, {
+                    toolId: tool.id,
+                    sha256: tool.sha256
+                });
+
+                if (!result.registered || !result.destroyable) {
+                    const registry = getRegistry();
+                    const registered = registry?.[tool.id];
+                    try { await registered?.destroy?.(); } catch {}
+                    if (registry?.[tool.id] === registered) delete registry[tool.id];
+                    dependencies.LOADER.clear(tool.path, { destroy: true });
+                    throw createError('Tool ' + tool.id + ' must register an instance with destroy().');
+                }
+
+                loadedTools.set(tool.id, {
+                    id: tool.id,
+                    name: tool.name,
+                    path: tool.path,
+                    sha256: tool.sha256,
+                    loadedAt: result.loadedAt,
+                    registered: result.registered,
+                    destroyable: result.destroyable
+                });
+                transitionState(tool.id, LIFECYCLE_STATES.ACTIVE);
+                await recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
+
+                return true;
+            } catch (error) {
+                transitionState(tool.id, LIFECYCLE_STATES.ERROR, error);
+                throw error;
             }
-
-            loadedTools.set(tool.id, {
-                id: tool.id,
-                name: tool.name,
-                path: tool.path,
-                sha256: tool.sha256,
-                loadedAt: result.loadedAt,
-                registered: result.registered,
-                destroyable: result.destroyable
-            });
-            await recordLifecycle(dependencies.API, 'TOOL_STARTED', tool);
-
-            return true;
         })();
 
         pendingTools.set(tool.id, task);
@@ -430,8 +661,850 @@
         });
     };
 
+    const EXCLUDE_ATTR = 'data-yd-screenshotshot-exclude';
+    const EXCLUDE_CLASS = 'yd-screenshotshot-exclude';
+    const DEFAULT_EXCLUDED_SELECTORS = [
+        '#yd-dashboard-menu-item',
+        '#yd-launcher',
+        '#yd-dashboard-root',
+        '.yd-select-portal-menu',
+        '#yodawy-dev-mode-banner',
+        '#yd-cloud-error',
+        '#yd-screenshot-systray-item',
+        '#yd-screenshot-toast',
+        '#yd-screenshot-overlay',
+        '#yd-tools-systray-item',
+        '#yd-tools-menu-item',
+        '#noitems-panel',
+        '#noitems-systray-item',
+        '#ordered-panel',
+        '#ordered-systray-item',
+        '#ms-stock-hzb-checker',
+        '#ms-stock-hzb-systray-item',
+        '#ydDirectSplitButton',
+        '#ydDirectSplitDialog',
+        '#tm-confirmation-buttons',
+        '#tm-alt-call-popup',
+        '.yodawy-copy-success',
+        '.yd-open-erx-backdrop',
+        '[data-yd-log-note-tool]',
+        '.ms-alt-qty-warning',
+        '.yd-mc-layer',
+        '.yd-mc-copy-btn'
+    ];
+    const registeredExclusions = new Set();
+    let captureSequence = 0;
+    let activeCapturePromise = null;
+    let libraryPromise = null;
+    const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+
+    const registerExcludedElement = (target, meta = {}) => {
+        if (!target) return () => {};
+        const entry = { target, meta };
+        registeredExclusions.add(entry);
+        if (target instanceof Element) {
+            target.setAttribute(EXCLUDE_ATTR, 'true');
+        }
+        return () => {
+            registeredExclusions.delete(entry);
+        };
+    };
+
+    const resolveExcludedElements = () => {
+        const nodes = new Set();
+        const addNode = node => {
+            if (node instanceof Element && node.isConnected) nodes.add(node);
+        };
+        document.querySelectorAll(`[${EXCLUDE_ATTR}="true"], .${EXCLUDE_CLASS}`).forEach(addNode);
+        for (const selector of DEFAULT_EXCLUDED_SELECTORS) {
+            try {
+                document.querySelectorAll(selector).forEach(addNode);
+            } catch {}
+        }
+        for (const entry of registeredExclusions) {
+            try {
+                const resolved = typeof entry.target === 'function' ? entry.target() : entry.target;
+                if (!resolved) continue;
+                if (typeof resolved === 'string') {
+                    document.querySelectorAll(resolved).forEach(addNode);
+                } else if (Array.isArray(resolved) || resolved instanceof NodeList) {
+                    for (const el of resolved) addNode(el);
+                } else {
+                    addNode(resolved);
+                }
+            } catch {}
+        }
+        return [...nodes];
+    };
+
+    const isScreenshotExcludedElement = element => {
+        if (!(element instanceof Element)) return false;
+        if (element.getAttribute(EXCLUDE_ATTR) === 'true' || element.classList?.contains(EXCLUDE_CLASS)) return true;
+        const combined = `[${EXCLUDE_ATTR}="true"], .${EXCLUDE_CLASS}, ${DEFAULT_EXCLUDED_SELECTORS.join(',')}`;
+        try {
+            if (element.matches?.(combined) || element.closest?.(combined)) return true;
+        } catch {}
+        for (const entry of registeredExclusions) {
+            try {
+                const resolved = typeof entry.target === 'function' ? entry.target() : entry.target;
+                if (!resolved) continue;
+                if (typeof resolved === 'string') {
+                    if (element.matches?.(resolved) || element.closest?.(resolved)) return true;
+                } else if (resolved instanceof Element) {
+                    if (element === resolved || resolved.contains(element)) return true;
+                }
+            } catch {}
+        }
+        return false;
+    };
+
+    const waitCaptureFrames = () => new Promise(resolve => {
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        } else {
+            setTimeout(resolve, 32);
+        }
+    });
+
+    const ensureHtml2Canvas = async () => {
+        if (typeof page.html2canvas === 'function') return page.html2canvas;
+        if (typeof window.html2canvas === 'function') return window.html2canvas;
+        if (!libraryPromise) {
+            libraryPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                let timer = setTimeout(() => {
+                    script.remove();
+                    reject(createError('SCREENSHOT_LIBRARY_TIMEOUT'));
+                }, 15000);
+                script.src = HTML2CANVAS_URL;
+                script.async = true;
+                script.crossOrigin = 'anonymous';
+                script.onload = () => {
+                    clearTimeout(timer);
+                    timer = null;
+                    const lib = page.html2canvas || window.html2canvas;
+                    if (typeof lib === 'function') resolve(lib);
+                    else reject(createError('SCREENSHOT_LIBRARY_UNAVAILABLE'));
+                };
+                script.onerror = () => {
+                    if (timer) clearTimeout(timer);
+                    script.remove();
+                    reject(createError('SCREENSHOT_LIBRARY_LOAD_FAILED'));
+                };
+                (document.head || document.documentElement).appendChild(script);
+            }).catch(error => {
+                libraryPromise = null;
+                throw error;
+            });
+        }
+        return libraryPromise;
+    };
+
+    const captureCleanScreenshot = async (options = {}) => {
+        if (activeCapturePromise) {
+            if (!options.queue) throw createError('SCREENSHOT_CAPTURE_IN_PROGRESS');
+            await activeCapturePromise.catch(() => {});
+        }
+
+        const runCaptureTask = async () => {
+            const captureId = ++captureSequence;
+            const hideToken = 'yd-hidden-' + captureId;
+            const requesterToolId = String(options.requesterToolId || '').trim();
+            const MARKER = 'data-yd-screenshot-fixed-marker';
+            const root = document.documentElement;
+            const body = document.body;
+
+            const hiddenSnapshots = [];
+            const pausedTools = [];
+            const fixedSnapshots = [];
+            const restoreErrors = [];
+            let captureError = null;
+            let blob = null;
+
+            const html2canvasLib = typeof options.renderer === 'function'
+                ? options.renderer
+                : await ensureHtml2Canvas();
+
+            try {
+                // 1. Pause ONLY tools whose screenshotBehavior === 'pause-required'
+                const registry = getRegistry() || {};
+                const entries = Object.entries(registry).filter(([id, inst]) =>
+                    inst && typeof inst === 'object' && id !== requesterToolId && inst.screenshotBehavior === 'pause-required'
+                );
+
+                for (const [id, inst] of entries) {
+                    const rec = getLifecycleRecord(id);
+                    if (rec && rec.state === LIFECYCLE_STATES.PAUSED) continue;
+                    const res = await pauseTool(id);
+                    if (res.busy) throw createError('TOOL_BUSY: ' + id);
+                    if (res.paused) pausedTools.push(id);
+                }
+
+                // 2. Activate global screenshot clean mode and hide all YODAWY UI elements
+                root.setAttribute('data-yd-screenshotshot-clean', 'true');
+                const excluded = resolveExcludedElements();
+                for (const element of excluded) {
+                    hiddenSnapshots.push({
+                        element,
+                        prevAttr: element.getAttribute('data-yd-screenshotshot-hidden'),
+                        prevDisplay: element.style.getPropertyValue('display'),
+                        prevDisplayPriority: element.style.getPropertyPriority('display'),
+                        prevVisibility: element.style.getPropertyValue('visibility'),
+                        prevVisibilityPriority: element.style.getPropertyPriority('visibility')
+                    });
+                    element.setAttribute('data-yd-screenshotshot-hidden', hideToken);
+                    element.style.setProperty('display', 'none', 'important');
+                    element.style.setProperty('visibility', 'hidden', 'important');
+                }
+
+                try { await document.fonts?.ready; } catch {}
+                await waitCaptureFrames();
+
+                // 3. Measure full document dimensions & snapshot fixed/sticky nodes
+                // Viewport-only dimensions: capture strictly the visible webpage viewport inside the active Browser Tab
+                const viewportWidth = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth || root.clientWidth || 0));
+                const viewportHeight = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight || root.clientHeight || 0));
+                const scrollX = Math.round(window.scrollX ?? window.pageXOffset ?? root.scrollLeft ?? 0);
+                const scrollY = Math.round(window.scrollY ?? window.pageYOffset ?? root.scrollTop ?? 0);
+
+                const scale = Number.isFinite(options.scale)
+                    ? options.scale
+                    : (window.devicePixelRatio || 1);
+
+                const rawCanvas = await html2canvasLib(root, {
+                    backgroundColor: '#fff',
+                    scale,
+                    useCORS: true,
+                    allowTaint: false,
+                    logging: false,
+                    imageTimeout: 0,
+                    x: scrollX,
+                    y: scrollY,
+                    width: viewportWidth,
+                    height: viewportHeight,
+                    windowWidth: window.innerWidth || viewportWidth,
+                    windowHeight: window.innerHeight || viewportHeight,
+                    scrollX: 0,
+                    scrollY: 0,
+                    onclone: clonedDocument => {
+                        // Keep fixed elements in place relative to the cloned document viewport
+                        clonedDocument.querySelectorAll('[' + MARKER + ']').forEach(element => {
+                            const marker = element.getAttribute(MARKER);
+                            const item = fixedSnapshots.find(entry => entry.marker === marker);
+                            if (!item) return;
+                            element.style.setProperty('position', 'absolute', 'important');
+                            element.style.setProperty('left', item.left + 'px', 'important');
+                            element.style.setProperty('top', item.top + 'px', 'important');
+                            element.style.setProperty('right', 'auto', 'important');
+                            element.style.setProperty('bottom', 'auto', 'important');
+                            element.style.setProperty('transform', 'none', 'important');
+                        });
+                    },
+                    ignoreElements: element => isScreenshotExcludedElement(element)
+                });
+
+                // Guarantee exact viewport pixel dimensions:
+                // If html2canvas rendered a larger canvas (e.g. document full height), slice strictly the visible viewport area
+                const targetPixelWidth = Math.max(1, Math.round(viewportWidth * scale));
+                const targetPixelHeight = Math.max(1, Math.round(viewportHeight * scale));
+
+                let finalCanvas = rawCanvas;
+                if (rawCanvas && (rawCanvas.width !== targetPixelWidth || rawCanvas.height !== targetPixelHeight)) {
+                    const normalizedCanvas = document.createElement('canvas');
+                    normalizedCanvas.width = targetPixelWidth;
+                    normalizedCanvas.height = targetPixelHeight;
+                    const ctx = normalizedCanvas.getContext('2d');
+                    if (ctx) {
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        // Draw strictly the visible viewport rectangle.
+                        // Only apply scroll offset if rawCanvas is larger than targetPixelWidth/Height (i.e. full-document canvas).
+                        const sourceX = rawCanvas.width > targetPixelWidth
+                            ? Math.min(Math.max(0, Math.round(scrollX * scale)), rawCanvas.width - targetPixelWidth)
+                            : 0;
+                        const sourceY = rawCanvas.height > targetPixelHeight
+                            ? Math.min(Math.max(0, Math.round(scrollY * scale)), rawCanvas.height - targetPixelHeight)
+                            : 0;
+                        const sourceWidth = Math.min(rawCanvas.width - sourceX, targetPixelWidth);
+                        const sourceHeight = Math.min(rawCanvas.height - sourceY, targetPixelHeight);
+                        ctx.drawImage(
+                            rawCanvas,
+                            sourceX,
+                            sourceY,
+                            sourceWidth,
+                            sourceHeight,
+                            0,
+                            0,
+                            sourceWidth,
+                            sourceHeight
+                        );
+                        finalCanvas = normalizedCanvas;
+                    }
+                }
+
+                blob = await new Promise((resolve, reject) => {
+                    try {
+                        finalCanvas.toBlob(
+                            result => result && result.size > 0 ? resolve(result) : reject(createError('SCREENSHOT_IMAGE_CREATION_FAILED')),
+                            'image/png',
+                            options.quality
+                        );
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            } catch (error) {
+                captureError = error;
+            } finally {
+                fixedSnapshots.forEach(({ element, previous }) => {
+                    if (previous === null) element.removeAttribute(MARKER);
+                    else element.setAttribute(MARKER, previous);
+                });
+
+                for (const snap of hiddenSnapshots.reverse()) {
+                    const el = snap.element;
+                    if (el.getAttribute('data-yd-screenshotshot-hidden') === hideToken) {
+                        if (snap.prevAttr === null) el.removeAttribute('data-yd-screenshotshot-hidden');
+                        else el.setAttribute('data-yd-screenshotshot-hidden', snap.prevAttr);
+
+                        if (el.style.getPropertyValue('display') === 'none') {
+                            if (snap.prevDisplay) el.style.setProperty('display', snap.prevDisplay, snap.prevDisplayPriority);
+                            else el.style.removeProperty('display');
+                        }
+                        if (el.style.getPropertyValue('visibility') === 'hidden') {
+                            if (snap.prevVisibility) el.style.setProperty('visibility', snap.prevVisibility, snap.prevVisibilityPriority);
+                            else el.style.removeProperty('visibility');
+                        }
+                    }
+                }
+
+                root.removeAttribute('data-yd-screenshotshot-clean');
+
+                for (const id of pausedTools.reverse()) {
+                    try {
+                        const resumed = await resumeTool(id);
+                        if (resumed === false) restoreErrors.push(id);
+                    } catch {
+                        restoreErrors.push(id);
+                    }
+                }
+                await waitCaptureFrames();
+            }
+
+            if (restoreErrors.length) throw createError('RESTORE_FAILED: ' + restoreErrors.join(', '));
+            if (captureError) throw captureError;
+            if (!blob) throw createError('SCREENSHOT_EMPTY');
+            return blob;
+        };
+
+        const task = runCaptureTask();
+        activeCapturePromise = task;
+        try {
+            return await task;
+        } finally {
+            if (activeCapturePromise === task) activeCapturePromise = null;
+        }
+    };
+
+    // Unified Systray Burger Menu implementation
+    // Groups ORDERED (1st), NO ITEMS (2nd), and SCREENSHOT (3rd) into a single dropdown
+    const registeredLaunchers = new Map();
+    const MENU_ENTRIES = Object.freeze([
+        Object.freeze({ toolId: 'TOOL-012', action: 'ordered', label: 'ORDERED BY WH', icon: 'fa-solid fa-cart-shopping', badgeId: 'yd-badge-ordered' }),
+        Object.freeze({ toolId: 'TOOL-008', action: 'noitems', label: 'NO ITEM NEED TO CHECK', icon: 'fa-solid fa-clipboard-check', badgeId: 'yd-badge-noitems' }),
+        Object.freeze({ toolId: 'TOOL-019', action: 'screenshot', label: 'SCREENSHOT', icon: 'fa-solid fa-camera' })
+    ]);
+    let updateSystrayBadgesFn = () => {};
+
+    const ensureFontAwesomeLoaded = () => {
+        try {
+            if (typeof document === 'undefined' || !document.fonts?.check) return;
+            if (document.fonts.check('900 16px "YD Font Awesome 6 Free"')) return;
+            const styleEl = document.getElementById('yd-fa-icons-style');
+            if (!styleEl?.href) return;
+            const fontUrl = new URL('./webfonts/6.7.2/fa-solid-900.woff2', styleEl.href).toString();
+            if (typeof page.FontFace !== 'function' || typeof page.fetch !== 'function') return;
+            page.fetch(fontUrl, { mode: 'cors', credentials: 'omit' })
+                .then(res => res.ok ? res.arrayBuffer() : null)
+                .then(buf => {
+                    if (!buf) return null;
+                    const face = new page.FontFace('YD Font Awesome 6 Free', buf, { weight: '900', style: 'normal' });
+                    return face.load();
+                })
+                .then(loaded => {
+                    if (loaded && loaded.status === 'loaded') {
+                        document.fonts.add(loaded);
+                        return document.fonts.load('900 16px "YD Font Awesome 6 Free"');
+                    }
+                    return null;
+                })
+                .catch(() => {});
+        } catch {}
+    };
+
+    const initSystrayBurgerMenu = () => {
+        const MENU_ITEM_ID = 'yd-tools-systray-item';
+        const BUTTON_ID = 'yd-tools-systray-button';
+        const DROPDOWN_ID = 'yd-tools-systray-dropdown';
+        const STYLE_ID = 'yd-tools-systray-style';
+
+        ensureFontAwesomeLoaded();
+
+        const ensureStyles = () => {
+            if (document.getElementById(STYLE_ID)) return;
+            const style = document.createElement('style');
+            style.id = STYLE_ID;
+            style.textContent = `
+                :root {
+                    --yd-dropdown-surface: #fff;
+                    --yd-dropdown-text: #18181b;
+                    --yd-dropdown-muted: #71717a;
+                    --yd-dropdown-border: #d9d9de;
+                    --yd-dropdown-radius: 8px;
+                    --yd-dropdown-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+                    --yd-dropdown-hover: #e9dfea;
+                    --yd-dropdown-hover-text: #68465f;
+                    --yd-dropdown-selected: #f8f5f7;
+                    --yd-dropdown-selected-text: #714b67;
+                    --yd-dropdown-icon-bg: #f4eff2;
+                    --yd-dropdown-icon: #875a7b;
+                    --yd-dropdown-font: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+                    --yd-dropdown-item-radius: 6px;
+                }
+
+                /* Hide legacy standalone buttons if ever present */
+                ul.o_menu_systray > li#ordered-systray-item,
+                ul.o_menu_systray > li#noitems-systray-item,
+                ul.o_menu_systray > li#yd-screenshot-systray-item,
+                #ordered-systray-item,
+                #noitems-systray-item,
+                #yd-screenshot-systray-item {
+                    display: none !important;
+                }
+
+                #${MENU_ITEM_ID} {
+                    position: relative !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 42px !important;
+                    height: 46px !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    flex: 0 0 42px !important;
+                    order: -990 !important;
+                }
+
+                #${BUTTON_ID} {
+                    position: relative !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 42px !important;
+                    height: 46px !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    border: 0 !important;
+                    border-radius: 0 !important;
+                    background: transparent !important;
+                    color: rgba(255, 255, 255, 0.9) !important;
+                    cursor: pointer !important;
+                    transition: background 0.15s, color 0.15s !important;
+                }
+
+                #${BUTTON_ID}:hover,
+                #${MENU_ITEM_ID}.open #${BUTTON_ID} {
+                    background: rgba(255, 255, 255, 0.12) !important;
+                    color: #fff !important;
+                }
+
+                #${BUTTON_ID}:focus,
+                #${BUTTON_ID}:focus-visible,
+                #${BUTTON_ID}:active,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus-visible,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:active {
+                    outline: none !important;
+                    border: 0 !important;
+                    border-color: transparent !important;
+                    box-shadow: none !important;
+                    -webkit-tap-highlight-color: transparent !important;
+                }
+
+                #${BUTTON_ID}:focus,
+                #${BUTTON_ID}:focus-visible,
+                #${BUTTON_ID}:active {
+                    background: rgba(255, 255, 255, 0.12) !important;
+                    color: #fff !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:focus-visible,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:active {
+                    background: var(--yd-dropdown-hover) !important;
+                    color: var(--yd-dropdown-hover-text) !important;
+                }
+
+                #${BUTTON_ID} i.yd-fa-icon {
+                    display: inline-block !important;
+                    font-family: "YD Font Awesome 6 Free" !important;
+                    font-weight: 900 !important;
+                    font-style: normal !important;
+                    font-variant: normal !important;
+                    font-size: 19px !important;
+                    line-height: 1 !important;
+                    width: 20px !important;
+                    height: 20px !important;
+                    text-align: center !important;
+                    color: inherit !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }
+
+                #${DROPDOWN_ID} {
+                    display: none;
+                    position: absolute !important;
+                    top: 100% !important;
+                    right: 0 !important;
+                    min-width: 260px !important;
+                    max-width: min(340px, calc(100vw - 24px)) !important;
+                    max-height: min(320px, calc(100vh - 24px)) !important;
+                    margin: 4px 0 0 !important;
+                    padding: 10px !important;
+                    overflow-x: hidden !important;
+                    overflow-y: auto !important;
+                    border-radius: var(--yd-dropdown-radius) !important;
+                    background: var(--yd-dropdown-surface) !important;
+                    border: 1px solid var(--yd-dropdown-border) !important;
+                    color: var(--yd-dropdown-text) !important;
+                    box-shadow: var(--yd-dropdown-shadow) !important;
+                    font-family: var(--yd-dropdown-font) !important;
+                    transform-origin: top right !important;
+                    animation: yd-tools-dropdown-enter .2s cubic-bezier(.16, 1, .3, 1) both !important;
+                    z-index: 2147483645 !important;
+                    user-select: none !important;
+                }
+
+                #${MENU_ITEM_ID}.open #${DROPDOWN_ID} {
+                    display: block !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                    width: 100% !important;
+                    min-height: 31px !important;
+                    box-sizing: border-box !important;
+                    padding: 8px 10px !important;
+                    border: 0 !important;
+                    border-radius: var(--yd-dropdown-item-radius) !important;
+                    background: transparent !important;
+                    color: var(--yd-dropdown-text) !important;
+                    font: 500 12.5px/1.35 var(--yd-dropdown-font) !important;
+                    text-align: left !important;
+                    cursor: pointer !important;
+                    transition: background-color .12s, color .12s !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item:hover {
+                    background: var(--yd-dropdown-hover) !important;
+                    color: var(--yd-dropdown-hover-text) !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item i.yd-fa-icon {
+                    display: inline-block !important;
+                    font-family: "YD Font Awesome 6 Free" !important;
+                    font-weight: 900 !important;
+                    font-style: normal !important;
+                    font-variant: normal !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    width: 20px !important;
+                    min-width: 20px !important;
+                    height: 20px !important;
+                    font-size: 13px !important;
+                    line-height: 1 !important;
+                    text-align: center !important;
+                    border-radius: 6px !important;
+                    background: var(--yd-dropdown-icon-bg) !important;
+                    color: var(--yd-dropdown-icon) !important;
+                    flex: 0 0 20px !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                }
+
+                @keyframes yd-tools-dropdown-enter {
+                    from { opacity: 0; transform: translateY(-8px) scale(.98); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-name {
+                    flex: 1 1 auto !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-badge {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    min-width: 18px !important;
+                    height: 18px !important;
+                    padding: 0 6px !important;
+                    border-radius: 9px !important;
+                    background: #875a7b !important;
+                    color: #fff !important;
+                    font-size: 10px !important;
+                    font-weight: 700 !important;
+                }
+
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-badge:empty,
+                #${DROPDOWN_ID} .yd-tools-dropdown-item span.yd-tools-item-badge[data-count="0"] {
+                    display: none !important;
+                }
+            `;
+            (document.head || document.documentElement).appendChild(style);
+        };
+
+        const renderMenuItems = () => {
+            const dropdown = document.getElementById(DROPDOWN_ID);
+            if (!dropdown) return [];
+
+            const entries = MENU_ENTRIES.filter(entry => {
+                const launcher = registeredLaunchers.get(entry.toolId);
+                return typeof launcher?.launch === 'function';
+            });
+            const signature = entries.map(entry => entry.toolId).join('|');
+
+            if (dropdown.dataset.itemsSignature !== signature) {
+                const fragment = document.createDocumentFragment();
+                for (const entry of entries) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'yd-tools-dropdown-item';
+                    button.dataset.action = entry.action;
+                    button.dataset.toolId = entry.toolId;
+                    button.setAttribute('role', 'menuitem');
+                    button.setAttribute('aria-label', entry.label);
+
+                    const icon = document.createElement('i');
+                    icon.className = 'yd-fa-icon ' + entry.icon;
+                    button.appendChild(icon);
+
+                    const name = document.createElement('span');
+                    name.className = 'yd-tools-item-name';
+                    name.textContent = entry.label;
+                    button.appendChild(name);
+
+                    if (entry.badgeId) {
+                        const badge = document.createElement('span');
+                        badge.className = 'yd-tools-item-badge';
+                        badge.id = entry.badgeId;
+                        badge.dataset.count = '0';
+                        button.appendChild(badge);
+                    }
+
+                    fragment.appendChild(button);
+                }
+                dropdown.replaceChildren(fragment);
+                dropdown.dataset.itemsSignature = signature;
+            }
+
+            const menuItem = document.getElementById(MENU_ITEM_ID);
+            const menuButton = document.getElementById(BUTTON_ID);
+            if (menuItem) {
+                menuItem.style.setProperty('display', entries.length ? 'flex' : 'none', 'important');
+                if (!entries.length) {
+                    menuItem.classList.remove('open');
+                    menuButton?.setAttribute('aria-expanded', 'false');
+                }
+            }
+            return entries;
+        };
+
+        const buildMenuElement = () => {
+            let item = document.getElementById(MENU_ITEM_ID);
+            if (!item) {
+                item = document.createElement('li');
+                item.id = MENU_ITEM_ID;
+                item.setAttribute('data-yd-screenshotshot-exclude', 'true');
+                item.className = 'yd-screenshotshot-exclude';
+                item.setAttribute('role', 'menuitem');
+                item.innerHTML = `
+                    <button id="${BUTTON_ID}" type="button" title="Tools Menu" aria-label="Tools Menu" aria-expanded="false" aria-haspopup="true">
+                        <i class="yd-fa-icon fa-solid fa-bars"></i>
+                    </button>
+                    <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshotshot-exclude="true" class="yd-screenshotshot-exclude"></div>
+                `;
+
+                // Handle toggle
+                const btn = item.querySelector('#' + BUTTON_ID);
+                btn.addEventListener('click', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const open = item.classList.toggle('open');
+                    btn.setAttribute('aria-expanded', String(open));
+                    updateBadges();
+                });
+
+                // Close on outer click
+                document.addEventListener('click', e => {
+                    if (!item.contains(e.target)) {
+                        item.classList.remove('open');
+                        btn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                // Action dispatcher
+                item.addEventListener('click', e => {
+                    const actionBtn = e.target.closest('.yd-tools-dropdown-item');
+                    if (!actionBtn) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    item.classList.remove('open');
+                    btn.setAttribute('aria-expanded', 'false');
+
+                    const toolId = String(actionBtn.dataset.toolId || '');
+                    const registered = registeredLaunchers.get(toolId);
+                    const tool = manifest.find(item => item.id === toolId);
+                    try {
+                        if (!tool || !registered || typeof registered.launch !== 'function' || !canLoad(tool, getDependencies())) {
+                            updateBadges();
+                            if (tool) syncTool(toolId).catch(() => {});
+                            return;
+                        }
+                        const result = registered.launch();
+                        if (result && typeof result.then === 'function') result.catch(() => {});
+                    } catch {
+                        updateBadges();
+                    }
+                });
+            }
+            return item;
+        };
+
+        const updateBadges = () => {
+            renderMenuItems();
+            const orderedRegistered = registeredLaunchers.get('TOOL-012');
+            const orderedCountRaw = typeof orderedRegistered?.getCount === 'function'
+                ? orderedRegistered.getCount()
+                : document.getElementById('ordered-counter')?.innerText?.trim();
+            const badgeOrdered = document.getElementById('yd-badge-ordered');
+            if (badgeOrdered) {
+                const count = String(orderedCountRaw ?? '0').trim() || '0';
+                badgeOrdered.innerText = count === '0' ? '' : count;
+                badgeOrdered.setAttribute('data-count', count);
+            }
+
+            const noitemsRegistered = registeredLaunchers.get('TOOL-008');
+            const noitemsCountRaw = typeof noitemsRegistered?.getCount === 'function'
+                ? noitemsRegistered.getCount()
+                : document.getElementById('noitems-counter')?.innerText?.trim();
+            const badgeNoitems = document.getElementById('yd-badge-noitems');
+            if (badgeNoitems) {
+                const count = String(noitemsCountRaw ?? '0').trim() || '0';
+                badgeNoitems.innerText = count === '0' ? '' : count;
+                badgeNoitems.setAttribute('data-count', count);
+            }
+        };
+
+        updateSystrayBadgesFn = updateBadges;
+
+        const placeMenu = () => {
+            if (!document.body) return false;
+            ensureStyles();
+            const nav = document.querySelector('ul.o_menu_systray[role="menu"], ul.o_menu_systray');
+            if (!nav) return false;
+
+            const item = buildMenuElement();
+            // Place right next to stock checker or at the beginning of custom tools
+            const stockItem = document.getElementById('ms-stock-hzb-systray-item');
+            if (stockItem && stockItem.parentElement === nav) {
+                if (stockItem.nextElementSibling !== item) {
+                    nav.insertBefore(item, stockItem.nextSibling);
+                }
+            } else if (nav.firstElementChild !== item) {
+                nav.insertBefore(item, nav.firstElementChild);
+            }
+            updateBadges();
+            return true;
+        };
+
+        ensureStyles();
+        placeMenu();
+
+        // Observe navbar changes to keep menu firmly placed and badges updated
+        const observer = new MutationObserver(() => {
+            placeMenu();
+        });
+        observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+    };
+
+    const systrayMenuApi = Object.freeze({
+        isActive: true,
+        register: (toolId, config = {}) => {
+            if (!toolId || typeof config !== 'object') return () => {};
+            registeredLaunchers.set(toolId, config);
+            updateSystrayBadgesFn();
+            return () => {
+                if (registeredLaunchers.get(toolId) === config) {
+                    registeredLaunchers.delete(toolId);
+                    updateSystrayBadgesFn();
+                }
+            };
+        },
+        unregister: toolId => {
+            registeredLaunchers.delete(toolId);
+            updateSystrayBadgesFn();
+        },
+        updateBadges: () => updateSystrayBadgesFn()
+    });
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSystrayBurgerMenu, { once: true });
+        } else {
+            initSystrayBurgerMenu();
+        }
+    }
+
+    const lifecycleApi = Object.freeze({
+        STATES: LIFECYCLE_STATES,
+        getState: toolId => getLifecycleRecord(toolId)?.state || LIFECYCLE_STATES.UNINITIALIZED,
+        getAllStates: () => {
+            const out = {};
+            for (const [id, rec] of lifecycleRecords) out[id] = { ...rec };
+            return out;
+        },
+        destroy: destroyTool,
+        rebuild: rebuildTool,
+        pause: pauseTool,
+        resume: resumeTool,
+        refresh: async toolId => {
+            const res = await refreshTool(toolId);
+            if (res === null) return rebuildTool(toolId);
+            return res;
+        }
+    });
+
+    const screenshotCoordinatorApi = Object.freeze({
+        EXCLUDE_ATTR,
+        EXCLUDE_CLASS,
+        registerElement: registerExcludedElement,
+        getExcludedElements: resolveExcludedElements,
+        isExcluded: isScreenshotExcludedElement,
+        isCapturing: () => Boolean(activeCapturePromise),
+        capture: captureCleanScreenshot
+    });
+
+    global.YODAWY_TOOL_LIFECYCLE = lifecycleApi;
+    global.YODAWY_SCREENSHOT_COORDINATOR = screenshotCoordinatorApi;
+
     global.YODAWY_TOOLS_MANAGER = Object.freeze({
-        version: 3,
+        version: 4,
+        lifecycle: lifecycleApi,
+        screenshot: screenshotCoordinatorApi,
+        systrayMenu: systrayMenuApi,
         loadManifest,
         sync,
         syncTool,

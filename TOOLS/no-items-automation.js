@@ -449,48 +449,42 @@ const saveScreenshotManual=async(blob,message='No items need to check')=>{
 };
 
 const takeScreenshot=async()=>{
+    const coordinator=window.YODAWY_SCREENSHOT_COORDINATOR;
+    if(coordinator&&typeof coordinator.capture==='function'){
+        return coordinator.capture({
+            requesterToolId:TOOL_ID,
+            scale:1,
+            quality:0.9,
+            renderer:typeof html2canvas==='function'?html2canvas:undefined
+        });
+    }
     const root=document.documentElement;
     const body=document.body;
     const fixed=[];
     const markers=[];
-    const scrollables=[...document.querySelectorAll('body *')].filter(element=>{
-        const style=getComputedStyle(element);
-        return element.scrollHeight>element.clientHeight+20&&['auto','scroll'].includes(style.overflowY);
-    });
-    const width=Math.max(root.scrollWidth,body.scrollWidth,window.innerWidth,...scrollables.map(element=>element.scrollWidth+Math.max(0,element.getBoundingClientRect().left+window.scrollX)));
-    const height=Math.max(root.scrollHeight,body.scrollHeight,window.innerHeight,...scrollables.map(element=>element.scrollHeight+Math.max(0,element.getBoundingClientRect().top+window.scrollY)));
-    for(const element of document.querySelectorAll('body *')){
-        const style=getComputedStyle(element);
-        if(style.position!=='fixed'&&style.position!=='sticky')continue;
-        const rect=element.getBoundingClientRect();
-        if(!rect.width||!rect.height)continue;
-        const marker=`noitems-${markers.length}`;
-        element.setAttribute('data-noitems-capture',marker);
-        markers.push({element,marker});
-        fixed.push({marker,left:rect.left+window.scrollX,top:rect.top+window.scrollY});
-    }
+    // Viewport-only dimensions: capture strictly visible webpage viewport inside the active tab
+    const viewportWidth=Math.max(1,Math.round(window.visualViewport?.width||window.innerWidth||root.clientWidth||0));
+    const viewportHeight=Math.max(1,Math.round(window.visualViewport?.height||window.innerHeight||root.clientHeight||0));
+    const scrollX=Math.round(window.scrollX??window.pageXOffset??root.scrollLeft??0);
+    const scrollY=Math.round(window.scrollY??window.pageYOffset??root.scrollTop??0);
+    const scale=1;
+
     try{
-        const canvas=await html2canvas(root,{
+        const rawCanvas=await html2canvas(root,{
             backgroundColor:'#fff',
-            scale:1,
+            scale,
             useCORS:true,
             logging:false,
             imageTimeout:0,
-            x:0,
-            y:0,
-            width,
-            height,
-            windowWidth:width,
-            windowHeight:window.innerHeight,
+            x:scrollX,
+            y:scrollY,
+            width:viewportWidth,
+            height:viewportHeight,
+            windowWidth:window.innerWidth||viewportWidth,
+            windowHeight:window.innerHeight||viewportHeight,
             scrollX:0,
             scrollY:0,
             onclone:clonedDocument=>{
-                const selectors='.o_web_client,.o_action_manager,.o_content,.o_form_view,.o_form_sheet_bg,.o_chatter,.o-mail-ChatterContainer';
-                clonedDocument.querySelectorAll(selectors).forEach(element=>{
-                    element.style.setProperty('height','auto','important');
-                    element.style.setProperty('max-height','none','important');
-                    element.style.setProperty('overflow','visible','important');
-                });
                 clonedDocument.querySelectorAll('[data-noitems-capture]').forEach(element=>{
                     const item=fixed.find(entry=>entry.marker===element.getAttribute('data-noitems-capture'));
                     if(!item)return;
@@ -505,10 +499,34 @@ const takeScreenshot=async()=>{
             ignoreElements:element=>
                 element.id==='noitems-panel'||
                 element.id==='noitems-systray-item'||
+                element.id==='yd-screen-overlay'||
+                element.id==='yd-tools-systray-item'||
+                element.id==='yd-tools-systray-dropdown'||
                 element.matches?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')||
                 element.closest?.('#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button')
         });
-        return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.9));
+
+        const targetPixelWidth=Math.max(1,Math.round(viewportWidth*scale));
+        const targetPixelHeight=Math.max(1,Math.round(viewportHeight*scale));
+        let finalCanvas=rawCanvas;
+        if(rawCanvas&&(rawCanvas.width!==targetPixelWidth||rawCanvas.height!==targetPixelHeight)){
+            const normalizedCanvas=document.createElement('canvas');
+            normalizedCanvas.width=targetPixelWidth;
+            normalizedCanvas.height=targetPixelHeight;
+            const ctx=normalizedCanvas.getContext('2d');
+            if(ctx){
+                ctx.imageSmoothingEnabled=true;
+                ctx.imageSmoothingQuality='high';
+                const sourceX=rawCanvas.width>targetPixelWidth?Math.min(Math.max(0,Math.round(scrollX*scale)),rawCanvas.width-targetPixelWidth):0;
+                const sourceY=rawCanvas.height>targetPixelHeight?Math.min(Math.max(0,Math.round(scrollY*scale)),rawCanvas.height-targetPixelHeight):0;
+                const sourceWidth=Math.min(rawCanvas.width-sourceX,targetPixelWidth);
+                const sourceHeight=Math.min(rawCanvas.height-sourceY,targetPixelHeight);
+                ctx.drawImage(rawCanvas,sourceX,sourceY,sourceWidth,sourceHeight,0,0,sourceWidth,sourceHeight);
+                finalCanvas=normalizedCanvas;
+            }
+        }
+
+        return await new Promise(resolve=>finalCanvas.toBlob(resolve,'image/png',0.9));
     }finally{
         markers.forEach(({element})=>element.removeAttribute('data-noitems-capture'));
     }
@@ -554,6 +572,7 @@ const downloadExcelReport=()=>{
 const panel=document.createElement('div');
 
 panel.id='noitems-panel';
+panel.setAttribute('data-yd-screenshot-exclude','true');
 
 panel.innerHTML=`
 <div id="noitems-header">
@@ -689,9 +708,21 @@ const updateConfirmUI=()=>{
         :'OFF • SCREENSHOT + LOG NOTE ONLY';
 };
 
+const hasCentralSystray=()=>Boolean(window.YODAWY_TOOLS_MANAGER?.systrayMenu?.isActive);
+
+const registerCentralLauncher=()=>{
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.register?.(TOOL_ID,{
+        launch:()=>{
+            if(!state.destroyed&&!state.suspended)panel.classList.toggle('open');
+        },
+        getCount:()=>String(state.noItems||0)
+    });
+};
+
 const updateCounter=()=>{
     const counter=document.querySelector('#noitems-counter');
     if(counter)counter.textContent=state.noItems;
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.updateBadges?.();
 };
 
 const updateStats=()=>{
@@ -778,6 +809,7 @@ document.head.appendChild(style);
 const systray=document.createElement('li');
 
 systray.id='noitems-systray-item';
+systray.setAttribute('data-yd-screenshot-exclude','true');
 systray.setAttribute('role','menuitem');
 
 systray.innerHTML=`
@@ -790,6 +822,12 @@ systray.innerHTML=`
 let systrayPlaced=false;
 
 const placeSystrayFirst=()=>{
+    if(hasCentralSystray()){
+        systray.remove();
+        registerCentralLauncher();
+        systrayPlaced=true;
+        return;
+    }
     const ul=document.querySelector('ul.o_menu_systray[role="menu"],ul.o_menu_systray');
     if(!ul)return;
 
@@ -804,8 +842,15 @@ placeSystrayFirst();
 
 let systrayTimer=null;
 const startSystrayTimer=()=>{
-    if(systrayTimer||state.destroyed||state.suspended)return;
+    if(hasCentralSystray()||systrayTimer||state.destroyed||state.suspended)return;
     systrayTimer=setInterval(()=>{
+    if(hasCentralSystray()){
+        clearInterval(systrayTimer);
+        systrayTimer=null;
+        systray.remove();
+        registerCentralLauncher();
+        return;
+    }
     if(!systrayPlaced||!document.body.contains(systray)){
         placeSystrayFirst();
         systrayPlaced=document.body.contains(systray);
@@ -981,13 +1026,11 @@ const processCurrentTicket=async()=>{
 const suspendTools=async()=>{
     const registry=window.YODAWY_TOOL_INSTANCES||{};
     const suspended=[];
-    for(const instance of Object.values(registry)){
-        if(typeof instance?.suspend!=='function')continue;
-        try{if(await instance.suspend()!==false)suspended.push(instance);}catch{}
-    }
-    const ordered=window.__MS_ORDERED_BY_WH__;
-    if(typeof ordered?.suspend==='function'){
-        try{if(await ordered.suspend()!==false)suspended.push(ordered);}catch{}
+    for(const [id,instance] of Object.entries(registry)){
+        if(id===TOOL_ID||instance?.screenshotBehavior!=='pause-required')continue;
+        const fn=typeof instance?.pause==='function'?instance.pause.bind(instance):typeof instance?.suspend==='function'?instance.suspend.bind(instance):null;
+        if(!fn)continue;
+        try{if(await fn()!==false)suspended.push(instance);}catch{}
     }
     return suspended;
 };
@@ -1002,7 +1045,6 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
     let opened=false;
     let popup=null;
     let popupClosed=false;
-    let suspended=[];
     let baseline=null;
     try{
         setStatus(`FETCHING #${ticketId} • ${index}/${totalTargets}`);
@@ -1024,7 +1066,6 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
         }
         opened=await openTicket(ticketId);
         if(!opened||getCurrentTicketId()!==ticketId)throw new Error('OPEN NO-ITEM TICKET FAILED');
-        suspended=await suspendTools();
         setStatus(`CAPTURING • NO ITEM #${ticketId}`);
         if(!await clickFetch())throw new Error('NO-ITEM FETCH DISPLAY FAILED');
         popup=await waitForPopup();
@@ -1052,18 +1093,15 @@ const processTicketAttempt=async(ticketId,index,totalTargets,attempt)=>{
                 updateStats();
             }
         }
-        await resumeTools(suspended);
         if(opened)await backToList();
     }
 };
 
 const captureFailureEvidence=async(ticketId,error)=>{
     let opened=false;
-    let suspended=[];
     try{
         opened=await openTicket(ticketId);
         if(!opened)return false;
-        suspended=await suspendTools();
         const blob=await takeScreenshot();
         if(!blob)return false;
         const message=`Automation error after retry: ${String(error?.message||error||'Unknown error').slice(0,500)}`;
@@ -1071,7 +1109,6 @@ const captureFailureEvidence=async(ticketId,error)=>{
     }catch{
         return false;
     }finally{
-        await resumeTools(suspended);
         if(opened)await backToList();
     }
 };
@@ -1189,23 +1226,45 @@ const run=async()=>{
 };
 
 const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
+const unregisterNoItemsPanel=window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(panel,{toolId:TOOL_ID});
+const unregisterNoItemsSystray=window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(systray,{toolId:TOOL_ID});
 const instance={
     id:TOOL_ID,
     path:'TOOLS/no-items-automation.js',
-    suspend(){
-        if(state.destroyed||state.running)return false;
+    screenshotBehavior:'hide-only',
+    supportsPause:true,
+    pause(){
+        if(state.destroyed)return true;
+        if(state.running){
+            state.paused=true;
+            updatePauseUI();
+            return true;
+        }
         state.suspended=true;
-        state.paused=false;
-        if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
         panel.classList.remove('open');
-        systray.remove();
+        systray.style.setProperty('display','none','important');
         return true;
+    },
+    suspend(){
+        return this.pause();
     },
     resume(){
         if(state.destroyed)return false;
         state.suspended=false;
+        if(state.running){
+            state.paused=false;
+            updatePauseUI();
+        }
+        systray.style.removeProperty('display');
         placeSystrayFirst();
         startSystrayTimer();
+        return true;
+    },
+    refresh(){
+        if(state.destroyed)return false;
+        placeSystrayFirst();
+        updateConfirmUI();
+        updateStats();
         return true;
     },
     destroy(){
@@ -1214,6 +1273,9 @@ const instance={
         state.destroyed=true;
         state.paused=false;
         state.running=false;
+        try{unregisterNoItemsPanel?.();}catch{}
+        try{unregisterNoItemsSystray?.();}catch{}
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.unregister?.(TOOL_ID);
         state.controller.abort();
         if(systrayTimer){clearInterval(systrayTimer);systrayTimer=null;}
         panel.remove();

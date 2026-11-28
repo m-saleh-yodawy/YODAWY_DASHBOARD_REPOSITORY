@@ -203,12 +203,6 @@
     const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const getText = element => normalize(element?.innerText || element?.textContent || '');
-    const isVisible = element => {
-        if (!element) return false;
-        const rect = element.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && element.offsetParent !== null;
-    };
-
     const getApi = () => window.YODAWY_API_ENGINE;
     async function waitForApi() {
         if (state.api?.getOpenErxAccounts && state.api?.runSplitGraphQL) return state.api;
@@ -1264,7 +1258,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
 #${CONFIG.DIALOG_ID} .yds-buttons{width:100%}
 #${CONFIG.DIALOG_ID} .yds-button{flex:1}
 }
-@media(prefers-reduced-motion:reduce){#${CONFIG.DIALOG_ID} *,#ydDirectSplitButton{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){#${CONFIG.DIALOG_ID} *{animation:none!important;transition:none!important}}
         `;
         document.head.appendChild(style);
     }
@@ -1423,6 +1417,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.dialog?.remove();
         const overlay = document.createElement('div');
         overlay.id = CONFIG.DIALOG_ID;
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
         const drugs = journal.selectedDrugs || [];
         const completed = Boolean(journal.completed);
         const needsPortalCheck = !journal.portalCreated && ['portal_creation_started', 'portal_creation_uncertain'].includes(journal.phase);
@@ -1470,6 +1465,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
         state.dialog?.remove();
         const overlay = document.createElement('div');
         overlay.id = CONFIG.DIALOG_ID;
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
         const cycleLabel = state.cycle?.label || 'Unknown';
         const expiryLabel = state.expiryInfo?.displayDate || 'Unknown';
         const accountOptions = state.portalAccounts.map(account => `<option value="${escapeHTML(account.id)}">${escapeHTML((account.accountType === 'PERSONAL' ? 'Personal' : 'Non-Personal') + ' · ' + (account.username || account.label || account.id))}</option>`).join('');
@@ -1721,12 +1717,14 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function createButton() {
-        if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID)) return;
+        if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID)) return false;
+        const container = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(element => element.isConnected);
+        if (!container) return false;
         injectStyles();
-        const container = [...document.querySelectorAll('.oe_button_box')].find(isVisible);
-        if (!container) return;
         const button = document.createElement('button');
         button.id = CONFIG.BUTTON_ID;
+        button.setAttribute('data-yd-screenshot-exclude', 'true');
+        window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(button, { toolId: TOOL_ID });
         button.type = 'button';
         button.className = 'btn oe_stat_button';
         button.title = 'Create split prescription directly';
@@ -1737,9 +1735,15 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             if (button.disabled || button.dataset.loading === '1') return;
             startSplit();
         });
-        const anchor = container.querySelector('#tm-confirmation-buttons');
-        if (anchor) container.insertBefore(button, anchor.nextSibling);
-        else container.prepend(button);
+        const confirmation = container.querySelector(':scope > #tm-confirmation-buttons');
+        const rtl = getComputedStyle(container).direction === 'rtl';
+        if (confirmation) container.insertBefore(button, rtl ? confirmation : confirmation.nextSibling);
+        else {
+            const nativeButtons = [...container.children].filter(element => element.matches?.('button.oe_stat_button') && element.id !== CONFIG.BUTTON_ID);
+            const target = rtl ? nativeButtons[nativeButtons.length - 1]?.nextSibling || null : nativeButtons[0] || null;
+            container.insertBefore(button, target);
+        }
+        return true;
     }
 
     function isTicketForm() {
@@ -1747,52 +1751,61 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function init() {
-        if (state.destroyed || state.suspended) return;
-        if (isTicketForm()) { createButton(); cleanupCycleStorageOnTicket(); }
+        if (state.destroyed || state.suspended) return false;
+        if (!isTicketForm()) {
+            document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            return false;
+        }
+        const created = createButton();
+        if (created) cleanupCycleStorageOnTicket();
+        return created;
     }
 
-    const initTimers = new Set();
     const observe = () => {
-        if (state.destroyed || state.suspended || !document.body) return;
-        if (!state.observer) {
-            state.observer = new MutationObserver(() => {
-                if (!state.destroyed && !state.suspended && !document.getElementById(CONFIG.BUTTON_ID)) init();
-            });
-        }
+        if (state.destroyed || state.suspended || !document.body || state.observer) return;
+        state.observer = new MutationObserver(records => {
+            if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID) || !isTicketForm()) return;
+            const container = document.querySelector('.o_not_full.oe_button_box, .oe_button_box');
+            if (!container) return;
+            const changed = records.some(record =>
+                record.target === container || container.contains(record.target) ||
+                [...record.addedNodes].some(node => node.nodeType === Node.ELEMENT_NODE && (node === container || node.contains?.(container) || node.matches?.('.o_not_full.oe_button_box, .oe_button_box') || node.querySelector?.('.o_not_full.oe_button_box, .oe_button_box')))
+            );
+            if (changed) init();
+        });
         state.observer.observe(document.body, { childList: true, subtree: true });
     };
-    const scheduleInit = () => {
-        for (const timer of initTimers) clearTimeout(timer);
-        initTimers.clear();
-        for (const delay of [700, 1800]) {
-            const timer = setTimeout(() => {
-                initTimers.delete(timer);
-                init();
-            }, delay);
-            initTimers.add(timer);
-        }
+
+    const routeChange = () => {
+        if (!state.destroyed && !state.suspended) init();
     };
     const instance = {
         id: TOOL_ID,
         path: 'TOOLS/split-prescription.js',
-        suspend() {
-            if (state.busy || state.fetchRunning) return false;
+        screenshotBehavior: 'hide-only',
+        supportsPause: true,
+        pause() {
+            if (state.destroyed) return true;
             state.suspended = true;
-            state.observer?.disconnect();
-            for (const timer of initTimers) clearTimeout(timer);
-            initTimers.clear();
-            closeDialog(true);
-            revealDeferredChatterMessages();
-            document.getElementById(CONFIG.BUTTON_ID)?.remove();
-            document.getElementById('ydDirectSplitStyles')?.remove();
+            document.getElementById(CONFIG.BUTTON_ID)?.style.setProperty('display', 'none', 'important');
+            document.getElementById(CONFIG.DIALOG_ID)?.style.setProperty('display', 'none', 'important');
             return true;
+        },
+        suspend() {
+            return this.pause();
         },
         resume() {
             if (state.destroyed) return false;
             state.suspended = false;
+            document.getElementById(CONFIG.BUTTON_ID)?.style.removeProperty('display');
+            document.getElementById(CONFIG.DIALOG_ID)?.style.removeProperty('display');
             observe();
             init();
-            scheduleInit();
+            return true;
+        },
+        refresh() {
+            if (state.destroyed || state.suspended) return false;
+            init();
             return true;
         },
         destroy() {
@@ -1802,8 +1815,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             state.suspended = false;
             state.observer?.disconnect();
             state.observer = null;
-            for (const timer of initTimers) clearTimeout(timer);
-            initTimers.clear();
+            window.removeEventListener('hashchange', routeChange);
             closeDialog(true);
             revealDeferredChatterMessages();
             document.getElementById(CONFIG.BUTTON_ID)?.remove();
@@ -1814,6 +1826,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     };
     registry[TOOL_ID] = instance;
     observe();
+    window.addEventListener('hashchange', routeChange);
     init();
-    scheduleInit();
 })();

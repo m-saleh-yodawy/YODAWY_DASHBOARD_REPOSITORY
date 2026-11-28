@@ -728,6 +728,18 @@
             !running;
     }
 
+    const hasCentralSystray = () => Boolean(window.YODAWY_TOOLS_MANAGER?.systrayMenu?.isActive);
+
+    function registerCentralLauncher() {
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.register?.(TOOL_ID, {
+            launch: () => {
+                const panel = document.getElementById('ordered-panel');
+                if (panel && !destroyed) panel.classList.toggle('open');
+            },
+            getCount: () => orderedFound > 99 ? '99+' : String(orderedFound)
+        });
+    }
+
     function updateCounter() {
         const counter =
               document.getElementById(
@@ -740,6 +752,7 @@
                 ? '99+'
             : orderedFound;
         }
+        window.YODAWY_TOOLS_MANAGER?.systrayMenu?.updateBadges?.();
     }
 
     async function loadExcel(file) {
@@ -1299,6 +1312,8 @@
 
         panel.id =
             'ordered-panel';
+        panel.setAttribute('data-yd-screenshot-exclude', 'true');
+        window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(panel, { toolId: TOOL_ID });
 
         panel.innerHTML = `
             <div id="ordered-header">
@@ -1582,6 +1597,13 @@
             return false;
         }
 
+        if (hasCentralSystray()) {
+            document.getElementById('ordered-systray-item')?.remove();
+            registerCentralLauncher();
+            updateCounter();
+            return true;
+        }
+
         const systray =
               document.querySelector(
                   'ul.o_menu_systray'
@@ -1612,6 +1634,8 @@
 
             item.id =
                 'ordered-systray-item';
+            item.setAttribute('data-yd-screenshot-exclude', 'true');
+            window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(item, { toolId: TOOL_ID });
 
             item.className =
                 'o_ordered_systray_item';
@@ -1988,26 +2012,50 @@ function destroy() {
     )
         ?.remove();
 
+    window.YODAWY_TOOLS_MANAGER?.systrayMenu?.unregister?.(TOOL_ID);
     if (window[INSTANCE_KEY] === api) delete window[INSTANCE_KEY];
     if (registry[TOOL_ID] === api) delete registry[TOOL_ID];
     return true;
 }
 
 const api = {
+    id: TOOL_ID,
+    path: 'TOOLS/ordered-by-warehouse.js',
+    screenshotBehavior: 'hide-only',
+    supportsPause: true,
     destroy,
-    async suspend() {
+    async pause() {
         if (destroyed) return true;
-        if (running || processing) return false;
-        if (destroy() === false) return false;
-        destroyed = false;
-        domController = new AbortController();
-        window[INSTANCE_KEY] = api;
-        registry[TOOL_ID] = api;
+        if (running) {
+            paused = true;
+            updateControls();
+            updateStatus('PAUSED');
+        }
+        document.getElementById('ordered-panel')?.style.setProperty('display', 'none', 'important');
+        document.getElementById('ordered-systray-item')?.style.setProperty('display', 'none', 'important');
         return true;
+    },
+    async suspend() {
+        return this.pause();
     },
     async resume() {
         if (destroyed) return false;
+        if (running && paused) {
+            paused = false;
+            updateControls();
+            updateStatus('RUNNING');
+        }
+        document.getElementById('ordered-panel')?.style.removeProperty('display');
+        document.getElementById('ordered-systray-item')?.style.removeProperty('display');
         if (!document.getElementById('ordered-panel')) init();
+        return true;
+    },
+    async refresh() {
+        if (destroyed) return false;
+        if (!document.getElementById('ordered-panel')) init();
+        updateStats();
+        updateProgress();
+        updateControls();
         return true;
     }
 };

@@ -203,6 +203,7 @@
         state.ticket = data;
         const overlay = document.createElement('div');
         overlay.className = 'yd-open-erx-backdrop';
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
         overlay.innerHTML = '<section class="yd-open-erx-modal" role="dialog" aria-modal="true" aria-labelledby="yd-open-erx-title"><header><div><span class="yd-open-erx-kicker">YODAWY WORKSPACE</span><h2 id="yd-open-erx-title">Open ERX</h2><p>Search the Portal prescription directly inside Odoo.</p></div><button type="button" data-open-erx-close aria-label="Close">×</button></header><div class="yd-open-erx-ticket"><div><span>Insurance Company</span><strong>' + escapeHTML(data.company) + '</strong></div><div><span>Card Number</span><strong>' + escapeHTML(data.cardNumber) + '</strong></div><div><span>Form Number</span><strong>' + escapeHTML(data.formNumber) + '</strong></div></div><div class="yd-open-erx-account" data-open-erx-account-wrap><label for="yd-open-erx-account">PORTALS Account</label><select id="yd-open-erx-account" data-open-erx-account disabled><option>Loading accounts...</option></select></div><div class="yd-open-erx-status" data-open-erx-status>Loading matching accounts from PORTALS...</div><div class="yd-open-erx-result" data-open-erx-result hidden></div><footer><button type="button" class="yd-open-erx-secondary" data-open-erx-close>Close</button><button type="button" class="yd-open-erx-primary" data-open-erx-run disabled>Find Prescription</button></footer></section>';
         document.body.append(overlay);
         state.modal = overlay;
@@ -288,18 +289,34 @@
     const instance = Object.freeze({
         id: TOOL_ID,
         path: 'TOOLS/open-erx.js',
+        screenshotBehavior: 'hide-only',
+        supportsPause: true,
+        pause: () => {
+            if (state.destroyed || state.busy) return false;
+            state.suspended = true;
+            release();
+            document.getElementById('yd-open-erx-style')?.remove();
+            return true;
+        },
         suspend: () => {
-            if(state.destroyed||state.busy)return false;
-            state.suspended=true;
+            if (state.destroyed || state.busy) return false;
+            state.suspended = true;
             release();
             document.getElementById('yd-open-erx-style')?.remove();
             return true;
         },
         resume: () => {
-            if(state.destroyed)return false;
-            state.suspended=false;
-            state.observer=new MutationObserver(setup);
-            state.observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+            if (state.destroyed) return false;
+            state.suspended = false;
+            if (!state.observer && document.body) {
+                state.observer = new MutationObserver(setup);
+                state.observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+            }
+            setup();
+            return true;
+        },
+        refresh: () => {
+            if (state.destroyed || state.suspended) return false;
             setup();
             return true;
         },

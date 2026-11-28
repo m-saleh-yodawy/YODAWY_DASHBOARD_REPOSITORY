@@ -6,7 +6,7 @@
       "name": "Confirmation Type",
       "description": "Add confirmation type controls to tickets.",
       "enabled": true,
-      "sha256": "afa61b1ca9515d9343943885cbb40b828cd510ddc5b8730706d3aececd6ed337",
+      "sha256": "d585d8d7e82e2d8302db783b5e3f0625c06fcbcc0574cb98a87a83b60846857b",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
@@ -17,7 +17,7 @@
       "name": "Limited Drug Table",
       "description": "Limited Drug Accordion with alternative pricing and Log Note actions",
       "enabled": true,
-      "sha256": "6a73e53ef1e85c4a2c235622b3af8a882b88164a4e6b968fe87adbabbb55c4ca",
+      "sha256": "b71bfbe1106a7f45fa2e73780f48d376a5f85319a9b353a6b2f8397c1f914d23",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
@@ -48,6 +48,7 @@
       "id": "TOOL-008",
       "file": "no-items-automation.js",
       "name": "No Items Automation",
+      "icon": "fa-solid fa-clipboard-check",
       "description": "Find tickets with no items to check, capture evidence, and add log notes.",
       "enabled": true,
       "sha256": "c0bccdd5ed564c555f4168269f03c51e108b6b3574fc1b3b6e52396ff5ccb5bc",
@@ -81,6 +82,7 @@
       "id": "TOOL-012",
       "file": "ordered-by-warehouse.js",
       "name": "Ordered By Warehouse",
+      "icon": "fa-solid fa-cart-shopping",
       "description": "Automate ordered-by-warehouse workflows.",
       "enabled": true,
       "sha256": "480bca32b8f7ca0902ad1b3e06a6ed82532ee51ede62285b7a073c1aaeaac4a4",
@@ -92,6 +94,7 @@
       "id": "TOOL-014",
       "file": "stock-checker.js",
       "name": "Stock Checker",
+      "icon": "fa-solid fa-cubes",
       "description": "Search product stock across Abu Rawash and Engy warehouses.",
       "enabled": true,
       "sha256": "affbd26bdf0adc34dc4532db10865e6cc7461c84adfcfa76b4b4ed5b4b3cdae7",
@@ -124,21 +127,22 @@
       "name": "Split Prescription",
       "description": "Create split prescriptions with exact Portal matching and live Odoo ticket fields.",
       "enabled": true,
-      "sha256": "f274c2609cc882a8b2a9d437d7163c691065e5a3a4804600dca760445cad9116",
+      "sha256": "cb786a4b567c5f6f2dea41f169a77b34613e40d14d7d840a2a5473d027dcd48f",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
     },
     {
       "id": "TOOL-019",
-      "file": "screen.js",
-      "name": "SCREEN",
+      "file": "screenshot.js",
+      "name": "SCREENSHOT",
+      "icon": "fa-solid fa-camera",
       "description": "Capture and copy a clean screenshot with all active tools temporarily suspended.",
       "enabled": true,
       "matches": [
         "https://odoo.yodawy.com/web*"
       ],
-      "sha256": "881022feea20d1eb20905aba809e13c0dcd7596535ec70e73ce8cf4ffd1f10c8"
+      "sha256": "3086304d88a1f67529549a59c317154c0ff9b4b73d4fd580236f1b25cd3f76ff"
     }
   ]
 }

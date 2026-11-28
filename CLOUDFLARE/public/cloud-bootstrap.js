@@ -3,7 +3,7 @@ return (async function (PAGE, STORE) {
     try { PAGE.YODAWY_INPUT_TYPOGRAPHY?.destroy?.(); } catch {}
 const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
     const runtime = API + '/runtime/';
-    const ASSET_VERSION = '20261126-tool-asset-worker-proxy-v12';
+    const ASSET_VERSION = '20261128-burger-icons-v14';
     const installToolBoxSizing = () => {
         const id = 'yd-tools-box-sizing';
         if (PAGE.document.getElementById(id)) return;
@@ -22,6 +22,7 @@ const API = 'https://yodawy-dashboard.m-saleh-yodawy.workers.dev';
         const item = messages[code] || messages.UNKNOWN_ERROR || { title: 'SYSTEM ERROR', message: 'AN UNEXPECTED ERROR OCCURRED.' };
         const root = PAGE.document.createElement('div');
         root.id = 'yd-cloud-error';
+        root.setAttribute('data-yd-screenshot-exclude', 'true');
         root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#17131acc;font:14px Arial,sans-serif';
         const card = PAGE.document.createElement('section');
         card.style.cssText = 'width:min(420px,calc(100% - 32px));padding:26px;border-radius:14px;background:#fff;color:#302833;border-top:5px solid #875A7B;box-shadow:0 18px 60px #0005';

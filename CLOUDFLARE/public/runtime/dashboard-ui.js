@@ -83,6 +83,13 @@
     let dropdownScrollHandler = null;
     let dropdownResizeHandler = null;
 
+    const globalExclusionRegister = element => {
+        try {
+            if (element instanceof Element) element.setAttribute('data-yd-screenshot-exclude', 'true');
+            page.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(element, { toolId: 'DASHBOARD_UI' });
+        } catch {}
+    };
+
     const mountModalOverlay = overlay => {
         const root = document.getElementById(CONFIG.ID);
         if (!root || !document.body) throw new Error('Dashboard modal host is unavailable.');
@@ -109,6 +116,8 @@
             trigger.setAttribute('aria-expanded', 'true');
             openDropdownMenu(dropdown);
         }, true);
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
     };
 
@@ -227,6 +236,7 @@
                 render();
             }, true);
             item.append(link);
+            globalExclusionRegister(item);
             launcherItem = item;
         }
         const items = [...menu.children].filter(item => item !== launcherItem);
@@ -536,6 +546,20 @@
     --danger: #dc2626;
     --danger-bg: #fee2e2;
     --danger-border: #f0d7d9;
+    --yd-dropdown-surface: #fff;
+    --yd-dropdown-text: #18181b;
+    --yd-dropdown-muted: #71717a;
+    --yd-dropdown-border: #d9d9de;
+    --yd-dropdown-radius: 8px;
+    --yd-dropdown-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    --yd-dropdown-hover: #e9dfea;
+    --yd-dropdown-hover-text: #68465f;
+    --yd-dropdown-selected: #f8f5f7;
+    --yd-dropdown-selected-text: #714b67;
+    --yd-dropdown-icon-bg: #f4eff2;
+    --yd-dropdown-icon: #875a7b;
+    --yd-dropdown-font: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
+    --yd-dropdown-item-radius: 6px;
     color: var(--ink);
     font: 400 12px/1.45 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif;
     font-synthesis: none;
@@ -671,11 +695,11 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     z-index: 2147483005;
     width: 304px;
     padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--ink);
-    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    border: 1px solid var(--yd-dropdown-border);
+    border-radius: var(--yd-dropdown-radius);
+    background: var(--yd-dropdown-surface);
+    color: var(--yd-dropdown-text);
+    box-shadow: var(--yd-dropdown-shadow);
     animation: yd-select-dropdown-drop .2s cubic-bezier(.16, 1, .3, 1) both;
 }
 #yd-dashboard-root .yd-profile-menu[hidden] { display: none !important; }
@@ -728,9 +752,9 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
     margin-top: 0;
     padding: 6px 8px;
     border: 0;
-    border-radius: 7px;
-    background: #e1e1e1;
-    color: var(--text);
+    border-radius: var(--yd-dropdown-item-radius);
+    background: transparent;
+    color: var(--yd-dropdown-text);
     font-size: 11px;
     cursor: pointer;
     text-align: left;
@@ -738,8 +762,8 @@ body > .ui-select-menu.yd-select-portal-menu [dir="rtl"]:not(.fa-solid):not(.fas
 }
 #yd-dashboard-root .yd-dropdown-action:hover,
 #yd-dashboard-root .yd-profile-menu .yd-dropdown-action:focus-visible {
-    background: #e1e1e1 !important;
-    color: #68465f !important;
+    background: var(--yd-dropdown-hover) !important;
+    color: var(--yd-dropdown-hover-text) !important;
     outline: none !important;
 }
 #yd-dashboard-root .yd-profile-menu .yd-refresh-action,
@@ -2014,7 +2038,8 @@ body > .yd-modal-backdrop .yd-message-icon.success, #yd-dashboard-root .yd-messa
     font-weight: 700 !important;
 }
 #yd-dashboard-root .yd-tool-accordion-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-#yd-dashboard-root .yd-tool-accordion-copy strong { overflow: hidden; color: var(--ink); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-tool-accordion-copy strong { display: inline-flex; align-items: center; gap: 7px; overflow: hidden; color: var(--ink); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
+#yd-dashboard-root .yd-tool-inline-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 6px; background: var(--brand-soft); color: var(--brand); font-size: 11px; flex: 0 0 20px; }
 #yd-dashboard-root .yd-tool-accordion-copy small { color: var(--muted); font-size: 9.5px; }
 #yd-dashboard-root .yd-tool-accordion-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
 #yd-dashboard-root .yd-tool-settings-placeholder {
@@ -2269,11 +2294,11 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] {
     overflow-x: hidden;
     overflow-y: auto;
     padding: 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: #18181b;
-    box-shadow: 0 0 16px 2px rgba(0, 0, 0, .12), 0 0 0 1px rgba(135, 90, 123, .08);
+    border: 1px solid var(--yd-dropdown-border);
+    border-radius: var(--yd-dropdown-radius);
+    background: var(--yd-dropdown-surface);
+    color: var(--yd-dropdown-text);
+    box-shadow: var(--yd-dropdown-shadow);
     box-sizing: border-box;
     font-family: 'Nunito Sans', 'Cairo', system-ui, -apple-system, sans-serif !important;
     transform-origin: top center;
@@ -2319,9 +2344,9 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
     min-height: 31px;
     padding: 8px 30px 8px 10px;
     border: 0;
-    border-radius: 6px;
+    border-radius: var(--yd-dropdown-item-radius);
     background: transparent;
-    color: #18181b;
+    color: var(--yd-dropdown-text);
     font-size: 12.5px;
     font-weight: 500 !important;
     text-align: left;
@@ -2339,14 +2364,14 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item:focus-visible,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:hover,
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-option:focus-visible {
-    background-color: #e9dfea !important;
-    color: #68465f !important;
+    background-color: var(--yd-dropdown-hover) !important;
+    color: var(--yd-dropdown-hover-text) !important;
     outline: none !important;
 }
 :is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item[data-selected="true"],
 body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] .ui-select-item[data-selected="true"] {
-    background: #f8f5f7;
-    color: #714b67;
+    background: var(--yd-dropdown-selected);
+    color: var(--yd-dropdown-selected-text);
     font-weight: 700 !important;
 }
 :is(#yd-dashboard-root, body > .yd-modal-backdrop) .ui-select-item[data-selected="true"]::after,
@@ -3545,8 +3570,10 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
             const enabled = pending ? pending.enabled === true : storedEnabled;
             const expanded = expandedTools.has(id) ? ' open' : '';
             const status = '<span class="yd-pill ' + (enabled ? 'green' : 'red') + '">' + (enabled ? 'ON' : 'OFF') + '</span>';
+            const toolIcon = String(tool.icon || (id === 'TOOL-019' ? 'fa-solid fa-camera' : '')).trim();
+            const iconMarkup = toolIcon ? '<span class="yd-tool-inline-icon" aria-hidden="true"><i class="yd-fa-icon ' + escapeHTML(toolIcon) + '"></i></span>' : '';
             return '<details class="yd-tool-accordion-item" data-tool-accordion data-tool="' + escapeHTML(id) + '"' + expanded + '>' +
-                '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + escapeHTML(tool.name) + '</strong><small>' + escapeHTML(id) + '</small></span></span>' +
+                '<summary><span class="yd-tool-accordion-main"><span class="yd-accordion-index">' + String(index + 1).padStart(2, '0') + '</span><span class="yd-tool-accordion-copy"><strong>' + iconMarkup + '<span>' + escapeHTML(tool.name) + '</span></strong><small>' + escapeHTML(id) + '</small></span></span>' +
                 '<span class="yd-tool-accordion-actions">' + status + '<button type="button" class="yd-switch ' + (enabled ? 'on' : '') + (pending ? ' is-loading' : '') + '" data-action="toggle-my-tool" data-tool="' + escapeHTML(id) + '" data-enabled="' + String(enabled) + '" ' + (allowed && !pending ? '' : 'disabled') + ' role="switch" aria-checked="' + String(enabled) + '" aria-label="Toggle ' + escapeHTML(tool.name) + '"><span class="yd-switch-knob"></span></button></span></summary>' +
                 '<div class="yd-tool-accordion-body">' + (id === 'TOOL-003' ? renderSplitAccountSettings(context.settings?.getSettings?.() || {}) : '<div class="yd-tool-settings-placeholder"><span class="yd-settings-placeholder-icon"><i class="yd-fa-icon fa-solid fa-sliders"></i></span><span><strong>User Settings</strong><small>No additional settings are available.</small></span></div>') + '</div></details>';
         }).join('');
@@ -4610,6 +4637,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-message-modal" role="dialog" aria-modal="true"><div class="yd-message-icon ' + escapeHTML(type) + '"><i class="yd-fa-icon fa-solid ' + icon + '"></i></div><h3>' + escapeHTML(title) + '</h3><div data-message-details><p>' + escapeHTML(message) + '</p></div><div class="yd-modal-actions"><button type="button" class="yd-primary" data-message-close>OK</button></div></section>';
         overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far, i.fa-brands, i.fab').forEach(icon => icon.classList.add('yd-fa-icon'));
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
         activeMessageDialog = overlay;
         const closeButton = overlay.querySelector('[data-message-close]');
@@ -4644,6 +4673,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         const danger = options.danger === true;
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-dashboard-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="yd-dashboard-confirm-title"><div class="yd-message-icon ' + (danger ? 'error' : 'success') + '"><i class="yd-fa-icon fa-solid ' + (danger ? 'fa-triangle-exclamation' : 'fa-circle-question') + '"></i></div><h3 id="yd-dashboard-confirm-title">' + escapeHTML(options.title || 'Confirm Action') + '</h3><p>' + escapeHTML(options.message || 'Are you sure you want to continue?') + '</p>' + (rows ? '<ul class="yd-dashboard-confirm-details">' + rows + '</ul>' : '') + '<div class="yd-modal-actions"><button type="button" class="yd-secondary" data-confirm-cancel>' + escapeHTML(options.cancelLabel || 'Cancel') + '</button><button type="button" class="yd-primary' + (danger ? ' yd-confirm-danger' : '') + '" data-confirm-accept>' + escapeHTML(options.confirmLabel || 'Confirm') + '</button></div></section>';
         overlay.querySelectorAll('i.fa-solid, i.fas, i.fa-regular, i.far').forEach(icon => icon.classList.add('yd-fa-icon'));
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
         activeDashboardConfirmDialog = overlay;
         const finish = value => {
@@ -4679,6 +4710,8 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         overlay.className = 'yd-modal-backdrop';
         if (computed) [...computed].filter(name => name.startsWith('--')).forEach(name => overlay.style.setProperty(name, computed.getPropertyValue(name)));
         overlay.innerHTML = '<section class="yd-modal yd-confirm-modal yd-portal-delete-modal" role="dialog" aria-modal="true" aria-labelledby="yd-portal-delete-title"><h3 id="yd-portal-delete-title">Delete All Portal Accounts</h3><p>All portal accounts assigned to <strong>' + escapeHTML(formatName(target.name)) + ' (' + escapeHTML(targetUserId) + ')</strong> will be permanently deleted.</p><form id="yd-portal-delete-form"><div class="yd-field"><label for="yd-portal-delete-password">SUPER ADMIN Password</label><input class="yd-input" id="yd-portal-delete-password" type="password" autocomplete="new-password" required></div><div class="yd-field"><label for="yd-portal-delete-password-confirm">Confirm SUPER ADMIN Password</label><input class="yd-input" id="yd-portal-delete-password-confirm" type="password" autocomplete="new-password" required></div><p id="yd-portal-delete-error" role="alert" style="min-height:18px;color:#b42318;font-size:12px;margin:8px 0 0"></p><div class="yd-modal-actions"><button type="button" class="yd-secondary" data-portal-delete-cancel>Cancel</button><button type="submit" class="yd-primary" style="background:#b42318;border-color:#b42318">Delete All</button></div></form></section>';
+        overlay.setAttribute('data-yd-screenshot-exclude', 'true');
+        globalExclusionRegister(overlay);
         document.body.appendChild(overlay);
         activePortalDeleteDialog = overlay;
         syncInputSurfaceBackgrounds(overlay);
@@ -5772,6 +5805,7 @@ body > .ui-select-menu.yd-select-portal-menu[data-portal="true"] :is(button,a,in
         document.getElementById(CONFIG.ID)?.remove();
         const root = document.createElement('div');
         root.id = CONFIG.ID;
+        globalExclusionRegister(root);
         rootElement = root;
         document.body.appendChild(root);
         render();
