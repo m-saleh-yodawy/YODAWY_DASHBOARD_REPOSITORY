@@ -288,9 +288,13 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                .oe_button_box.yd-ticket-action-nowrap{flex-wrap:nowrap!important}
-                .oe_button_box.yd-ticket-action-nowrap>#tm-confirmation-buttons{display:flex!important;flex:1 1 0px!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:0!important;max-width:none!important;vertical-align:middle;gap:10px;white-space:nowrap;box-sizing:border-box!important}
-                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 0;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
+                @media screen {
+                    .o_form_view .oe_button_box.${C.NO_WRAP_CLASS}{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:stretch;justify-content:flex-end}
+                    .o_form_view .oe_button_box.${C.NO_WRAP_CLASS}>#${C.I}{display:flex;flex:1 1 0%;min-width:0;min-height:44px;align-items:center;justify-content:center;flex-wrap:nowrap;gap:clamp(3px,.5vw,10px);padding:0 clamp(4px,.7vw,10px);box-sizing:border-box}
+                    .o_form_view .oe_button_box.${C.NO_WRAP_CLASS}>#${C.I} .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 1 auto;width:auto;min-width:0;height:30px;margin:0;padding:0 clamp(4px,.6vw,8px);border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:clamp(10px,.75vw,11px);font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,transform .1s,box-shadow .15s}
+                }
+                #${C.I}{display:flex;flex:1 1 0%;min-width:0;min-height:44px;align-items:center;justify-content:center;flex-wrap:nowrap;gap:clamp(3px,.5vw,10px);padding:0 clamp(4px,.7vw,10px);box-sizing:border-box}
+                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 1 auto;width:auto;min-width:0;height:30px;margin:0;padding:0 clamp(4px,.6vw,8px);border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:clamp(10px,.75vw,11px);font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
                 .tm-confirm-btn.tm-active{box-shadow:0 0 0 2px #fff inset,0 0 0 3px ${C.COLOR}}
@@ -528,10 +532,6 @@
                 childList: true,
                 subtree: true
             });
-
-            window.addEventListener('resize', () => {
-                if (!state.destroyed) ui.render();
-            }, { signal: state.controller.signal });
 
             ui.render();
 
