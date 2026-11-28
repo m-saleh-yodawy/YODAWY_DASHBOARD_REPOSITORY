@@ -203,12 +203,6 @@
     const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const getText = element => normalize(element?.innerText || element?.textContent || '');
-    const isVisible = element => {
-        if (!element) return false;
-        const rect = element.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && element.offsetParent !== null;
-    };
-
     const getApi = () => window.YODAWY_API_ENGINE;
     async function waitForApi() {
         if (state.api?.getOpenErxAccounts && state.api?.runSplitGraphQL) return state.api;
@@ -1723,10 +1717,10 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function createButton() {
-        if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID)) return;
+        if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID)) return false;
+        const container = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(element => element.isConnected);
+        if (!container) return false;
         injectStyles();
-        const container = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(isVisible);
-        if (!container) return;
         const button = document.createElement('button');
         button.id = CONFIG.BUTTON_ID;
         button.setAttribute('data-yd-screenshot-exclude', 'true');
@@ -1749,6 +1743,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             const target = rtl ? nativeButtons[nativeButtons.length - 1]?.nextSibling || null : nativeButtons[0] || null;
             container.insertBefore(button, target);
         }
+        return true;
     }
 
     function isTicketForm() {
@@ -1756,30 +1751,33 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     }
 
     function init() {
-        if (state.destroyed || state.suspended) return;
-        if (isTicketForm()) { createButton(); cleanupCycleStorageOnTicket(); }
+        if (state.destroyed || state.suspended) return false;
+        if (!isTicketForm()) {
+            document.getElementById(CONFIG.BUTTON_ID)?.remove();
+            return false;
+        }
+        const created = createButton();
+        if (created) cleanupCycleStorageOnTicket();
+        return created;
     }
 
-    const initTimers = new Set();
     const observe = () => {
-        if (state.destroyed || state.suspended || !document.body) return;
-        if (!state.observer) {
-            state.observer = new MutationObserver(() => {
-                if (!state.destroyed && !state.suspended && !document.getElementById(CONFIG.BUTTON_ID)) init();
-            });
-        }
+        if (state.destroyed || state.suspended || !document.body || state.observer) return;
+        state.observer = new MutationObserver(records => {
+            if (state.destroyed || state.suspended || document.getElementById(CONFIG.BUTTON_ID) || !isTicketForm()) return;
+            const container = document.querySelector('.o_not_full.oe_button_box, .oe_button_box');
+            if (!container) return;
+            const changed = records.some(record =>
+                record.target === container || container.contains(record.target) ||
+                [...record.addedNodes].some(node => node.nodeType === Node.ELEMENT_NODE && (node === container || node.contains?.(container) || node.matches?.('.o_not_full.oe_button_box, .oe_button_box') || node.querySelector?.('.o_not_full.oe_button_box, .oe_button_box')))
+            );
+            if (changed) init();
+        });
         state.observer.observe(document.body, { childList: true, subtree: true });
     };
-    const scheduleInit = () => {
-        for (const timer of initTimers) clearTimeout(timer);
-        initTimers.clear();
-        for (const delay of [700, 1800]) {
-            const timer = setTimeout(() => {
-                initTimers.delete(timer);
-                init();
-            }, delay);
-            initTimers.add(timer);
-        }
+
+    const routeChange = () => {
+        if (!state.destroyed && !state.suspended) init();
     };
     const instance = {
         id: TOOL_ID,
@@ -1803,7 +1801,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             document.getElementById(CONFIG.DIALOG_ID)?.style.removeProperty('display');
             observe();
             init();
-            scheduleInit();
             return true;
         },
         refresh() {
@@ -1818,8 +1815,7 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
             state.suspended = false;
             state.observer?.disconnect();
             state.observer = null;
-            for (const timer of initTimers) clearTimeout(timer);
-            initTimers.clear();
+            window.removeEventListener('hashchange', routeChange);
             closeDialog(true);
             revealDeferredChatterMessages();
             document.getElementById(CONFIG.BUTTON_ID)?.remove();
@@ -1830,6 +1826,6 @@ html.dark #${CONFIG.DIALOG_ID},html[data-theme="dark"] #${CONFIG.DIALOG_ID},body
     };
     registry[TOOL_ID] = instance;
     observe();
+    window.addEventListener('hashchange', routeChange);
     init();
-    scheduleInit();
 })();
