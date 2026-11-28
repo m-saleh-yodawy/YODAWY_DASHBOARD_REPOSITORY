@@ -39,13 +39,34 @@
         return /^\d+$/.test(value) ? Number(value) : 0;
     };
 
+    const getTicketTeamId = () => {
+        const ticketId = getTicketId();
+        const renderedIds = [...document.querySelectorAll('.o_form_view[data-res-id],.o_form_renderer[data-res-id],[data-oe-model="helpdesk.ticket"][data-oe-id]')]
+            .map(node => Number(node.getAttribute('data-res-id') || node.getAttribute('data-oe-id') || 0))
+            .filter(Number.isSafeInteger);
+        if (ticketId && renderedIds.length && !renderedIds.includes(ticketId)) return 0;
+        const nodes = document.querySelectorAll('[name="team_id"]');
+        for (const node of nodes) {
+            const values = [
+                node.getAttribute('raw-value'),
+                node.getAttribute('data-id'),
+                node.querySelector('[raw-value]')?.getAttribute('raw-value'),
+                node.querySelector('[data-id]')?.getAttribute('data-id')
+            ];
+            for (const value of values) if (/^\d+$/.test(String(value || '').trim())) return Number(value);
+            const match = String(node.textContent || '').trim().match(/^(\d+)\s*-/);
+            if (match) return Number(match[1]);
+        }
+        return 0;
+    };
+
     const isQuotationTicket = () => {
-        if (location.hostname !== 'odoo.yodawy.com' || routeValue('action') !== '548' || routeValue('active_id') !== '69' || routeValue('menu_id') !== '366' || routeValue('model') !== 'helpdesk.ticket' || routeValue('view_type') !== 'form' || !getTicketId()) return false;
-        const team = document.querySelector('[name="team_id"]');
-        const raw = String(team?.getAttribute('raw-value') || team?.getAttribute('data-id') || '').trim();
-        const match = String(team?.textContent || '').trim().match(/^(\d+)\s*-/);
-        const teamId = Number(/^\d+$/.test(raw) ? raw : match?.[1] || 0);
-        return !teamId || teamId === 69;
+        if (location.hostname !== 'odoo.yodawy.com' || routeValue('model') !== 'helpdesk.ticket' || routeValue('view_type') !== 'form' || !getTicketId()) return false;
+        const teamId = getTicketTeamId();
+        const quotationStationRoute = routeValue('action') === '548' && routeValue('active_id') === '69' && routeValue('menu_id') === '366';
+        if (quotationStationRoute) return !teamId || teamId === 69;
+        const contactTicketsRoute = routeValue('action') === '542' && routeValue('menu_id') === '320' && /^\d+$/.test(routeValue('active_id'));
+        return contactTicketsRoute && teamId === 69;
     };
 
     const addStyle = () => {

@@ -37,14 +37,71 @@
         return params.has('home') || (!params.has('action') && !params.has('model') && !params.has('view_type'));
     };
 
+    const getTicketTeamId = () => {
+        const params = getOdooHashParams();
+        const ticketId = Number(params.get('id') || 0);
+        const renderedIds = [...page.document.querySelectorAll('.o_form_view[data-res-id],.o_form_renderer[data-res-id],[data-oe-model="helpdesk.ticket"][data-oe-id]')]
+            .map(node => Number(node.getAttribute('data-res-id') || node.getAttribute('data-oe-id') || 0))
+            .filter(Number.isSafeInteger);
+        if (ticketId && renderedIds.length && !renderedIds.includes(ticketId)) return 0;
+        const nodes = page.document.querySelectorAll('[name="team_id"]');
+        for (const node of nodes) {
+            const values = [
+                node.getAttribute('raw-value'),
+                node.getAttribute('data-id'),
+                node.querySelector('[raw-value]')?.getAttribute('raw-value'),
+                node.querySelector('[data-id]')?.getAttribute('data-id')
+            ];
+            for (const value of values) if (/^\d+$/.test(String(value || '').trim())) return Number(value);
+            const match = String(node.textContent || '').trim().match(/^(\d+)\s*-/);
+            if (match) return Number(match[1]);
+        }
+        return 0;
+    };
+
     const isQuotationStation = () => {
         if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') return false;
         const params = getOdooHashParams();
-        return params.get('active_id') === '69' &&
+        if (params.get('model') !== 'helpdesk.ticket' || params.get('view_type') !== 'form') return false;
+        const quotationStationRoute = params.get('active_id') === '69' &&
             params.get('action') === '548' &&
-            params.get('menu_id') === '366' &&
+            params.get('menu_id') === '366';
+        if (quotationStationRoute) return true;
+        const contactTicketsRoute = /^\d+$/.test(params.get('active_id') || '') &&
+            params.get('action') === '542' &&
+            params.get('menu_id') === '320';
+        return contactTicketsRoute && getTicketTeamId() === 69;
+    };
+
+    let quotationTicketObserver = null;
+
+    const watchQuotationTicketRoute = () => {
+        quotationTicketObserver?.disconnect();
+        quotationTicketObserver = null;
+        const params = getOdooHashParams();
+        const contactTicketsRoute = page.location?.hostname?.toLowerCase() === 'odoo.yodawy.com' &&
+            params.get('action') === '542' &&
+            params.get('menu_id') === '320' &&
             params.get('model') === 'helpdesk.ticket' &&
-            params.get('view_type') === 'form';
+            params.get('view_type') === 'form' &&
+            /^\d+$/.test(params.get('active_id') || '');
+        if (!contactTicketsRoute) return;
+        const check = () => {
+            const teamId = getTicketTeamId();
+            if (!teamId) return false;
+            quotationTicketObserver?.disconnect();
+            quotationTicketObserver = null;
+            scheduleRouteSync();
+            return true;
+        };
+        if (check()) return;
+        quotationTicketObserver = new MutationObserver(check);
+        quotationTicketObserver.observe(page.document.body || page.document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['raw-value', 'data-id', 'data-oe-id', 'data-res-id']
+        });
     };
 
     const syncHomeToolVisibility = () => {
@@ -81,8 +138,15 @@
         });
     };
 
-    page.addEventListener('hashchange', scheduleRouteSync);
+    const handleRouteChange = () => {
+        syncHomeToolVisibility();
+        watchQuotationTicketRoute();
+        scheduleRouteSync();
+    };
+
+    page.addEventListener('hashchange', handleRouteChange);
     syncHomeToolVisibility();
+    watchQuotationTicketRoute();
 
     const createError = message => {
         const error = new Error(message);
