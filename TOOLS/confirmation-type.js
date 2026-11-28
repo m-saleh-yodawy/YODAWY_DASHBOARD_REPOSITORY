@@ -291,9 +291,8 @@
                 .oe_button_box:has(>#${C.I})::before,.oe_button_box:has(>#${C.I})::after{content:"";display:block!important;flex:1 1 0!important;min-width:0!important;height:1px!important;pointer-events:none!important}
                 .oe_button_box:has(>#${C.I})::before{order:4!important}
                 .oe_button_box:has(>#${C.I})::after{order:2!important}
-                .oe_button_box:has(>#${C.I})>button:not(#ydDirectSplitButton){order:0!important;flex:0 0 auto!important;width:auto!important;min-width:0!important;max-width:none!important;float:none!important}
-                .oe_button_box:has(>#${C.I})>#ydDirectSplitButton{order:1!important;flex:0 0 auto!important;width:auto!important;min-width:0!important;max-width:none!important;float:none!important}
-                .oe_button_box>#${C.I}{display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;flex-wrap:nowrap!important;order:3!important;width:auto!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important;gap:0!important;margin:0 4px!important;padding:0!important;float:none!important;vertical-align:middle!important;white-space:nowrap!important;overflow:visible!important}
+                .oe_button_box:has(>#${C.I})>#ydDirectSplitButton{order:1!important;direction:ltr!important}
+                .oe_button_box>#${C.I}{display:flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;flex-wrap:nowrap!important;order:3!important;width:auto!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important;gap:0!important;margin:0 4px!important;padding:0!important;float:none!important;vertical-align:middle!important;white-space:nowrap!important;overflow:visible!important;direction:ltr!important}
                 .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 2px;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
