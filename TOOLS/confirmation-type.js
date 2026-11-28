@@ -19,6 +19,7 @@
         F: 'ticket_confirmation_type',
         I: 'tm-confirmation-buttons',
         STYLE: 'tm-confirm-style',
+        NO_WRAP_CLASS: 'yd-ticket-action-nowrap',
         COLOR: '#875A7B',
     };
 
@@ -291,6 +292,7 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
+                .oe_button_box.yd-ticket-action-nowrap{flex-wrap:nowrap!important}
                 #tm-confirmation-buttons{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;width:auto;min-width:0;max-width:100%;vertical-align:middle;gap:10px;white-space:nowrap;box-sizing:border-box}
                 .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 0;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
@@ -390,6 +392,8 @@
                 box.insertBefore(container, box.firstElementChild);
                 if (split) box.insertBefore(split, container.nextSibling);
             }
+            box.classList.add(C.NO_WRAP_CLASS);
+            state.layoutBox = box;
             this.centerContainer(box, container);
             this.observeLayout(box, container);
             return true;
@@ -413,6 +417,7 @@
         },
 
         removeButtons() {
+            state.layoutBox?.classList.remove(C.NO_WRAP_CLASS);
             const container = document.getElementById(C.I);
             container?.style.removeProperty('width');
             container?.style.removeProperty('box-sizing');

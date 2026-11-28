@@ -19,6 +19,7 @@
         F: 'ticket_confirmation_type',
         I: 'tm-confirmation-buttons',
         STYLE: 'tm-confirm-style',
+        NO_WRAP_CLASS: 'yd-ticket-action-nowrap',
         COLOR: '#875A7B',
     };
 
@@ -41,6 +42,11 @@
         activeTicketId: 0,
         activeValue: 0,
         observer: null,
+        layoutResizeObserver: null,
+        layoutBox: null,
+        layoutContainer: null,
+        layoutElements: new Set(),
+        layoutFrame: 0,
         request: null,
         toastTimers: new Set(),
         controller: new AbortController()
@@ -282,13 +288,13 @@
 
     const ui = {
         addStyle() {
-            if (document.getElementById(C.STYLE)) return;
-
+            document.getElementById(C.STYLE)?.remove();
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #${C.I}{display:contents}
-                .tm-confirm-btn{width:auto;min-width:55px;height:30px;margin:8px 4px;padding:0 8px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:11px;font-weight:700;cursor:pointer;line-height:30px;text-align:center;transition:opacity .15s,transform .1s,box-shadow .15s}
+                .oe_button_box.yd-ticket-action-nowrap{flex-wrap:nowrap!important}
+                #tm-confirmation-buttons{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;width:auto;min-width:0;max-width:100%;vertical-align:middle;gap:10px;white-space:nowrap;box-sizing:border-box}
+                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 0;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
                 .tm-confirm-btn.tm-active{box-shadow:0 0 0 2px #fff inset,0 0 0 3px ${C.COLOR}}
@@ -317,35 +323,113 @@
             return container;
         },
 
+        centerContainer(box, container) {
+            const boxStyle = getComputedStyle(box);
+            const number = value => Number.parseFloat(value) || 0;
+            const siblings = [...box.children].filter(element => element !== container);
+            const occupied = siblings.reduce((total, element) => {
+                const rect = element.getBoundingClientRect();
+                if (!rect.width || !rect.height || getComputedStyle(element).display === 'none') return total;
+                const style = getComputedStyle(element);
+                return total + rect.width + number(style.marginLeft) + number(style.marginRight);
+            }, 0);
+            const gap = number(boxStyle.columnGap);
+            const padding = number(boxStyle.paddingLeft) + number(boxStyle.paddingRight);
+            const available = Math.max(0, box.clientWidth - padding - occupied - gap * Math.max(0, siblings.length));
+            container.style.width = available + 'px';
+            container.style.boxSizing = 'border-box';
+        },
+
+        observeLayout(box, container) {
+            if (typeof ResizeObserver !== 'function') return;
+            const elements = new Set([box, ...box.children].filter(element => element !== container));
+            const same = state.layoutBox === box && elements.size === state.layoutElements.size && [...elements].every(element => state.layoutElements.has(element));
+            if (same && state.layoutResizeObserver) return;
+            state.layoutResizeObserver?.disconnect();
+            state.layoutBox = box;
+            state.layoutContainer = container;
+            state.layoutElements = elements;
+            state.layoutResizeObserver ||= new ResizeObserver(() => {
+                if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
+                state.layoutFrame = requestAnimationFrame(() => {
+                    state.layoutFrame = 0;
+                    if (!state.destroyed && state.layoutBox?.isConnected && state.layoutContainer?.isConnected) {
+                        ui.centerContainer(state.layoutBox, state.layoutContainer);
+                    }
+                });
+            });
+            elements.forEach(element => state.layoutResizeObserver.observe(element));
+        },
+
+        normalizeLegacyLayout(box, container) {
+            for (const bar of [...box.querySelectorAll(':scope > #yd-ticket-action-bar')]) {
+                const oldConfirmation = bar.querySelector('#' + C.I);
+                const oldSplit = bar.querySelector('#ydDirectSplitButton');
+                const oldNative = bar.querySelector('#yd-native-buttons');
+                if (oldConfirmation) box.insertBefore(oldConfirmation, bar);
+                if (oldSplit) box.insertBefore(oldSplit, bar);
+                for (const button of [...(oldNative?.children || [])]) box.insertBefore(button, bar);
+                bar.remove();
+            }
+            for (const button of box.querySelectorAll(':scope > button[data-yd-native-original-width]')) {
+                button.removeAttribute('data-yd-native-original-width');
+                button.style.removeProperty('--yd-native-original-width');
+            }
+            const split = box.querySelector(':scope > #ydDirectSplitButton');
+            if (split) {
+                split.removeAttribute('data-yd-split-original-width');
+                split.style.removeProperty('--yd-split-original-width');
+            }
+            const rtl = getComputedStyle(box).direction === 'rtl';
+            const nativeButtons = [...box.children].filter(element =>
+                element.matches?.('button.oe_stat_button') && element.id !== 'ydDirectSplitButton'
+            );
+            if (rtl) {
+                const lastNative = nativeButtons[nativeButtons.length - 1];
+                if (split) box.insertBefore(split, lastNative?.nextSibling || null);
+                box.insertBefore(container, split?.nextSibling || null);
+            } else {
+                box.insertBefore(container, box.firstElementChild);
+                if (split) box.insertBefore(split, container.nextSibling);
+            }
+            box.classList.add(C.NO_WRAP_CLASS);
+            state.layoutBox = box;
+            this.centerContainer(box, container);
+            this.observeLayout(box, container);
+            return true;
+        },
+
         render() {
             if (state.destroyed || !utils.isTicket()) {
                 this.removeButtons();
                 return;
             }
-
-            if (document.getElementById(C.I)) {
-                if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
-                return;
-            }
-
-            const box = document.querySelector('.oe_button_box');
+            const box = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(element => element.isConnected);
             if (!box) return;
-
-            const container = this.createContainer();
-            const split = box.querySelector('#tmLetsSplit');
-
-            box.prepend(container);
-
-            if (split) {
-                box.insertBefore(split, container.nextSibling);
+            let container = box.querySelector(':scope > #' + C.I);
+            if (!container) {
+                container = this.createContainer();
+                container.setAttribute('data-yd-screenshot-exclude', 'true');
+                window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(container, { toolId: TOOL_ID });
             }
+            this.normalizeLegacyLayout(box, container);
             if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
         },
 
         removeButtons() {
-            document.getElementById(C.I)?.remove();
+            state.layoutBox?.classList.remove(C.NO_WRAP_CLASS);
+            const container = document.getElementById(C.I);
+            container?.style.removeProperty('width');
+            container?.style.removeProperty('box-sizing');
+            container?.remove();
+            state.layoutResizeObserver?.disconnect();
+            state.layoutResizeObserver = null;
+            state.layoutBox = null;
+            state.layoutContainer = null;
+            state.layoutElements.clear();
+            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
+            state.layoutFrame = 0;
         },
-
         loading(value) {
             state.loading = value;
 
@@ -481,7 +565,7 @@
             });
 
             state.observer = new MutationObserver(records => {
-                if (state.destroyed || !utils.isTicket() || document.getElementById(C.I)) return;
+                if (state.destroyed || !state.initialized || !utils.isTicket() || document.getElementById(C.I)) return;
                 const boxAdded = records.some(record => [...record.addedNodes].some(node =>
                     node.nodeType === Node.ELEMENT_NODE &&
                     (node.matches('.oe_button_box') || node.querySelector('.oe_button_box'))
@@ -494,11 +578,17 @@
                 subtree: true
             });
 
+            window.addEventListener('resize', () => {
+                if (!state.destroyed) ui.render();
+            }, { signal: state.controller.signal });
+
             ui.render();
 
             return true;
         },
 
+        screenshotBehavior: 'hide-only',
+        supportsPause: false,
         async suspend() {
             if (!state.initialized) return true;
             state.controller.abort();
@@ -507,6 +597,13 @@
             state.request = null;
             state.observer?.disconnect();
             state.observer = null;
+            state.layoutResizeObserver?.disconnect();
+            state.layoutResizeObserver = null;
+            state.layoutBox = null;
+            state.layoutContainer = null;
+            state.layoutElements.clear();
+            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
+            state.layoutFrame = 0;
             state.initialized = false;
             ui.destroy();
             return true;
@@ -516,6 +613,12 @@
             if (state.destroyed || state.initialized) return true;
             state.controller = new AbortController();
             return this.init();
+        },
+
+        async refresh() {
+            if (state.destroyed) return false;
+            ui.render();
+            return true;
         },
 
         async destroy() {
@@ -529,8 +632,13 @@
 
             state.observer?.disconnect();
             state.observer = null;
-
-
+            state.layoutResizeObserver?.disconnect();
+            state.layoutResizeObserver = null;
+            state.layoutBox = null;
+            state.layoutContainer = null;
+            state.layoutElements.clear();
+            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
+            state.layoutFrame = 0;
             ui.destroy();
 
             return true;
