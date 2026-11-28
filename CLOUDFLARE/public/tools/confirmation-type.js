@@ -336,7 +336,8 @@
             const gap = number(boxStyle.columnGap);
             const padding = number(boxStyle.paddingLeft) + number(boxStyle.paddingRight);
             const available = Math.max(0, box.clientWidth - padding - occupied - gap * Math.max(0, siblings.length));
-            container.style.width = available + 'px';
+            const reserve = Math.min(52, Math.max(32, available * 0.12));
+            container.style.width = Math.max(0, available - reserve) + 'px';
             container.style.boxSizing = 'border-box';
         },
 
