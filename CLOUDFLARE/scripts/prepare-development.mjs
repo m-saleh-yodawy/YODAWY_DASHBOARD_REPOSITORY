@@ -114,7 +114,6 @@ for (const tool of manifest.tools.filter(item => !item.enabled)) {
 for (const tool of activeTools) {
   const visibility = ["TOOL-004", "TOOL-019"].includes(tool.id) ? "PUBLIC" : "PRIVATE";
   statements.push("INSERT OR IGNORE INTO tool_visibility (tool_id, mode, updated_at) VALUES (" + quote(tool.id) + ", " + quote(visibility) + ", CURRENT_TIMESTAMP);");
-  if (tool.id === "TOOL-019") statements.push("UPDATE tool_visibility SET mode='PUBLIC', updated_at=CURRENT_TIMESTAMP WHERE tool_id='TOOL-019';");
 }
 await fs.writeFile(path.join(buildRoot, "sync-tools.sql"), statements.join("\n") + "\n");
 
