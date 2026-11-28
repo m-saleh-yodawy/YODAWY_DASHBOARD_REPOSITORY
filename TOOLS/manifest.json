@@ -6,7 +6,7 @@
       "name": "Confirmation Type",
       "description": "Add confirmation type controls to tickets.",
       "enabled": true,
-      "sha256": "acd3d8af9dc61c70a8aa991d40ff43e68fbd96c68c025b079c91b195566fbd12",
+      "sha256": "080aaa6ff561d30bc02e73db88886c7c7fbdf9da57cf907f37f50340a1d7e233",
       "matches": [
         "https://odoo.yodawy.com/web*"
       ]
