@@ -19,6 +19,7 @@
         F: 'ticket_confirmation_type',
         I: 'tm-confirmation-buttons',
         STYLE: 'tm-confirm-style',
+        LAYOUT_CLASS: 'yd-ticket-action-layout',
         COLOR: '#875A7B',
     };
 
@@ -41,11 +42,7 @@
         activeTicketId: 0,
         activeValue: 0,
         observer: null,
-        layoutResizeObserver: null,
         layoutBox: null,
-        layoutContainer: null,
-        layoutElements: new Set(),
-        layoutFrame: 0,
         request: null,
         toastTimers: new Set(),
         controller: new AbortController()
@@ -291,7 +288,12 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #tm-confirmation-buttons{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center;width:auto;min-width:0;max-width:100%;vertical-align:middle;gap:10px;white-space:nowrap;box-sizing:border-box}
+                body .oe_button_box.yd-ticket-action-layout{display:flex!important;flex-flow:row nowrap!important;align-items:stretch!important;justify-content:flex-start!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}
+                body .oe_button_box.yd-ticket-action-layout>#tm-confirmation-buttons{display:flex!important;flex:1 1 0px!important;flex-flow:row nowrap!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:0!important;max-width:none!important;gap:10px!important;white-space:nowrap!important;box-sizing:border-box!important;overflow:hidden!important}
+                body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button{flex:0 1 auto!important;flex-shrink:1!important;width:auto!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important}
+                body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_stat_info,body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_field_widget{min-width:0!important;max-width:100%!important;flex:1 1 auto!important;overflow:hidden!important}
+                body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_stat_text,body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_stat_value{display:block!important;min-width:0!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+                #tm-confirmation-buttons{display:flex;flex:1 1 0px;min-width:0;align-items:center;justify-content:center;gap:10px;white-space:nowrap;box-sizing:border-box}
                 .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 0;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
@@ -321,42 +323,10 @@
             return container;
         },
 
-        centerContainer(box, container) {
-            const boxStyle = getComputedStyle(box);
-            const number = value => Number.parseFloat(value) || 0;
-            const siblings = [...box.children].filter(element => element !== container);
-            const occupied = siblings.reduce((total, element) => {
-                const rect = element.getBoundingClientRect();
-                if (!rect.width || !rect.height || getComputedStyle(element).display === 'none') return total;
-                const style = getComputedStyle(element);
-                return total + rect.width + number(style.marginLeft) + number(style.marginRight);
-            }, 0);
-            const gap = number(boxStyle.columnGap);
-            const padding = number(boxStyle.paddingLeft) + number(boxStyle.paddingRight);
-            const available = Math.max(0, box.clientWidth - padding - occupied - gap * Math.max(0, siblings.length));
-            container.style.width = available + 'px';
-            container.style.boxSizing = 'border-box';
-        },
-
-        observeLayout(box, container) {
-            if (typeof ResizeObserver !== 'function') return;
-            const elements = new Set([box, ...box.children].filter(element => element !== container));
-            const same = state.layoutBox === box && elements.size === state.layoutElements.size && [...elements].every(element => state.layoutElements.has(element));
-            if (same && state.layoutResizeObserver) return;
-            state.layoutResizeObserver?.disconnect();
+        applyResponsiveLayout(box) {
+            if (state.layoutBox && state.layoutBox !== box) state.layoutBox.classList.remove(C.LAYOUT_CLASS);
+            box.classList.add(C.LAYOUT_CLASS);
             state.layoutBox = box;
-            state.layoutContainer = container;
-            state.layoutElements = elements;
-            state.layoutResizeObserver ||= new ResizeObserver(() => {
-                if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
-                state.layoutFrame = requestAnimationFrame(() => {
-                    state.layoutFrame = 0;
-                    if (!state.destroyed && state.layoutBox?.isConnected && state.layoutContainer?.isConnected) {
-                        ui.centerContainer(state.layoutBox, state.layoutContainer);
-                    }
-                });
-            });
-            elements.forEach(element => state.layoutResizeObserver.observe(element));
         },
 
         normalizeLegacyLayout(box, container) {
@@ -390,8 +360,7 @@
                 box.insertBefore(container, box.firstElementChild);
                 if (split) box.insertBefore(split, container.nextSibling);
             }
-            this.centerContainer(box, container);
-            this.observeLayout(box, container);
+            this.applyResponsiveLayout(box);
             return true;
         },
 
@@ -413,17 +382,12 @@
         },
 
         removeButtons() {
+            state.layoutBox?.classList.remove(C.LAYOUT_CLASS);
+            state.layoutBox = null;
             const container = document.getElementById(C.I);
             container?.style.removeProperty('width');
             container?.style.removeProperty('box-sizing');
             container?.remove();
-            state.layoutResizeObserver?.disconnect();
-            state.layoutResizeObserver = null;
-            state.layoutBox = null;
-            state.layoutContainer = null;
-            state.layoutElements.clear();
-            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
-            state.layoutFrame = 0;
         },
         loading(value) {
             state.loading = value;
@@ -592,13 +556,6 @@
             state.request = null;
             state.observer?.disconnect();
             state.observer = null;
-            state.layoutResizeObserver?.disconnect();
-            state.layoutResizeObserver = null;
-            state.layoutBox = null;
-            state.layoutContainer = null;
-            state.layoutElements.clear();
-            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
-            state.layoutFrame = 0;
             state.initialized = false;
             ui.destroy();
             return true;
@@ -627,13 +584,6 @@
 
             state.observer?.disconnect();
             state.observer = null;
-            state.layoutResizeObserver?.disconnect();
-            state.layoutResizeObserver = null;
-            state.layoutBox = null;
-            state.layoutContainer = null;
-            state.layoutElements.clear();
-            if (state.layoutFrame) cancelAnimationFrame(state.layoutFrame);
-            state.layoutFrame = 0;
             ui.destroy();
 
             return true;

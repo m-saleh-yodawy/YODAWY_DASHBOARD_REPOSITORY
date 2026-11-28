@@ -19,6 +19,7 @@
         F: 'ticket_confirmation_type',
         I: 'tm-confirmation-buttons',
         STYLE: 'tm-confirm-style',
+        LAYOUT_CLASS: 'yd-ticket-action-layout',
         COLOR: '#875A7B',
     };
 
@@ -41,6 +42,7 @@
         activeTicketId: 0,
         activeValue: 0,
         observer: null,
+        layoutBox: null,
         request: null,
         toastTimers: new Set(),
         controller: new AbortController()
@@ -282,13 +284,17 @@
 
     const ui = {
         addStyle() {
-            if (document.getElementById(C.STYLE)) return;
-
+            document.getElementById(C.STYLE)?.remove();
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
-                #${C.I}{display:contents}
-                .tm-confirm-btn{width:auto;min-width:55px;height:30px;margin:8px 4px;padding:0 8px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:11px;font-weight:700;cursor:pointer;line-height:30px;text-align:center;transition:opacity .15s,transform .1s,box-shadow .15s}
+                body .oe_button_box.yd-ticket-action-layout{display:flex!important;flex-flow:row nowrap!important;align-items:stretch!important;justify-content:flex-start!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}
+                body .oe_button_box.yd-ticket-action-layout>#tm-confirmation-buttons{display:flex!important;flex:1 1 0px!important;flex-flow:row nowrap!important;align-items:center!important;justify-content:center!important;width:auto!important;min-width:0!important;max-width:none!important;gap:10px!important;white-space:nowrap!important;box-sizing:border-box!important;overflow:hidden!important}
+                body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button{flex:0 1 auto!important;flex-shrink:1!important;width:auto!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important}
+                body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_stat_info,body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_field_widget{min-width:0!important;max-width:100%!important;flex:1 1 auto!important;overflow:hidden!important}
+                body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_stat_text,body .oe_button_box.yd-ticket-action-layout>button.oe_stat_button .o_stat_value{display:block!important;min-width:0!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+                #tm-confirmation-buttons{display:flex;flex:1 1 0px;min-width:0;align-items:center;justify-content:center;gap:10px;white-space:nowrap;box-sizing:border-box}
+                .tm-confirm-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-width:48px;height:30px;margin:6px 0;padding:0 6px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:10px;font-weight:700;cursor:pointer;line-height:1;text-align:center;vertical-align:middle;white-space:nowrap;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
                 .tm-confirm-btn.tm-active{box-shadow:0 0 0 2px #fff inset,0 0 0 3px ${C.COLOR}}
@@ -317,35 +323,72 @@
             return container;
         },
 
+        applyResponsiveLayout(box) {
+            if (state.layoutBox && state.layoutBox !== box) state.layoutBox.classList.remove(C.LAYOUT_CLASS);
+            box.classList.add(C.LAYOUT_CLASS);
+            state.layoutBox = box;
+        },
+
+        normalizeLegacyLayout(box, container) {
+            for (const bar of [...box.querySelectorAll(':scope > #yd-ticket-action-bar')]) {
+                const oldConfirmation = bar.querySelector('#' + C.I);
+                const oldSplit = bar.querySelector('#ydDirectSplitButton');
+                const oldNative = bar.querySelector('#yd-native-buttons');
+                if (oldConfirmation) box.insertBefore(oldConfirmation, bar);
+                if (oldSplit) box.insertBefore(oldSplit, bar);
+                for (const button of [...(oldNative?.children || [])]) box.insertBefore(button, bar);
+                bar.remove();
+            }
+            for (const button of box.querySelectorAll(':scope > button[data-yd-native-original-width]')) {
+                button.removeAttribute('data-yd-native-original-width');
+                button.style.removeProperty('--yd-native-original-width');
+            }
+            const split = box.querySelector(':scope > #ydDirectSplitButton');
+            if (split) {
+                split.removeAttribute('data-yd-split-original-width');
+                split.style.removeProperty('--yd-split-original-width');
+            }
+            const rtl = getComputedStyle(box).direction === 'rtl';
+            const nativeButtons = [...box.children].filter(element =>
+                element.matches?.('button.oe_stat_button') && element.id !== 'ydDirectSplitButton'
+            );
+            if (rtl) {
+                const lastNative = nativeButtons[nativeButtons.length - 1];
+                if (split) box.insertBefore(split, lastNative?.nextSibling || null);
+                box.insertBefore(container, split?.nextSibling || null);
+            } else {
+                box.insertBefore(container, box.firstElementChild);
+                if (split) box.insertBefore(split, container.nextSibling);
+            }
+            this.applyResponsiveLayout(box);
+            return true;
+        },
+
         render() {
             if (state.destroyed || !utils.isTicket()) {
                 this.removeButtons();
                 return;
             }
-
-            if (document.getElementById(C.I)) {
-                if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
-                return;
-            }
-
-            const box = document.querySelector('.oe_button_box');
+            const box = [...document.querySelectorAll('.o_not_full.oe_button_box, .oe_button_box')].find(element => element.isConnected);
             if (!box) return;
-
-            const container = this.createContainer();
-            const split = box.querySelector('#tmLetsSplit');
-
-            box.prepend(container);
-
-            if (split) {
-                box.insertBefore(split, container.nextSibling);
+            let container = box.querySelector(':scope > #' + C.I);
+            if (!container) {
+                container = this.createContainer();
+                container.setAttribute('data-yd-screenshot-exclude', 'true');
+                window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?.(container, { toolId: TOOL_ID });
             }
+            this.normalizeLegacyLayout(box, container);
             if (state.activeTicketId === utils.ticketId()) this.active(state.activeValue);
         },
 
         removeButtons() {
-            document.getElementById(C.I)?.remove();
+            state.layoutBox?.classList.remove(C.LAYOUT_CLASS);
+            state.layoutBox = null;
+            const container = document.getElementById(C.I);
+            container?.style.removeProperty('width');
+            container?.style.removeProperty('box-sizing');
+            container?.remove();
         },
-
         loading(value) {
             state.loading = value;
 
@@ -481,7 +524,7 @@
             });
 
             state.observer = new MutationObserver(records => {
-                if (state.destroyed || !utils.isTicket() || document.getElementById(C.I)) return;
+                if (state.destroyed || !state.initialized || !utils.isTicket() || document.getElementById(C.I)) return;
                 const boxAdded = records.some(record => [...record.addedNodes].some(node =>
                     node.nodeType === Node.ELEMENT_NODE &&
                     (node.matches('.oe_button_box') || node.querySelector('.oe_button_box'))
@@ -494,11 +537,17 @@
                 subtree: true
             });
 
+            window.addEventListener('resize', () => {
+                if (!state.destroyed) ui.render();
+            }, { signal: state.controller.signal });
+
             ui.render();
 
             return true;
         },
 
+        screenshotBehavior: 'hide-only',
+        supportsPause: false,
         async suspend() {
             if (!state.initialized) return true;
             state.controller.abort();
@@ -518,6 +567,12 @@
             return this.init();
         },
 
+        async refresh() {
+            if (state.destroyed) return false;
+            ui.render();
+            return true;
+        },
+
         async destroy() {
             if (state.destroyed) return true;
 
@@ -529,8 +584,6 @@
 
             state.observer?.disconnect();
             state.observer = null;
-
-
             ui.destroy();
 
             return true;
