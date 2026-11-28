@@ -19,10 +19,31 @@
     let routeSyncPending = false;
     let routeSyncScheduled = false;
 
+    const QUOTATION_STATION_TOOL_IDS = new Set([
+        'TOOL-011',
+        'TOOL-004',
+        'TOOL-018',
+        'TOOL-012',
+        'TOOL-008',
+        'TOOL-001'
+    ]);
+
+    const getOdooHashParams = () => new URLSearchParams(String(page.location?.hash || '').replace(/^#/, ''));
+
     const isOdooHome = () => {
         if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') return false;
-        const params = new URLSearchParams(String(page.location.hash || '').replace(/^#/, ''));
+        const params = getOdooHashParams();
         return params.has('home') || (!params.has('action') && !params.has('model') && !params.has('view_type'));
+    };
+
+    const isQuotationStation = () => {
+        if (page.location?.hostname?.toLowerCase() !== 'odoo.yodawy.com') return false;
+        const params = getOdooHashParams();
+        return params.get('active_id') === '69' &&
+            params.get('action') === '548' &&
+            params.get('menu_id') === '366' &&
+            params.get('model') === 'helpdesk.ticket' &&
+            params.get('view_type') === 'form';
     };
 
     const syncHomeToolVisibility = () => {
@@ -223,6 +244,7 @@
     };
     const canLoad = (tool, dependencies) => {
         if (isOdooHome() || !matchesPage(tool)) return false;
+        if (QUOTATION_STATION_TOOL_IDS.has(tool.id) && !isQuotationStation()) return false;
         const { AUTH, PERMISSIONS, SETTINGS, VISIBILITY } = dependencies;
         const userId = AUTH.getUserId();
 
