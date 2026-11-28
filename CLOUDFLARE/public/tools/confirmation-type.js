@@ -287,7 +287,12 @@
             const style = utils.element('style', { id: C.STYLE });
 
             style.textContent = `
+                .oe_button_box:has(#${C.I}){display:flex!important;align-items:stretch!important;flex-wrap:nowrap!important;width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important;overflow:hidden!important}
                 #${C.I}{display:contents}
+                .oe_button_box:has(#${C.I})>.oe_stat_button{flex:1 1 0!important;width:auto!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important}
+                .oe_button_box:has(#${C.I})>.oe_stat_button .o_stat_info,.oe_button_box:has(#${C.I})>.oe_stat_button .o_field_widget{min-width:0!important;max-width:100%!important}
+                .oe_button_box:has(#${C.I})>.oe_stat_button .o_stat_text{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+                .oe_button_box:has(#${C.I})>.oe_stat_button .o_stat_value{max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important}
                 .tm-confirm-btn{width:auto;min-width:55px;height:30px;margin:8px 4px;padding:0 8px;border:0;border-radius:4px;background:${C.COLOR};color:#fff;font-size:11px;font-weight:700;cursor:pointer;line-height:30px;text-align:center;transition:opacity .15s,transform .1s,box-shadow .15s}
                 .tm-confirm-btn:hover{opacity:.85}
                 .tm-confirm-btn:active{transform:scale(.96)}
