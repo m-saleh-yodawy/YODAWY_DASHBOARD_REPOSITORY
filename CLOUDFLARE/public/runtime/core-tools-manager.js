@@ -1009,11 +1009,11 @@
     // Unified Systray Burger Menu implementation
     // Groups ORDERED (1st), NO ITEMS (2nd), and SCREENSHOT (3rd) into a single dropdown
     const registeredLaunchers = new Map();
-    const ACTION_TO_TOOL_ID = Object.freeze({
-        ordered: 'TOOL-012',
-        noitems: 'TOOL-008',
-        screen: 'TOOL-019'
-    });
+    const MENU_ENTRIES = Object.freeze([
+        Object.freeze({ toolId: 'TOOL-012', action: 'ordered', label: 'ORDERED BY WH', icon: 'fa-solid fa-cart-shopping', badgeId: 'yd-badge-ordered' }),
+        Object.freeze({ toolId: 'TOOL-008', action: 'noitems', label: 'NO ITEM NEED TO CHECK', icon: 'fa-solid fa-clipboard-check', badgeId: 'yd-badge-noitems' }),
+        Object.freeze({ toolId: 'TOOL-019', action: 'screen', label: 'SCREENSHOT', icon: 'fa-solid fa-camera' })
+    ]);
     let updateSystrayBadgesFn = () => {};
 
     const ensureFontAwesomeLoaded = () => {
@@ -1266,6 +1266,62 @@
             (document.head || document.documentElement).appendChild(style);
         };
 
+        const renderMenuItems = () => {
+            const dropdown = document.getElementById(DROPDOWN_ID);
+            if (!dropdown) return [];
+
+            const entries = MENU_ENTRIES.filter(entry => {
+                const launcher = registeredLaunchers.get(entry.toolId);
+                return typeof launcher?.launch === 'function';
+            });
+            const signature = entries.map(entry => entry.toolId).join('|');
+
+            if (dropdown.dataset.itemsSignature !== signature) {
+                const fragment = document.createDocumentFragment();
+                for (const entry of entries) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'yd-tools-dropdown-item';
+                    button.dataset.action = entry.action;
+                    button.dataset.toolId = entry.toolId;
+                    button.setAttribute('role', 'menuitem');
+                    button.setAttribute('aria-label', entry.label);
+
+                    const icon = document.createElement('i');
+                    icon.className = 'yd-fa-icon ' + entry.icon;
+                    button.appendChild(icon);
+
+                    const name = document.createElement('span');
+                    name.className = 'yd-tools-item-name';
+                    name.textContent = entry.label;
+                    button.appendChild(name);
+
+                    if (entry.badgeId) {
+                        const badge = document.createElement('span');
+                        badge.className = 'yd-tools-item-badge';
+                        badge.id = entry.badgeId;
+                        badge.dataset.count = '0';
+                        button.appendChild(badge);
+                    }
+
+                    fragment.appendChild(button);
+                }
+                dropdown.replaceChildren(fragment);
+                dropdown.dataset.itemsSignature = signature;
+            }
+
+            const menuItem = document.getElementById(MENU_ITEM_ID);
+            const menuButton = document.getElementById(BUTTON_ID);
+            if (menuItem) {
+                menuItem.style.setProperty('display', entries.length ? 'flex' : 'none', 'important');
+                if (!entries.length) {
+                    menuItem.classList.remove('open');
+                    menuButton?.setAttribute('aria-expanded', 'false');
+                }
+            }
+            return entries;
+        };
+
         const buildMenuElement = () => {
             let item = document.getElementById(MENU_ITEM_ID);
             if (!item) {
@@ -1278,22 +1334,7 @@
                     <button id="${BUTTON_ID}" type="button" title="Tools Menu" aria-label="Tools Menu" aria-expanded="false" aria-haspopup="true">
                         <i class="yd-fa-icon fa-solid fa-bars"></i>
                     </button>
-                    <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshot-exclude="true" class="yd-screenshot-exclude">
-                        <button type="button" class="yd-tools-dropdown-item" data-action="ordered" role="menuitem" aria-label="ORDERED BY WH">
-                            <i class="yd-fa-icon fa-solid fa-cart-shopping"></i>
-                            <span class="yd-tools-item-name">ORDERED BY WH</span>
-                            <span class="yd-tools-item-badge" id="yd-badge-ordered" data-count="0"></span>
-                        </button>
-                        <button type="button" class="yd-tools-dropdown-item" data-action="noitems" role="menuitem" aria-label="NO ITEM NEED TO CHECK">
-                            <i class="yd-fa-icon fa-solid fa-clipboard-check"></i>
-                            <span class="yd-tools-item-name">NO ITEM NEED TO CHECK</span>
-                            <span class="yd-tools-item-badge" id="yd-badge-noitems" data-count="0"></span>
-                        </button>
-                        <button type="button" class="yd-tools-dropdown-item" data-action="screen" role="menuitem" aria-label="SCREENSHOT">
-                            <i class="yd-fa-icon fa-solid fa-camera"></i>
-                            <span class="yd-tools-item-name">SCREENSHOT</span>
-                        </button>
-                    </div>
+                    <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshot-exclude="true" class="yd-screenshot-exclude"></div>
                 `;
 
                 // Handle toggle
@@ -1323,31 +1364,19 @@
                     item.classList.remove('open');
                     btn.setAttribute('aria-expanded', 'false');
 
-                    const action = actionBtn.getAttribute('data-action');
-                    const toolId = ACTION_TO_TOOL_ID[action];
-                    const registered = toolId ? registeredLaunchers.get(toolId) : null;
-                    if (registered && typeof registered.launch === 'function') {
-                        registered.launch();
-                        return;
-                    }
-
-                    if (action === 'ordered') {
-                        const target = document.getElementById('ordered-systray-button') || document.querySelector('#ordered-systray-item a, #ordered-systray-item button');
-                        if (target) target.click();
-                        else {
-                            const panel = document.getElementById('ordered-panel');
-                            if (panel) panel.classList.toggle('open');
+                    const toolId = String(actionBtn.dataset.toolId || '');
+                    const registered = registeredLaunchers.get(toolId);
+                    const tool = manifest.find(item => item.id === toolId);
+                    try {
+                        if (!tool || !registered || typeof registered.launch !== 'function' || !canLoad(tool, getDependencies())) {
+                            updateBadges();
+                            if (tool) syncTool(toolId).catch(() => {});
+                            return;
                         }
-                    } else if (action === 'noitems') {
-                        const target = document.getElementById('noitems-systray-button') || document.querySelector('#noitems-systray-item button');
-                        if (target) target.click();
-                        else {
-                            const panel = document.getElementById('noitems-panel');
-                            if (panel) panel.classList.toggle('open');
-                        }
-                    } else if (action === 'screen') {
-                        const target = document.getElementById('yd-screen-button') || document.querySelector('#yd-screen-systray-item button');
-                        if (target) target.click();
+                        const result = registered.launch();
+                        if (result && typeof result.then === 'function') result.catch(() => {});
+                    } catch {
+                        updateBadges();
                     }
                 });
             }
@@ -1355,6 +1384,7 @@
         };
 
         const updateBadges = () => {
+            renderMenuItems();
             const orderedRegistered = registeredLaunchers.get('TOOL-012');
             const orderedCountRaw = typeof orderedRegistered?.getCount === 'function'
                 ? orderedRegistered.getCount()
