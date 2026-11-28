@@ -134,15 +134,15 @@
     },
     {
       "id": "TOOL-019",
-      "file": "screen.js",
-      "name": "SCREEN",
+      "file": "screenshot.js",
+      "name": "SCREENSHOT",
       "icon": "fa-solid fa-camera",
       "description": "Capture and copy a clean screenshot with all active tools temporarily suspended.",
       "enabled": true,
       "matches": [
         "https://odoo.yodawy.com/web*"
       ],
-      "sha256": "881022feea20d1eb20905aba809e13c0dcd7596535ec70e73ce8cf4ffd1f10c8"
+      "sha256": "3086304d88a1f67529549a59c317154c0ff9b4b73d4fd580236f1b25cd3f76ff"
     }
   ]
 }

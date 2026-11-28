@@ -661,8 +661,8 @@
         });
     };
 
-    const EXCLUDE_ATTR = 'data-yd-screenshot-exclude';
-    const EXCLUDE_CLASS = 'yd-screenshot-exclude';
+    const EXCLUDE_ATTR = 'data-yd-screenshotshot-exclude';
+    const EXCLUDE_CLASS = 'yd-screenshotshot-exclude';
     const DEFAULT_EXCLUDED_SELECTORS = [
         '#yd-dashboard-menu-item',
         '#yd-launcher',
@@ -670,9 +670,9 @@
         '.yd-select-portal-menu',
         '#yodawy-dev-mode-banner',
         '#yd-cloud-error',
-        '#yd-screen-systray-item',
-        '#yd-screen-toast',
-        '#yd-screen-overlay',
+        '#yd-screenshot-systray-item',
+        '#yd-screenshot-toast',
+        '#yd-screenshot-overlay',
         '#yd-tools-systray-item',
         '#yd-tools-menu-item',
         '#noitems-panel',
@@ -810,7 +810,7 @@
             const captureId = ++captureSequence;
             const hideToken = 'yd-hidden-' + captureId;
             const requesterToolId = String(options.requesterToolId || '').trim();
-            const MARKER = 'data-yd-screen-fixed-marker';
+            const MARKER = 'data-yd-screenshot-fixed-marker';
             const root = document.documentElement;
             const body = document.body;
 
@@ -841,18 +841,18 @@
                 }
 
                 // 2. Activate global screenshot clean mode and hide all YODAWY UI elements
-                root.setAttribute('data-yd-screenshot-clean', 'true');
+                root.setAttribute('data-yd-screenshotshot-clean', 'true');
                 const excluded = resolveExcludedElements();
                 for (const element of excluded) {
                     hiddenSnapshots.push({
                         element,
-                        prevAttr: element.getAttribute('data-yd-screenshot-hidden'),
+                        prevAttr: element.getAttribute('data-yd-screenshotshot-hidden'),
                         prevDisplay: element.style.getPropertyValue('display'),
                         prevDisplayPriority: element.style.getPropertyPriority('display'),
                         prevVisibility: element.style.getPropertyValue('visibility'),
                         prevVisibilityPriority: element.style.getPropertyPriority('visibility')
                     });
-                    element.setAttribute('data-yd-screenshot-hidden', hideToken);
+                    element.setAttribute('data-yd-screenshotshot-hidden', hideToken);
                     element.style.setProperty('display', 'none', 'important');
                     element.style.setProperty('visibility', 'hidden', 'important');
                 }
@@ -963,9 +963,9 @@
 
                 for (const snap of hiddenSnapshots.reverse()) {
                     const el = snap.element;
-                    if (el.getAttribute('data-yd-screenshot-hidden') === hideToken) {
-                        if (snap.prevAttr === null) el.removeAttribute('data-yd-screenshot-hidden');
-                        else el.setAttribute('data-yd-screenshot-hidden', snap.prevAttr);
+                    if (el.getAttribute('data-yd-screenshotshot-hidden') === hideToken) {
+                        if (snap.prevAttr === null) el.removeAttribute('data-yd-screenshotshot-hidden');
+                        else el.setAttribute('data-yd-screenshotshot-hidden', snap.prevAttr);
 
                         if (el.style.getPropertyValue('display') === 'none') {
                             if (snap.prevDisplay) el.style.setProperty('display', snap.prevDisplay, snap.prevDisplayPriority);
@@ -978,7 +978,7 @@
                     }
                 }
 
-                root.removeAttribute('data-yd-screenshot-clean');
+                root.removeAttribute('data-yd-screenshotshot-clean');
 
                 for (const id of pausedTools.reverse()) {
                     try {
@@ -1012,7 +1012,7 @@
     const MENU_ENTRIES = Object.freeze([
         Object.freeze({ toolId: 'TOOL-012', action: 'ordered', label: 'ORDERED BY WH', icon: 'fa-solid fa-cart-shopping', badgeId: 'yd-badge-ordered' }),
         Object.freeze({ toolId: 'TOOL-008', action: 'noitems', label: 'NO ITEM NEED TO CHECK', icon: 'fa-solid fa-clipboard-check', badgeId: 'yd-badge-noitems' }),
-        Object.freeze({ toolId: 'TOOL-019', action: 'screen', label: 'SCREENSHOT', icon: 'fa-solid fa-camera' })
+        Object.freeze({ toolId: 'TOOL-019', action: 'screenshot', label: 'SCREENSHOT', icon: 'fa-solid fa-camera' })
     ]);
     let updateSystrayBadgesFn = () => {};
 
@@ -1075,10 +1075,10 @@
                 /* Hide legacy standalone buttons if ever present */
                 ul.o_menu_systray > li#ordered-systray-item,
                 ul.o_menu_systray > li#noitems-systray-item,
-                ul.o_menu_systray > li#yd-screen-systray-item,
+                ul.o_menu_systray > li#yd-screenshot-systray-item,
                 #ordered-systray-item,
                 #noitems-systray-item,
-                #yd-screen-systray-item {
+                #yd-screenshot-systray-item {
                     display: none !important;
                 }
 
@@ -1327,14 +1327,14 @@
             if (!item) {
                 item = document.createElement('li');
                 item.id = MENU_ITEM_ID;
-                item.setAttribute('data-yd-screenshot-exclude', 'true');
-                item.className = 'yd-screenshot-exclude';
+                item.setAttribute('data-yd-screenshotshot-exclude', 'true');
+                item.className = 'yd-screenshotshot-exclude';
                 item.setAttribute('role', 'menuitem');
                 item.innerHTML = `
                     <button id="${BUTTON_ID}" type="button" title="Tools Menu" aria-label="Tools Menu" aria-expanded="false" aria-haspopup="true">
                         <i class="yd-fa-icon fa-solid fa-bars"></i>
                     </button>
-                    <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshot-exclude="true" class="yd-screenshot-exclude"></div>
+                    <div id="${DROPDOWN_ID}" role="menu" data-yd-screenshotshot-exclude="true" class="yd-screenshotshot-exclude"></div>
                 `;
 
                 // Handle toggle

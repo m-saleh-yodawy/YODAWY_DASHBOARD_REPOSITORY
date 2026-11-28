@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         SCREEN
+// @name         SCREENSHOT
 // @namespace    https://odoo.yodawy.com/
 // @version      1
 // @author       Mohamed Saleh
@@ -13,11 +13,11 @@
 'use strict';
 
 const TOOL_ID='TOOL-019';
-const ITEM_ID='yd-screen-systray-item';
-const BUTTON_ID='yd-screen-button';
-const OVERLAY_ID='yd-screen-overlay';
-const STYLE_ID='yd-screen-style';
-const MARKER='data-yd-screen-marker';
+const ITEM_ID='yd-screenshot-systray-item';
+const BUTTON_ID='yd-screenshot-button';
+const OVERLAY_ID='yd-screenshot-overlay';
+const STYLE_ID='yd-screenshot-style';
+const MARKER='data-yd-screenshot-marker';
 const LIBRARY_URL='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 const registry=window.YODAWY_TOOL_INSTANCES ||= Object.create(null);
 if(registry[TOOL_ID])return;
@@ -52,20 +52,20 @@ const showOverlay=onCancel=>{
     if(state.destroyed||state.suspended)return;
     const overlay=document.createElement('div');
     overlay.id=OVERLAY_ID;
-    overlay.setAttribute('data-yd-screenshot-exclude','true');
-    overlay.className='yd-screenshot-exclude';
+    overlay.setAttribute('data-yd-screenshotshot-exclude','true');
+    overlay.className='yd-screenshotshot-exclude';
     overlay.innerHTML=`
-        <button id="yd-screen-overlay-cancel" type="button" title="Cancel Screenshot" aria-label="Cancel Screenshot">
+        <button id="yd-screenshot-overlay-cancel" type="button" title="Cancel Screenshot" aria-label="Cancel Screenshot">
             <i class="yd-fa-icon fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
-        <div id="yd-screen-overlay-content">
-            <div id="yd-screen-spinner">
+        <div id="yd-screenshot-overlay-content">
+            <div id="yd-screenshot-spinner">
                 <i class="yd-fa-icon fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
             </div>
-            <div id="yd-screen-overlay-text">Taking screenshot...</div>
+            <div id="yd-screenshot-overlay-text">Taking screenshot...</div>
         </div>
     `;
-    overlay.querySelector('#yd-screen-overlay-cancel')?.addEventListener('click',e=>{
+    overlay.querySelector('#yd-screenshot-overlay-cancel')?.addEventListener('click',e=>{
         e.preventDefault();
         e.stopPropagation();
         onCancel?.();
@@ -85,9 +85,9 @@ const showToast=(message,type='success')=>{
     removeToast();
     if(state.destroyed||state.suspended)return;
     const toast=document.createElement('div');
-    toast.id='yd-screen-toast';
-    toast.setAttribute('data-yd-screenshot-exclude','true');
-    toast.className='yd-screenshot-exclude';
+    toast.id='yd-screenshot-toast';
+    toast.setAttribute('data-yd-screenshotshot-exclude','true');
+    toast.className='yd-screenshotshot-exclude';
     toast.dataset.type=type;
     toast.textContent=message;
     document.body.appendChild(toast);
@@ -105,18 +105,18 @@ const addStyle=()=>{
         '#'+BUTTON_ID+':hover{background:rgba(255,255,255,.08)!important;color:#fff!important}\n'+
         '#'+BUTTON_ID+':disabled{opacity:.55!important;cursor:wait!important}\n'+
         '#'+BUTTON_ID+' i{font-size:18px!important}\n'+
-        '#'+BUTTON_ID+'.yd-screen-working i{animation:yd-screen-pulse .8s ease-in-out infinite alternate}\n'+
-        '@keyframes yd-screen-pulse{from{opacity:.45;transform:scale(.9)}to{opacity:1;transform:scale(1.08)}}\n'+
+        '#'+BUTTON_ID+'.yd-screenshot-working i{animation:yd-screenshot-pulse .8s ease-in-out infinite alternate}\n'+
+        '@keyframes yd-screenshot-pulse{from{opacity:.45;transform:scale(.9)}to{opacity:1;transform:scale(1.08)}}\n'+
         '#'+OVERLAY_ID+'{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;background:rgba(0,0,0,.68)!important;backdrop-filter:blur(2px)!important;-webkit-backdrop-filter:blur(2px)!important;z-index:2147483646!important;display:flex!important;align-items:center!important;justify-content:center!important;box-sizing:border-box!important;pointer-events:all!important;user-select:none!important}\n'+
-        '#yd-screen-overlay-cancel{position:absolute!important;top:18px!important;right:22px!important;width:38px!important;height:38px!important;border:0!important;border-radius:50%!important;background:rgba(255,255,255,.18)!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;transition:background .2s,transform .15s!important;z-index:2147483647!important}\n'+
-        '#yd-screen-overlay-cancel:hover{background:rgba(255,255,255,.32)!important;transform:scale(1.08)!important}\n'+
-        '#yd-screen-overlay-cancel i{font-size:18px!important;line-height:1!important}\n'+
-        '#yd-screen-overlay-content{display:flex!important;flex-direction:column!important;align-items:center!important;gap:14px!important;color:#fff!important;text-align:center!important}\n'+
-        '#yd-screen-spinner{font-size:42px!important;color:#fff!important;line-height:1!important}\n'+
-        '#yd-screen-overlay-text{font:600 15px/1.4 Arial,sans-serif!important;letter-spacing:.3px!important;color:#f0eaf0!important}\n'+
-        '#yd-screen-toast{position:fixed!important;right:22px!important;bottom:22px!important;z-index:2147483647!important;max-width:min(420px,calc(100vw - 44px))!important;padding:11px 15px!important;border:1px solid #ddd2dc!important;border-radius:9px!important;background:#fff!important;color:#302631!important;box-shadow:0 8px 28px #24162726!important;font:600 13px/1.5 Arial,sans-serif!important;pointer-events:none!important}\n'+
-        '#yd-screen-toast[data-type="error"]{border-color:#e8b6bd!important;color:#a21d2d!important}\n'+
-        '#yd-screen-toast[data-type="warning"]{border-color:#ead7a8!important;color:#7a5814!important}';
+        '#yd-screenshot-overlay-cancel{position:absolute!important;top:18px!important;right:22px!important;width:38px!important;height:38px!important;border:0!important;border-radius:50%!important;background:rgba(255,255,255,.18)!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;cursor:pointer!important;transition:background .2s,transform .15s!important;z-index:2147483647!important}\n'+
+        '#yd-screenshot-overlay-cancel:hover{background:rgba(255,255,255,.32)!important;transform:scale(1.08)!important}\n'+
+        '#yd-screenshot-overlay-cancel i{font-size:18px!important;line-height:1!important}\n'+
+        '#yd-screenshot-overlay-content{display:flex!important;flex-direction:column!important;align-items:center!important;gap:14px!important;color:#fff!important;text-align:center!important}\n'+
+        '#yd-screenshot-spinner{font-size:42px!important;color:#fff!important;line-height:1!important}\n'+
+        '#yd-screenshot-overlay-text{font:600 15px/1.4 Arial,sans-serif!important;letter-spacing:.3px!important;color:#f0eaf0!important}\n'+
+        '#yd-screenshot-toast{position:fixed!important;right:22px!important;bottom:22px!important;z-index:2147483647!important;max-width:min(420px,calc(100vw - 44px))!important;padding:11px 15px!important;border:1px solid #ddd2dc!important;border-radius:9px!important;background:#fff!important;color:#302631!important;box-shadow:0 8px 28px #24162726!important;font:600 13px/1.5 Arial,sans-serif!important;pointer-events:none!important}\n'+
+        '#yd-screenshot-toast[data-type="error"]{border-color:#e8b6bd!important;color:#a21d2d!important}\n'+
+        '#yd-screenshot-toast[data-type="warning"]{border-color:#ead7a8!important;color:#7a5814!important}';
     document.head.appendChild(style);
     state.style=style;
 };
@@ -233,7 +233,7 @@ const captureCanvas=async()=>{
                 });
             },
             ignoreElements:element=>{
-                const selector='#yd-screen-toast,#yd-screen-overlay,#yd-tools-systray-item,#yd-tools-systray-dropdown,#noitems-panel,#noitems-systray-item,#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#ydDirectSplitButton,#ydDirectSplitDialog,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button';
+                const selector='#yd-screenshot-toast,#yd-screenshot-overlay,#yd-tools-systray-item,#yd-tools-systray-dropdown,#noitems-panel,#noitems-systray-item,#ordered-panel,#ordered-systray-item,#ms-stock-hzb-checker,#ms-stock-hzb-systray-item,#ydDirectSplitButton,#ydDirectSplitDialog,#tm-confirmation-buttons,#tmSplitButton,#tm-split-selector-button';
                 return element.id===ITEM_ID||element.matches?.(selector)||element.closest?.(selector);
             }
         });
@@ -280,12 +280,12 @@ const cleanCapture=async(signal)=>{
     }
     const excludedSelectors=[
         '#yd-dashboard-menu-item','#yd-launcher','#yd-dashboard-root','.yd-select-portal-menu',
-        '#yodawy-dev-mode-banner','#yd-cloud-error','#yd-screen-systray-item','#yd-screen-toast',
-        '#yd-screen-overlay','#yd-tools-systray-item','#yd-tools-menu-item',
+        '#yodawy-dev-mode-banner','#yd-cloud-error','#yd-screenshot-systray-item','#yd-screenshot-toast',
+        '#yd-screenshot-overlay','#yd-tools-systray-item','#yd-tools-menu-item',
         '#noitems-panel','#noitems-systray-item','#ordered-panel','#ordered-systray-item',
         '#ms-stock-hzb-checker','#ms-stock-hzb-systray-item','#ydDirectSplitButton','#ydDirectSplitDialog',
         '#tm-confirmation-buttons','#tm-alt-call-popup','.yodawy-copy-success','.yd-open-erx-backdrop',
-        '[data-yd-log-note-tool]','.ms-alt-qty-warning','.yd-mc-layer','[data-yd-screenshot-exclude="true"]','.yd-screenshot-exclude'
+        '[data-yd-log-note-tool]','.ms-alt-qty-warning','.yd-mc-layer','[data-yd-screenshotshot-exclude="true"]','.yd-screenshotshot-exclude'
     ].join(',');
     const entries=Object.entries(registry).filter(([id,instance])=>id!==TOOL_ID&&instance&&typeof instance==='object'&&instance.screenshotBehavior==='pause-required');
     const paused=[];
@@ -382,7 +382,7 @@ const handleClick=()=>{
     state.busy=true;
     if(state.button){
         state.button.disabled=true;
-        state.button.classList.add('yd-screen-working');
+        state.button.classList.add('yd-screenshot-working');
     }
     removeToast();
 
@@ -406,14 +406,14 @@ const handleClick=()=>{
         removeOverlay();
         if(state.button){
             state.button.disabled=false;
-            state.button.classList.remove('yd-screen-working');
+            state.button.classList.remove('yd-screenshot-working');
         }
     });
 };
 
 const item=document.createElement('li');
 item.id=ITEM_ID;
-item.setAttribute('data-yd-screenshot-exclude','true');
+item.setAttribute('data-yd-screenshotshot-exclude','true');
 item.setAttribute('role','menuitem');
 item.innerHTML='<button id="'+BUTTON_ID+'" type="button" title="Clean Screenshot" aria-label="Clean Screenshot"><i class="yd-custom-icon yd-fa-icon fa-solid fa-camera" aria-hidden="true"></i></button>';
 state.item=item;
@@ -423,7 +423,7 @@ const unregisterExclusion=window.YODAWY_SCREENSHOT_COORDINATOR?.registerElement?
 
 const instance={
     id:TOOL_ID,
-    path:'TOOLS/screen.js',
+    path:'TOOLS/screenshot.js',
     icon:'fa-solid fa-camera',
     screenshotBehavior:'hide-only',
     supportsPause:false,
